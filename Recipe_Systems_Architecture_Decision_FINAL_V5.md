@@ -1,10 +1,12 @@
 # ADR-001: Recipe Systems Application Architecture
 
-**Status:** v1.2 — Proposed / ready for submission  
+**Status:** v1.3 — Proposed / ready for submission  
 **Date:** 2026-09-02  
 **Scope:** Defines the runtime architecture for Recipe Systems by translating `Recipe_Systems.md` and `Recipe_Systems_ERD_FINAL.md` into concrete service boundaries, execution flows, ownership rules, and operational decisions.
 
 > **v1.2 revision note:** superseded v1.1's Target Topology diagram, which was written as ASCII art inside a plain text fence and did not render as a diagram in any Markdown previewer. Replaced with an equivalent Mermaid `flowchart` diagram (§10) so it renders visually wherever Mermaid is supported (GitHub, VS Code, Notion, Mermaid Live Editor). No other content changed.
+>
+> **v1.3 revision note:** the §10 Mermaid `flowchart` is replaced by the rendered topology image `diagram.png`, embedded below (project-lead decision). The trust-boundaries list and all content outside §10 are unchanged. The Mermaid source remains recoverable from git history (commit `736685f`).
 
 ---
 
@@ -319,51 +321,9 @@ The exact review-event table is deliberately not added to ERD v13 because G2 is 
 
 The pilot deploys one application with explicit logical modules plus one independent Analysis worker. PostgreSQL remains the relational control plane, while object storage, identity, OCR, and LLM providers are external boundaries.
 
-```mermaid
-flowchart TB
-    subgraph ClientZone["Untrusted client"]
-        Browser[Browser]
-    end
+![Target topology — pilot runtime and trust boundaries](diagram.png)
 
-    subgraph EdgeZone["Edge"]
-        Nginx[Nginx<br/>TLS termination + rate limits]
-    end
-
-    subgraph AppZone["Application — modular monolith + worker"]
-        Web[Next.js Web UI]
-        API[Web API / BFF<br/>NestJS modules]
-        Worker[Analysis Worker<br/>separate process/container]
-        GV[Grounding + schema validation]
-    end
-
-    subgraph DataZone["Control plane"]
-        PG[(PostgreSQL<br/>control plane)]
-        OBJ[(Object storage<br/>private)]
-    end
-
-    subgraph ExternalZone["External trust boundaries"]
-        IDP[Identity provider]
-        LLM[LLM provider<br/>adapter]
-        OCR[OCR provider<br/>adapter]
-    end
-
-    Browser -->|HTTPS / TLS| Nginx
-    Nginx --> Web
-    Nginx --> API
-
-    API --> PG
-    API --> OBJ
-    API --> IDP
-    API -->|enqueue job| PG
-    PG -->|pg-boss dequeue| Worker
-
-    Worker --> PG
-    Worker --> LLM
-    Worker --> OCR
-    Worker --> GV
-
-    API -.->|SSE status push| Web
-```
+*Rendered topology: untrusted browser → Nginx edge → application zone (Next.js web, NestJS API modules, Analysis worker with grounding + schema validation) → PostgreSQL control plane + private object storage; identity, LLM, and OCR as external trust boundaries.*
 
 ### Trust boundaries
 
@@ -702,7 +662,7 @@ No ERD V13 table changes are required by this ADR. The architecture adds runtime
 | ERD V13 → architecture alignment | ✅ |
 | Logical ownership | ✅ |
 | One-writer rule | ✅ |
-| Target topology (renders as Mermaid) | ✅ |
+| Target topology (embedded diagram.png) | ✅ |
 | Trust boundaries | ✅ |
 | Canonical vocabulary | ✅ |
 | Architectural invariants | ✅ |

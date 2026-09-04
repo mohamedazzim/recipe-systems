@@ -170,7 +170,7 @@ Could-haves (C7, E6, F5, I5) ship only if Must stories on weeks 9–10 are stabl
 
 ## 7. Open sequencing risks
 
-1. **Q2 allergen print line** gates P5 print (weeks 9–10) — decide by week 8. **Q3** (ADR `Worker → OCR` edge) is a one-line diagram patch — confirm before P2 OCR work.
+1. **Q2 allergen print line** gates P5 print (weeks 9–10) — decide by week 8. **Q3** (topology diagram's Worker→OCR edge) is a diagram patch (regenerate `diagram.png`) — confirm before P2 OCR work.
 2. **Q1 snapshot persistence** gates P3 worker finalization — decide by week 5.
 3. **Q9/Q10 provider benchmarks** — corpus + real-card photos must be benchmarked in weeks 1–4 so the model/OCR choice lands before P3/P2 ship.
 4. **Reference-data sourcing** (USDA access, US/EU lists) is pure lead time — Track R starts week 1.

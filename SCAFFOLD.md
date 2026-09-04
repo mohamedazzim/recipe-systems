@@ -53,7 +53,7 @@ This documentation repository (`E:\recipe`) seeds the monorepo: `docs/` copies o
 - **Identity:** the IdP is **OPEN DECISION (Q8)** — Tech Stack §1/§14/§25 recommend Auth0 ("Confirmation required") and the sources never mention Keycloak. **Working assumption for this plan:** Keycloak as the pilot IdP (position in BUILD_PLAN §5), Auth0 as the managed fallback, until Tech Stack is amended. Whichever wins, the IdP owns credential lifecycle, password reset, email verification, OAuth/SSO, and MFA — the list Tech Stack §14 assigns to it — and the application continues to own `account`, `guest_session`, recipe ownership, guest claiming, and authorization (ADR §19).
 - **Guest sessions:** unguessable UUID identifiers, expiry cleanup, scoped to one guest session; every recipe operation verifies ownership first (ADR §20, INV-17).
 - **API ↔ worker:** no direct HTTP. The worker dequeues pg-boss jobs from Postgres (Tech Stack §9); progress flows worker → Postgres `NOTIFY` → API → SSE → browser (Tech Stack §13). `NOTIFY` is a signal, never durable state (INV-16).
-- **Provider adapters:** all LLM/OCR calls go through the provider-neutral adapter packages; vendor responses are normalized before they enter the domain (ADR §19). OCR is orchestrated by Intake, not by the worker (ADR §2 Decision 3); the ADR §10 `Worker --> OCR` edge is Q3 and awaits a one-line diagram patch. Provider credentials come from the managed secrets store — never `.env` in production (Tech Stack §16).
+- **Provider adapters:** all LLM/OCR calls go through the provider-neutral adapter packages; vendor responses are normalized before they enter the domain (ADR §19). OCR is orchestrated by Intake, not by the worker (ADR §2 Decision 3); the topology diagram's Worker→OCR edge is Q3 and awaits a diagram patch (regenerate `diagram.png`). Provider credentials come from the managed secrets store — never `.env` in production (Tech Stack §16).
 - **Object storage:** private buckets, public access disabled, short-lived signed URLs for client access (Tech Stack §7). Dev uses a MinIO compose container with the S3-compatible API (convention — production remains S3 per Tech Stack §7).
 
 ## 4. Frontend stack
@@ -102,7 +102,7 @@ Nothing on this list is decided by these documents. Each row points at where the
 |---|---|---|
 | Q1 | Analysis-input snapshot persistence (worker/job payload vs ERD v14 column) | ADR §6 vs ERD `analysis` |
 | Q2 | Printed allergen-line source under the snapshot-only render rule | E4/H4/E5 vs ADR §7 permitted-source table |
-| Q3 | Remove the Worker→OCR edge from ADR §10 (OCR is Intake-only) | ADR §2/§10 vs Tech Stack §18 |
+| Q3 | Remove the Worker→OCR edge from the topology diagram (ADR §10, now `diagram.png`) — OCR is Intake-only | ADR §2/§10 vs Tech Stack §18 |
 | Q4 | Single writer of `recipe_ingredient_line` (Intake drafts vs Web API corrections) | ADR §2 one-writer list vs INV-03 |
 | Q5 | Writer of `ingredient_dictionary` / `ingredient_alias` | ADR §2 (unnamed) |
 | Q6 | G2 "publishable" state home (manual queue vs `analysis_claim` status column) | ADR §8 |

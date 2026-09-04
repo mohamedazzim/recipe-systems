@@ -24,7 +24,7 @@ recipe-systems/
 │   ├── ocr-adapter/         # Provider-neutral OCR interface (Tech Stack §11)
 │   └── rendering/           # Print templates + snapshot-only render contracts (ADR §7)
 ├── tests/
-│   ├── fixtures/            # golden_kanyakumari_card.json + 50-recipe corpus (ERD §16)
+│   ├── fixtures/            # golden_kanyakumari_card.json (ERD §16) + 50-recipe corpus (Recipe_Systems §13)
 │   ├── assertions/          # golden_recipe_assertions.yaml (ERD §16)
 │   └── integration/         # story_* suites, one file per story ID (SCAFFOLD §6)
 ├── infra/
@@ -96,7 +96,7 @@ Smoke test: paste or photograph the golden Kanyakumari card → review the parse
 
 ## 7. Deliberately deferred — OPEN DECISION register
 
-Nothing on this list is decided by these documents. Each row points at where the sources declare the question.
+Nothing on this list is decided by these documents. Each row points at where the sources declare the question. Rows marked **Resolved** were closed by executed action, recorded in the row, and remain only as audit trail.
 
 | ID | Item | Declared in |
 |---|---|---|
@@ -116,7 +116,7 @@ Nothing on this list is decided by these documents. Each row points at where the
 | Q14 | I3 portion-count persistence | ERD §15.6, §17 |
 | Q15 | Account erasure / photo retention windows | ERD §15.11 |
 | Q16 | Freeze `Recipe_Systems.md` as v1.0 (three FINAL docs pin a draft) | ERD header |
-| Q17 | PNG diagram policy (Mermaid canonical vs exports) | repo hygiene |
-| Q18 | git init + GitHub remote timing | repo hygiene |
+| Q17 | Policy for the unreferenced `recipe_app_workflow_diagram_v2_fixed.png` (retain / reference / delete) — `diagram.png` is now canonical in ADR §10 | repo hygiene |
+| Q18 | ~~git init + GitHub remote timing~~ — **Resolved 2026-09-04:** repo initialized and pushed to `github.com/mohamedazzim/recipe-systems` (private, branch `main`) | repo hygiene |
 
 A decision that changes an existing source document is a reviewed patch to that document — never an in-place silent edit.

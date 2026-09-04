@@ -6,7 +6,7 @@
 
 > **v1.2 revision note:** superseded v1.1's Target Topology diagram, which was written as ASCII art inside a plain text fence and did not render as a diagram in any Markdown previewer. Replaced with an equivalent Mermaid `flowchart` diagram (§10) so it renders visually wherever Mermaid is supported (GitHub, VS Code, Notion, Mermaid Live Editor). No other content changed.
 >
-> **v1.3 revision note:** the §10 Mermaid `flowchart` is replaced by the rendered topology image `diagram.png`, embedded below (project-lead decision). The trust-boundaries list and all content outside §10 are unchanged. The Mermaid source remains recoverable from git history (commit `736685f`).
+> **v1.3 revision note:** the §10 Mermaid `flowchart` is replaced by the rendered topology image `diagram.png`, embedded below (project-lead decision). The trust-boundaries list and all content outside §10 are unchanged, except the §23 cross-check row for the target topology, now citing the embedded `diagram.png`. The Mermaid source remains recoverable from git history (commit `736685f`).
 
 ---
 

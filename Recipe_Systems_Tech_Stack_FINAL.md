@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-02  
 **Inputs:** `Recipe_Systems.md`, `Recipe_Systems_ERD_FINAL.md`,  
-`Recipe_Systems_Architecture_Decision_FINAL.md`
+`Recipe_Systems_Architecture_Decision_FINAL_V5.md`
 
 ## 1\. Executive Decision
 

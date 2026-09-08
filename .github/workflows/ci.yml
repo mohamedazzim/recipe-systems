@@ -28,17 +28,6 @@ jobs:
           --health-interval 5s
           --health-timeout 3s
           --health-retries 12
-      minio:
-        image: minio/minio:latest
-        env:
-          MINIO_ROOT_USER: minioadmin
-          MINIO_ROOT_PASSWORD: minioadmin
-        ports: ["9000:9000"]
-        options: >-
-          --health-cmd "curl -sf http://localhost:9000/minio/health/live"
-          --health-interval 5s
-          --health-timeout 3s
-          --health-retries 12
     env:
       DATABASE_URL: postgresql://recipe:recipe_ci_password@localhost:5432/recipe
       NODE_ENV: ci
@@ -75,6 +64,19 @@ jobs:
       - name: Prisma migrate deploy (ephemeral Postgres)
         working-directory: packages/database
         run: npx prisma migrate deploy
+
+      - name: Start MinIO for integration tests (same image/command as local compose)
+        run: |
+          docker run -d --name minio -p 9000:9000 \
+            -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
+            minio/minio:latest server /data --console-address ":9001"
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:9000/minio/health/live; then
+              echo "minio ready"; exit 0
+            fi
+            sleep 2
+          done
+          echo "minio failed to start"; exit 1
 
       - name: Integration tests
         run: npm run test:integration

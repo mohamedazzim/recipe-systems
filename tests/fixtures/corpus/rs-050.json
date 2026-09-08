@@ -1,0 +1,28 @@
+{
+  "id": "rs-050",
+  "version": 1,
+  "name": "Rasmalai",
+  "region": "other",
+  "category": "veg",
+  "input_type": "form",
+  "method": {
+    "provided": false,
+    "inferred": false
+  },
+  "lines": [
+    "Chenna — 200g",
+    "Milk — 3 Cups",
+    "Sugar — 1 Cup",
+    "Saffron — A Pinch",
+    "Cardamom — 4 Pods",
+    "Pistachio — 1 Tbsp"
+  ],
+  "review": {
+    "reviewer_slot": null,
+    "status": "unassigned"
+  },
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 deterministic corpus fixture (QG5 Volume tier). Synthetic input data for testing; no real-world source claim."
+  }
+}

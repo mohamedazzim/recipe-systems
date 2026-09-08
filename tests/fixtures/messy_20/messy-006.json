@@ -1,0 +1,23 @@
+{
+  "id": "messy-006",
+  "version": 1,
+  "name": "Mor Kuzhambu double line",
+  "region": "tamil-nadu",
+  "lines": [
+    "curd 2 cups",
+    "ash gourd 200g",
+    "grated coconut 1/4 cup",
+    "cumin 1 tsp",
+    "green chilli 2",
+    "curry leaves 1 sprig",
+    "curry leaves 1 sprig",
+    "coconut oil 1 tsp"
+  ],
+  "messy_features": [
+    "duplicate-line"
+  ],
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 messy_20 set (QG5: week-12 twenty messy recipes, separate named set). Synthetic adversarial inputs; never merged into the corpus count."
+  }
+}

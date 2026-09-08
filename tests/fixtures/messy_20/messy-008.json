@@ -1,0 +1,24 @@
+{
+  "id": "messy-008",
+  "version": 1,
+  "name": "Meen Moilee (kudampuli?)",
+  "region": "kerala",
+  "lines": [
+    "fish - 500g",
+    "coconut milk - 1.5 cups",
+    "onion - 2",
+    "green chilli - 3",
+    "ginger - 1 inch",
+    "turmeric - 1/2 tsp",
+    "kudampuli or tamarind - ?",
+    "coconut oil - 2 tbsp"
+  ],
+  "messy_features": [
+    "vague-quantity",
+    "vernacular-alias"
+  ],
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 messy_20 set (QG5: week-12 twenty messy recipes, separate named set). Synthetic adversarial inputs; never merged into the corpus count."
+  }
+}

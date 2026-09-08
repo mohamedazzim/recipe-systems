@@ -1,0 +1,30 @@
+{
+  "id": "rs-026",
+  "version": 1,
+  "name": "Vegetable Ishtu",
+  "region": "kerala",
+  "category": "veg",
+  "input_type": "paste",
+  "method": {
+    "provided": false,
+    "inferred": false
+  },
+  "lines": [
+    "Potato — 2 Nos",
+    "Carrot — 1 Nos",
+    "Green Peas — 1/2 Cup",
+    "Coconut Milk — 1 Cup",
+    "Green Chilli — 2 Nos",
+    "Ginger — 1 Inch",
+    "Curry Leaves — 1 Sprig",
+    "Coconut Oil — 1 Tbsp"
+  ],
+  "review": {
+    "reviewer_slot": "kerala",
+    "status": "unassigned"
+  },
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 deterministic corpus fixture (QG5 Volume tier). Synthetic input data for testing; no real-world source claim."
+  }
+}

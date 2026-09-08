@@ -1,0 +1,29 @@
+{
+  "id": "rs-027",
+  "version": 1,
+  "name": "Karimeen Pollichathu",
+  "region": "kerala",
+  "category": "non-veg",
+  "input_type": "photo",
+  "method": {
+    "provided": false,
+    "inferred": false
+  },
+  "lines": [
+    "Pearl Spot Fish — 2 Nos",
+    "Shallots — 8 Nos",
+    "Chilli Powder — 1 Tsp",
+    "Turmeric — 1/2 Tsp",
+    "Coconut Oil — 2 Tbsp",
+    "Banana Leaf — 2 Nos",
+    "Lemon — 1/2 Nos"
+  ],
+  "review": {
+    "reviewer_slot": "kerala",
+    "status": "unassigned"
+  },
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 deterministic corpus fixture (QG5 Volume tier). Synthetic input data for testing; no real-world source claim."
+  }
+}

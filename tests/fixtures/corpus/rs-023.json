@@ -1,0 +1,29 @@
+{
+  "id": "rs-023",
+  "version": 1,
+  "name": "Cabbage Thoran",
+  "region": "kerala",
+  "category": "veg",
+  "input_type": "form",
+  "method": {
+    "provided": false,
+    "inferred": false
+  },
+  "lines": [
+    "Cabbage — 300g",
+    "Grated Coconut — 1/2 Cup",
+    "Mustard — 1/2 Tsp",
+    "Dried Red Chilli — 2 Nos",
+    "Turmeric — 1/4 Tsp",
+    "Coconut Oil — 1 Tbsp",
+    "Salt — To Taste"
+  ],
+  "review": {
+    "reviewer_slot": "kerala",
+    "status": "unassigned"
+  },
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 deterministic corpus fixture (QG5 Volume tier). Synthetic input data for testing; no real-world source claim."
+  }
+}

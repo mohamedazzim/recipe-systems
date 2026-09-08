@@ -1,0 +1,593 @@
+# Recipe Systems — Handoff Evidence
+
+**Status:** v1.2 · 2026-09-07/08 · The evidence ledger proving every dispatch unit is DONE. One entry per unit (H-01…H-31), appended by the builder, re-executed by the paired audit (AUDIT.md). Entries are filled as units complete; empty H-items are future units. v1.2: H-02 completed through A-02 (2026-09-07); H-06…H-09 record the P1 auth work (2026-09-07/08).
+**Companions:** [DISPATCH.md](DISPATCH.md) (the tasks) · [AUDIT.md](AUDIT.md) (the verification) · [TEST_PLAN.md](TEST_PLAN.md) (the gates the evidence must satisfy) · [USER_STORIES.md](USER_STORIES.md) (the requirements the evidence traces to)
+
+---
+
+## 1. Entry template (mandatory for every unit)
+
+Every dispatch unit appends exactly this block, one line of evidence per done criterion (DISPATCH global rule 6):
+
+```markdown
+## H-XX — <dispatch unit title>
+- BASE_SHA / COMMIT_SHA:
+- Date / agent session:
+- Summary (what shipped, in one paragraph):
+- Files changed (paths):
+- Commands run (with output excerpts or links):
+- Test results (suite name → result, e.g. story_a1_create_account.test.ts → green; cumulative suite → green; coverage → floors met per QG1):
+- Done-criteria evidence (one line per criterion, quoting the criterion):
+- Gate evidence (QG1 floors, QG2 full cumulative + regression-gates.sh, QG3 baselines recorded/asserted, QG4 assigned fault cells demonstrated, QG5 fixture names/seeds):
+- OPEN DECISION notes (which register items this unit touched — Q1–Q18 per SCAFFOLD §7 — under which labeled working assumption, with register IDs):
+- Deviations from the prompt (and why):
+- Open items / follow-up risks:
+- Audit result (A-XX verdict, appended after the audit):
+```
+
+**Evidence rules:**
+
+1. **Claims are hypotheses until audited** (AUDIT.md contract): the paired audit re-executes the done criteria, never trusts this file.
+2. **Every done criterion gets exactly one evidence line.** A criterion without evidence means the unit is not done (TEST_PLAN §5: phase exit requires the BUILD_PLAN §3 exit checks re-run green).
+3. **Perf numbers are recorded, not described:** any QG3 metric lands in `.perf-baselines.json` AND is quoted here (photo→first-analysis, job latency, PDF generation, SSE latency, grounding wall time — TEST_PLAN QG3 table).
+4. **Golden fixture evidence** cites the CI run (link/run id) and the 8 invariants one by one (ERD §16).
+5. **OPEN DECISION discipline:** working assumptions are labeled with their register IDs (SCAFFOLD §7). A unit that shipped an unlabeled assumption fails its audit (DISPATCH global rule 9).
+
+## 2. Evidence-artifact registry (fixed names)
+
+| Artifact | Owned by | Purpose |
+|---|---|---|
+| `.perf-baselines.json` | every perf-measuring unit (QG3) | Baselines CI asserts against |
+| `scripts/regression-gates.sh` | D-01, grown by later units | QG2 static gates between audits |
+| `AUDIT_LOG.md` | the audit agents | One verdict block per A-XX |
+| `tests/fixtures/golden_kanyakumari_card.json` + `tests/assertions/golden_recipe_assertions.yaml` | D-03 | The 8 golden invariants, CI-blocking |
+| `tests/fixtures/corpus/` (50) + `tests/fixtures/messy_20/` | D-04, grown through P7 | QG5 deterministic tiers |
+| `tests/integration/story_<id>_*.test.ts` | the phase owning the story | One suite per story ID (SCAFFOLD §6) |
+
+## 3. Story → handoff coverage matrix (50/50)
+
+Every story's done evidence lives in the entry of the unit that owns its phase (BUILD_PLAN §6, unchanged):
+
+| Story set | Handoff entry |
+|---|---|
+| G1 (fixture in CI) | H-03 scaffold; re-asserted in every later entry's golden evidence |
+| A1, A2 | H-06…H-09 |
+| B1–B5 | H-10…H-14 |
+| C1, C2 (views 1–4), C4 | H-15…H-18 |
+| C2 (views 5–9), C3, C5, H2, H6, I1, I2, I6 | H-19…H-21 |
+| D1, D2, D6, E4, E5, H4 | H-22, H-23 |
+| F1, F2, F6 | H-24 |
+| B6, C6, C7, D3, D4, D5, F3, F4, G2, G3, H1, H3, H5, I3, I4 | H-25…H-28 |
+| H7, I7 | H-29 |
+| E1, E2, E3 | H-30 |
+| E6, F5, I5 (conditional per §13) | H-31 |
+
+A story is DONE only when its entry's done-criteria lines cover every acceptance bullet in USER_STORIES.md and its audit verdict is PASS (or PASS-WITH-FINDINGS with no BLOCKER/MAJOR open).
+
+---
+
+## 4. Entries
+
+### H-01 — D-01 Monorepo bootstrap & CI
+
+- BASE_SHA / COMMIT_SHA: **none recorded** — Git not available / not authorized (uncommitted working
+  tree; recorded accurately, matching H-02).
+- Date / agent session: bootstrap ported during reconciliation (2026-09-07); evidence reconstructed
+  and re-verified 2026-09-08 by direct inspection of the current tree.
+- Status: **DONE** (implementation + verification); the D-01 git-protocol done-criterion
+  (BASE_SHA/COMMIT_SHA recorded; diff contains only declared deliverables) remains **PENDING Git
+  authorization** — same disposition as H-02.
+- Summary: monorepo per SCAFFOLD §1 — apps/{web,api,analysis-worker}, packages/{domain,schemas,
+  database,llm-adapter,ocr-adapter,rendering}, tests/{fixtures,assertions,integration,e2e},
+  infra/{docker,keycloak,nginx}, .github/workflows/ci.yml, scripts/, docs/. npm workspaces
+  (apps/*, packages/*). packages/database Prisma initialized; migration 001 = `CREATE EXTENSION IF NOT
+  EXISTS btree_gist` only (D-01-owned; schema DDL came in D-02). CI order (ci.yml):
+  lint → typecheck → unit → golden+grounding gates → contract → migrate (ephemeral Postgres) →
+  integration → build + QG3 perf job. scripts/verify-local.sh reproduces the same order locally.
+  QG1 coverage floors configured (apps/api jest: 75% lines); scripts/regression-gates.sh implements
+  the QG2 static gates (one-writer greps, render read-only, DDL-outside-Prisma, provenance tags,
+  disclaimers, golden-test-present + golden invariant evaluation); .perf-baselines.json + QG3
+  perf-schema job. Compose (SCAFFOLD §5): default = postgres+minio+nginx (all healthy-checks), identity
+  profile = Keycloak, observability reserved; no Redis anywhere in compose (grep: 0 matches).
+- Done criteria evidence (real executions 2026-09-08):
+  1. **`docker compose up -d` (default profile) brings up postgres/minio/nginx healthy** — verified
+     live: postgres (healthy), minio (healthy), nginx (`/healthz` → ok).
+  2. **`npx prisma migrate deploy` green on empty Postgres; re-run no-op** — proven at A-02 on a
+     fresh database (001+002 applied; second run "No pending migrations to apply"); verify-local
+     migrate stage green every run.
+  3. **CI workflow passes end-to-end; verify-local reproduces locally** — hosted CI has not run
+     (no remote — Git not authorized); the workflow file is present with the canonical stage order
+     and every stage is exercised locally by verify-local: **ALL STEPS PASSED (exit 0)** 2026-09-08
+     (multiple runs: post-cleanup, post-remediation, post-D-03).
+  4. **Each QG2 static gate provably fires** — now AUTOMATED (2026-09-08):
+     `tests/integration/qg2_gates.test.ts` (9/9) plants one controlled violation per gate in a
+     scratch tree (via the new GATES_SCAN_ROOT override in regression-gates.sh — the canonical tree
+     is never touched) and proves each fires: analysis one-writer, dietary/nutrition one-writer,
+     render read-only, DDL-outside-Prisma, provenance tags, disclaimer markers, golden-test-present.
+     Golden invariant evaluation fire-proof lives in golden_fixture.test.ts (D-03, 8/8). Baseline
+     scratch + real-tree pass assertions included. Coverage thresholds and the perf job are
+     configured and enforced (perf: schema asserted, no-op while baselines empty — per D-01).
+  5. **git protocol** — PENDING (see status line above).
+- Deviations: (a) web uses the repository's own design-system primitives (components/ui/*, token
+  layer in globals.css + tailwind.config) instead of shadcn/ui — the authoritative design direction
+  established its own system; shadcn never installed. (b) Keycloak was started before P1's nominal
+  gate (D-06 shipped during reconciliation/EOD auth work — the dependency is now moot; D-06 evidence
+  lives in H-06). (c) D-01 deliverable ordering: contract-check runs inside verify-local between
+  gates and migrate (a superset of the canonical order; SCAFFOLD §6 order otherwise preserved).
+- Audit result: A-01 not yet executed — PENDING.
+
+### H-02 — D-02 ERD v13 migrations
+
+- BASE_SHA / COMMIT_SHA: **none recorded** — git operations were not authorized during the
+  reconciliation/audit workflow; the repository remains an uncommitted working tree as of
+  2026-09-07. Recorded accurately per A-02; SHAs to be filled when commits resume.
+- Date / agent session: 2026-09-07 · reconciliation session (built) + A-02 independent audit (re-executed).
+- Done criteria evidence (real executions, re-verified by A-02 on a fresh database):
+  1. **Fresh deploy applies all 24 tables + every constraint/index/trigger** — fresh DB
+     `recipe_a02` created on the compose Postgres; `prisma migrate deploy` applied 001+002;
+     re-run = "No pending migrations to apply." Independent conformance parse (ERD §5–§10 vs
+     live information_schema): **24/24 tables, 0 extra, 0 missing, 0 column problems**;
+     23 CHECK constraints, 2 exclusion constraints (`excl_allergen_mapping_overlap`,
+     `excl_food_composition_version_overlap`), trigger
+     `trg_line_soft_delete_cleans_shopping_state`, 59 indexes incl. every §12 partial index
+     with verbatim WHERE clauses; `btree_gist` + `plpgsql` extensions present.
+  2. **`prisma migrate diff` shows zero drift** — DB→datamodel diff = exactly **3 objects**,
+     all SPECIFIED raw-SQL exceptions Prisma cannot express and documented in migration 002's
+     header: `fk_analysis_snapshot_same_recipe` and `fk_shopping_state_recipe_line` (composite
+     FKs, ERD §12 / C-39) and `uq_analysis_view` (unique INDEX, ERD §12). Zero unintentional drift.
+  3. **Every CHECK fires on a violating row; exclusion rejects overlap; trigger cleans shopping
+     state** — 8/8 battery on the fresh DB: `chk_recipe_owner_xor` (both-owners AND
+     neither-owner rejected; account-only accepted), `chk_ocr_confidence_range`,
+     `chk_restriction_item_type_matches_value`, `excl_allergen_mapping_overlap`,
+     `chk_analysis_view_status`, `chk_analysis_claim_tag` all fire; trigger probe
+     **BEFORE=1 → AFTER=0** shopping-state rows after line soft-delete (C-28).
+  4. **CI green on the migration commit; HANDOFF records both SHAs** — no commit exists
+     (git operations not authorized), so the hosted-CI half is pending a remote. Local CI
+     reproduction (`scripts/verify-local.sh`, SCAFFOLD §6 order) ran end-to-end after the
+     A-02 integration-step fix → see line below; regression gates PASS; contract-check OK
+     (artifact generated in-repo, matches packages/schemas, exit 0).
+- Final verify-local result (post-fix): `ALL STEPS PASSED` — recorded in §verification below.
+- NON-GOALS honored: no application code beyond migration files in `packages/database` (src =
+  client entry + fidelity tests only); no reference-data seed (D-29); no ERD v14 changes.
+- OPEN DECISION register: untouched by D-02 (Q9/Q10/Q11 remain OPEN).
+- Audit trail: A-02 verdict was CONDITIONAL (H-02 absent + integration-step failure); both
+  conditions cleared 2026-09-07 — this entry and the `--passWithNoTests` integration fix.
+  The audit re-executes this evidence before upgrading to PASS.
+
+### H-03 — D-03 Golden fixture scaffold
+
+- BASE_SHA / COMMIT_SHA: **none recorded** — Git not available / not authorized.
+- Date / agent session: 2026-09-08 · D-01+D-03 completion session.
+- Status: **DONE** (builder); audit A-03 pending.
+- Summary: golden Kanyakumari card scaffold per ERD §16 / Recipe_Systems §12 B2, §15. INPUT side =
+  the canonical card lines (Fish 500g, Drumstick 1 Nos, Mango 1/2 Nos, Grated Coconut Half Shell,
+  Coconut Oil, Chilli 5 Nos, Chilli Powder 2 Tsp, Coriander Powder 1 Tsp, Tamarind A Lemon Size,
+  Fenugreek Powder 1/2 Tsp, Fenugreek 1/4 Tsp — exact strings lifted from the worked mockup; no
+  invented values). EXPECTED side encodes the 8 invariants grounded in the §15 acceptance scene:
+  method CDK 1669 / Mrs. Anitha tagged INFERRED; family "coastal Tamil fish curry" (region
+  Kanyakumari/Kumari; not "generic Indian curry"); station card present on inferred method with
+  "untasted briefing"; View 8 contains fish/mustard/coconut/fenugreek, species unknown, never
+  "safe"; View 9 energy band 1,300–2,200 kcal, sodium Unknown.
+- Files added: `tests/fixtures/golden_kanyakumari_card.json`,
+  `tests/assertions/golden_recipe_assertions.yaml` (the 8 invariants, one line each),
+  `scripts/golden-check.js` (executable validator: completeness cross-check YAML↔code, per-check
+  PASS/FAIL output, exit 1 on any failure), `tests/integration/golden_fixture.test.ts`.
+- Files modified: `scripts/regression-gates.sh` (new stage 6b: evaluates golden-check.js — CI and
+  verify-local both route through regression-gates, so both are covered by this one wiring point).
+- Done criteria evidence:
+  - **Both fixture files exist with the exact names/paths SCAFFOLD §1 and TEST_PLAN §1 promise** —
+    verified on disk (paths above).
+  - **All 8 invariants encoded; A-03 may cross-check against ERD §16** — both fenugreeks; no
+    ginger/garlic + garlic absent; family not generic (coastal Tamil fish curry); coriander
+    under-reporting note in View 2; station card on inferred method; View 8 never "safe"; View 9 a
+    band; sodium Unknown. Implemented in golden-check.js + declared in the YAML; validator refuses
+    to run on any YAML↔code mismatch.
+  - **CI runs the golden job every PR; verify-local includes it** — regression-gates.sh stage 6b
+    (CI step "Golden fixture + grounding validation" + verify-local step 27). Hosted CI itself not
+    run (no remote); local reproduction green.
+- Violation proof: **8/8 fired** — tests/integration/golden_fixture.test.ts plants one controlled
+  violation per invariant on a deep copy and proves EXACTLY that check fails (all others stay
+  green — independence) then canonical fixture passes again. CLI demo recorded 2026-09-08: planted
+  point-kcal (1750) → view9_band FAIL (exit 1, 7/8); restored → 8/8 exit 0. No plants remain; no
+  temporary corruption.
+- Test results: integration suite 10/10 (1 completeness + 1 canonical-all-pass + 8 violation proofs);
+  regression gates PASS (golden stages armed); verify-local **exit 0 · ALL STEPS PASSED**.
+- Deviations: none. The §15 acceptance scene (Priya) is documented in the fixture's `source` block
+  as the day-in-the-life scenario the assertions scaffold (TEST_PLAN §1 mechanism 3); its full
+  automation belongs to later units.
+- Audit result: A-03 not yet executed — PENDING.
+
+### H-04 — D-04 50-recipe corpus + reviewers
+
+- BASE_SHA / COMMIT_SHA: **none recorded** — Git not available / not authorized.
+- Date / agent session: 2026-09-08 · D-04 dispatch session.
+- Status: **DONE** (builder); audit A-04 pending.
+- Summary: canonical deterministic fixture corpus + reviewer slots per DISPATCH D-04 / QG5 Volume
+  tier / Recipe_Systems §13. `tests/fixtures/corpus/` = **50 fixtures** (rs-001…rs-050), one file
+  each, versioned (version:1), seeded with the golden card (rs-001 carries the exact golden lines +
+  expected block + CDK 1669 / Mrs. Anitha INFERRED method). `tests/fixtures/messy_20/` = **20 messy
+  fixtures** (messy-001…messy-020) as a separate named set — never merged into the corpus count.
+  `tests/fixtures/reviewers.json` = the two reviewer SLOTS (tn_kanyakumari, kerala) with
+  identity/contact/availability recorded OUTSIDE the repo (no fabricated people — BUILD_PLAN §7.9;
+  workflow lands at D-27). All fixtures are `provenance.synthetic: true` — deterministic test data,
+  no real-world source claims.
+- Coverage (verified): regions tamil-nadu ×20, kerala ×15, other ×15; categories veg ×33, non-veg
+  ×17; input types photo/paste/form all present; rs-001 seeded with the golden card. Reviewer
+  mapping: every tamil-nadu fixture → tn_kanyakumari slot, every kerala fixture → kerala slot, other
+  → null (enforced both directions by the validator).
+- Files added: `tests/fixtures/corpus/rs-001…rs-050.json` (50), `tests/fixtures/messy_20/
+  messy-001…messy-020.json` (20), `tests/fixtures/reviewers.json`, `scripts/corpus-check.js`
+  (executable validator: exact count, id convention rs-NNN/messy-NNN, unique ids, required fields,
+  enums, reviewer-slot resolution + region mapping, coverage minimums, golden-seed checks, messy-set
+  separation), `tests/integration/corpus_validation.test.ts`.
+- Files modified: `scripts/regression-gates.sh` (golden-test-present skip-detection regex tightened
+  to word boundaries — the old `xit` pattern false-flagged `result.exit` in the new corpus test as a
+  skipped test; gates PASS after the fix).
+- Validation results (real executions): `node scripts/corpus-check.js` → OK (50 corpus + 20 messy,
+  refs resolve, coverage complete); integration suite **25/25** (count, parse, structure, unique ids,
+  reviewer refs, coverage, rs-001==golden seed, D-03 golden 8/8, plus negative proofs).
+- Negative proofs (temp copies only; canonical corpus untouched): duplicate id FIRE, missing
+  required field FIRE, invalid reviewer reference FIRE, removed kerala coverage FIRE, 49-count FIRE,
+  51-count FIRE, malformed JSON FIRE, messy-merged-into-corpus FIRE. No mutations left behind.
+- Deviation (recorded): the canonical D-04 done criterion frames the corpus as "the seeded start of
+  50 … corpus completion is a P7 gate"; at the dispatcher's explicit direction this session produced
+  the complete 50 + 20 now. Content is synthetic fixture data only — no fabricated reviewer
+  identities, citations, or real-world claims.
+- Regression: D-03 golden fixture + 8 invariants still green (corpus_validation.test re-runs them);
+  auth E2E 18/18; unit suites green; lint clean; typecheck 0; regression gates PASS; contract OK;
+  verify-local **exit 0 · ALL STEPS PASSED**.
+- Audit result: A-04 not yet executed — PENDING.
+
+### H-05 — D-05 nine-view JSON schemas / contract freeze
+
+- BASE_SHA / COMMIT_SHA: **none recorded** — Git not available / not authorized.
+- Date / agent session: 2026-09-08 · D-05 dispatch session.
+- Status: **DONE** (implementation + functional tests + full verification below).
+- Scope discipline: schemas/contracts ONLY — no analysis engine, no OCR/intake, no worker
+  business logic, no new UI. All nine view payloads are frozen contracts; future units
+  produce the behavior.
+- Implementation summary:
+  - `packages/schemas` — canonical contract set, Zod (runtime-validated), every schema
+    `.strict()`. `SCHEMA_VERSION = 1.0.0`, frozen at P0-5 (D-05), 2026-09-08.
+  - Nine view payloads `src/views/view-1..9.ts` keyed as `VIEW_SCHEMAS` (`view_1..view_9`),
+    exactly matching the analyse response (`views: { view_1 .. view_9 }`).
+  - Identification (`identification.ts`) per API §4 POST /recipes/:recipeId/identify 200:
+    family, architecture, confidence high|medium|low, not_this[], absent_on_card[],
+    tags{family: INFERRED}.
+  - Claims/tags (`shared.ts`): the six canonical tags CARD|METHOD|INFERRED|ABSENT|UNKNOWN|
+    ASSUMED (single source of truth) + `ClaimSchema` (claim_text, claim_tag, source_reference,
+    allergen_id nullable) per ERD §analysis_claim.
+  - Station card (`station-card.ts`) per API §5 GET /analysis/:analysisId/station-card 200:
+    station_card_id, analysis_id, mise, sequence, do_nots, control_points,
+    product_yield_hold nullable, printable.
+  - Shared inputs: `StructuredRecipeInputSchema` (Analysis Prompts §0), `DeterministicViewInputSchema`
+    + `View9AssumptionsSchema` (Deterministic Views §1/§3), LabelPack US|EU.
+  - Envelope (`envelope.ts`): POST /recipes/:recipeId/analyse 200 — analysis_id, mode home|chef,
+    identification, views{view_1..view_9}, claim_tags (record of the six tags → non-negative
+    int counts), station_card nullable, is_latest, model_version, prompt_version.
+  - Freeze record: `packages/schemas/SCHEMA_FREEZE.md` (version, single active contract,
+    versioning convention, documented canonical readings — sodium literal "unknown", claim_tags
+    count-map reading, per-view tag subsets, open element types in station-card arrays).
+- Files added:
+  - `packages/schemas/src/{version,shared,identification,station-card,envelope,fixtures,
+    test-helpers}.ts`
+  - `packages/schemas/src/views/{index,view-1..view-9}.ts`
+  - `packages/schemas/src/{index.test.ts (rewritten), contracts.test.ts,
+    fixtures-relationship.test.ts}`
+  - `packages/schemas/SCHEMA_FREEZE.md`
+- Files modified:
+  - `packages/schemas/package.json` — description now frozen-state; `zod ^3.23.8` dependency
+  - `scripts/regression-gates.sh` — provenance gate: match quoted value literals only (type
+    references like `ClaimTagSchema` no longer match) and exclude `*.test.ts`/`*.spec.ts`
+    (negative fixtures intentionally carry non-canonical tags). Fire-proof for planted
+    `claim_tag: 'BOGUS'` still verified by tests/integration/qg2_gates.test.ts.
+- Tests executed (functional, per dispatch §10–§15):
+  - `packages/schemas` unit: **112/112** — every contract has valid-payload acceptance plus
+    mutations proving rejection: missing required, wrong types, invalid enums, invalid nested
+    structures, nullability behavior, strict unexpected-key rejection; boundary tests
+    (View 5 `needs_review=false` rejected; View 9 point-value band rejected; almost-correct
+    envelope rejected).
+  - Cross-contract consistency proofs: envelope uses the SAME schema instances as VIEW_SCHEMAS;
+    identification + View 5 share ONE ConfidenceSchema instance; claim_tags keyed by the same
+    canonical tag enum.
+  - Fixture relationship: D-04 `rs-001.expected` deep-equals D-03 golden `expected`; golden
+    View 9 band 1300–2200 + sodium "unknown" validate against the frozen schemas; golden family
+    accepted by IdentificationSchema and not the generic classification; both fenugreek senses
+    preserved as separate entries.
+  - Coverage: schemas 100/100/100/100 statements/branches/functions/lines on all contract modules
+    (index.ts 85% branches); well above the 90% floor.
+- E2E: 18/18 (auth/entry unaffected; regression suite re-run).
+- Regression results: integration **34/34**; regression gates **PASS**; lint clean; typecheck 0;
+  contract-check OK (openapi.json regenerated, no drift); `verify-local.sh` **exit 0 · ALL STEPS
+  PASSED**.
+- Deviations: none vs. the dispatch. Documented canonical readings (not deviations) recorded in
+  SCHEMA_FREEZE.md for the three spec-unspecified spots (sodium literal, claim_tags shape,
+  station-card element types).
+- Known limitations: V8's no-"safe" wording and V9's band-not-point invariants are semantic
+  assertions enforced by golden-check/regression gates, not the JSON schema (word choice cannot
+  be schema-enforced). Schemas are not yet consumed by any app code (consumers arrive with the
+  analysis units).
+- Traceability: P0-5 · BUILD_PLAN §7.4/7.8 · DISPATCH D-05 · SCAFFOLD §1 · TEST_PLAN QG5 ·
+  Analysis Prompts v2 · Deterministic Views v2 · API doc §4–§5 · ERD §analysis_claim/
+  analysis_station_card · Stories C1, C4, H6, I2, I4, I7.
+- Audit result: A-05 not yet executed — PENDING.
+
+### H-06 — D-06 IdP setup (Keycloak)
+
+- BASE_SHA / COMMIT_SHA: **none recorded** — Git not available / not authorized (mentor repo is an
+  uncommitted zip export; reconciliation and all follow-on work proceed without commits).
+- Date / agent session: 2026-09-07 · EOD signup/signin session.
+- Summary: Keycloak 24.0.5 stands as the sole active identity provider. Realm `recipesystems`
+  (export at `infra/keycloak/recipe-systems-realm.json`) is imported by the compose `identity`
+  profile; confidential BFF client `recipe-systems-bff` (authorization-code, registration,
+  post-logout). The OIDC boundary is abstract behind `IdentityProvider`
+  (`apps/api/src/modules/auth/identity/identity-provider.interface.ts`); `keycloak.provider.ts` is
+  the ONLY file that knows Keycloak endpoints. No alternate IdP exists anywhere (Auth0/ROPC/admin-REST
+  removed with the mentor ROPC implementation).
+- Files changed: `infra/keycloak/recipe-systems-realm.json`, `infra/docker/docker-compose.yml`
+  (identity profile + mount-path fixes), `apps/api/src/modules/auth/identity/{identity-provider.interface,
+  identity.module,keycloak.provider,keycloak.provider.test}.ts`, `apps/api/.env` wiring via compose
+  env (values in `.env.example`).
+- Done criteria evidence:
+  - **`docker compose --profile identity up -d` brings up Keycloak with the realm imported** —
+    verified live: container healthy, `GET /realms/recipesystems/.well-known/openid-configuration` → 200;
+    E2E signup/signin drive the real realm end-to-end (15/15 Playwright suite).
+  - **A test user can authenticate; the OIDC boundary issues the claims the adapter consumes** —
+    seeded user `chef@recipesystems.test` signs in through the real authorization-code flow; the BFF
+    verifies ID-token signature (JWKS), issuer, audience, nonce in `keycloak.provider.ts`
+    (unit-tested with a local RS256 fixture, no network in tests).
+  - **Adapter seam demonstrable** — app code imports only `IdentityProvider`; swapping the provider is
+    a config change in `identity.module.ts` (seam documented in the interface header).
+  - **HANDOFF records the Keycloak decision reference** — Q8 RESOLVED 2026-09-07, SCAFFOLD §7
+    (this entry + IMPROVEMENT_PLAN v1.2).
+- Test results: `keycloak.provider.test.ts` → 8/8; full API suite → 57/57; E2E → 15/15.
+- Deviations: none. OPEN DECISION register: Q8 (resolved); Q9/Q10/Q11 remain OPEN (unaffected).
+- Audit result: A-06 not yet executed — PENDING.
+
+### H-07 — D-07 OIDC cookies + account creation
+
+- BASE_SHA / COMMIT_SHA: **none recorded** — Git not available / not authorized.
+- Date / agent session: 2026-09-07 · EOD signup/signin session (+ entry-page follow-ups 2026-09-08).
+- Summary: Complete A1 auth path. BFF-issued HS256 session JWT in `recipe_session` httpOnly cookie
+  (Secure per SESSION_SECURE, SameSite=Lax, 15-min TTL, SESSION_COOKIE); CSRF double-submit token
+  (`recipe_csrf` cookie + `X-CSRF-Token` header, constant-time compare) on all state-changing routes;
+  account created/updated on first sign-in via `upsertForSignIn` (auth_provider `sso`,
+  `password_hash` NULL — Keycloak owns credentials; preferred_mode defaults home; idempotent on
+  duplicate email — proven live); signup via IdP-hosted registration endpoint with state/nonce cookie;
+  logout is RP-initiated (BFF session cleared + Keycloak SSO session killed via `id_token_hint` from
+  the session JWT — re-login prompts again, regression-tested). Public entry page (editorial landing,
+  Analyze-as-guest / Sign in / Create account hierarchy) implemented with the design-system tokens.
+- Files changed (auth): `apps/api/src/modules/auth/{auth.controller,auth.service,session,*.test}.ts`,
+  `apps/api/src/modules/account/{account.service,account.service.test}.ts`,
+  `apps/api/src/common/guards/{jwt-auth,csrf,guest-or-jwt,guards.test}.ts`,
+  `apps/api/src/common/filters/http-exception.filter.ts`. Frontend: `apps/web/app/page.tsx`,
+  `apps/web/components/home/LandingPage.tsx`, `apps/web/components/ui/Typography.tsx` (Eyebrow id prop).
+  Docs: `docs/Recipe_Systems_API.md` (auth endpoints incl. logout `redirect_to`).
+- Test results:
+  - Unit (apps/api): **57/57 passed, 7/7 suites**; coverage 88.07% lines (QG1 floor 75%).
+  - E2E Playwright (live Keycloak + Postgres): **15/15 passed** — signup 3 (success incl. DB row
+    `password_hash IS NULL` probe, duplicate email rejected, invalid input rejected), signin 2
+    (success + /auth/me 200, invalid credentials + no session), logout 2 (session cleared + 401,
+    SSO session killed so sign-in prompts again), security 3 (401 unauthenticated, forged token 401,
+    CSRF 403), entry 5 (hierarchy, sign-in→KC, signup→KC, guest session, auth_error state).
+  - Gates: lint clean (--max-warnings=0), typecheck 0 errors, `next build` green, regression-gates
+    PASS, contract-check OK, full `scripts/verify-local.sh` → **exit 0 · ALL STEPS PASSED**.
+- Done criteria evidence:
+  - **Register/sign-in works end-to-end** — deviation: A1 evidence is delivered via Playwright E2E
+    (`tests/e2e/signup.spec.ts`, `signin.spec.ts`) + jest unit suites instead of the template's
+    `story_a1_create_account.test.ts` integration filename (integration tier intentionally empty at
+    this stage; verify-local runs it with `--passWithNoTests` per the A-02 fix).
+  - **Cookies carry Secure/HttpOnly/SameSite; CSRF verified on state-changing routes** — cookie
+    attributes asserted in `session.test.ts` + `auth.controller.test.ts`; E2E proves logout works
+    with the token and 403s without it (`CSRF_MISMATCH`).
+  - **Resume-save handoff (D-22 seam) documented** — `claimGuestSession` (D-08 spine) + code comments
+    mark the seam; the save flow itself arrives with D-22. TC-02 end-to-end is PENDING the library.
+- Known limitations: logout clears BFF + IdP session (no backchannel logout — not required by spec);
+  dev-only `SESSION_SECURE=false` for non-browser HTTP clients (browsers accept Secure on localhost).
+- Audit result: A-07 not yet executed — PENDING.
+
+### H-08 — D-08 Guest sessions + claim transaction
+
+- BASE_SHA / COMMIT_SHA: **none recorded** — Git not available / not authorized.
+- Date / agent session: 2026-09-07 · EOD signup/signin session.
+- Summary (IN PROGRESS — spine shipped, P2-dependent halves pending): guest session creation
+  (`POST /auth/guest/session` — unguessable UUID, `recipe_guest_session` httpOnly cookie, TTL pilot
+  default 86400s labeled per Q11), `guest-or-jwt` guard, and the idempotent claim transaction
+  (`POST /auth/guest/claim`, JwtAuthGuard+CsrfGuard): guest row preserved as audit, recipes move
+  guest→account inside one transaction respecting `chk_recipe_owner_xor` (updateMany), double-claim
+  returns `already`, cross-account claim rejected. Web guest phase ("Create account & claim" /
+  Dismiss) implemented.
+- Files changed: `apps/api/src/modules/auth/auth.service.ts` (claimGuestSession + createGuestSession),
+  `auth.controller.ts`, `apps/api/src/common/guards/guest-or-jwt.guard.ts`, `apps/web/app/page.tsx`,
+  tests in `auth.service.test.ts` / `guards.test.ts` / `tests/e2e/entry.spec.ts`.
+- Test results: unit 57/57; E2E 15/15 (guest-session flow covered by entry.spec).
+- Done criteria evidence:
+  - **Guest ingest → analysis pipeline path must exist** — PENDING: intake arrives at D-10; no
+    ingest stub shipped (per dispatch, analysis side arrives P2/P3).
+  - **Claim: sign-up mid-session → recipe moves; idempotent; XOR holds** — the transaction spine is
+    implemented and unit-tested (move, audit preservation, idempotency, cross-account rejection);
+    mid-session sign-up→claim E2E wiring is PENDING (web claim button redirects to signup; the
+    post-signup claim handoff is documented but not end-to-end exercised).
+  - **Expiry cleanup job** — PENDING: TTL default documented; no cleanup job shipped.
+- Audit result: A-08 not yet executed — PENDING.
+
+### H-09 — D-09 Ownership enforcement
+
+- BASE_SHA / COMMIT_SHA: **none recorded** — Git not available / not authorized.
+- Date / agent session: 2026-09-07 · EOD signup/signin session.
+- Summary (P1 surface set complete; resource-surface probes arrive with later units): every P1
+  mutating route carries its guard — grep audit 2026-09-08: `POST /auth/logout` (CsrfGuard),
+  `PATCH /auth/me/preferences` (JwtAuthGuard+CsrfGuard), `POST /auth/guest/claim`
+  (JwtAuthGuard+CsrfGuard), `POST /auth/guest/session` public by design (it CREATES the session);
+  reads: `GET /auth/me` (JwtAuthGuard). `chk_recipe_owner_xor` enforced on every write path that
+  exists today (claimGuestSession updateMany) and was battery-proven at D-02.
+- Test results: `guards.test.ts` + security E2E (401 unauthenticated /auth/me, forged session 401,
+  CSRF-less state-change 403); unit 57/57; E2E 15/15.
+- Done criteria evidence:
+  - **Cross-account / cross-guest access on every P1 surface → not-found/forbidden, no existence
+    leaks** — proven for the shipped P1 surfaces (auth/me, logout, preferences, claim); recipe /
+    analysis surfaces do not exist yet (D-10+) — their probes are PENDING.
+  - **`chk_recipe_owner_xor` holds under every violation shape** — DB battery at D-02 (H-02);
+    application write paths respect it (claimGuestSession tests).
+  - **No unguarded mutating route** — grep-auditable (route list + guards above); A-09 may re-check.
+- Audit result: A-09 not yet executed — PENDING.
+
+## 5. Repository maintenance log (non-dispatch work)
+
+Tasks outside the D-unit numbering are recorded here (no H-number invented). All evidence is real
+execution output; Git: not available / not authorized throughout.
+
+- 2026-09-07 — **Playwright E2E infrastructure**: `@playwright/test` added at root,
+  `playwright.config.ts` (testDir tests/e2e, workers 1, retries 0), `tests/e2e/helpers/auth.ts`
+  (real Keycloak login/registration helper), root script `test:e2e`. Local-only by design (hosted CI
+  has no Keycloak service; TEST_PLAN §4). Verified: 15/15.
+- 2026-09-07 — **Logout IdP-session fix**: RP-initiated logout with `id_token_hint` carried in the
+  BFF session JWT (verified ID token), Keycloak SSO session terminated on logout; regression E2E
+  "sign-in prompts for credentials again" added. Verified: E2E 15/15, verify-local exit 0.
+- 2026-09-07 — **`/auth/me` contract alignment**: wire shape standardized to snake_case
+  (`preferred_mode`, `label_pack`) matching the web types + API doc; caught by E2E.
+- 2026-09-07 — **Entry-page redesign (public landing)**: design-system tokens + primitives applied
+  to the public entry page (editorial hero, action hierarchy, guest path explained); later simplified
+  per user direction (nine-view chips and account-band copy removed). Verified: entry.spec 5/5,
+  build green, no overflow at 1440/390, single h1.
+- 2026-09-08 — **Safe repository cleanup**: removed orphaned AppShell.tsx, useSession.ts, print.css,
+  write.guard.ts, tsconfig.tsbuildinfo, stray `infra/docker/nginx/` dir, test-results/; archived
+  DOCUMENTATION_FLOW.md + Recipe_Systems_API_CRUD.md to docs/historical/; .gitignore extended
+  (test-results/, playwright-report/). Post-cleanup sweep: zero dangling references; full battery
+  re-run green (lint, typecheck, 57/57, E2E 15/15, regression PASS, contract OK, verify-local exit 0).
+- 2026-09-08 — **Local dev/test harness** (`scripts/dev.sh`): `start` (compose core+identity →
+  migrate → API:3001 → web:3000, port-busy guard + startup liveness checks), `stop` (launcher PIDs +
+  port-owner self-heal), `status`, `test:unit`, `test:api`, `test:e2e [args]`, `test:all`,
+  `verify`. Dev credentials embedded (chef@recipesystems.test / password; recipe/recipe_dev_password
+  @ localhost:5433). MSYS pitfalls encoded: native-Windows temp path (TMPDIR=/tmp breaks native curl
+  with CURLE_WRITE_ERROR 23) and single-slash `taskkill /PID /F` (//T //F unreliable). Verified live:
+  full stop→start cycle, test:e2e 15/15, test:unit all suites green. `STARTUP.md` (repo root) is the
+  human-readable command reference for the same workflows (stack, migrations, API/web env, tests, gates).
+- 2026-09-08 — **D-05 schema freeze (H-05)**: `packages/schemas` frozen contract set v1.0.0 —
+  nine view payloads, identification, six canonical claim tags + claim schema, station card,
+  shared inputs, analysis envelope; Zod strict runtime validation; 112/112 contract tests;
+  100% coverage; freeze record in `SCHEMA_FREEZE.md`. Provenance gate refined: quoted value
+  literals only, test files excluded (type refs like `ClaimTagSchema` and negative test
+  fixtures no longer false-fire); fire-proofs re-verified (integration 34/34).
+- 2026-09-08 — **QG2 static-gate fire proofs (D-01 criterion 4 closeout)**:
+  `tests/integration/qg2_gates.test.ts` (9/9) + `GATES_SCAN_ROOT` override in
+  `scripts/regression-gates.sh` — every static gate proven to fire on a planted violation in a
+  scratch tree (canonical tree untouched), plus baseline and real-tree green assertions.
+  Also fixed a pre-existing gate bug: the golden-test-present skip regex (`xit`) false-flagged
+  `result.exit` as a skipped test — now word-bounded both sides. Verified: integration 34/34, unit
+  suites green, lint clean, typecheck 0, auth E2E 18/18, regression gates PASS, verify-local exit 0.
+- 2026-09-08 — **Native Windows startup script** (`start-dev.cmd`, repo root): plain cmd — Docker
+  compose (core+identity) → wait postgres healthy + Keycloak realm → prisma migrate → API window
+  (:3001) → web window (:3000) via `start /D … cmd /k` with the dev env inherited, port-busy skip
+  guard, ping-based sleeps (timeout breaks without a console), health waits, then opens the browser.
+  Verified live: full run exit 0 (windows spawned, ports owned, health 200/200), re-run correctly
+  skips existing servers, signin E2E 2/2 against the cmd-started stack. Pitfall fixed: parens inside
+  echo within an if/else block break cmd parsing.
+- 2026-09-08 — **Auth remediation: input validation + auth data integrity** (signup/signin, traces to
+  H-07/D-07 + D-06 realm config). Files: `apps/api/src/modules/auth/email.ts` (new — application-boundary
+  email validation + normalization: trim, lowercase, RFC-ish regex rejecting single-label domains, max
+  320; `EmailValidationError` with EMPTY/TOO_LONG/MALFORMED codes), `account.service.ts`
+  (upsertForSignIn validates+normalizes before any row exists — never persists raw claims),
+  `auth.controller.ts` (callback maps EmailValidationError to a safe auth_error message),
+  `infra/keycloak/recipe-systems-realm.json` (passwordPolicy `length(8)+upper+lower+digits+special`,
+  bff client `directAccessGrantsEnabled=false`), `infra/docker/docker-compose.yml` (dev-only comment on
+  admin creds). Live realm updated surgically via Admin API (no container recreate/user wipe) and
+  verified via GET. Sub-linking investigation: ERD v13 `account` has no sub column; email UNIQUE is the
+  canonical identity link — no schema change made (documented in email.ts). idTokenHint retention
+  verified REQUIRED (KC shows logout-confirmation screen without it) — no change. Password policy lives
+  at the IdP boundary (BFF never sees passwords by design; KC enforces independently, E2E-proven).
+  Tests: `email.test.ts` (new, full matrix incl. demo@gmail.c case), account/auth service tests
+  extended (normalization, rejection, no-upsert-on-invalid). E2E signup.spec: weak-password
+  (realm-policy) + missing-special + malformed-email cases added; full suite 18/18. Unit 86/86; lint
+  clean; typecheck 0; build green; regression PASS; contract OK; verify-local exit 0. Git: none
+  recorded (not authorized). Known limitation: KC's own registration email check is looser than the
+  app's (accepts demo@gmail.c format) — the app boundary is the defense-in-depth layer; pre-existing
+  broken rows (e.g. `demo@gmail.c`) are not auto-cleaned.
+
+### H-10 — D-10 Raw intake rows + photo pipeline
+
+☐ No entry yet.
+
+### H-11 — D-11 OCR adapter + low-confidence flagging
+
+☐ No entry yet.
+
+### H-12 — D-12 Parse review
+
+☐ No entry yet.
+
+### H-13 — D-13 Method attach
+
+☐ No entry yet.
+
+### H-14 — D-14 needs_review enqueue gate
+
+☐ No entry yet.
+
+### H-15 — D-15 Prompt specs + prompt_version
+
+☐ No entry yet.
+
+### H-16 — D-16 Grounding validator
+
+☐ No entry yet.
+
+### H-17 — D-17 Analysis worker
+
+☐ No entry yet.
+
+### H-18 — D-18 Views 1–4 + home mode
+
+☐ No entry yet.
+
+### H-19 — D-19 Views 5–9
+
+☐ No entry yet.
+
+### H-20 — D-20 Chef mode + station card
+
+☐ No entry yet.
+
+### H-21 — D-21 Disclaimer sweep
+
+☐ No entry yet.
+
+### H-22 — D-22 Library save / browse / delete
+
+☐ No entry yet.
+
+### H-23 — D-23 Print list + station card
+
+☐ No entry yet.
+
+### H-24 — D-24 Cook loop
+
+☐ No entry yet.
+
+### H-25 — D-25 Aliases, tags, edit + re-analyse
+
+☐ No entry yet.
+
+### H-26 — D-26 Profiles, swaps, next-time, I3/I4
+
+☐ No entry yet.
+
+### H-27 — D-27 Regional veto + retention/ops
+
+☐ No entry yet.
+
+### H-28 — D-28 Week-12 pilot gate
+
+☐ No entry yet.
+
+### H-29 — D-29 Track R reference data
+
+☐ No entry yet.
+
+### H-30 — D-30 Track S shopping data
+
+☐ No entry yet.
+
+### H-31 — D-31 Could-have tail (E6, F5, I5 — conditional per §13)
+
+☐ No entry yet. (Dispatch is conditional: entry must record the week 9–10 Must-stability evidence before any work.)

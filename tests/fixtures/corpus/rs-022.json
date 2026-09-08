@@ -1,0 +1,29 @@
+{
+  "id": "rs-022",
+  "version": 1,
+  "name": "Kerala Aviyal",
+  "region": "kerala",
+  "category": "veg",
+  "input_type": "form",
+  "method": {
+    "provided": false,
+    "inferred": false
+  },
+  "lines": [
+    "Mixed Vegetables — 500g",
+    "Grated Coconut — 1 Cup",
+    "Cumin — 1 Tsp",
+    "Green Chilli — 2 Nos",
+    "Curd — 2 Tbsp",
+    "Coconut Oil — 1 Tbsp",
+    "Curry Leaves — 1 Sprig"
+  ],
+  "review": {
+    "reviewer_slot": "kerala",
+    "status": "unassigned"
+  },
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 deterministic corpus fixture (QG5 Volume tier). Synthetic input data for testing; no real-world source claim."
+  }
+}

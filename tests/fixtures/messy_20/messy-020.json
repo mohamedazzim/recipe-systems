@@ -1,0 +1,25 @@
+{
+  "id": "messy-020",
+  "version": 1,
+  "name": "Gajar halwa for 12?",
+  "region": "north",
+  "lines": [
+    "carrot 500g",
+    "milk 2 cups",
+    "sugar 1/2 cup",
+    "ghee 3 tbsp",
+    "cashew 10",
+    "elaichi 4",
+    "khoa if available",
+    "serves ?"
+  ],
+  "messy_features": [
+    "vernacular-alias",
+    "vague-quantity",
+    "non-ingredient-line"
+  ],
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 messy_20 set (QG5: week-12 twenty messy recipes, separate named set). Synthetic adversarial inputs; never merged into the corpus count."
+  }
+}

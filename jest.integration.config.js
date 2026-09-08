@@ -1,0 +1,10 @@
+/** @type {import('jest').Config} */
+// Integration suites: one file per story ID (SCAFFOLD §6 / TEST_PLAN §1, e.g.
+// story_b3_parse_review.test.ts). Empty at P0 — suites join the repo with each phase.
+module.exports = {
+  preset: 'ts-jest',
+  testEnvironment: 'node',
+  roots: ['<rootDir>/tests/integration'],
+  testMatch: ['**/*.test.ts'],
+  collectCoverageFrom: [],
+};

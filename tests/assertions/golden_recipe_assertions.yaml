@@ -1,0 +1,14 @@
+# Golden recipe assertions — the 8 ERD §16 invariants (D-03 scaffold).
+# Evaluated by scripts/golden-check.js; CI-blocking via scripts/regression-gates.sh
+# ("golden fixture + grounding validation" stage). Each key below MUST have a
+# matching implementation in scripts/golden-check.js (the validator refuses to
+# run if any invariant is unencoded).
+invariants:
+  both_fenugreeks: Both fenugreek lines remain and stay distinct (Fenugreek Powder + Fenugreek seeds)
+  no_ginger_garlic: No ginger / no garlic invented anywhere; garlic recorded absent
+  family_not_generic: Family is not "generic Indian curry" (coastal Tamil fish curry, Kanyakumari)
+  coriander_blind_spot: View 2 records the coriander under-reporting blind spot from the split chilli/coriander line
+  station_card_inferred: Station card appears when the matched family method (CDK 1669 / Mrs. Anitha) is accepted with tag INFERRED
+  view8_no_safe: View 8 never uses the word "safe" (band not a claim of safety)
+  view9_band: View 9 energy is a band (1,300-2,200 kcal), never a point value
+  sodium_unknown: View 9 sodium is Unknown where the card does not specify it

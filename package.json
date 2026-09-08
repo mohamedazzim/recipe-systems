@@ -1,0 +1,35 @@
+{
+  "name": "recipe-systems",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Recipe Systems — recipe-analysis product (spec-driven monorepo). Reconciled to the authoritative E:\\recipe specification (ERD v13, Prisma, Keycloak, D-01..D-31).",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "dev:web": "npm run dev -w @recipe-systems/web",
+    "dev:api": "npm run dev -w @recipe-systems/api",
+    "lint": "npm run lint --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "test:integration": "jest --config jest.integration.config.js --passWithNoTests",
+    "test:e2e": "playwright test",
+    "build": "npm run build --workspaces --if-present",
+    "db:generate": "npm run db:generate -w @recipe-systems/database",
+    "db:migrate": "npm run db:migrate -w @recipe-systems/database",
+    "contract:check": "bash scripts/contract-check.sh"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "npm@11.19.1",
+  "allowScripts": {
+    "@prisma/engines@6.19.3": true,
+    "esbuild@0.28.2": true
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0"
+  }
+}

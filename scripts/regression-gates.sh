@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+# Recipe Systems — QG2 static regression gates (TEST_PLAN §2).
+# Binding on EVERY dispatch unit (DISPATCH global rule 8): the FULL cumulative suite + this script
+# run on every unit. Gates run green-trivially before their subject exists; they ARM automatically
+# as code lands (TEST_PLAN QG2). Any gate that fires exits non-zero with the evidence.
+set -u
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# GATES_SCAN_ROOT: optional override for scratch-tree violation proofs
+# (tests/integration/qg2_gates.test.ts plants violations in a temp tree and proves
+# each gate fires). Defaults to the real repository root.
+SCAN="${GATES_SCAN_ROOT:-$ROOT}"
+cd "$ROOT"
+
+FAIL=0
+note()  { echo "  [gate:ok]   $1"; }
+fire()  { echo "  [gate:FIRE] $1"; FAIL=1; }
+trivial() { echo "  [gate:armed-later] $1 (subject does not exist yet — trivially green)"; }
+
+echo "== QG2 static gates (TEST_PLAN §2) =="
+
+# --- 1. One-writer rule (ADR §2) ---------------------------------------------------------------
+echo "-- one-writer: analysis_* written only by apps/analysis-worker"
+# Prisma model style (prisma.analysis.update / prisma.analysisView.create) and raw-SQL style
+# (INSERT INTO analysis_view ...) — both must be caught.
+pat='prisma\.(analysis|analysis[A-Z][A-Za-z]*|analysis_[a-z_]+)\.(create|upsert|delete|update|updateMany|createMany|deleteMany)|\b(INSERT INTO|UPDATE|DELETE FROM)\s+analysis_?[A-Za-z_]+'
+hits=$(grep -rInE "$pat" "$SCAN/apps" "$SCAN/packages" --include="*.ts" --include="*.tsx" --include="*.sql" \
+  --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.next --exclude-dir=generated 2>/dev/null \
+  | grep -vE "^\S+/analysis-worker/" || true)
+if [ -z "$hits" ]; then trivial "one-writer analysis_* (no write references outside the worker yet)"; else
+  fire "analysis_* write-context reference outside apps/analysis-worker:"; echo "$hits"
+fi
+
+echo "-- one-writer: dietary_* / nutrition_* written only by the admin module (apps/api admin)"
+pat='prisma\.(dietary|nutrition)[._]?[A-Za-z]*\.(create|upsert|delete|update|updateMany|createMany|deleteMany)|\b(INSERT INTO|UPDATE|DELETE FROM)\s+(dietary|nutrition)_?[A-Za-z_]+'
+hits=$(grep -rInE "$pat" "$SCAN/apps" "$SCAN/packages" --include="*.ts" --include="*.tsx" --include="*.sql" \
+  --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.next --exclude-dir=generated 2>/dev/null || true)
+outside=$(echo "$hits" | grep -vE "apps/api/(src/)?admin" || true)
+if [ -z "$hits" ]; then trivial "one-writer dietary_*/nutrition_* (no write references yet)"; else
+  if [ -z "$outside" ]; then note "dietary_*/nutrition_* writes confined to the admin module"; else fire "dietary_*/nutrition_* write outside the admin module:"; echo "$outside"; fi
+fi
+
+echo "-- one-writer: ingredient_dictionary / ingredient_alias admin-module writer (Q5 working assumption)"
+pat='prisma\.ingredient[._]?(dictionary|alias)[._]?[A-Za-z]*\.(create|upsert|delete|update|updateMany|createMany|deleteMany)|\b(INSERT INTO|UPDATE|DELETE FROM)\s+ingredient_?(dictionary|alias)'
+hits=$(grep -rInE "$pat" "$SCAN/apps" "$SCAN/packages" --include="*.ts" --include="*.tsx" --include="*.sql" \
+  --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.next --exclude-dir=generated 2>/dev/null || true)
+outside=$(echo "$hits" | grep -vE "apps/api/(src/)?admin" || true)
+if [ -z "$hits" ]; then trivial "one-writer dictionary/alias (no write references yet)"; else
+  if [ -z "$outside" ]; then note "dictionary/alias writes confined to the admin module"; else fire "dictionary/alias write outside the admin module:"; echo "$outside"; fi
+fi
+
+# --- 2. Render read-only (ADR §7) --------------------------------------------------------------
+echo "-- render read-only: packages/rendering contains no database writes"
+hits=$(grep -rInE "prisma|executeRaw|queryRaw|\bINSERT\b|\bUPDATE\b|\bDELETE\b|\.create\(|\.update\(|\.delete\(" \
+  "$SCAN/packages/rendering" --include="*.ts" --include="*.tsx" --exclude-dir=node_modules --exclude-dir=dist 2>/dev/null || true)
+if [ -z "$hits" ]; then note "packages/rendering has no database-write references"; else
+  fire "packages/rendering must be read-only:"; echo "$hits"
+fi
+
+# --- 3. DDL outside Prisma migrations (SCAFFOLD §2) --------------------------------------------
+echo "-- DDL: no CREATE/ALTER/DROP TABLE outside packages/database/prisma/migrations"
+hits=$(grep -rInE "CREATE TABLE|ALTER TABLE|DROP TABLE" "$SCAN/apps" "$SCAN/packages" --include="*.ts" --include="*.tsx" --include="*.sql" \
+  --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.next --exclude-dir=generated 2>/dev/null \
+  | grep -vE "packages/database/prisma/migrations/" || true)
+if [ -z "$hits" ]; then note "no DDL outside packages/database/prisma/migrations"; else
+  fire "DDL outside Prisma migrations:"; echo "$hits"
+fi
+
+# --- 4. Provenance tags (SCAFFOLD §6) ----------------------------------------------------------
+echo "-- provenance: claim_tag values subset of the six canonical tags"
+CANON="CARD METHOD INFERRED ABSENT UNKNOWN ASSUMED"
+# Value literals only (quoted both sides) -- type references like ClaimTagSchema are
+# not values. Test files excluded: negative fixtures intentionally carry non-canonical tags.
+pat='(claim_tag|claimTag)["'"'"':= ]+["'"'"'][A-Z]+["'"'"']'
+hits=$(grep -rhoE "$pat" "$SCAN/apps" "$SCAN/packages" --include="*.ts" --include="*.tsx" \
+  --exclude="*.test.ts" --exclude="*.spec.ts" \
+  --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.next --exclude-dir=generated 2>/dev/null | sort -u || true)
+bad=""
+while IFS= read -r line; do
+  [ -z "$line" ] && continue
+  tag=$(echo "$line" | grep -oE "['"'"'"]?[A-Z]+['"'"'"]?$" | tr -d "'"'"'\"'"'"'")
+  if ! echo " $CANON " | grep -q " $tag "; then bad="$bad
+$line"; fi
+done <<< "$hits"
+if [ -z "$hits" ]; then trivial "provenance tags (no claim_tag references yet)"; else
+  if [ -z "$bad" ]; then note "all claim_tag references use canonical tags"; else fire "non-canonical claim_tag value:"; echo "$bad"; fi
+fi
+
+# --- 5. Disclaimers (INV-13 / INV-14, H6 / I6) -------------------------------------------------
+echo "-- disclaimers: View 8 never \"safe\"; View 9 never point-kcal over a range"
+ASR="$SCAN/tests/assertions/golden_recipe_assertions.yaml"
+if [ -f "$ASR" ]; then
+  if grep -qiE "safe" "$ASR" && grep -qiE "point-kcal|kcal" "$ASR" && grep -qiE "band|range" "$ASR"; then
+    note "golden assertions file carries the no-\"safe\" / no-point-kcal assertions (armed)"
+  else
+    fire "golden_recipe_assertions.yaml exists but is missing the no-\"safe\" or no-point-kcal assertions"
+  fi
+else
+  trivial "disclaimer assertions (fixture assertions land at D-03)"
+fi
+
+# --- 6. Golden test present, not skipped, ran (ERD §16) -----------------------------------------
+echo "-- golden: golden test exists, is not skipped, and ran in this CI run"
+FIX="$SCAN/tests/fixtures/golden_kanyakumari_card.json"
+if [ -f "$FIX" ]; then
+  files=$(grep -rIl "golden_kanyakumari_card" "$SCAN/tests" "$SCAN/apps" "$SCAN/packages" --include="*.test.ts" --include="*.spec.ts" 2>/dev/null || true)
+  n=$(printf '%s\n' "$files" | grep -c . || true)
+  skip=""
+  if [ -n "$files" ]; then
+    # word-bounded both sides: "xit" must not match inside e.g. "result.exit"
+    skip=$(grep -rInE "\.(skip|only)\b|\bxdescribe\b|\bxit\b" $files 2>/dev/null || true)
+  fi
+  if [ "$n" -ge 1 ] && [ -z "$skip" ]; then note "golden test present and not skipped (armed)"; else
+    fire "golden fixture exists but no non-skipped golden test found"
+  fi
+else
+  trivial "golden-test-present gate (fixture lands at D-03)"
+fi
+
+# --- 6b. Golden invariant evaluation (D-03): the 8 ERD §16 checks, CI-blocking ------------------
+echo "-- golden: evaluate the 8 invariants (scripts/golden-check.js)"
+if [ -f "scripts/golden-check.js" ]; then
+  if node scripts/golden-check.js; then
+    note "all 8 golden invariants evaluated and passing"
+  else
+    fire "golden invariant evaluation failed (see [golden:FIRE] above)"
+  fi
+else
+  fire "scripts/golden-check.js missing (D-03 deliverable)"
+fi
+
+echo ""
+if [ "$FAIL" -ne 0 ]; then
+  echo "RESULT: regression gates FAILED (see [gate:FIRE] lines above)"
+  exit 1
+fi
+echo "RESULT: regression gates PASS"

@@ -1,0 +1,30 @@
+{
+  "id": "rs-021",
+  "version": 1,
+  "name": "Meen Moilee",
+  "region": "kerala",
+  "category": "non-veg",
+  "input_type": "paste",
+  "method": {
+    "provided": false,
+    "inferred": false
+  },
+  "lines": [
+    "Fish — 500g",
+    "Coconut Milk — 1 1/2 Cups",
+    "Onion — 2 Nos",
+    "Green Chilli — 3 Nos",
+    "Ginger — 1 Inch",
+    "Turmeric — 1/2 Tsp",
+    "Curry Leaves — 2 Sprigs",
+    "Coconut Oil — 2 Tbsp"
+  ],
+  "review": {
+    "reviewer_slot": "kerala",
+    "status": "unassigned"
+  },
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 deterministic corpus fixture (QG5 Volume tier). Synthetic input data for testing; no real-world source claim."
+  }
+}

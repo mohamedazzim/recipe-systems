@@ -1,0 +1,23 @@
+{
+  "id": "messy-011",
+  "version": 1,
+  "name": "Appam (grandma's)",
+  "region": "kerala",
+  "lines": [
+    "raw rice 2 cups",
+    "grated coconut 1 cup",
+    "yeast a pinch",
+    "sugar 1 tbsp",
+    "salt",
+    "(ferment overnight)"
+  ],
+  "messy_features": [
+    "non-ingredient-line",
+    "missing-amount",
+    "vague-quantity"
+  ],
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 messy_20 set (QG5: week-12 twenty messy recipes, separate named set). Synthetic adversarial inputs; never merged into the corpus count."
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "id": "rs-046",
+  "version": 1,
+  "name": "Pork Vindaloo",
+  "region": "other",
+  "category": "non-veg",
+  "input_type": "paste",
+  "method": {
+    "provided": false,
+    "inferred": false
+  },
+  "lines": [
+    "Pork — 500g",
+    "Vinegar — 3 Tbsp",
+    "Dried Red Chilli — 6 Nos",
+    "Garlic — 8 Cloves",
+    "Ginger — 1 Inch",
+    "Cumin — 1 Tsp",
+    "Oil — 3 Tbsp",
+    "Salt — To Taste"
+  ],
+  "review": {
+    "reviewer_slot": null,
+    "status": "unassigned"
+  },
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 deterministic corpus fixture (QG5 Volume tier). Synthetic input data for testing; no real-world source claim."
+  }
+}

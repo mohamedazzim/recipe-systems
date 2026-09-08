@@ -1,0 +1,118 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
+/* ─────────────────────────────────────────────────────────────
+   Recipe Systems — semantic token layer.
+   Components reference semantic roles only (canvas, surface, ink,
+   accent, …). A future dark theme swaps the variables in `.dark`.
+   ───────────────────────────────────────────────────────────── */
+:root {
+  /* canvas & surfaces — warm paper, never sterile white */
+  --rs-canvas: 250 244 230;          /* rice-flour */
+  --rs-surface: 255 253 246;         /* card paper */
+  --rs-surface-raised: 255 255 252;  /* hover / focused cards */
+
+  /* ink & text */
+  --rs-ink: 43 33 24;                /* charred-cumin — headings */
+  --rs-body: 67 57 46;               /* body copy */
+  --rs-muted: 122 111 95;            /* secondary text */
+  --rs-faint: 163 154 138;           /* placeholders, disabled */
+
+  /* lines */
+  --rs-border: 228 219 200;          /* whisper borders */
+  --rs-border-strong: 207 196 172;   /* inputs, dividers */
+
+  /* brand accents — one saturated action color, gold for emphasis */
+  --rs-accent: 140 59 46;            /* tamarind */
+  --rs-accent-strong: 118 49 36;     /* pressed/hover */
+  --rs-gold: 217 160 46;             /* turmeric — focus, highlights */
+  --rs-positive: 76 107 58;          /* curry-leaf — success */
+  --rs-negative: 193 68 45;          /* chili — destructive, errors */
+}
+
+.dark {
+  --rs-canvas: 28 23 18;             /* kadai-black */
+  --rs-surface: 36 29 22;            /* surface_dark */
+  --rs-surface-raised: 43 35 27;
+  --rs-ink: 242 233 216;             /* rice-text */
+  --rs-body: 216 204 182;
+  --rs-muted: 140 130 114;           /* muted-dark */
+  --rs-faint: 96 88 76;
+  --rs-border: 58 49 38;             /* border-dark */
+  --rs-border-strong: 74 63 50;
+  --rs-accent: 193 88 74;            /* tamarind-dark */
+  --rs-accent-strong: 213 108 92;
+  --rs-gold: 224 178 74;             /* turmeric-dark */
+  --rs-positive: 107 143 82;         /* curry-leaf-dark */
+  --rs-negative: 221 92 66;          /* chili-dark */
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: rgb(var(--rs-canvas));
+    color: rgb(var(--rs-body));
+    font-feature-settings: 'kern', 'liga';
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background-color: rgb(var(--rs-gold) / 0.35);
+  }
+
+  /* Accessible focus is part of the design: visible ring on every control. */
+  :focus-visible {
+    outline: 2px solid rgb(var(--rs-gold));
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Respect reduced motion — no decorative movement without consent. */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer utilities {
+  /* Editorial eyebrow label — small caps section markers. */
+  .eyebrow {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: rgb(var(--rs-accent));
+  }
+
+  .container-rs {
+    margin-inline: auto;
+    width: 100%;
+    max-width: 72rem;
+    padding-inline: 1.25rem;
+  }
+
+  @media (min-width: 768px) {
+    .container-rs {
+      padding-inline: 2rem;
+    }
+  }
+
+  /* Numbers in the lab register: tabular figures for ratios, amounts, metrics. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}

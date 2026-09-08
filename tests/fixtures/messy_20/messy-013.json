@@ -1,0 +1,25 @@
+{
+  "id": "messy-013",
+  "version": 1,
+  "name": "Pork vindaloo (grandpa's heat)",
+  "region": "goa",
+  "lines": [
+    "pork 500g",
+    "vinegar 3 tbsp",
+    "dry red chillies 6",
+    "garlic 8",
+    "ginger 1",
+    "cumin 1 tsp",
+    "oil 3 tbsp",
+    "salt",
+    "sugar (secret)"
+  ],
+  "messy_features": [
+    "non-ingredient-line",
+    "missing-amount"
+  ],
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 messy_20 set (QG5: week-12 twenty messy recipes, separate named set). Synthetic adversarial inputs; never merged into the corpus count."
+  }
+}

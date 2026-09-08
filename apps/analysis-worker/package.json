@@ -1,0 +1,21 @@
+{
+  "name": "@recipe-systems/analysis-worker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Analysis worker — separate process/container; the ONLY writer of analysis_* tables (ADR §2). P0 scope: empty process skeleton (DISPATCH D-01 NON-GOALS — no analysis logic; pg-boss arrives at D-17/P3).",
+  "scripts": {
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc --noEmit",
+    "test": "jest --passWithNoTests --coverage",
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@types/node": "^22.0.0",
+    "eslint": "^9.0.0",
+    "typescript-eslint": "^8.0.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.0",
+    "@types/jest": "^29.5.0"
+  }
+}

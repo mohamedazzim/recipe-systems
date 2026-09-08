@@ -1,0 +1,25 @@
+{
+  "id": "messy-016",
+  "version": 1,
+  "name": "Dal tadka smudged",
+  "region": "north",
+  "lines": [
+    "dal 1 cup",
+    "onion 1",
+    "tomato 1",
+    "ghee 2 tbsp",
+    "jeera 1 tsp",
+    "red chilli 2",
+    "garlic 4",
+    "haldi 1/2 tsp",
+    "salt"
+  ],
+  "messy_features": [
+    "vernacular-alias",
+    "missing-amount"
+  ],
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 messy_20 set (QG5: week-12 twenty messy recipes, separate named set). Synthetic adversarial inputs; never merged into the corpus count."
+  }
+}

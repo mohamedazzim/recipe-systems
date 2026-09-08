@@ -1,0 +1,28 @@
+{
+  "id": "rs-049",
+  "version": 1,
+  "name": "Gajar Halwa",
+  "region": "other",
+  "category": "veg",
+  "input_type": "form",
+  "method": {
+    "provided": false,
+    "inferred": false
+  },
+  "lines": [
+    "Carrot — 500g",
+    "Milk — 2 Cups",
+    "Sugar — 1/2 Cup",
+    "Ghee — 3 Tbsp",
+    "Cashew — 10 Nos",
+    "Cardamom — 4 Pods"
+  ],
+  "review": {
+    "reviewer_slot": null,
+    "status": "unassigned"
+  },
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 deterministic corpus fixture (QG5 Volume tier). Synthetic input data for testing; no real-world source claim."
+  }
+}

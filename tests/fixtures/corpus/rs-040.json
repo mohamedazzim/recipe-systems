@@ -1,0 +1,29 @@
+{
+  "id": "rs-040",
+  "version": 1,
+  "name": "Pesarattu",
+  "region": "other",
+  "category": "veg",
+  "input_type": "paste",
+  "method": {
+    "provided": false,
+    "inferred": false
+  },
+  "lines": [
+    "Green Gram — 1 Cup",
+    "Rice — 2 Tbsp",
+    "Ginger — 1 Inch",
+    "Green Chilli — 2 Nos",
+    "Onion — 1 Nos",
+    "Oil — For Griddle",
+    "Salt — To Taste"
+  ],
+  "review": {
+    "reviewer_slot": null,
+    "status": "unassigned"
+  },
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 deterministic corpus fixture (QG5 Volume tier). Synthetic input data for testing; no real-world source claim."
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "id": "messy-014",
+  "version": 1,
+  "name": "Butter chicken takeaway note",
+  "region": "north",
+  "lines": [
+    "chicken 500",
+    "tomatoes 4",
+    "butter lots",
+    "cream 1/4 cup",
+    "gg paste 1 tbsp",
+    "kashmiri chilli 1 tsp",
+    "methi 1 tsp",
+    "salt to taste"
+  ],
+  "messy_features": [
+    "missing-amount",
+    "vague-quantity",
+    "to-taste"
+  ],
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 messy_20 set (QG5: week-12 twenty messy recipes, separate named set). Synthetic adversarial inputs; never merged into the corpus count."
+  }
+}

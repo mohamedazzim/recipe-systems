@@ -1,0 +1,28 @@
+{
+  "id": "rs-031",
+  "version": 1,
+  "name": "Palada Payasam",
+  "region": "kerala",
+  "category": "veg",
+  "input_type": "form",
+  "method": {
+    "provided": false,
+    "inferred": false
+  },
+  "lines": [
+    "Rice Ada — 1/2 Cup",
+    "Milk — 4 Cups",
+    "Sugar — 1/2 Cup",
+    "Ghee — 1 Tbsp",
+    "Cardamom — 3 Pods",
+    "Cashew — 8 Nos"
+  ],
+  "review": {
+    "reviewer_slot": "kerala",
+    "status": "unassigned"
+  },
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 deterministic corpus fixture (QG5 Volume tier). Synthetic input data for testing; no real-world source claim."
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "id": "rs-034",
+  "version": 1,
+  "name": "Meen Vevichathu",
+  "region": "kerala",
+  "category": "non-veg",
+  "input_type": "paste",
+  "method": {
+    "provided": false,
+    "inferred": false
+  },
+  "lines": [
+    "Fish — 500g",
+    "Kudampuli — 2 Pieces",
+    "Chilli Powder — 2 Tsp",
+    "Turmeric — 1/2 Tsp",
+    "Shallots — 6 Nos",
+    "Coconut Oil — 2 Tbsp",
+    "Curry Leaves — 1 Sprig"
+  ],
+  "review": {
+    "reviewer_slot": "kerala",
+    "status": "unassigned"
+  },
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 deterministic corpus fixture (QG5 Volume tier). Synthetic input data for testing; no real-world source claim."
+  }
+}

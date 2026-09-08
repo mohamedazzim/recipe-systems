@@ -1,0 +1,29 @@
+{
+  "id": "rs-010",
+  "version": 1,
+  "name": "Vanjaram Fish Fry",
+  "region": "tamil-nadu",
+  "category": "non-veg",
+  "input_type": "paste",
+  "method": {
+    "provided": false,
+    "inferred": false
+  },
+  "lines": [
+    "Seer Fish Slices — 4 Nos",
+    "Chilli Powder — 1 Tsp",
+    "Turmeric — 1/2 Tsp",
+    "Pepper — 1/2 Tsp",
+    "Lemon — 1/2 Nos",
+    "Oil — For Frying",
+    "Salt — To Taste"
+  ],
+  "review": {
+    "reviewer_slot": "tn_kanyakumari",
+    "status": "unassigned"
+  },
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 deterministic corpus fixture (QG5 Volume tier). Synthetic input data for testing; no real-world source claim."
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "id": "rs-033",
+  "version": 1,
+  "name": "Nadan Chicken Curry",
+  "region": "kerala",
+  "category": "non-veg",
+  "input_type": "photo",
+  "method": {
+    "provided": false,
+    "inferred": false
+  },
+  "lines": [
+    "Chicken — 500g",
+    "Shallots — 10 Nos",
+    "Coconut Slices — 1/4 Cup",
+    "Chilli Powder — 2 Tsp",
+    "Coriander Powder — 1 Tbsp",
+    "Ginger — 1 Inch",
+    "Curry Leaves — 2 Sprigs",
+    "Coconut Oil — 3 Tbsp"
+  ],
+  "review": {
+    "reviewer_slot": "kerala",
+    "status": "unassigned"
+  },
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 deterministic corpus fixture (QG5 Volume tier). Synthetic input data for testing; no real-world source claim."
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "id": "rs-047",
+  "version": 1,
+  "name": "Chicken Xacuti",
+  "region": "other",
+  "category": "non-veg",
+  "input_type": "photo",
+  "method": {
+    "provided": false,
+    "inferred": false
+  },
+  "lines": [
+    "Chicken — 500g",
+    "Grated Coconut — 1 Cup",
+    "Xacuti Masala — 2 Tbsp",
+    "Onion — 2 Nos",
+    "Poppy Seeds — 1 Tsp",
+    "Tamarind — A Lemon Size",
+    "Oil — 3 Tbsp"
+  ],
+  "review": {
+    "reviewer_slot": null,
+    "status": "unassigned"
+  },
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 deterministic corpus fixture (QG5 Volume tier). Synthetic input data for testing; no real-world source claim."
+  }
+}

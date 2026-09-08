@@ -1,0 +1,29 @@
+{
+  "id": "rs-028",
+  "version": 1,
+  "name": "Beef Varutharachathu",
+  "region": "kerala",
+  "category": "non-veg",
+  "input_type": "photo",
+  "method": {
+    "provided": false,
+    "inferred": false
+  },
+  "lines": [
+    "Beef — 500g",
+    "Grated Coconut — 1 Cup",
+    "Shallots — 12 Nos",
+    "Chilli Powder — 2 Tsp",
+    "Coriander Powder — 1 Tbsp",
+    "Black Pepper — 1 Tsp",
+    "Coconut Oil — 2 Tbsp"
+  ],
+  "review": {
+    "reviewer_slot": "kerala",
+    "status": "unassigned"
+  },
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 deterministic corpus fixture (QG5 Volume tier). Synthetic input data for testing; no real-world source claim."
+  }
+}

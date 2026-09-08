@@ -1,0 +1,23 @@
+{
+  "$comment": "Regional reviewer ROSTER SLOTS (Recipe_Systems §12 G2; §13 weeks 1-2; BUILD_PLAN §7.9: reviewers are people with calendars). D-04 discipline: identities, contact details and availability are recorded OUTSIDE the repo. These slots are what fixtures reference; the review workflow (assignment, veto) lands at D-27.",
+  "slots": {
+    "tn_kanyakumari": {
+      "region": "Tamil Nadu / Kanyakumari",
+      "role": "regional reviewer (contract)",
+      "status": "slot-open",
+      "identity": "outside-repo",
+      "contact": "outside-repo",
+      "availability": "outside-repo",
+      "workflow_unit": "D-27"
+    },
+    "kerala": {
+      "region": "Kerala",
+      "role": "regional reviewer (contract)",
+      "status": "slot-open",
+      "identity": "outside-repo",
+      "contact": "outside-repo",
+      "availability": "outside-repo",
+      "workflow_unit": "D-27"
+    }
+  }
+}

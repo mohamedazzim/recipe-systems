@@ -1,0 +1,28 @@
+{
+  "id": "rs-035",
+  "version": 1,
+  "name": "Ada Pradhaman",
+  "region": "kerala",
+  "category": "veg",
+  "input_type": "form",
+  "method": {
+    "provided": false,
+    "inferred": false
+  },
+  "lines": [
+    "Rice Ada — 1/2 Cup",
+    "Jaggery — 1 Cup",
+    "Coconut Milk — 2 Cups",
+    "Ghee — 2 Tbsp",
+    "Cashew — 10 Nos",
+    "Cardamom — 4 Pods"
+  ],
+  "review": {
+    "reviewer_slot": "kerala",
+    "status": "unassigned"
+  },
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 deterministic corpus fixture (QG5 Volume tier). Synthetic input data for testing; no real-world source claim."
+  }
+}

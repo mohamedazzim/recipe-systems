@@ -1,0 +1,30 @@
+{
+  "id": "rs-006",
+  "version": 1,
+  "name": "Ven Pongal",
+  "region": "tamil-nadu",
+  "category": "veg",
+  "input_type": "form",
+  "method": {
+    "provided": false,
+    "inferred": false
+  },
+  "lines": [
+    "Rice — 1 Cup",
+    "Moong Dal — 1/4 Cup",
+    "Ghee — 2 Tbsp",
+    "Black Pepper — 1 Tsp",
+    "Cumin — 1 Tsp",
+    "Cashew — 8 Nos",
+    "Curry Leaves — 1 Sprig",
+    "Ginger — 1 Inch"
+  ],
+  "review": {
+    "reviewer_slot": "tn_kanyakumari",
+    "status": "unassigned"
+  },
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 deterministic corpus fixture (QG5 Volume tier). Synthetic input data for testing; no real-world source claim."
+  }
+}

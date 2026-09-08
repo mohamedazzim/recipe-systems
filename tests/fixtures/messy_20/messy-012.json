@@ -1,0 +1,24 @@
+{
+  "id": "messy-012",
+  "version": 1,
+  "name": "Nadan chicken from photo",
+  "region": "kerala",
+  "lines": [
+    "chicken - 5oo g",
+    "shallots - 10",
+    "coconut slices - 1/4",
+    "chilli pwd - 2 tsp",
+    "coriander pwd - 1 tbsp",
+    "ginger - 1 inch",
+    "kari leaves - 2",
+    "coconut oil - 3 tbsp"
+  ],
+  "messy_features": [
+    "ocr-typo",
+    "vernacular-alias"
+  ],
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 messy_20 set (QG5: week-12 twenty messy recipes, separate named set). Synthetic adversarial inputs; never merged into the corpus count."
+  }
+}

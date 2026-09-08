@@ -1,0 +1,29 @@
+{
+  "id": "rs-045",
+  "version": 1,
+  "name": "Pav Bhaji",
+  "region": "other",
+  "category": "veg",
+  "input_type": "form",
+  "method": {
+    "provided": false,
+    "inferred": false
+  },
+  "lines": [
+    "Mixed Vegetables — 500g",
+    "Pav Bhaji Masala — 2 Tbsp",
+    "Butter — 3 Tbsp",
+    "Onion — 1 Nos",
+    "Tomato — 3 Nos",
+    "Pav — 4 Nos",
+    "Lemon — 1/2 Nos"
+  ],
+  "review": {
+    "reviewer_slot": null,
+    "status": "unassigned"
+  },
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 deterministic corpus fixture (QG5 Volume tier). Synthetic input data for testing; no real-world source claim."
+  }
+}

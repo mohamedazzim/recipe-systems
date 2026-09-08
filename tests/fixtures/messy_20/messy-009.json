@@ -1,0 +1,24 @@
+{
+  "id": "messy-009",
+  "version": 1,
+  "name": "Beef fry with smudge",
+  "region": "kerala",
+  "lines": [
+    "beef 5OOg",
+    "grated coconut 1 cup",
+    "shallots 12",
+    "chilli powder 2 tsp",
+    "coriander powder 1 tblsp",
+    "pepper 1 tsp",
+    "coconut oil 2 tbsp",
+    "curry leaves"
+  ],
+  "messy_features": [
+    "ocr-typo",
+    "missing-amount"
+  ],
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 messy_20 set (QG5: week-12 twenty messy recipes, separate named set). Synthetic adversarial inputs; never merged into the corpus count."
+  }
+}

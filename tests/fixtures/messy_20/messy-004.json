@@ -1,0 +1,25 @@
+{
+  "id": "messy-004",
+  "version": 1,
+  "name": "Chettinad chicken (typed fast)",
+  "region": "tamil-nadu",
+  "lines": [
+    "chicken 5o0g",
+    "shallots 12",
+    "toma to 2",
+    "chettinad masala 2 tbsp",
+    "fennel 1tsp",
+    "coconut 1/4cup",
+    "curry leaves",
+    "oil 3tbsp",
+    "salt"
+  ],
+  "messy_features": [
+    "ocr-typo",
+    "missing-amount"
+  ],
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 messy_20 set (QG5: week-12 twenty messy recipes, separate named set). Synthetic adversarial inputs; never merged into the corpus count."
+  }
+}

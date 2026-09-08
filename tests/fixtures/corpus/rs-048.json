@@ -1,0 +1,28 @@
+{
+  "id": "rs-048",
+  "version": 1,
+  "name": "Shorshe Bata Maach",
+  "region": "other",
+  "category": "non-veg",
+  "input_type": "paste",
+  "method": {
+    "provided": false,
+    "inferred": false
+  },
+  "lines": [
+    "Rohu Fish — 4 Pieces",
+    "Mustard — 2 Tbsp",
+    "Green Chilli — 3 Nos",
+    "Turmeric — 1/2 Tsp",
+    "Mustard Oil — 3 Tbsp",
+    "Salt — To Taste"
+  ],
+  "review": {
+    "reviewer_slot": null,
+    "status": "unassigned"
+  },
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 deterministic corpus fixture (QG5 Volume tier). Synthetic input data for testing; no real-world source claim."
+  }
+}

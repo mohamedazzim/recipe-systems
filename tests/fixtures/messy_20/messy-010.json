@@ -1,0 +1,24 @@
+{
+  "id": "messy-010",
+  "version": 1,
+  "name": "Puttu & Kadala (two-in-one)",
+  "region": "kerala",
+  "lines": [
+    "Puttu:",
+    "puttu flour 1 cup",
+    "grated coconut 1/2 cup",
+    "Curry:",
+    "black chana 1 cup",
+    "onion 1",
+    "chilli powder 1 tsp",
+    "coconut oil"
+  ],
+  "messy_features": [
+    "header-line",
+    "missing-amount"
+  ],
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 messy_20 set (QG5: week-12 twenty messy recipes, separate named set). Synthetic adversarial inputs; never merged into the corpus count."
+  }
+}

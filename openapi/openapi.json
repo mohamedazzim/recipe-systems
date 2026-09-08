@@ -1,0 +1,9 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Recipe Systems API",
+    "version": "0.2.0"
+  },
+  "paths": {},
+  "x-contracts-frozen-at": "P0-5 (D-05)"
+}

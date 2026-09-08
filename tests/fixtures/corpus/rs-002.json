@@ -1,0 +1,35 @@
+{
+  "id": "rs-002",
+  "version": 1,
+  "name": "Arachuvitta Sambar",
+  "region": "tamil-nadu",
+  "category": "veg",
+  "input_type": "paste",
+  "method": {
+    "provided": true,
+    "inferred": false,
+    "steps": [
+      "Cook dal with turmeric.",
+      "Saute shallots, add tamarind extract, vegetables and sambar powder.",
+      "Simmer, temper with mustard and curry leaves, fold in cooked dal."
+    ]
+  },
+  "lines": [
+    "Toor Dal — 3/4 cup",
+    "Tamarind — A Lemon Size",
+    "Shallots — 8 Nos",
+    "Tomato — 1 Nos",
+    "Sambar Powder — 2 Tsp",
+    "Drumstick — 2 Nos",
+    "Coriander Leaves — A Handful",
+    "Salt — To Taste"
+  ],
+  "review": {
+    "reviewer_slot": "tn_kanyakumari",
+    "status": "unassigned"
+  },
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 deterministic corpus fixture (QG5 Volume tier). Synthetic input data for testing; no real-world source claim."
+  }
+}

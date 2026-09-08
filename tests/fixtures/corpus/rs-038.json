@@ -1,0 +1,30 @@
+{
+  "id": "rs-038",
+  "version": 1,
+  "name": "Dal Tadka",
+  "region": "other",
+  "category": "veg",
+  "input_type": "paste",
+  "method": {
+    "provided": false,
+    "inferred": false
+  },
+  "lines": [
+    "Toor Dal — 1 Cup",
+    "Onion — 1 Nos",
+    "Tomato — 1 Nos",
+    "Ghee — 2 Tbsp",
+    "Cumin — 1 Tsp",
+    "Dried Red Chilli — 2 Nos",
+    "Garlic — 4 Cloves",
+    "Turmeric — 1/2 Tsp"
+  ],
+  "review": {
+    "reviewer_slot": null,
+    "status": "unassigned"
+  },
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 deterministic corpus fixture (QG5 Volume tier). Synthetic input data for testing; no real-world source claim."
+  }
+}

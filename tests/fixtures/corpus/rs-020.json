@@ -1,0 +1,28 @@
+{
+  "id": "rs-020",
+  "version": 1,
+  "name": "Semiya Payasam",
+  "region": "tamil-nadu",
+  "category": "veg",
+  "input_type": "form",
+  "method": {
+    "provided": false,
+    "inferred": false
+  },
+  "lines": [
+    "Vermicelli — 1/2 Cup",
+    "Milk — 3 Cups",
+    "Sugar — 1/2 Cup",
+    "Ghee — 1 Tbsp",
+    "Cashew — 8 Nos",
+    "Cardamom — 3 Pods"
+  ],
+  "review": {
+    "reviewer_slot": "tn_kanyakumari",
+    "status": "unassigned"
+  },
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 deterministic corpus fixture (QG5 Volume tier). Synthetic input data for testing; no real-world source claim."
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "@recipe-systems/rendering",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Print templates + snapshot-only render contracts (ADR \u00a77, Tech Stack \u00a712). Read-only: never reconstructs output from mutable live recipe rows (INV-12).",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "lint": "eslint . --max-warnings=0",
+    "typecheck": "tsc --noEmit",
+    "test": "jest --passWithNoTests --coverage",
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@types/node": "^22.0.0",
+    "eslint": "^9.0.0",
+    "typescript-eslint": "^8.0.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.0",
+    "@types/jest": "^29.5.0"
+  }
+}

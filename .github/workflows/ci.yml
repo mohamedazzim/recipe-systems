@@ -1,0 +1,83 @@
+name: CI
+
+# Recipe Systems — CI pipeline (SCAFFOLD §6 order, Tech Stack §20).
+# lint → typecheck → unit → golden fixture + grounding validation → prisma migrate deploy
+#   on ephemeral Postgres → integration → build
+# QG2: the FULL cumulative suite + regression-gates.sh run on every PR (TEST_PLAN §2).
+# QG3: perf baselines asserted by a dedicated job (no-op while empty).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    name: lint → typecheck → unit → gates → migrate → integration → build
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: recipe
+          POSTGRES_PASSWORD: recipe_ci_password
+          POSTGRES_DB: recipe
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U recipe -d recipe"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 12
+    env:
+      DATABASE_URL: postgresql://recipe:recipe_ci_password@localhost:5432/recipe
+      NODE_ENV: ci
+      SESSION_SECRET: ci-session-secret-not-for-production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Prisma generate + database build (client and dist must exist before typecheck/unit)
+        working-directory: packages/database
+        run: npx prisma generate && npm run build
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests (full cumulative suite)
+        run: npm run test
+
+      - name: Golden fixture + grounding validation (QG2 regression gates)
+        run: bash scripts/regression-gates.sh
+
+      - name: Contract check
+        run: bash scripts/contract-check.sh
+
+      - name: Prisma migrate deploy (ephemeral Postgres)
+        working-directory: packages/database
+        run: npx prisma migrate deploy
+
+      - name: Integration tests
+        run: npm run test:integration
+
+      - name: Build
+        run: npm run build
+
+  perf-baselines:
+    name: QG3 perf baselines (asserted, no-op while empty)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Assert .perf-baselines.json schema
+        run: node scripts/check-perf-baselines.js

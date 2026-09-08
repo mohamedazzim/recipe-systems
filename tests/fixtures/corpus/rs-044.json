@@ -1,0 +1,29 @@
+{
+  "id": "rs-044",
+  "version": 1,
+  "name": "Misal Pav",
+  "region": "other",
+  "category": "veg",
+  "input_type": "form",
+  "method": {
+    "provided": false,
+    "inferred": false
+  },
+  "lines": [
+    "Sprouted Moth Beans — 1 Cup",
+    "Misal Masala — 2 Tsp",
+    "Onion — 1 Nos",
+    "Farsan — 1/2 Cup",
+    "Pav — 2 Nos",
+    "Oil — 2 Tbsp",
+    "Coriander Leaves — A Handful"
+  ],
+  "review": {
+    "reviewer_slot": null,
+    "status": "unassigned"
+  },
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 deterministic corpus fixture (QG5 Volume tier). Synthetic input data for testing; no real-world source claim."
+  }
+}

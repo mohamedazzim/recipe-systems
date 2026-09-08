@@ -1,0 +1,28 @@
+{
+  "id": "rs-043",
+  "version": 1,
+  "name": "Aloo Posto",
+  "region": "other",
+  "category": "veg",
+  "input_type": "paste",
+  "method": {
+    "provided": false,
+    "inferred": false
+  },
+  "lines": [
+    "Potato — 3 Nos",
+    "Poppy Seed Paste — 3 Tbsp",
+    "Green Chilli — 2 Nos",
+    "Nigella Seeds — 1/2 Tsp",
+    "Mustard Oil — 2 Tbsp",
+    "Salt — To Taste"
+  ],
+  "review": {
+    "reviewer_slot": null,
+    "status": "unassigned"
+  },
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 deterministic corpus fixture (QG5 Volume tier). Synthetic input data for testing; no real-world source claim."
+  }
+}

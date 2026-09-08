@@ -1,0 +1,28 @@
+{
+  "id": "rs-041",
+  "version": 1,
+  "name": "Gongura Pachadi",
+  "region": "other",
+  "category": "veg",
+  "input_type": "form",
+  "method": {
+    "provided": false,
+    "inferred": false
+  },
+  "lines": [
+    "Gongura Leaves — 2 Cups",
+    "Green Chilli — 4 Nos",
+    "Garlic — 4 Cloves",
+    "Gingelly Oil — 2 Tbsp",
+    "Fenugreek — 1/4 Tsp",
+    "Salt — To Taste"
+  ],
+  "review": {
+    "reviewer_slot": null,
+    "status": "unassigned"
+  },
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 deterministic corpus fixture (QG5 Volume tier). Synthetic input data for testing; no real-world source claim."
+  }
+}

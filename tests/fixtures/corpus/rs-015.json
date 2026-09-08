@@ -1,0 +1,29 @@
+{
+  "id": "rs-015",
+  "version": 1,
+  "name": "Kari Dosai",
+  "region": "tamil-nadu",
+  "category": "non-veg",
+  "input_type": "photo",
+  "method": {
+    "provided": false,
+    "inferred": false
+  },
+  "lines": [
+    "Dosa Batter — 2 Cups",
+    "Minced Mutton — 200g",
+    "Onion — 1 Nos",
+    "Ginger-Garlic Paste — 1 Tsp",
+    "Chilli Powder — 1 Tsp",
+    "Pepper — 1/2 Tsp",
+    "Oil — 2 Tbsp"
+  ],
+  "review": {
+    "reviewer_slot": "tn_kanyakumari",
+    "status": "unassigned"
+  },
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 deterministic corpus fixture (QG5 Volume tier). Synthetic input data for testing; no real-world source claim."
+  }
+}

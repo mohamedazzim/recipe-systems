@@ -1,0 +1,35 @@
+{
+  "id": "rs-036",
+  "version": 1,
+  "name": "Butter Chicken",
+  "region": "other",
+  "category": "non-veg",
+  "input_type": "paste",
+  "method": {
+    "provided": true,
+    "inferred": false,
+    "steps": [
+      "Marinate chicken in curd and spices.",
+      "Cook tomato gravy, blend smooth.",
+      "Finish with butter, cream and kasuri methi."
+    ]
+  },
+  "lines": [
+    "Chicken — 500g",
+    "Tomato — 4 Nos",
+    "Butter — 3 Tbsp",
+    "Cream — 1/4 Cup",
+    "Ginger-Garlic Paste — 1 Tbsp",
+    "Kashmiri Chilli — 1 Tsp",
+    "Kasuri Methi — 1 Tsp",
+    "Salt — To Taste"
+  ],
+  "review": {
+    "reviewer_slot": null,
+    "status": "unassigned"
+  },
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 deterministic corpus fixture (QG5 Volume tier). Synthetic input data for testing; no real-world source claim."
+  }
+}

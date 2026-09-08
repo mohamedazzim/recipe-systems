@@ -1,0 +1,28 @@
+{
+  "id": "rs-042",
+  "version": 1,
+  "name": "Shorshe Ilish",
+  "region": "other",
+  "category": "non-veg",
+  "input_type": "photo",
+  "method": {
+    "provided": false,
+    "inferred": false
+  },
+  "lines": [
+    "Hilsa Fish — 4 Pieces",
+    "Mustard Paste — 3 Tbsp",
+    "Green Chilli — 4 Nos",
+    "Turmeric — 1/2 Tsp",
+    "Mustard Oil — 3 Tbsp",
+    "Salt — To Taste"
+  ],
+  "review": {
+    "reviewer_slot": null,
+    "status": "unassigned"
+  },
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 deterministic corpus fixture (QG5 Volume tier). Synthetic input data for testing; no real-world source claim."
+  }
+}

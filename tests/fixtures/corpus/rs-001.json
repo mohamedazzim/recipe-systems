@@ -1,0 +1,84 @@
+{
+  "id": "rs-001",
+  "version": 1,
+  "name": "Kanyakumari Meen Kuzhambu",
+  "region": "tamil-nadu",
+  "category": "non-veg",
+  "input_type": "photo",
+  "method": {
+    "provided": false,
+    "inferred": true,
+    "matched_family_method": {
+      "source": "CDK 1669 / Mrs. Anitha",
+      "origin": "Anitha, Palma Garden, Kottavilai",
+      "tag": "INFERRED"
+    }
+  },
+  "lines": [
+    "Fish — 500g",
+    "Drumstick — 1 Nos",
+    "Mango — 1/2 Nos",
+    "Grated Coconut — Half Shell",
+    "Coconut Oil — For Tempering",
+    "Chilli — 5 Nos",
+    "Chilli Powder — 2 Tsp",
+    "Coriander Powder — 1 Tsp",
+    "Tamarind — A Lemon Size",
+    "Fenugreek Powder — 1/2 Tsp",
+    "Fenugreek — 1/4 Tsp"
+  ],
+  "review": {
+    "reviewer_slot": "tn_kanyakumari",
+    "status": "unassigned"
+  },
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 deterministic corpus fixture (QG5 Volume tier). Synthetic input data for testing; no real-world source claim."
+  },
+  "expected": {
+    "family": {
+      "name": "coastal Tamil fish curry",
+      "region": "Kanyakumari (Kumari)",
+      "explicitly_not": "generic Indian curry"
+    },
+    "fenugreek_lines": [
+      "Fenugreek Powder — 1/2 Tsp",
+      "Fenugreek — 1/4 Tsp"
+    ],
+    "absent": [
+      "garlic",
+      "ginger"
+    ],
+    "view_2": {
+      "coriander_blind_spot_note": "Coriander under-reporting recorded: the wrapped chilli/coriander card line was split before analysis, so the coriander powder may be under-counted."
+    },
+    "station_card": {
+      "present": true,
+      "requires_inferred_method": true,
+      "includes": [
+        "contains fish",
+        "mustard",
+        "species unknown",
+        "untasted briefing"
+      ]
+    },
+    "view_8": {
+      "forbidden_word": "safe",
+      "includes": [
+        "contains fish",
+        "mustard",
+        "coconut",
+        "fenugreek",
+        "species unknown"
+      ]
+    },
+    "view_9": {
+      "energy_kcal": {
+        "min": 1300,
+        "max": 2200
+      },
+      "sodium": "Unknown"
+    }
+  },
+  "source_note": "Golden Kanyakumari card (Recipe_Systems §15 acceptance scene) — corpus seed per DISPATCH D-04."
+}

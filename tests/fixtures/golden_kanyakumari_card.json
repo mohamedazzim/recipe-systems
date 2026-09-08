@@ -1,0 +1,60 @@
+{
+  "$comment": "Golden Kanyakumari card — the fixture that never leaves CI (G1, Recipe_Systems §3.8). INPUT side = the Deena's Kitchen card lines (B2 story + working mockup); EXPECTED side = the 8 ERD §16 invariants grounded in the §15 acceptance scene. Do not invent values beyond these canonical sources.",
+  "dish": "Kanyakumari Meen Kuzhambu",
+  "source": {
+    "card": "Deena's Kitchen card (Recipe_Systems §15 acceptance scene)",
+    "references": ["Recipe_Systems.md §12 B2/C1", "Recipe_Systems_ERD_FINAL.md §16", "recipe_systems_mockup.html (worked example)"]
+  },
+  "method": {
+    "provided_by_user": false,
+    "matched_family_method": {
+      "source": "CDK 1669 / Mrs. Anitha",
+      "origin": "Anitha, Palma Garden, Kottavilai",
+      "tag": "INFERRED"
+    }
+  },
+  "card": {
+    "input_type": "photo",
+    "parse_notes": [
+      "The wrapped 'Chilli Powder — 2 Tsp Coriander Powder — 1 Tsp' line was split into two lines before analysis (B3)."
+    ],
+    "lines": [
+      "Fish — 500g",
+      "Drumstick — 1 Nos",
+      "Mango — 1/2 Nos",
+      "Grated Coconut — Half Shell",
+      "Coconut Oil — For Tempering",
+      "Chilli — 5 Nos",
+      "Chilli Powder — 2 Tsp",
+      "Coriander Powder — 1 Tsp",
+      "Tamarind — A Lemon Size",
+      "Fenugreek Powder — 1/2 Tsp",
+      "Fenugreek — 1/4 Tsp"
+    ]
+  },
+  "expected": {
+    "family": {
+      "name": "coastal Tamil fish curry",
+      "region": "Kanyakumari (Kumari)",
+      "explicitly_not": "generic Indian curry"
+    },
+    "fenugreek_lines": ["Fenugreek Powder — 1/2 Tsp", "Fenugreek — 1/4 Tsp"],
+    "absent": ["garlic", "ginger"],
+    "view_2": {
+      "coriander_blind_spot_note": "Coriander under-reporting recorded: the wrapped chilli/coriander card line was split before analysis, so the coriander powder may be under-counted."
+    },
+    "station_card": {
+      "present": true,
+      "requires_inferred_method": true,
+      "includes": ["contains fish", "mustard", "species unknown", "untasted briefing"]
+    },
+    "view_8": {
+      "forbidden_word": "safe",
+      "includes": ["contains fish", "mustard", "coconut", "fenugreek", "species unknown"]
+    },
+    "view_9": {
+      "energy_kcal": { "min": 1300, "max": 2200 },
+      "sodium": "Unknown"
+    }
+  }
+}

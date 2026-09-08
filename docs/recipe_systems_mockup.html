@@ -1,0 +1,2508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Recipe Systems — Kanyakumari Meen Kuzhambu · Working Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#faf7f1;
+    --surface:#ffffff;
+    --surface-2:#f4efe6;
+    --ink:#2b211a;
+    --ink-soft:#55483d;
+    --muted:#85776a;
+    --line:#e7dfd2;
+    --line-strong:#d8ccba;
+    --accent:#1f6f5c;        /* deep green */
+    --accent-ink:#145243;
+    --accent-soft:#e3f0eb;
+    --terra:#c0502f;         /* terracotta */
+    --terra-soft:#fbeae3;
+    --gold:#b4892f;
+    --gold-soft:#faf0d8;
+    --shadow:0 1px 2px rgba(43,33,26,.06), 0 8px 24px rgba(43,33,26,.05);
+    --shadow-lg:0 2px 6px rgba(43,33,26,.08), 0 20px 48px rgba(43,33,26,.10);
+    --radius:14px;
+    --radius-sm:9px;
+    /* claim tags */
+    --card:#1c6fb3; --card-bg:#e7f2fb;
+    --method:#6d4fa1; --method-bg:#f0eaf8;
+    --inferred:#b27a12; --inferred-bg:#fbf3dc;
+    --absent:#b3372e; --absent-bg:#fbeae7;
+    --unknown:#707070; --unknown-bg:#eeeeee;
+    --assumed:#0e8579; --assumed-bg:#e0f3f0;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+    background:var(--bg); color:var(--ink);
+    font-size:15px; line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,h4{font-family:'Fraunces',Georgia,serif; font-weight:600; letter-spacing:-.01em;}
+  .mono{font-family:'JetBrains Mono',ui-monospace,Menlo,monospace;}
+
+  /* ---------- App shell ---------- */
+  .app{display:grid; grid-template-columns:248px 1fr; min-height:100vh;}
+  .sidebar{
+    background:var(--accent-ink);
+    color:#e9f3ee; padding:22px 18px;
+    display:flex; flex-direction:column; gap:22px; position:sticky; top:0; height:100vh; overflow:auto;
+  }
+  .brand{display:flex; align-items:center; gap:10px; font-family:'Fraunces',serif; font-size:18px; font-weight:700; color:#fff;}
+  .brand .mark{
+    width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,#e0a24a,#c0502f);
+    display:grid;place-items:center;font-size:16px;
+  }
+  .brand small{display:block; font-family:'Inter',sans-serif; font-size:11px; font-weight:500; color:#9fbfb3; letter-spacing:.04em;}
+  .side-nav{display:flex; flex-direction:column; gap:4px;}
+  .side-nav a{
+    color:#cfe0d8; text-decoration:none; font-size:13.5px; font-weight:500;
+    padding:8px 10px; border-radius:8px; display:flex; align-items:center; gap:9px;
+  }
+  .side-nav a:hover{background:rgba(255,255,255,.07); color:#fff;}
+  .side-nav a.active{background:rgba(255,255,255,.12); color:#fff;}
+  .side-nav a .count{margin-left:auto; font-size:11px; background:rgba(255,255,255,.14); padding:1px 7px; border-radius:20px;}
+  .side-label{font-size:10.5px; text-transform:uppercase; letter-spacing:.12em; color:#8fb3a5; margin:2px 4px 2px;}
+  .lib-item{
+    background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1);
+    border-radius:10px; padding:10px 11px; cursor:pointer;
+  }
+  .lib-item .t{font-size:13.5px; font-weight:600; color:#fff;}
+  .lib-item .m{font-size:11.5px; color:#9fbfb3; margin-top:2px;}
+  .lib-item .badges{display:flex; gap:5px; margin-top:7px; flex-wrap:wrap;}
+  .pill{font-size:10px; font-weight:600; padding:2px 7px; border-radius:20px; letter-spacing:.02em;}
+  .pill.gold{background:#faf0d8; color:#8a6417;}
+  .pill.lime{background:#e3f0eb; color:#145243;}
+  .pill.terra{background:var(--terra-soft); color:#9a3a20;}
+  .lib-item.selected{border-color:#e0a24a; box-shadow:0 0 0 1px #e0a24a;}
+  .sidebar-foot{margin-top:auto; font-size:11px; color:#8fb3a5; border-top:1px solid rgba(255,255,255,.1); padding-top:14px;}
+
+  /* ---------- Main column ---------- */
+  .main{max-width:1180px; width:100%; margin:0 auto; padding:26px 34px 80px;}
+  .topbar{
+    display:flex; align-items:center; gap:14px; justify-content:space-between;
+    padding-bottom:18px; border-bottom:1px solid var(--line); margin-bottom:24px; flex-wrap:wrap;
+  }
+  .crumbs{font-size:12.5px; color:var(--muted);}
+  .crumbs b{color:var(--ink); font-weight:600;}
+  .topbar-right{display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
+  .account{
+    display:flex; align-items:center; gap:9px; background:var(--surface); border:1px solid var(--line);
+    padding:6px 8px 6px 6px; border-radius:30px; box-shadow:var(--shadow); font-size:12.5px; font-weight:600;
+  }
+  .account .av{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#1f6f5c,#2f8f74);color:#fff;display:grid;place-items:center;font-size:12px;}
+  .topbar .disclaimer-chip{
+    font-size:11.5px; color:var(--terra); background:var(--terra-soft); border:1px solid #f0c9ba;
+    padding:6px 11px; border-radius:20px; font-weight:600; display:flex; gap:6px; align-items:center;
+  }
+  .btn{
+    display:inline-flex; align-items:center; gap:8px; border:none; cursor:pointer;
+    font-family:'Inter',sans-serif; font-size:13.5px; font-weight:600; border-radius:10px;
+    padding:10px 16px; transition:.15s;
+  }
+  .btn:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+  .btn.primary{background:var(--accent); color:#fff;}
+  .btn.primary:hover{background:#185d4c;}
+  .btn.ghost{background:var(--surface); border:1px solid var(--line-strong); color:var(--ink);}
+  .btn.ghost:hover{border-color:var(--accent); color:var(--accent);}
+  .btn.terra{background:var(--terra); color:#fff;}
+  .btn.terra:hover{background:#a84426;}
+  .btn.sm{padding:7px 12px; font-size:12.5px; border-radius:8px;}
+
+  /* ---------- Recipe hero ---------- */
+  .hero{
+    background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+    box-shadow:var(--shadow); overflow:hidden; margin-bottom:26px;
+  }
+  .hero-top{padding:24px 28px 20px; display:flex; gap:24px; flex-wrap:wrap; align-items:flex-start;}
+  .card-photo{
+    width:210px; flex:0 0 210px; border-radius:12px; overflow:hidden; border:1px solid var(--line);
+    background:var(--surface-2); position:relative;
+  }
+  .card-photo .stub{aspect-ratio:3/4; display:grid; place-items:center; color:var(--muted); text-align:center; padding:16px;}
+  .card-photo .stub .big{font-size:34px; margin-bottom:6px;}
+  .card-photo .stub .cap{font-size:11.5px; font-weight:500;}
+  .hero-info{flex:1; min-width:300px;}
+  .title-row{display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
+  .editable{
+    font-family:'Fraunces',serif; font-size:30px; font-weight:700; color:var(--ink); border-bottom:2px dashed var(--line-strong);
+    padding-bottom:2px; cursor:text; line-height:1.15;
+  }
+  .editable .pencil{font-size:14px; color:var(--muted); vertical-align:6px;}
+  .family-line{margin-top:8px; color:var(--ink-soft); font-size:14.5px;}
+  .source-line{margin-top:6px; color:var(--muted); font-size:13px;}
+  .source-line b{color:var(--ink-soft); font-weight:600;}
+  .tag-row{display:flex; gap:7px; flex-wrap:wrap; margin-top:16px; align-items:center;}
+  .conf{display:flex; gap:18px; flex-wrap:wrap; margin-top:18px; padding-top:16px; border-top:1px solid var(--line); font-size:13px;}
+  .conf .k{color:var(--muted); font-size:11.5px; text-transform:uppercase; letter-spacing:.05em;}
+  .conf .v{font-weight:600; color:var(--ink);}
+  .hero-actions{
+    display:flex; gap:10px; padding:16px 28px; background:var(--surface-2); border-top:1px solid var(--line); flex-wrap:wrap; align-items:center;
+  }
+  .hero-actions .note{margin-left:auto; font-size:12px; color:var(--muted); font-style:italic;}
+
+  /* ---------- Mode switch ---------- */
+  .mode-switch{
+    display:flex; gap:4px; background:var(--surface); border:1px solid var(--line); border-radius:12px;
+    padding:4px; width:max-content; box-shadow:var(--shadow); margin:0 0 22px;
+  }
+  .mode-switch button{
+    border:none; background:transparent; cursor:pointer; font-family:'Inter',sans-serif; font-size:13.5px; font-weight:600;
+    padding:9px 20px; border-radius:9px; color:var(--muted); display:flex; gap:7px; align-items:center; transition:.15s;
+  }
+  .mode-switch button.active{background:var(--accent); color:#fff;}
+  .mode-switch button:not(.active):hover{color:var(--ink); background:var(--surface-2);}
+  .mode-note{font-size:12.5px; color:var(--muted); margin-top:8px;}
+
+  /* ---------- Panels ---------- */
+  .panel{display:none;}
+  .panel.active{display:block; animation:fade .25s ease;}
+  @keyframes fade{from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;}}
+
+  .section{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); margin-bottom:24px; overflow:hidden;}
+  .section-head{padding:18px 24px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
+  .section-head .kicker{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.12em; color:var(--accent);}
+  .section-head h2{font-size:20px;}
+  .section-head .sub{color:var(--muted); font-size:13px; width:100%; margin-top:2px;}
+  .section-head .right{margin-left:auto; display:flex; gap:8px; align-items:center;}
+  .section-body{padding:22px 24px;}
+
+  /* ---------- Claim tags ---------- */
+  .claim{display:inline-block; font-size:10px; font-weight:700; letter-spacing:.06em; padding:2px 7px; border-radius:5px; text-transform:uppercase; vertical-align:1px;}
+  .claim.card{background:var(--card-bg); color:var(--card); border:1px solid #c9e0f2;}
+  .claim.method{background:var(--method-bg); color:var(--method); border:1px solid #ddd0ef;}
+  .claim.inferred{background:var(--inferred-bg); color:var(--inferred); border:1px solid #ecd9a8;}
+  .claim.absent{background:var(--absent-bg); color:var(--absent); border:1px solid #eec8c1;}
+  .claim.unknown{background:var(--unknown-bg); color:var(--unknown); border:1px solid #d9d9d9;}
+  .claim.assumed{background:var(--assumed-bg); color:var(--assumed); border:1px solid #bde0da;}
+  .legend{display:flex; gap:8px; flex-wrap:wrap; margin-top:14px;}
+
+  /* ---------- Tables ---------- */
+  .table-wrap{overflow-x:auto; border:1px solid var(--line); border-radius:12px;}
+  table{width:100%; border-collapse:collapse; font-size:13.5px; min-width:560px;}
+  thead th{
+    background:var(--surface-2); text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--ink-soft); padding:10px 14px; border-bottom:1px solid var(--line-strong); white-space:nowrap;
+  }
+  tbody td{padding:11px 14px; border-bottom:1px solid var(--line); vertical-align:top;}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr:hover{background:#fdfbf6;}
+  td .item{font-weight:600;}
+  td .tiny{color:var(--muted); font-size:12px;}
+
+  /* ---------- Callouts ---------- */
+  .callout{border-radius:12px; padding:15px 18px; margin:18px 0 0; font-size:13.5px; border:1px solid;}
+  .callout.warn{background:var(--inferred-bg); border-color:#ecd9a8; color:#6d4a0a;}
+  .callout.info{background:var(--accent-soft); border-color:#bfdcd1; color:#145243;}
+  .callout.danger{background:var(--absent-bg); border-color:#eec8c1; color:#8c2d24;}
+  .callout .ct{font-weight:700; display:block; margin-bottom:4px;}
+  .disclaimer{font-size:12.5px; color:var(--muted); font-style:italic; margin-top:16px; padding-top:12px; border-top:1px dashed var(--line-strong);}
+  .disclaimer b{color:var(--ink-soft);}
+
+  /* ---------- Ingredient / parse ---------- */
+  .parse-grid{display:grid; grid-template-columns:1fr 1fr; gap:22px;}
+  @media(max-width:860px){.parse-grid{grid-template-columns:1fr;}}
+  .ing-list{list-style:none;}
+  .ing-list li{
+    display:flex; gap:10px; align-items:center; padding:8px 12px; border-radius:9px; border:1px solid var(--line);
+    background:var(--surface); margin-bottom:6px; font-size:13.5px;
+  }
+  .ing-list li .qty{font-weight:600; color:var(--ink); min-width:86px;}
+  .ing-list li .name{flex:1;}
+  .ing-list li.confirm{background:var(--accent-soft); border-color:#bfdcd1;}
+  .ing-list li.split{background:var(--inferred-bg); border-color:#ecd9a8;}
+  .ing-list li .check{color:var(--accent); font-weight:700;}
+
+  /* ---------- View tabs ---------- */
+  .view-tabs{display:flex; gap:6px; overflow-x:auto; padding-bottom:4px; border-bottom:1px solid var(--line); margin-bottom:20px;}
+  .view-tab{
+    border:1px solid var(--line-strong); background:var(--surface); cursor:pointer; border-radius:9px; padding:8px 13px;
+    font-family:'Inter',sans-serif; font-size:12.5px; font-weight:600; color:var(--ink-soft); white-space:nowrap; transition:.15s;
+  }
+  .view-tab:hover{border-color:var(--accent); color:var(--accent);}
+  .view-tab.active{background:var(--accent); border-color:var(--accent); color:#fff;}
+  .view-tab small{font-weight:500; opacity:.75;}
+  .view-panel{display:none;}
+  .view-panel.active{display:block; animation:fade .2s ease;}
+
+  /* role chips in view 1 */
+  .role-card{background:var(--surface-2); border:1px solid var(--line); border-radius:10px; padding:11px 14px;}
+  .role-card .r{font-weight:700; font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--accent-ink);}
+  .role-card .g{font-size:13px; color:var(--ink-soft); margin-top:2px;}
+
+  /* pillar bars */
+  .pillar-row{display:grid; grid-template-columns:120px 1fr; gap:14px; align-items:center; padding:8px 0; border-bottom:1px dashed var(--line);}
+  .pillar-row:last-child{border-bottom:none;}
+  .pillar-name{font-weight:600; font-size:13.5px;}
+  .bar{height:10px; border-radius:6px; background:var(--surface-2); overflow:hidden; border:1px solid var(--line);}
+  .bar i{display:block; height:100%; border-radius:6px;}
+
+  /* process stages */
+  .stage{border-left:3px solid var(--accent); padding:4px 0 4px 16px; margin:0 0 18px;}
+  .stage .st{font-family:'Fraunces',serif; font-weight:700; font-size:14px; color:var(--accent-ink);}
+  .stage p{font-size:13.5px; margin-top:3px; color:var(--ink-soft);}
+  .stage .cue{font-size:12.5px; margin-top:5px; color:var(--terra); background:var(--terra-soft); border-radius:8px; padding:7px 11px;}
+
+  /* view 4 classes */
+  .class-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:12px;}
+  @media(max-width:860px){.class-grid{grid-template-columns:1fr;}}
+  .class-card{border-radius:12px; padding:14px 16px; border:1px solid;}
+  .class-card.structural{background:var(--absent-bg); border-color:#eec8c1;}
+  .class-card.modular{background:var(--accent-soft); border-color:#bfdcd1;}
+  .class-card.shift{background:var(--inferred-bg); border-color:#ecd9a8;}
+  .class-card .ch{font-weight:700; font-size:12px; text-transform:uppercase; letter-spacing:.06em;}
+  .class-card.structural .ch{color:#8c2d24;}
+  .class-card.modular .ch{color:#145243;}
+  .class-card.shift .ch{color:#6d4a0a;}
+  .class-card ul{list-style:none; margin-top:8px;}
+  .class-card li{font-size:12.5px; padding:3px 0 3px 14px; position:relative; color:var(--ink-soft);}
+  .class-card li:before{content:"—"; position:absolute; left:0; color:var(--muted);}
+
+  /* view 5 map */
+  .map-row{display:grid; grid-template-columns:150px 1fr 1fr 1fr; gap:0; border:1px solid var(--line); border-radius:12px; overflow:hidden; font-size:13px;}
+  .map-row>div{padding:10px 13px; border-right:1px solid var(--line); border-bottom:1px solid var(--line);}
+  .map-row>div:last-child{border-right:none;}
+  .map-row .hd{background:var(--surface-2); font-weight:700; font-size:12px; text-transform:uppercase; letter-spacing:.04em;}
+  .map-row .label{font-weight:600; background:#fdfbf6;}
+
+  /* view 8 patterns */
+  .pat-row{display:flex; gap:12px; align-items:center; padding:8px 0; border-bottom:1px dashed var(--line); font-size:13.5px;}
+  .pat-row:last-child{border-bottom:none;}
+  .pat-name{font-weight:600; width:210px; flex:0 0 210px;}
+  .pat-status{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:3px 9px; border-radius:20px; width:120px; text-align:center; flex:0 0 120px;}
+  .pat-status.fit{background:var(--accent-soft); color:var(--accent-ink);}
+  .pat-status.conflict{background:var(--absent-bg); color:#8c2d24;}
+  .pat-status.unknown{background:var(--unknown-bg); color:#555;}
+
+  /* view 9 */
+  .band-row{display:grid; grid-template-columns:150px 1fr 1fr; border:1px solid var(--line); border-radius:12px; overflow:hidden; font-size:13px;}
+  .band-row>div{padding:11px 14px; border-bottom:1px solid var(--line); border-right:1px solid var(--line);}
+  .band-row>div:nth-child(3n){border-right:none;}
+  .band-row .hd{background:var(--surface-2); font-weight:700; font-size:11.5px; text-transform:uppercase; letter-spacing:.04em;}
+  .band-row .label{font-weight:600; background:#fdfbf6;}
+  .band-row:last-child>div{border-bottom:none;}
+
+  /* station card */
+  .station{border:2px solid var(--accent); border-radius:14px; overflow:hidden; background:var(--surface);}
+  .station-head{background:var(--accent); color:#fff; padding:16px 22px; display:flex; align-items:center; gap:14px; flex-wrap:wrap;}
+  .station-head h3{font-size:18px; color:#fff;}
+  .station-head .tagline{font-size:12px; opacity:.9; margin-top:2px;}
+  .station-body{padding:22px;}
+  .station h4{font-size:13px; text-transform:uppercase; letter-spacing:.09em; color:var(--accent); margin:20px 0 10px; display:flex; align-items:center; gap:8px;}
+  .station h4:first-child{margin-top:0;}
+  .station h4 .src{font-size:10.5px; color:var(--muted); text-transform:none; letter-spacing:0; font-weight:600;}
+  .seq{list-style:none; counter-reset:seq;}
+  .seq li{counter-increment:seq; position:relative; padding:7px 0 7px 40px; font-size:14px; border-bottom:1px dashed var(--line);}
+  .seq li:before{
+    content:counter(seq); position:absolute; left:0; top:7px; width:24px; height:24px; border-radius:50%;
+    background:var(--accent-soft); color:var(--accent-ink); font-weight:700; font-size:12px;
+    display:grid; place-items:center; border:1px solid #bfdcd1;
+  }
+  .seq li:last-child{border-bottom:none;}
+  .do-not{display:grid; grid-template-columns:1fr 1fr; gap:8px; list-style:none;}
+  @media(max-width:700px){.do-not{grid-template-columns:1fr;}}
+  .do-not li{font-size:13px; color:#8c2d24; background:var(--absent-bg); border:1px solid #eec8c1; border-radius:9px; padding:8px 11px;}
+  .do-not li:before{content:"✕"; margin-right:8px; font-weight:700;}
+
+  /* shopping list */
+  .shop-groups{display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:16px;}
+  .shop-group{border:1px solid var(--line); border-radius:12px; overflow:hidden; background:var(--surface);}
+  .shop-group .gh{background:var(--surface-2); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; padding:8px 13px; color:var(--ink-soft); display:flex; justify-content:space-between; align-items:center;}
+  .shop-group .gh .n{background:#fff; border:1px solid var(--line); border-radius:20px; padding:0 8px; font-size:10.5px; color:var(--muted);}
+  .shop-item{display:flex; gap:9px; align-items:center; padding:9px 13px; font-size:13px; border-top:1px solid var(--line);}
+  .shop-item:first-of-type{border-top:none;}
+  .shop-item input{width:16px; height:16px; accent-color:var(--accent); cursor:pointer;}
+  .shop-item .q{color:var(--muted); margin-left:auto; font-size:12px; white-space:nowrap;}
+  .shop-item.have .name{color:var(--muted); text-decoration:line-through;}
+  .shop-item.fenugreek{background:var(--inferred-bg);}
+  .allergen-line{margin-top:18px; background:var(--terra-soft); border:1px solid #f0c9ba; border-radius:10px; padding:12px 16px; font-size:13.5px; color:#8c3a1e;}
+  .allergen-line b{font-weight:700;}
+
+  /* cook log */
+  .log-form{border:1px dashed var(--line-strong); border-radius:12px; padding:18px; margin-top:16px; background:var(--surface-2); display:none;}
+  .log-form.open{display:block;}
+  .stars{font-size:22px; color:#e0a24a; letter-spacing:4px; cursor:pointer; user-select:none;}
+  .stars span{opacity:.35;}
+  .stars span.on{opacity:1;}
+  .log-row{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-top:12px;}
+  .log-row label{font-size:12.5px; font-weight:600; color:var(--ink-soft); min-width:120px;}
+  .log-row input,.log-row textarea,.log-row select{
+    font-family:'Inter',sans-serif; font-size:13px; padding:8px 11px; border:1px solid var(--line-strong);
+    border-radius:8px; background:var(--surface); color:var(--ink); flex:1; min-width:200px;
+  }
+  .last-cook{background:var(--gold-soft); border:1px solid #ecd9a8; border-radius:12px; padding:14px 18px; font-size:13.5px; color:#6d4a0a; margin-top:14px;}
+  .last-cook .k{font-weight:700;}
+
+  /* footer */
+  .foot{border-top:1px solid var(--line); margin-top:34px; padding-top:20px; font-size:12px; color:var(--muted);}
+  .foot .strongline{font-size:13px; color:var(--terra); font-weight:600; margin-bottom:8px;}
+  .foot .prod-line{background:var(--terra-soft); border:1px solid #f0c9ba; border-radius:10px; padding:11px 15px; margin-bottom:14px; font-size:13px; color:#8c3a1e;}
+
+  /* print areas */
+  .print-area{display:none;}
+  @page{ margin: 14mm; }
+  @media print{
+    /* Sheets live outside .app as full-width body blocks; hide the entire app + overlays. */
+    body.print-list .print-area.print-list, body.print-station .print-area.print-station, body.print-onepager .print-area.print-onepager{display:block !important; width:100% !important;}
+    body.print-list .app, body.print-station .app, body.print-onepager .app{display:none !important;}
+    body.print-list .nrp-screen, body.print-station .nrp-screen, body.print-onepager .nrp-screen,
+    body.print-list .auth-screen, body.print-station .auth-screen, body.print-onepager .auth-screen,
+    body.print-list .toast, body.print-station .toast, body.print-onepager .toast,
+    body.print-list .confirm-modal, body.print-station .confirm-modal, body.print-onepager .confirm-modal,
+    body.print-list .account-menu, body.print-station .account-menu, body.print-onepager .account-menu{display:none !important;}
+    body.print-list .print-sheet, body.print-station .print-sheet, body.print-onepager .print-sheet{max-width:100% !important; width:100% !important; margin:0 !important;}
+    .print-sheet h1{font-size:22px;}
+  }
+  .print-sheet{font-family:'Inter',sans-serif; color:#111; max-width:760px; margin:0 auto;}
+  .print-sheet h1{font-size:24px;}
+  .print-sheet .meta{font-size:12px; color:#444; margin:6px 0 16px;}
+  .print-sheet table{width:100%; border-collapse:collapse; font-size:13px; margin-top:12px;}
+  .print-sheet table th{background:#eee; text-align:left; padding:7px 9px; border:1px solid #bbb;}
+  .print-sheet table td{padding:7px 9px; border:1px solid #ccc;}
+  .print-sheet .checkline{display:flex; justify-content:space-between; padding:7px 2px; border-bottom:1px dashed #ccc; font-size:13px;}
+  .print-sheet .print-group{margin-top:14px;}
+  .print-sheet .print-group h3{font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:#333; margin-bottom:4px;}
+  .print-sheet .allergen{border:1px solid #999; border-radius:8px; padding:9px 12px; font-size:12px; margin-top:16px;}
+  .print-sheet .untasted{border-top:2px solid #333; margin-top:22px; padding-top:10px; font-style:italic; font-size:12px;}
+
+  /* ---------- Interactive extras ---------- */
+  .toast{position:fixed; bottom:26px; left:50%; transform:translate(-50%,12px); background:var(--accent-ink); color:#fff; padding:12px 22px; border-radius:12px; font-size:13.5px; font-weight:600; box-shadow:var(--shadow-lg); opacity:0; pointer-events:none; transition:.25s; z-index:100; max-width:90vw;}
+  .toast.show{opacity:1; transform:translate(-50%,0);}
+  .knob-row{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px;}
+  .knob{background:var(--surface-2); border:1px solid var(--line); border-radius:12px; padding:14px 16px;}
+  .knob label{display:block; font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-bottom:8px;}
+  .knob .val{font-size:12.5px; color:var(--muted); margin-top:6px;}
+  .knob input[type=range]{width:100%; accent-color:var(--accent); cursor:pointer;}
+  .knob select{width:100%; font-family:'Inter',sans-serif; font-size:13px; padding:8px 10px; border:1px solid var(--line-strong); border-radius:8px; background:var(--surface); color:var(--ink);}
+  .live-result{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-top:14px;}
+  .result-cell{background:var(--accent-soft); border:1px solid #bfdcd1; border-radius:10px; padding:12px 14px; text-align:center;}
+  .result-cell .k{font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--accent-ink); font-weight:700;}
+  .result-cell .v{font-size:19px; font-weight:700; color:var(--accent-ink); font-family:'Fraunces',serif; margin-top:3px; line-height:1.1;}
+  .result-cell .s{font-size:11px; color:var(--muted); margin-top:3px;}
+  .swap-row{cursor:pointer;}
+  .swap-row:hover{background:#fdf6e8 !important;}
+  .swap-row.selected{background:var(--inferred-bg) !important;}
+  .result-chip{display:inline-flex; align-items:center; gap:6px; font-size:10.5px; font-weight:700; padding:2px 9px; border-radius:20px; text-transform:uppercase; letter-spacing:.04em; margin-left:8px; vertical-align:2px;}
+  .result-chip.structural{background:var(--absent-bg); color:#8c2d24; border:1px solid #eec8c1;}
+  .result-chip.modular{background:var(--accent-soft); color:#145243; border:1px solid #bfdcd1;}
+  .result-chip.shift{background:var(--inferred-bg); color:#6d4a0a; border:1px solid #ecd9a8;}
+  .profile-chips{display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:6px 0 4px;}
+  .pchip{border:1px solid var(--line-strong); background:var(--surface); border-radius:20px; padding:5px 13px; font-size:12.5px; font-weight:600; color:var(--ink-soft); cursor:pointer; transition:.15s; font-family:'Inter',sans-serif;}
+  .pchip:hover{border-color:var(--accent); color:var(--accent);}
+  .pchip.active{background:var(--accent); border-color:var(--accent); color:#fff;}
+  .pat-row.hl-conflict{outline:2px solid #eec8c1; outline-offset:-1px; border-radius:8px; background:var(--absent-bg);}
+  .pat-row.hl-unknown{outline:2px solid #ecd9a8; outline-offset:-1px; border-radius:8px; background:var(--inferred-bg);}
+  .pat-row.hl-fit{outline:2px solid #bfdcd1; outline-offset:-1px; border-radius:8px; background:var(--accent-soft);}
+  .paste-area{display:none; margin-top:16px;}
+  .paste-area.open{display:block; animation:fade .2s ease;}
+  .paste-area textarea{width:100%; min-height:140px; font-family:'JetBrains Mono',ui-monospace,Menlo,monospace; font-size:12.5px; padding:12px 14px; border:1px solid var(--line-strong); border-radius:10px; background:var(--surface); color:var(--ink); resize:vertical; line-height:1.5;}
+  .parse-out{margin-top:14px;}
+  .grp-count{font-size:11.5px; color:var(--ink-soft); font-weight:600; background:var(--surface-2); border:1px solid var(--line); padding:4px 10px; border-radius:20px; white-space:nowrap;}
+  .gh input.grp-all{width:15px; height:15px; accent-color:var(--accent); cursor:pointer;}
+  .log-entry{background:var(--surface-2); border:1px solid var(--line); border-radius:10px; padding:12px 16px; margin-top:10px; font-size:13px;}
+  .log-entry .k{font-weight:700;}
+
+  /* ---------- Auth (A1 / A2) ---------- */
+  .toast{z-index:300;}
+  .auth-screen{position:fixed; inset:0; z-index:200; background:var(--accent-ink); display:none; align-items:center; justify-content:center; padding:20px;}
+  .auth-screen.open{display:flex;}
+  .auth-card{display:grid; grid-template-columns:1.05fr 1fr; max-width:920px; width:100%; background:var(--surface); border-radius:18px; overflow:hidden; box-shadow:var(--shadow-lg); min-height:540px;}
+  @media(max-width:760px){.auth-card{grid-template-columns:1fr;} .auth-brand{display:none;}}
+  .auth-brand{background:linear-gradient(160deg,#145243,#1f6f5c); color:#e9f3ee; padding:40px 36px; display:flex; flex-direction:column;}
+  .auth-brand .mark{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#e0a24a,#c0502f);display:grid;place-items:center;font-size:18px; margin-bottom:14px;}
+  .auth-brand h1{font-size:26px; color:#fff; margin-bottom:10px;}
+  .auth-brand p{font-size:13.5px; color:#cfe0d8; line-height:1.6;}
+  .auth-brand ul{list-style:none; margin:18px 0; font-size:12.5px; color:#cfe0d8; display:grid; gap:8px; padding:0;}
+  .auth-brand ul li:before{content:"✓ "; color:#e0a24a; font-weight:700;}
+  .auth-brand .fixture{margin-top:auto; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.14); border-radius:12px; padding:14px 16px; font-size:12.5px;}
+  .auth-brand .fixture b{color:#fff;}
+  .auth-form-wrap{padding:36px 34px; display:flex; flex-direction:column; justify-content:center;}
+  .auth-tabs{display:flex; gap:4px; background:var(--surface-2); border:1px solid var(--line); border-radius:11px; padding:4px; margin-bottom:18px;}
+  .auth-tabs button{flex:1; border:none; background:transparent; cursor:pointer; font-family:'Inter',sans-serif; font-weight:600; font-size:13.5px; padding:9px; border-radius:8px; color:var(--muted);}
+  .auth-tabs button.active{background:var(--accent); color:#fff;}
+  .field{margin-bottom:14px;}
+  .field label{display:block; font-size:11.5px; font-weight:700; color:var(--ink-soft); margin-bottom:6px; text-transform:uppercase; letter-spacing:.05em;}
+  .field input,.field select{width:100%; font-family:'Inter',sans-serif; font-size:14px; padding:10px 12px; border:1px solid var(--line-strong); border-radius:9px; background:var(--surface); color:var(--ink);}
+  .field input:focus,.field select:focus{outline:2px solid var(--accent); outline-offset:1px; border-color:transparent;}
+  .auth-error{font-size:12.5px; color:#b3372e; background:var(--absent-bg); border:1px solid #eec8c1; border-radius:8px; padding:8px 11px; margin-bottom:12px; display:none;}
+  .auth-error.show{display:block;}
+  .auth-save-note{font-size:12.5px; color:var(--terra); background:var(--terra-soft); border:1px solid #f0c9ba; border-radius:8px; padding:8px 11px; margin-bottom:12px;}
+  .auth-divider{display:flex; align-items:center; gap:12px; margin:16px 0 12px; color:var(--muted); font-size:12px;}
+  .auth-divider:before,.auth-divider:after{content:""; flex:1; height:1px; background:var(--line);}
+  .sso-row{display:flex; gap:10px;}
+  .sso{flex:1; justify-content:center; font-size:13px;}
+  .guest-btn{margin-top:16px; width:100%; padding:11px; border:1px dashed var(--line-strong); background:var(--surface-2); border-radius:9px; font-family:'Inter',sans-serif; font-size:13px; font-weight:600; color:var(--ink-soft); cursor:pointer;}
+  .guest-btn:hover{color:var(--accent); border-color:var(--accent);}
+  .auth-foot{margin-top:12px; font-size:11.5px; color:var(--muted); text-align:center;}
+  .guest-banner{display:none; align-items:center; gap:12px; flex-wrap:wrap; background:var(--gold-soft); border:1px solid #ecd9a8; border-radius:12px; padding:12px 18px; margin-bottom:20px; font-size:13.5px; color:#6d4a0a;}
+  .guest-banner.show{display:flex;}
+  .guest-banner b{font-weight:700;}
+  .guest-banner .btn{margin-left:auto;}
+  .account-wrap{position:relative;}
+  .account{cursor:pointer;}
+  .account-menu{position:absolute; right:0; top:calc(100% + 8px); background:var(--surface); border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow-lg); min-width:260px; padding:8px; z-index:120; display:none;}
+  .account-menu.open{display:block; animation:fade .15s ease;}
+  .am-head{padding:8px 10px 10px; border-bottom:1px solid var(--line); margin-bottom:6px;}
+  .am-head b{font-size:14px; display:block;}
+  .am-head div{font-size:12px; color:var(--muted); margin-top:2px;}
+  .am-row{display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; padding:9px 10px; border-radius:8px; font-family:'Inter',sans-serif; font-size:13px; color:var(--ink); background:transparent; border:none; cursor:pointer; text-align:left;}
+  .am-row:hover{background:var(--surface-2);}
+  .am-row select{border:1px solid var(--line-strong); border-radius:7px; padding:5px 8px; font-family:'Inter',sans-serif; font-size:12.5px; background:var(--surface); color:var(--ink);}
+  .am-row.danger{color:var(--terra);}
+  .am-row.danger:hover{background:var(--terra-soft);}
+  .am-sep{height:1px; background:var(--line); margin:6px 4px;}
+
+  /* ---------- New recipe page (B1–B5) ---------- */
+  .nrp-screen{position:fixed; inset:0; z-index:150; background:var(--bg); display:none; flex-direction:column; overflow:hidden;}
+  .nrp-screen.open{display:flex;}
+  .nrp-header{display:flex; align-items:center; gap:14px; padding:16px 26px; background:var(--surface); border-bottom:1px solid var(--line); flex-wrap:wrap;}
+  .nrp-header h2{font-size:20px;}
+  .nrp-header .crumb{font-size:12px; color:var(--muted);}
+  .nrp-header .right{margin-left:auto; display:flex; gap:8px; align-items:center;}
+  .nrp-body{flex:1; overflow-y:auto; padding:24px 26px 60px; max-width:980px; width:100%; margin:0 auto;}
+  .steps{display:flex; gap:8px; margin-bottom:22px; flex-wrap:wrap;}
+  .step{display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600; color:var(--muted); padding:8px 14px; border:1px solid var(--line); border-radius:20px; background:var(--surface);}
+  .step .n{width:20px;height:20px;border-radius:50%;background:var(--surface-2);display:grid;place-items:center;font-size:11px;}
+  .step.active{background:var(--accent); border-color:var(--accent); color:#fff;}
+  .step.active .n{background:rgba(255,255,255,.22);}
+  .step.done{background:var(--accent-soft); border-color:#bfdcd1; color:var(--accent-ink);}
+  .method-tabs{display:flex; gap:6px; margin-bottom:16px; flex-wrap:wrap;}
+  .method-tabs button{border:1px solid var(--line-strong); background:var(--surface); border-radius:9px; padding:9px 16px; font-family:'Inter',sans-serif; font-size:13px; font-weight:600; color:var(--ink-soft); cursor:pointer;}
+  .method-tabs button.active{background:var(--accent); border-color:var(--accent); color:#fff;}
+  .method-panel{display:none; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:20px; margin-bottom:18px;}
+  .method-panel.active{display:block;}
+  .method-panel p{font-size:13.5px; color:var(--ink-soft); margin-bottom:12px;}
+  .method-panel textarea{width:100%; min-height:220px; font-family:'JetBrains Mono',ui-monospace,Menlo,monospace; font-size:12.5px; padding:12px 14px; border:1px solid var(--line-strong); border-radius:10px; resize:vertical; line-height:1.5;}
+  .alias-row{font-size:12px; color:var(--muted); background:var(--accent-soft); border:1px solid #bfdcd1; border-radius:9px; padding:9px 12px; margin-top:12px;}
+  .dropzone{border:2px dashed var(--line-strong); border-radius:12px; padding:34px 20px; text-align:center; color:var(--muted); cursor:pointer; background:var(--surface-2); display:block;}
+  .dropzone:hover{border-color:var(--accent); color:var(--accent);}
+  .dropzone input{display:none;}
+  .nrp-actions{display:flex; gap:10px; justify-content:flex-end; margin-top:12px;}
+  .nrp-step{display:none;}
+  .nrp-step.active{display:block; animation:fade .2s ease;}
+  .nrp-parse{display:grid; gap:6px;}
+  .nrp-row{display:grid; grid-template-columns: 1fr 130px auto; gap:8px; align-items:center; background:var(--surface); border:1px solid var(--line); border-radius:9px; padding:6px 8px;}
+  .nrp-row input{border:1px solid var(--line-strong); border-radius:7px; padding:7px 9px; font-family:'Inter',sans-serif; font-size:13px; width:100%;}
+  .nrp-row .ops{display:flex; gap:4px; justify-content:flex-end;}
+  .nrp-row .ops button{border:1px solid var(--line); background:var(--surface-2); border-radius:7px; min-width:28px; height:28px; cursor:pointer; font-size:12px; color:var(--ink-soft);}
+  .nrp-row .ops button:hover{border-color:var(--accent); color:var(--accent);}
+  .nrp-row.header{background:var(--surface-2); border-style:dashed; opacity:.85;}
+  .nrp-row.low{border-color:#ecd9a8; background:var(--inferred-bg);}
+  .alias-chip{font-size:11px; color:var(--accent); margin-top:3px; font-weight:600;}
+  .low-chip{font-size:10.5px; color:#6d4a0a; margin-top:3px; font-weight:600;}
+  .nrp-hint{font-size:12px; color:var(--muted); margin:10px 2px;}
+  .form-row{display:grid; grid-template-columns: 1fr 110px 130px auto; gap:8px; margin-bottom:8px; align-items:center;}
+  .form-row input,.form-row select{border:1px solid var(--line-strong); border-radius:8px; padding:8px 10px; font-family:'Inter',sans-serif; font-size:13px; width:100%;}
+  .form-row .del{border:1px solid var(--line); background:var(--surface-2); border-radius:7px; width:30px; height:30px; cursor:pointer;}
+  .method-options{display:grid; gap:10px; margin-bottom:14px;}
+  .method-options label{display:flex; gap:10px; align-items:flex-start; font-size:13.5px; background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:12px 14px; cursor:pointer;}
+  .method-options input{margin-top:2px; accent-color:var(--accent);}
+  .nrp-analysing{text-align:center; padding:70px 20px;}
+  .spinner{width:38px;height:38px;border:4px solid var(--line); border-top-color:var(--accent); border-radius:50%; margin:0 auto 18px; animation:spin .8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .nrp-analysing .tiny{font-size:12px; color:var(--muted); margin-top:8px;}
+
+  /* ---------- Production-grade extras (D3-D6, E6, F3-F6, G2, H7, I7) ---------- */
+  .nrp-name-row{margin-bottom:16px;}
+  .nrp-name-row label{display:block; font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-bottom:6px;}
+  .nrp-name-row input{width:100%; max-width:460px; border:1px solid var(--line-strong); border-radius:9px; padding:10px 12px; font-family:'Inter',sans-serif; font-size:14px;}
+  .lib-search{margin:2px 2px 10px;}
+  .lib-search input{width:100%; padding:8px 11px; border:1px solid rgba(255,255,255,.14); border-radius:9px; background:rgba(255,255,255,.07); color:#fff; font-family:'Inter',sans-serif; font-size:12.5px;}
+  .lib-search input::placeholder{color:#8fb3a5;}
+  .lib-tags{display:flex; gap:4px; flex-wrap:wrap; margin-top:6px;}
+  .lib-tag{font-size:10px; background:rgba(255,255,255,.12); color:#cfe0d8; border-radius:6px; padding:1px 6px;}
+  .lib-empty{font-size:12px; color:#9fbfb3; text-align:center; padding:14px 8px; border:1px dashed rgba(255,255,255,.16); border-radius:10px;}
+  .hero-tags{display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-top:12px;}
+  .hero-tag{display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:600; background:var(--accent-soft); color:var(--accent-ink); border:1px solid #bfdcd1; border-radius:20px; padding:3px 10px;}
+  .hero-tag button{background:none; border:none; cursor:pointer; color:var(--accent-ink); font-size:12px; line-height:1; padding:0;}
+  .tag-input{display:flex; gap:6px; margin-top:10px; align-items:center;}
+  .tag-input input{border:1px solid var(--line-strong); border-radius:8px; padding:6px 10px; font-family:'Inter',sans-serif; font-size:12.5px; width:160px;}
+  .snap-pill{font-size:11.5px; font-weight:600; background:var(--gold-soft); color:#8a6417; border:1px solid #ecd9a8; border-radius:20px; padding:4px 11px; display:inline-flex; gap:6px; align-items:center;}
+  .incomplete-banner{display:none; background:var(--inferred-bg); border:1px solid #ecd9a8; color:#6d4a0a; border-radius:12px; padding:14px 16px; margin-bottom:16px; font-size:13.5px;}
+  .incomplete-banner.show{display:block;}
+  .incomplete-banner b{font-weight:700;}
+  .station-notice{display:none; background:var(--inferred-bg); border:1px solid #ecd9a8; color:#6d4a0a; border-radius:12px; padding:16px 18px; font-size:13.5px; margin-bottom:14px;}
+  .station-notice.show{display:block;}
+  .veto-row{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:14px; padding:10px 14px; background:var(--surface-2); border:1px solid var(--line); border-radius:10px; font-size:13px;}
+  .veto-row .reviewers{font-size:11.5px; color:var(--muted);}
+  .veto-tag{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; padding:3px 9px; border-radius:20px;}
+  .veto-tag.active{background:var(--absent-bg); color:#8c2d24; border:1px solid #eec8c1;}
+  .veto-tag.pass{background:var(--accent-soft); color:#145243; border:1px solid #bfdcd1;}
+  .vetoed-sentence{display:none; background:var(--absent-bg); border:1px solid #eec8c1; color:#8c2d24; border-radius:10px; padding:11px 14px; font-size:13px; margin-top:12px;}
+  .vetoed-sentence.show{display:block;}
+  .ver-badge{display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:600; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; padding:4px 9px; color:var(--ink-soft);}
+  .plate-preview{margin-top:8px; max-width:130px; border-radius:8px; border:1px solid var(--line); display:none;}
+  .plate-preview.show{display:block;}
+  .plate-preview img{width:100%; border-radius:8px; display:block;}
+  .applied-swap{display:none; background:var(--accent-soft); border:1px solid #bfdcd1; color:#145243; border-radius:10px; padding:10px 14px; font-size:12.5px; margin-top:12px;}
+  .applied-swap.show{display:block;}
+  .confirm-modal{position:fixed; inset:0; z-index:210; background:rgba(20,30,26,.55); display:none; align-items:center; justify-content:center; padding:20px;}
+  .confirm-modal.open{display:flex;}
+  .confirm-card{background:var(--surface); border-radius:16px; max-width:440px; width:100%; padding:24px; box-shadow:var(--shadow-lg);}
+  .confirm-card h3{font-size:18px; margin-bottom:8px;}
+  .confirm-card p{font-size:13.5px; color:var(--ink-soft); margin-bottom:16px;}
+  .confirm-actions{display:flex; gap:10px; justify-content:flex-end;}
+  .empty-analysis{display:none; text-align:center; padding:60px 20px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow);}
+  .empty-analysis.show{display:block;}
+  .empty-analysis .big{font-size:40px; margin-bottom:10px;}
+  .empty-analysis h2{font-size:20px; margin-bottom:6px;}
+  .empty-analysis p{color:var(--muted); font-size:13.5px; margin-bottom:18px;}
+</style>
+</head>
+<body>
+
+<!-- ================= APP SHELL ================= -->
+<div class="app">
+
+  <!-- ---------- SIDEBAR / LIBRARY ---------- -->
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="mark">◌</span>
+      <div>Recipe Systems<small>recipe analysis · not a generator</small></div>
+    </div>
+
+    <div class="side-nav">
+      <div class="side-label">Workspace</div>
+      <a href="#analysis" class="active" data-nav="analysis">◉ Analysis</a>
+      <a href="#shopping" data-nav="shopping" data-mode="home">◫ Shopping list</a>
+      <a href="#station" data-nav="station" data-mode="chef">▤ Station card</a>
+      <a href="#cooklog" data-nav="cooklog" data-mode="home">✓ Cook log</a>
+      <button class="btn ghost sm" style="width:100%; justify-content:center; margin-top:4px" onclick="newRecipe()">＋ New recipe</button>
+    </div>
+
+    <div id="libraryList">
+      <div class="side-label">Library</div>
+      <div class="lib-search"><input id="libSearch" placeholder="Search name, ingredient, tag… (D3)" oninput="filterLibrary(this.value)"></div>
+      <div id="libItems">
+        <div class="lib-item selected" data-name="Kanyakumari Meen Kuzhambu" data-tags="coastal-tamil fish-curry kumari golden-fixture" onclick="openLibraryRecipe(this)">
+          <div class="t">Kanyakumari Meen Kuzhambu</div>
+          <div class="m">Coastal Tamil fish curry · 28 Aug 2026 · last cooked 30 Aug</div>
+          <div class="lib-tags"><span class="lib-tag">coastal-tamil</span><span class="lib-tag">fish-curry</span><span class="lib-tag">kumari</span></div>
+          <div class="badges">
+            <span class="pill gold">golden fixture</span>
+            <span class="pill lime">cooked · 4★</span>
+          </div>
+        </div>
+        <div class="lib-item" data-name="Inland Tamil Meen Kuzhambu" data-tags="coastal-tamil fish-curry inland gingelly" onclick="openLibraryRecipe(this)">
+          <div class="t">Inland Tamil Meen Kuzhambu</div>
+          <div class="m">Gingelly-oil family · saved draft</div>
+          <div class="lib-tags"><span class="lib-tag">inland</span><span class="lib-tag">gingelly</span></div>
+        </div>
+        <div class="lib-item" data-name="Kerala Kudampuli Meen Curry" data-tags="kerala fish-curry kudampuli" onclick="openLibraryRecipe(this)">
+          <div class="t">Kerala Kudampuli Meen Curry</div>
+          <div class="m">Malabar neighbour · saved draft</div>
+          <div class="lib-tags"><span class="lib-tag">kerala</span><span class="lib-tag">kudampuli</span></div>
+        </div>
+      </div>
+      <div class="lib-empty" id="libEmpty" style="display:none">No recipes match — try another search or create a new recipe (D3).</div>
+      <div style="height:8px"></div>
+      <div class="side-label">Selected recipe</div>
+      <div style="display:flex; gap:6px">
+        <button class="btn ghost sm" style="flex:1; justify-content:center" onclick="editRecipe()">✎ Edit (D4)</button>
+        <button class="btn ghost sm" style="flex:1; justify-content:center; color:var(--terra)" onclick="confirmDelete()">🗑 Delete (D6)</button>
+      </div>
+    </div>
+
+    <div class="sidebar-foot">
+      <div>⚙ Label pack: <b id="sidePack">EU 14</b></div>
+      <div style="margin-top:6px" id="sideAccount">Signed out · A1</div>
+      <div style="margin-top:6px">Golden fixture in CI · G1 ✓</div>
+    </div>
+  </aside>
+
+  <!-- ---------- MAIN ---------- -->
+  <main class="main">
+
+    <div class="guest-banner" id="guestBanner">
+      <span>👤 You're analysing as a <b>guest</b> — you can ingest and see the full analysis (A2). Create an account to keep your recipes.</span>
+      <button class="btn primary sm" onclick="openAuth('signup')">Create account</button>
+      <button class="btn ghost sm" onclick="document.getElementById('guestBanner').classList.remove('show')">Dismiss</button>
+    </div>
+
+    <!-- Top bar -->
+    <div class="topbar">
+      <div class="crumbs">
+        Library / Kanyakumari Meen Kuzhambu · <b>Analysis</b>
+      </div>
+      <div class="topbar-right">
+        <span class="disclaimer-chip">ⓘ This analysis has not been tasted</span>
+        <div class="account-wrap">
+          <div class="account" id="accountChip" onclick="toggleAccountMenu(event)">
+            <span class="av" id="accountAv">G</span>
+            <span id="accountName">Guest</span>
+            <span style="color:var(--muted);font-weight:500;font-size:12px">▾</span>
+          </div>
+          <div class="account-menu" id="accountMenu">
+            <div class="am-head"><b id="amName">Guest</b><div id="amEmail">guest session · A2</div></div>
+            <label class="am-row">Mode preference <select id="amMode"><option value="home">Home</option><option value="chef">Chef</option></select></label>
+            <label class="am-row">Label pack <select id="amPack"><option value="EU">EU 14</option><option value="US">US major 9</option></select></label>
+            <button class="am-row" onclick="goView8()">My restriction profile → View 8</button>
+            <div class="am-sep"></div>
+            <button class="am-row danger" onclick="signOut()">Sign out</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ HERO ============ -->
+    <section class="hero" id="analysis">
+      <div class="hero-top">
+        <div class="card-photo">
+          <div class="stub">
+            <div class="big">📷</div>
+            <div class="cap">Deena’s Kitchen card<br>CDK 1669 · JPEG<br>photo original stored</div>
+          </div>
+        </div>
+        <div class="hero-info">
+          <div class="title-row">
+            <span class="editable" id="recipeTitle">Kanyakumari Meen Kuzhambu</span>
+            <button class="pencil" onclick="renameRecipe()" title="Rename (D1)" style="background:none;border:none;cursor:pointer;color:var(--muted);font-size:15px">✎</button>
+            <span class="claim card">CARD</span>
+            <span class="snap-pill" id="snapPill" style="display:none">◷ analysis v2 · snapshot kept (D5)</span>
+          </div>
+          <div class="family-line">
+            Family: <b id="heroFamily">Coastal Tamil meen kuzhambu</b> · Kanyakumari / Kumari <span class="claim inferred">INFERRED</span> from matched list
+          </div>
+          <div class="source-line">
+            Source: <b>Chef Deena’s Kitchen CDK 1669</b> · Mrs. Anitha, Palma Garden, Kottavilai · method matched &amp; accepted
+          </div>
+          <div class="source-line" id="heroMethodChip"></div>
+          <div class="tag-row">
+            <span class="claim inferred">INFERRED</span> raw-ground coconut paste · triple sour · late fenugreek + pepper · coconut-oil tadka last
+          </div>
+          <div class="hero-tags" id="heroTags"></div>
+          <div class="tag-input">
+            <input id="tagInput" placeholder="add tag (D3)…" onkeydown="if(event.key==='Enter')addTag()">
+            <button class="btn ghost sm" onclick="addTag()">Add tag</button>
+          </div>
+          <div class="conf">
+            <div><div class="k">Ingredients</div><div class="v">High confidence</div></div>
+            <div><div class="k">Method</div><div class="v">Medium-high · INFERRED</div></div>
+            <div><div class="k">Not this</div><div class="v" style="font-size:12px;color:var(--muted)">inland gingelly-oil · Kerala kudampuli · varutharacha</div></div>
+            <div><div class="k">ABSENT on card</div><div class="v" style="font-size:12px;color:var(--muted)">ginger, garlic, coconut milk, kudampuli, sesame oil</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="hero-actions">
+        <button class="btn primary" id="saveBtn">💾 Save</button>
+        <button class="btn ghost" id="reanalyzeBtn" onclick="reanalyze()">↻ Re-analyse</button>
+        <button class="btn ghost" onclick="editRecipe()">✎ Edit (D4)</button>
+        <button class="btn ghost" onclick="printMode('list')">🖨 List</button>
+        <button class="btn ghost" onclick="printMode('station')">🖨 Station</button>
+        <button class="btn ghost" onclick="printMode('onepager')">🖨 One-pager (E6)</button>
+        <button class="btn ghost" style="color:var(--terra)" onclick="confirmDelete()">🗑 Delete (D6)</button>
+        <button class="btn terra sm" onclick="document.getElementById('logForm').classList.toggle('open'); document.getElementById('cooklog').scrollIntoView({behavior:'smooth', block:'start'})">✓ I cooked this</button>
+        <span class="note">Untasted briefing. Season after.</span>
+      </div>
+    </section>
+
+    <!-- ============ MODE SWITCH ============ -->
+    <div class="mode-switch" role="tablist" aria-label="Mode">
+      <button id="modeHome" class="active" onclick="setMode('home')">🏠 Home mode <span style="opacity:.7">explains</span></button>
+      <button id="modeChef" onclick="setMode('chef')">👨‍🍳 Chef mode <span style="opacity:.7">briefs</span></button>
+    </div>
+    <div class="mode-note" id="modeNote">Both modes read the same structured recipe object. Neither may invent an ingredient that is not in that object.</div>
+
+    <div class="empty-analysis" id="emptyAnalysis">
+      <div class="big">🍲</div>
+      <h2>No recipe selected</h2>
+      <p>Your library is empty, or this recipe was deleted (D6). Add a recipe to see the nine views.</p>
+      <button class="btn primary" onclick="newRecipe()">＋ New recipe</button>
+    </div>
+
+    <!-- ==================== HOME PANEL ==================== -->
+    <div class="panel active" id="panel-home">
+
+      <!-- Parse review -->
+      <section class="section">
+        <div class="section-head">
+          <div>
+            <div class="kicker">Intake · parse review · B3</div>
+            <h2>Structured recipe object</h2>
+            <div class="sub">Corrected object is what analysis reads. Every claim wears a tag. Two fenugreeks stay separate. Garlic never appears.</div>
+          </div>
+        </div>
+        <div class="section-body">
+          <div class="parse-grid">
+            <div>
+              <h4 style="font-size:14px; margin-bottom:10px">Ingredients <span class="claim card">CARD</span> · 19 lines</h4>
+              <ul class="ing-list">
+                <li><span class="qty">500 g</span><span class="name">Fish</span><span class="claim unknown">UNKNOWN species</span></li>
+                <li class="split"><span class="qty">2 tsp</span><span class="name">Chilli powder</span><span class="check">✂ split</span></li>
+                <li><span class="qty">1 tsp</span><span class="name">Coriander powder</span></li>
+                <li><span class="qty">¼ tsp</span><span class="name">Cumin seeds</span></li>
+                <li><span class="qty">½ tsp</span><span class="name">Turmeric powder</span></li>
+                <li class="confirm"><span class="qty">½ shell</span><span class="name">Grated coconut — fresh, not “1 cup shredded”</span><span class="check">✓</span></li>
+                <li><span class="qty">lemon-size</span><span class="name">Tamarind — soaked &amp; strained</span></li>
+                <li><span class="qty">½ nos</span><span class="name">Raw mango — wedges</span></li>
+                <li><span class="qty">1 nos</span><span class="name">Drumstick — moringa pod <span style="color:var(--accent)">✓ confirmed</span></span></li>
+                <li><span class="qty">1 nos</span><span class="name">Tomato</span></li>
+                <li><span class="qty">10 nos</span><span class="name">Shallots — whole or halved</span></li>
+                <li><span class="qty">5 nos</span><span class="name">Green chilli — slit</span></li>
+                <li><span class="qty">½ tsp</span><span class="name">Fenugreek powder <span class="claim card">powder in the pot</span></span></li>
+                <li><span class="qty">½ tsp</span><span class="name">Pepper powder — held back</span></li>
+                <li><span class="qty">as req.</span><span class="name">Curry leaves — with stalk</span></li>
+                <li><span class="qty">½ tsp</span><span class="name">Mustard</span></li>
+                <li><span class="qty">¼ tsp</span><span class="name">Fenugreek seeds <span class="claim card">seeds in tadka</span></span></li>
+                <li><span class="qty">for tempering</span><span class="name">Coconut oil</span></li>
+                <li><span class="qty">to taste</span><span class="name">Salt</span></li>
+              </ul>
+              <div class="callout info" style="margin-top:14px">
+                <span class="ct">✓ Wrapped line split (B3)</span>
+                “Chilli Powder — 2 Tsp Coriander Powder” was split into two lines before analysis. Low-confidence OCR lines are flagged, never dropped.
+              </div>
+              <div style="margin-top:14px">
+                <button class="btn ghost sm" onclick="document.getElementById('pasteArea').classList.toggle('open'); this.classList.toggle('active')">＋ Paste a recipe (B1)</button>
+                <div class="paste-area" id="pasteArea">
+                  <p style="font-size:12.5px; color:var(--muted); margin:10px 0 8px">Paste a recipe card — typed, pasted, or photographed. Mixed units and vernacular names accepted. Corrected object is what analysis reads.</p>
+                  <textarea id="pasteInput" spellcheck="false">Fish — 500g
+Tomato — 1 Nos
+Drumstick — 1 Nos
+Mango — 1/2 Nos
+Green Chilli — 5 Nos
+Grated Coconut — Half Shell
+Chilli Powder — 2 Tsp
+Coriander Powder — 1 Tsp
+Cumin Seeds — 1/4 Tsp
+Turmeric Powder — 1/2 Tsp
+Shallots — 10 Nos
+Salt — To Taste
+Tamarind — A Lemon Size
+Fenugreek Powder — 1/2 Tsp
+Pepper Powder — 1/2 Tsp
+Mustard — 1/2 Tsp
+Fenugreek — 1/4 Tsp
+Curry Leaves — As Required
+Coconut Oil — For Tempering</textarea>
+                  <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap">
+                    <button class="btn primary sm" onclick="parsePaste()">Analyse paste</button>
+                    <button class="btn ghost sm" onclick="applyPaste()">Use this parse (B3)</button>
+                  </div>
+                  <div class="parse-out" id="parseOut"></div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <h4 style="font-size:14px; margin-bottom:10px">Method · <span class="claim inferred">INFERRED</span> from CDK 1669 / Mrs. Anitha</h4>
+              <div class="callout info">
+                <span class="ct">Method source accepted</span>
+                No method on the image. A matched family method is tagged <span class="claim inferred">INFERRED</span> with its source named. List-only analysis would render Views 3 and 7 <b>INCOMPLETE</b>.
+              </div>
+              <div class="legend">
+                <span class="claim card">CARD</span>
+                <span class="claim method">METHOD</span>
+                <span class="claim inferred">INFERRED</span>
+                <span class="claim absent">ABSENT</span>
+                <span class="claim unknown">UNKNOWN</span>
+                <span class="claim assumed">ASSUMED</span>
+              </div>
+              <div class="callout warn" style="margin-top:14px">
+                <span class="ct">★ Golden fixture guarantees (G1)</span>
+                Two fenugreek lines present · no ginger / no garlic · family is not “generic Indian curry” · coriander under-reporting recorded in View 2 · chef mode has a station card · no “safe” language · View 9 is a band with sodium Unknown.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Cook's card (home short form, §17) -->
+      <section class="section">
+        <div class="section-head">
+          <div>
+            <div class="kicker">Home-mode short form · §17</div>
+            <h2>Cook’s card</h2>
+            <div class="sub">Five moves, then what you may keep / negotiate / must not “fix”.</div>
+          </div>
+        </div>
+        <div class="section-body">
+          <ol class="seq">
+            <li>Grind raw coconut + dry spices.</li>
+            <li>Season that paste with tamarind and salt.</li>
+            <li>Add fish and veg. Short boil. Do not wreck the fish.</li>
+            <li>Fenugreek powder + pepper at the end.</li>
+            <li>Coconut-oil tadka last. Cover once.</li>
+          </ol>
+          <div class="callout info" style="margin-top:16px">
+            <span class="ct">Keep · Negotiate · Do not “fix”</span>
+            <b>Keep:</b> coconut body, some sour, fenugreek, curry-leaf coconut oil. ·
+            <b>Negotiate:</b> drumstick, tomato, chilli count, fish variety. ·
+            <b>Do not:</b> roast the coconut, or simmer it like mutton.
+          </div>
+        </div>
+      </section>
+
+      <!-- ============ NINE VIEWS ============ -->
+      <section class="section">
+        <div class="section-head">
+          <div>
+            <div class="kicker">Analysis · nine views · home mode</div>
+            <h2>The nine views — worked example</h2>
+            <div class="sub">The views are contracts, not a writing style. Home mode explains.</div>
+          </div>
+        </div>
+        <div class="section-body">
+          <div class="view-tabs" id="viewTabs">
+            <button class="view-tab active" data-v="1">1 · Ingredient-function</button>
+            <button class="view-tab" data-v="2">2 · Taste pillars</button>
+            <button class="view-tab" data-v="3">3 · Process &amp; timing</button>
+            <button class="view-tab" data-v="4">4 · Load-bearing</button>
+            <button class="view-tab" data-v="5">5 · Regional</button>
+            <button class="view-tab" data-v="6">6 · Ratio</button>
+            <button class="view-tab" data-v="7">7 · Sensory &amp; time</button>
+            <button class="view-tab" data-v="8">8 · Dietary</button>
+            <button class="view-tab" data-v="9">9 · Calories &amp; micros</button>
+          </div>
+
+          <!-- VIEW 1 -->
+          <div class="view-panel active" data-v="1">
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Item</th><th>Job</th><th>If omitted</th></tr></thead>
+                <tbody>
+                  <tr><td class="item">Fish 500g</td><td>Protein, fat, reason for the sour</td><td>Not this dish</td></tr>
+                  <tr><td class="item">Coconut, half shell</td><td>Body and fat of the gravy</td><td>Thin tamarind stew</td></tr>
+                  <tr><td class="item">Tamarind, lemon-size</td><td>Deep acid</td><td>Oily and flat unless mango is very sour</td></tr>
+                  <tr><td class="item">Raw mango ½</td><td>Bright acid + edible pieces</td><td>Still a kuzhambu if tamarind is kept</td></tr>
+                  <tr><td class="item">Tomato 1</td><td>Soft acid, some body and umami</td><td>Acceptable</td></tr>
+                  <tr><td class="item">Chilli powder 2 tsp</td><td>Base heat and colour</td><td>Only fresh-chilli heat</td></tr>
+                  <tr><td class="item">Green chilli × 5</td><td>Fresh, grassy heat</td><td>One-dimensional spice</td></tr>
+                  <tr><td class="item">Coriander 1 tsp</td><td>Rounds chilli, adds paste body</td><td>Hotter, thinner masala. Dish still stands</td></tr>
+                  <tr><td class="item">Cumin ¼ tsp</td><td>Minor earth in the paste</td><td>Small loss</td></tr>
+                  <tr><td class="item">Turmeric ½ tsp</td><td>Colour, slight earth</td><td>Visual more than structural</td></tr>
+                  <tr><td class="item">Shallots × 10</td><td>Sweet allium base</td><td>Harsher if replaced by large raw onion</td></tr>
+                  <tr><td class="item">Fenugreek powder ½ tsp</td><td>Bitter-aroma finish; late addition</td><td>Loses the family smell; early addition turns bitter</td></tr>
+                  <tr><td class="item">Pepper ½ tsp</td><td>Late sharp heat</td><td>Heat becomes only chilli</td></tr>
+                  <tr><td class="item">Mustard + fenugreek seed + curry leaf + coconut oil</td><td>Finish aroma</td><td>Cooked but not finished</td></tr>
+                  <tr><td class="item">Drumstick 1</td><td>Texture / seasonal extra</td><td>No structural loss</td></tr>
+                  <tr><td class="item">Salt</td><td>Seasons the poaching liquid</td><td>Fish stays bland inside</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <h4 style="font-size:14px; margin:20px 0 12px">How they sit together</h4>
+            <div class="class-grid">
+              <div class="role-card"><div class="r">Body / richness</div><div class="g">Coconut, shallots, tomato, fish fat</div></div>
+              <div class="role-card"><div class="r">Sour</div><div class="g">Tamarind (deep) + raw mango (bright) + tomato (soft)</div></div>
+              <div class="role-card"><div class="r">Heat</div><div class="g">Chilli powder (steady) + green chilli (fresh) + pepper (sharp, late)</div></div>
+              <div class="role-card"><div class="r">Bitter / fish-curry aroma</div><div class="g">Fenugreek powder + fenugreek seeds</div></div>
+              <div class="role-card"><div class="r">Perfume</div><div class="g">Curry leaves, mustard, coconut oil</div></div>
+              <div class="role-card"><div class="r">Texture extra</div><div class="g">Drumstick pulp</div></div>
+            </div>
+          </div>
+
+          <!-- VIEW 2 -->
+          <div class="view-panel" data-v="2">
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Pillar</th><th>How this recipe gets it</th><th>If missing, the curry tastes…</th></tr></thead>
+                <tbody>
+                  <tr><td class="item">Salt</td><td>Added to the masala before the fish</td><td>Dull, even if spicy</td></tr>
+                  <tr><td class="item">Fat</td><td>Grated coconut + fish oil + finishing coconut oil</td><td>Thin, sharp, “just sour water”</td></tr>
+                  <tr><td class="item">Acid</td><td>Tamarind + raw mango + tomato</td><td>Heavy, oily, flat</td></tr>
+                  <tr><td class="item">Heat</td><td>Chilli powder + green chilli + late pepper</td><td>One-note</td></tr>
+                  <tr><td class="item">Bitter</td><td>Fenugreek powder and seeds</td><td>Generic spicy stew, not this coast</td></tr>
+                  <tr><td class="item">Sweet</td><td>Shallots + coconut + ripe tomato</td><td>Harsh</td></tr>
+                  <tr><td class="item">Aroma</td><td>Curry leaves, mustard pop, coconut oil, late pepper</td><td>Cooked but not finished</td></tr>
+                  <tr><td class="item">Umami</td><td>Fish + tomato</td><td>Less savoury</td></tr>
+                  <tr><td class="item" style="color:var(--terra)">Earth / round / body</td><td style="color:var(--terra)"><b>Coriander</b>, cumin, turmeric, coconut solids</td><td style="color:var(--terra)">Thinner, hotter, less like a masala</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="callout warn" style="margin-top:18px">
+              <span class="ct">Blind spot of this method — required output, not a bug</span>
+              Coriander does not own salt, fat, acid, heat, or bitter. It is a bridge spice (linalool: citrusy-woody; soft sweetness; paste body; chilli buffer). The <b>2 tsp chilli : 1 tsp coriander</b> ratio is structural for the paste. <b>View 2 will under-report it. View 1 will not.</b> That disagreement is required output. Cumin and turmeric have the same problem. Fenugreek does not — it owns bitter.
+            </div>
+          </div>
+
+          <!-- VIEW 3 -->
+          <div class="view-panel" data-v="3">
+            <div class="incomplete-banner"><b>INCOMPLETE</b> — no method and no accepted family match (B4). Views 3 and 7 cannot brief a process. Do not fabricate a tadka.</div>
+            <p style="font-size:14px; color:var(--ink-soft); margin-bottom:18px">This is a <b>raw-ground pot curry</b>. Gravy first. Fish poached in it. Perfume last.</p>
+            <div class="stage"><div class="st">Stage 0 — Before the flame</div>
+              <p>Soak tamarind, squeeze, strain. Liquid sour, not pulp in the pot. Cut fish in steaks that stay whole. Scrape drumstick. Wedge raw mango. Slit chillies. Shallots whole or halved. Grind <b>raw, not roasted</b>: half-shell coconut + chilli powder + coriander + cumin + turmeric + water to a pourable paste. Roasting the coconut here is another dish (<i>varutharacha</i>).</p>
+            </div>
+            <div class="stage"><div class="st">Stage 1 — Build the liquid the fish will live in</div>
+              <p>Earthen pot if you have one (<span class="claim unknown">UNKNOWN</span> whether clay is required; source used it). Paste + tamarind water + salt. The liquid must taste seasoned <i>before</i> the fish goes in.</p>
+            </div>
+            <div class="stage"><div class="st">Stage 2 — Load, then heat <span class="claim inferred">INFERRED</span></div>
+              <p>Order from the matched source: fish, drumstick, green chillies, mango, tomato, shallots. Cover. High heat to a boil, then medium. About 5–6 minutes after the boil — use the <b>cue</b>, not only the clock.</p>
+              <div class="cue">🎯 Cue: fish opaque and just flaking; mango still holding shape; drumstick scrapeable, may stay slightly firm. Fish wins the short cook. Do not stir like dal.</div>
+            </div>
+            <div class="stage"><div class="st">Stage 3 — Late powders</div>
+              <p>Fenugreek powder ½ tsp and pepper ½ tsp when the fish is just done. Off or barely on heat. Early fenugreek goes bitter. Late fenugreek keeps aroma.</p>
+            </div>
+            <div class="stage" style="border-color:var(--terra)"><div class="st" style="color:var(--terra)">Stage 4 — Tadka last</div>
+              <p>Hot coconut oil. Mustard until it pops. Fenugreek seeds only to first colour — seconds. Curry leaves with stalk. Pour over. Lid on one minute.</p>
+            </div>
+            <h4 style="font-size:14px; margin:8px 0 12px">If you shuffle the steps</h4>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>If you…</th><th>What happens</th></tr></thead>
+                <tbody>
+                  <tr><td>Roast the coconut and spices</td><td>Different dish: darker, nuttier</td></tr>
+                  <tr><td>Start with tadka, then build gravy</td><td>Aroma is boiled off</td></tr>
+                  <tr><td>Add fenugreek powder with the paste</td><td>Bitterness throughout</td></tr>
+                  <tr><td>Cook drumstick 10 minutes, then add fish</td><td>Fish overcooks</td></tr>
+                  <tr><td>Stir the fish hard</td><td>Pieces break; gravy turns muddy</td></tr>
+                  <tr><td>Skip the cover after tadka</td><td>Top-note oil does not settle</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- VIEW 4 -->
+          <div class="view-panel" data-v="4">
+            <div class="class-grid">
+              <div class="class-card structural">
+                <div class="ch">Structural</div>
+                <ul>
+                  <li>Fish</li>
+                  <li>Coconut body</li>
+                  <li>At least one real sour</li>
+                  <li>Fenugreek in some form</li>
+                  <li>Coconut-oil leaf tadka</li>
+                  <li>Salt in the liquid</li>
+                </ul>
+                <div style="font-size:12px; color:#8c2d24; margin-top:8px"><b>Touch it and →</b> different dish or a broken one</div>
+              </div>
+              <div class="class-card modular">
+                <div class="ch">Modular</div>
+                <ul>
+                  <li>Drumstick</li>
+                  <li>Tomato</li>
+                  <li>Chilli count</li>
+                  <li>Pepper vs more chilli</li>
+                  <li>Shallot count</li>
+                </ul>
+                <div style="font-size:12px; color:#145243; margin-top:8px"><b>Touch it and →</b> same family</div>
+              </div>
+              <div class="class-card shift">
+                <div class="ch">Identity shift</div>
+                <ul>
+                  <li>Gingelly oil</li>
+                  <li>Kudampuli</li>
+                  <li>Roasted coconut</li>
+                  <li>Coconut milk boiled hard</li>
+                  <li>Large onion uncooked</li>
+                </ul>
+                <div style="font-size:12px; color:#6d4a0a; margin-top:8px"><b>Touch it and →</b> walks to another coast or recipe</div>
+              </div>
+            </div>
+            <h4 style="font-size:14px; margin:22px 0 10px">Useful swaps — click to preview (C7)</h4>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Swap</th><th>Result</th></tr></thead>
+                <tbody>
+                  <tr class="swap-row" data-class="modular"><td>No raw mango → more tamarind, or lime at the end</td><td>Loses fruit pieces. Dried raw mango is the traditional off-season stand-in; <b>amchur is not</b>.</td></tr>
+                  <tr class="swap-row" data-class="modular"><td>No tamarind, mango only</td><td>Seasonal version the source kitchen described. Needs a sour green mango.</td></tr>
+                  <tr class="swap-row" data-class="shift"><td>Kudampuli instead of tamarind</td><td>Kerala <i>meen curry</i>.</td></tr>
+                  <tr class="swap-row" data-class="shift"><td>Coconut milk instead of grated coconut</td><td>Silkier Malabar cousin. Add milk after the sour base boils. Keep heat gentle.</td></tr>
+                  <tr class="swap-row" data-class="modular"><td>Big onion instead of shallots</td><td>Edible, harsher, more water.</td></tr>
+                  <tr class="swap-row" data-class="shift"><td>Gingelly oil instead of coconut oil</td><td>Inland Tamil kuzhambu.</td></tr>
+                  <tr class="swap-row" data-class="structural"><td>No fenugreek</td><td>Still sour-coconut-hot. Will not smell like this family.</td></tr>
+                  <tr class="swap-row" data-class="shift"><td>Vegetarian</td><td>Brinjal or drumstick + mango in the same gravy. Architecture kept. Reason for fenugreek mostly lost.</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div id="swapNote" style="font-size:13px; color:var(--muted); margin-top:12px">Click a swap to preview its class. States structural / modular / identity-shift. Does not invent a new recipe (C7).</div>
+            <div class="callout info" style="margin-top:16px">
+              <span class="ct">Substitution rule</span>
+              Ask: which <i>job</i> did this do, and does the substitute do that job in the <i>same time slot</i>? Lime can replace mango’s acid, not its flesh, and must go in late.
+            </div>
+          </div>
+
+          <!-- VIEW 5 -->
+          <div class="view-panel" data-v="5">
+            <p style="font-size:14px; color:var(--ink-soft); margin-bottom:16px">Kanyakumari sits on the Tamil–Kerala line.</p>
+            <div class="map-row">
+              <div class="hd label">·</div><div class="hd">This card</div><div class="hd">Inland Tamil meen kuzhambu</div><div class="hd">Kerala meen curry</div>
+              <div class="label">Fat</div><div>Coconut paste + coconut oil</div><div>Often gingelly oil, less coconut</div><div>Coconut oil, sometimes coconut milk</div>
+              <div class="label">Sour</div><div>Tamarind + mango + tomato</div><div>Mostly tamarind</div><div>Often kudampuli</div>
+              <div class="label">Veg</div><div>Drumstick + mango</div><div>Usually none</div><div>Sometimes mango or drumstick</div>
+              <div class="label">Fenugreek</div><div>Powder late + seeds in tadka</div><div>Usually seeds in tadka</div><div>Usually seeds in tadka</div>
+              <div class="label">Onion</div><div>Shallots</div><div>Shallots or onion</div><div>Shallots</div>
+            </div>
+            <div class="callout info" style="margin-top:18px">
+              <span class="ct">How the border moves</span>
+              Keep tamarind + tomato + raw coconut paste + coconut oil → <b>Kumari / south Tamil coast</b>. ·
+              Swap kudampuli for tamarind → <b>Kerala meen curry</b>. ·
+              Swap gingelly oil and drop the coconut paste → <b>inland Tamil kuzhambu</b>. ·
+              Roast the coconut → <b>varutharacha</b>.
+            </div>
+            <div class="disclaimer">View 5 may use a map. It may not use a postcard (“soul of the coast”). Regional veto (G2) applies: a live regional sentence can be blocked by the TN / Kerala reviewers.</div>
+            <div class="veto-row">
+              <span style="font-weight:700">Regional veto (G2)</span>
+              <span class="reviewers">Reviewers: 1× Tamil Nadu / Kanyakumari · 1× Kerala · fish-curry cluster</span>
+              <button class="btn ghost sm" onclick="setVeto(false)">Allow</button>
+              <button class="btn terra sm" onclick="setVeto(true)">Block live sentence</button>
+              <span class="veto-tag pass" id="vetoStatus">passing</span>
+            </div>
+            <div class="vetoed-sentence" id="vetoedSentence">
+              <b>Vetoed by regional reviewer (G2).</b> “Kanyakumari sits on the Tamil–Kerala line” is blocked pending review. The comparison table remains; the live claim does not ship until allowed.
+            </div>
+          </div>
+
+          <!-- VIEW 6 -->
+          <div class="view-panel" data-v="6">
+            <p style="font-size:14px; color:var(--ink-soft)">Per 500g fish <span class="claim card">CARD</span>:</p>
+            <ul class="do-not" style="grid-template-columns:1fr; background:none; margin-top:14px">
+              <li style="color:var(--ink-soft); background:var(--surface-2); border-color:var(--line)"><b>Coconut:</b> half a nut. Do not halve this if you keep 500g fish.</li>
+              <li style="color:var(--ink-soft); background:var(--surface-2); border-color:var(--line)"><b>Chilli powder : coriander = 2 tsp : 1 tsp.</b> Structural for the paste.</li>
+              <li style="color:var(--ink-soft); background:var(--surface-2); border-color:var(--line)"><b>Fenugreek powder ½ tsp is a ceiling.</b></li>
+              <li style="color:var(--ink-soft); background:var(--surface-2); border-color:var(--line)"><b>Fenugreek seed ¼ tsp is a ceiling.</b></li>
+              <li style="color:var(--ink-soft); background:var(--surface-2); border-color:var(--line)"><b>Green chilli × 5 is aggressive;</b> cut here before cutting powder if you need less fire.</li>
+              <li style="color:var(--ink-soft); background:var(--surface-2); border-color:var(--line)"><b>Water:</b> <span class="claim unknown">UNKNOWN</span>. Target: pieces three-quarters submerged; gravy coats rice; not soup, not paste.</li>
+              <li style="color:var(--ink-soft); background:var(--surface-2); border-color:var(--line)"><b>10 shallots is a base, not a garnish.</b></li>
+            </ul>
+            <div class="callout warn" style="margin-top:16px">
+              <span class="ct">If you double…</span>
+              Double the fish and keep half a coconut → thin stew. Keep the coconut and double the fenugreek → medicine.
+            </div>
+          </div>
+
+          <!-- VIEW 7 -->
+          <div class="view-panel" data-v="7">
+            <div class="incomplete-banner"><b>INCOMPLETE</b> — no method and no accepted family match (B4). Sensory and time cannot be briefed for a list-only card.</div>
+            <h4 style="font-size:14px; margin-bottom:10px">In the spoon</h4>
+            <p style="font-size:14px; color:var(--ink-soft); background:var(--surface-2); border:1px solid var(--line); border-radius:10px; padding:12px 16px">
+              Flake of fish, sour mango, scrape of drumstick, slight grain from raw-ground coconut, crisp curry leaf from the tadka.
+            </p>
+            <div class="callout danger" style="margin-top:16px">
+              <span class="ct">Hot hold — poor</span>
+              Fish keeps cooking and weeps. Aroma flattens. Cook to order, or hold off heat and reheat once gently.
+            </div>
+            <div class="callout info" style="margin-top:12px">
+              <span class="ct">Next day</span>
+              Gravy binds; sour settles. That is gravy improvement, not fish improvement. Cool fast. Reheat once to just hot.
+            </div>
+          </div>
+
+          <!-- VIEW 8 -->
+          <div class="view-panel" data-v="8">
+            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px">
+              <span class="ver-badge">🗂 Allergen map v1.2 · EU 14 + US major 9 (H7)</span>
+              <span class="ver-badge">mapping change = reviewed data change · never prompt text</span>
+              <span class="ver-badge">label pack: <b id="v8Pack">EU 14</b></span>
+            </div>
+            <div class="callout danger">
+              <span class="ct">Flag view — not a medical certificate</span>
+              Never write <b>safe</b>. Write <b>present / not on card / unknown / removing this is a different recipe</b>. Two label packs render together. Mustard is EU/UK 14 and not a US major 9. Coconut is declared by name; as of FDA Edition 5 (January 2025) it is <b>not</b> a US major tree-nut allergen. Fenugreek is a legume with possible peanut cross-reactivity; not statutory on either list.
+            </div>
+            <h4 style="font-size:14px; margin:18px 0 10px">On this card</h4>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Item</th><th>Status</th><th>Notes</th></tr></thead>
+                <tbody>
+                  <tr><td class="item">Fish</td><td><span class="claim card">Present (US + EU)</span></td><td>Species <span class="claim unknown">UNKNOWN</span></td></tr>
+                  <tr><td class="item">Mustard seeds</td><td><span class="claim card">Present (EU 14)</span></td><td>Tadka only. Modular to omit. Still flag</td></tr>
+                  <tr><td class="item">Coconut flesh + oil</td><td><span class="claim card">Declared ingredient</span></td><td>Not US major tree nut. Still coconut</td></tr>
+                  <tr><td class="item">Fenugreek seed + powder</td><td><span class="claim method">Note</span></td><td>Legume. Not statutory</td></tr>
+                  <tr><td class="item">Milk, egg, wheat, soy, peanut, sesame, shellfish, celery, lupin, sulphites</td><td><span class="claim absent">Not on card</span></td><td>Mill / shared equipment still <span class="claim unknown">UNKNOWN</span></td></tr>
+                  <tr><td class="item">Garlic / ginger</td><td><span class="claim absent">Absent</span></td><td>Do not invent</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <h4 style="font-size:14px; margin:18px 0 10px">Pattern compatibility <span style="color:var(--muted);font-weight:500;font-size:12px">Fits card / Conflicts / Unknown — never Safe</span></h4>
+            <div class="profile-chips" id="profileChips">
+              <span style="font-size:12px; color:var(--muted); font-weight:600">My profile (H1/H3):</span>
+              <button class="pchip" data-row="vegetarian">Vegetarian</button>
+              <button class="pchip" data-row="vegetarian">Vegan</button>
+              <button class="pchip" data-row="pescatarian">Pescatarian</button>
+              <button class="pchip" data-row="dairyfree">Dairy-free</button>
+              <button class="pchip" data-row="dairyfree">Egg-free</button>
+              <button class="pchip" data-row="dairyfree">Shellfish-free</button>
+              <button class="pchip" data-row="glutenfree">Gluten-free</button>
+              <button class="pchip" data-row="nutfree">Nut-free</button>
+              <button class="pchip" data-row="alliumfree">Allium-free</button>
+              <button class="pchip" data-row="nightshade">Nightshade-free</button>
+              <button class="btn ghost sm" onclick="clearProfile()">Clear</button>
+            </div>
+            <div id="profileNote" style="font-size:13px; color:var(--muted); margin:10px 0"></div>
+            <div>
+              <div class="pat-row" data-row="vegetarian"><div class="pat-name">Vegetarian / vegan</div><div class="pat-status conflict">Conflicts</div><div>Fish is structural</div></div>
+              <div class="pat-row" data-row="pescatarian"><div class="pat-name">Pescatarian</div><div class="pat-status fit">Fits the card</div><div>Kitchen contact unknown</div></div>
+              <div class="pat-row" data-row="dairyfree"><div class="pat-name">Dairy-free / egg-free / shellfish-free</div><div class="pat-status fit">Fits the card</div><div>—</div></div>
+              <div class="pat-row" data-row="glutenfree"><div class="pat-name">Gluten-free</div><div class="pat-status unknown">Unknown</div><div>Spice powders</div></div>
+              <div class="pat-row" data-row="nutfree"><div class="pat-name">Nut-free</div><div class="pat-status unknown">Unknown</div><div>No named tree nuts. Coconut is still here</div></div>
+              <div class="pat-row" data-row="halal"><div class="pat-name">Halal</div><div class="pat-status fit">Fits generally</div><div>Fish generally accepted; species unknown</div></div>
+              <div class="pat-row" data-row="kosher"><div class="pat-name">Kosher</div><div class="pat-status unknown">Unknown</div><div>Needs fins-and-scales species</div></div>
+              <div class="pat-row" data-row="alliumfree"><div class="pat-name">Allium-free</div><div class="pat-status conflict">Conflicts</div><div>10 shallots</div></div>
+              <div class="pat-row" data-row="nightshade"><div class="pat-name">Nightshade-free</div><div class="pat-status conflict">Conflicts</div><div>Tomato, chilli</div></div>
+            </div>
+            <h4 style="font-size:14px; margin:18px 0 10px">Adaptation cost</h4>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Change</th><th>Cost</th></tr></thead>
+                <tbody>
+                  <tr><td>No fish or no coconut</td><td><b>Identity shift.</b> Not this dish.</td></tr>
+                  <tr><td>No mustard seeds</td><td><b>Modular.</b> Keep oil + curry leaves.</td></tr>
+                  <tr><td>Fewer green chillies</td><td><b>Modular.</b></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="allergen-line" style="margin-top:16px">
+              <b>Print line:</b> Contains: <b>fish</b>, <b>mustard</b>. Also on card: <b>coconut</b>, <b>fenugreek (legume)</b>. Fish species unknown. Reads the card only. Not an allergen certificate.
+            </div>
+            <div class="disclaimer"><b>Disclaimer (every surface):</b> Reads the card only. Does not test food. Does not know your kitchen. Not medical advice.</div>
+          </div>
+
+          <!-- VIEW 9 -->
+          <div class="view-panel" data-v="9">
+            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px">
+              <span class="ver-badge">🗂 Food composition: USDA FoodData Central v6 (I7)</span>
+              <span class="ver-badge">mapped lines only — unmapped lines excluded from totals &amp; listed</span>
+            </div>
+            <div class="callout info">
+              <span class="ct">Estimate view</span>
+              Versioned food-composition table (USDA FoodData Central or equivalent), not model-invented arithmetic. <b>Bands, not points</b>, when inputs are ranges. A point value such as <s>487 kcal</s> on this fixture is a fail.
+            </div>
+            <h4 style="font-size:14px; margin:18px 0 10px">Assumptions <span class="claim assumed">ASSUMED, not CARD</span></h4>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Input</th><th>Card says</th><th>Default band</th></tr></thead>
+                <tbody>
+                  <tr><td class="item">Fish 500g</td><td>Species unknown</td><td>Lean snapper-type ~100 kcal/100g → oily mackerel-type ~200 kcal/100g</td></tr>
+                  <tr><td class="item">Coconut</td><td>Half shell</td><td>150–200 g edible grated meat (not “1 cup shredded” = 80 g)</td></tr>
+                  <tr><td class="item">Coconut oil</td><td>For tempering</td><td>1–2 tbsp (14–28 g)</td></tr>
+                  <tr><td class="item">Portions</td><td>Not stated</td><td>No per-bowl number until the user sets 3 or 4</td></tr>
+                  <tr><td class="item">Salt</td><td>To taste</td><td>Sodium <span class="claim unknown">Unknown</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <h4 style="font-size:14px; margin:18px 0 10px">Edit assumptions — live recompute (I2) <span class="claim assumed">ASSUMED</span></h4>
+            <div class="knob-row">
+              <div class="knob">
+                <label>Fish energy density</label>
+                <input type="range" id="density" min="100" max="200" step="5" value="100" oninput="updateNutrition()">
+                <div class="val"><span id="densityVal">100</span> kcal / 100 g · lean snapper → oily mackerel</div>
+              </div>
+              <div class="knob">
+                <label>Grated coconut</label>
+                <input type="range" id="coconutG" min="100" max="250" step="5" value="175" oninput="updateNutrition()">
+                <div class="val"><span id="coconutGVal">175</span> g edible meat</div>
+              </div>
+              <div class="knob">
+                <label>Tadka coconut oil</label>
+                <input type="range" id="oilTbsp" min="1" max="3" step="0.5" value="2" oninput="updateNutrition()">
+                <div class="val"><span id="oilTbspVal">2</span> tbsp (14 g each)</div>
+              </div>
+              <div class="knob">
+                <label>Portions (I3)</label>
+                <div style="display:flex; gap:6px; flex-wrap:wrap" id="portionsRow">
+                  <button class="pchip" data-p="2">2</button>
+                  <button class="pchip" data-p="3">3</button>
+                  <button class="pchip active" data-p="4">4</button>
+                  <button class="pchip" data-p="0">—</button>
+                </div>
+                <div class="val">per-bowl band only when portions are set</div>
+              </div>
+            </div>
+            <div class="live-result">
+              <div class="result-cell"><div class="k">Whole-pot energy</div><div class="v" id="rEnergy">—</div><div class="s">still a band, not a point</div></div>
+              <div class="result-cell"><div class="k">Protein</div><div class="v" id="rProtein">—</div><div class="s">almost all from fish</div></div>
+              <div class="result-cell"><div class="k">Per bowl</div><div class="v" id="rBowl">—</div><div class="s" id="rBowlS">set portions</div></div>
+              <div class="result-cell"><div class="k">Sodium</div><div class="v" style="font-size:14px" id="rSodium">Unknown</div><div class="s">not a certificate</div></div>
+            </div>
+            <div class="callout warn" style="margin-top:14px">
+              <span class="ct">Tighten the band (I4)</span> Name the fish, weigh the coconut, measure the tadka oil, set portions. Those three energy levers (fish class, coconut mass, oil) are most of the ~900 kcal swing.
+            </div>
+            <h4 style="font-size:14px; margin:18px 0 10px">Whole-pot band</h4>
+            <div class="band-row">
+              <div class="hd label">·</div><div class="hd">Lean-fish end</div><div class="hd">Oily-fish end</div>
+              <div class="label">Energy</div><div><b>~1,300 kcal</b></div><div><b>~2,200 kcal</b></div>
+              <div class="label">Protein</div><div>~95–110 g</div><div>~90–110 g</div>
+              <div class="label">Fat</div><div>Coconut-led</div><div>Coconut + fish oil</div>
+              <div class="label">Carbohydrate</div><div>Modest</div><div>Modest</div>
+              <div class="label">Fibre</div><div colspan="2">Coconut + drumstick + shallot</div>
+              <div class="label">Sodium</div><div colspan="2"><span class="claim unknown">Unknown</span></div>
+            </div>
+            <p style="font-size:13px; color:var(--muted); margin-top:10px">If the user sets 4 portions: ~330–550 kcal per bowl. Still a band.</p>
+            <h4 style="font-size:14px; margin:18px 0 10px">Short micronutrient panel</h4>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Nutrient</th><th>Reading</th><th>Confidence</th></tr></thead>
+                <tbody>
+                  <tr><td class="item">Protein</td><td>High. Almost all from 500g fish</td><td>High</td></tr>
+                  <tr><td class="item">Saturated fat</td><td>High. Coconut meat ~30 g sat fat / 100 g</td><td>High</td></tr>
+                  <tr><td class="item">Vitamin C</td><td>Mango, tomato, chilli, drumstick. Raw drumstick pods are very high in C; boiling cuts that. Do not plate raw-pod 141 mg/100g</td><td>Medium</td></tr>
+                  <tr><td class="item">Potassium</td><td>Drumstick, coconut, tomato, tamarind</td><td>Medium</td></tr>
+                  <tr><td class="item">B12, selenium</td><td>Fish. Depends on species</td><td>Low until named</td></tr>
+                  <tr><td class="item">Omega-3</td><td>Unknown until the fish is named</td><td><span class="claim unknown">Unknown</span></td></tr>
+                  <tr><td class="item">Sodium</td><td>Unknown</td><td><span class="claim unknown">Unknown</span></td></tr>
+                  <tr><td class="item">Manganese / copper</td><td>Coconut</td><td>Medium</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="callout warn" style="margin-top:16px">
+              <span class="ct">What tightens the band</span>
+              Name the fish, weigh the coconut, measure the tadka oil, set portions. Those three energy levers (fish class, coconut mass, oil) are most of the 900 kcal swing.
+            </div>
+            <div class="disclaimer"><b>Disclaimer:</b> Table estimate from stated assumptions. Not a lab analysis of this pot. Not medical advice.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Last cook notes on reopen (F6) -->
+      <section class="section" id="cooklog">
+        <div class="section-head">
+          <div>
+            <div class="kicker">After-cook capture · F1–F6</div>
+            <h2>Cook log</h2>
+            <div class="sub">Date default today · 1–5 rating + free text · private · shown above the analysis on reopen.</div>
+          </div>
+        </div>
+        <div class="section-body">
+          <div class="last-cook">
+            <span class="k">Last cooked:</span> Sunday 30 Aug 2026 · <span class="stars" style="font-size:16px">★★★★<span style="opacity:.35">★</span></span> 4/5 ·
+            <span class="k">Next time:</span> “2 green chillies, fenugreek powder off heat.” <span class="claim method">COOK LOG</span> — not CARD.
+            <div style="margin-top:8px; font-size:12.5px; color:#7a5a14">Garlic is still absent. Shopping list still reflects the saved card unless a swap was applied.</div>
+          </div>
+          <div id="logEntries"></div>
+          <div class="log-form" id="logForm">
+            <div class="log-row"><label>Date</label><input type="date" value="2026-09-01"></div>
+            <div class="log-row"><label>Rating</label>
+              <div class="stars" data-stars><span class="on">★</span><span class="on">★</span><span class="on">★</span><span class="on">★</span><span>★</span></div>
+            </div>
+            <div class="log-row"><label>Notes</label><textarea rows="2" placeholder="Fish held. Five green chillies are too many."></textarea></div>
+            <div class="log-row"><label>What I actually used</label>
+              <select id="logSwap"><option>No changes</option><option>Skipped an ingredient</option><option>Reduced an ingredient</option><option>Increased an ingredient</option><option>Swapped an ingredient</option></select>
+            </div>
+            <div class="log-row"><label>Restriction-driven (H5)</label>
+              <input type="checkbox" id="logRestriction" style="width:auto; transform:scale(1.25); accent-color:var(--terra)"> <span style="font-size:12.5px; color:var(--muted)">e.g. guest avoids allium — does not rewrite the card</span>
+            </div>
+            <div class="log-row"><label>Plate photo (F5)</label>
+              <input type="file" id="logPlate" accept="image/*" onchange="platePreview(this)" style="min-width:0; flex:0 1 auto">
+              <img id="logPlateImg" class="plate-preview" alt="plate">
+            </div>
+            <div class="log-row"><label>Next time</label><input type="text" placeholder="2 green chillies, fenugreek powder off heat."></div>
+            <div class="log-row" style="justify-content:flex-end"><button class="btn primary sm" id="saveLog">Save cook log</button> <button class="btn ghost sm" onclick="document.getElementById('logForm').classList.remove('open')">Cancel</button></div>
+          </div>
+          <p style="font-size:12.5px; color:var(--muted); margin-top:12px">A recorded swap does not rewrite the card unless you apply it. Previous analyses are snapshotted; cook notes are never silently overwritten.</p>
+        </div>
+      </section>
+
+      <!-- Shopping list -->
+      <section class="section" id="shopping">
+        <div class="section-head">
+          <div>
+            <div class="kicker">Shopping list · E1–E4 · print is first-class</div>
+            <h2>Shopping list</h2>
+            <div class="sub">Generated from the structured object, not from prose. One row per ingredient. “To taste” and “for tempering” stay visible. Two fenugreek rows. No headers.</div>
+          </div>
+          <div class="right"><span class="grp-count" id="shopCount">0 of 19 have</span> <button class="btn ghost sm" onclick="printMode('list')">🖨 Print list</button></div>
+        </div>
+        <div class="section-body">
+          <div class="shop-groups">
+            <div class="shop-group">
+              <div class="gh"><input type="checkbox" class="grp-all" onchange="toggleGroup(this)" title="Mark whole group as have"> Fresh produce <span class="n">7</span></div>
+              <label class="shop-item"><input type="checkbox" class="have"><span class="name">Tomato</span><span class="q">1</span></label>
+              <label class="shop-item"><input type="checkbox" class="have"><span class="name">Drumstick (moringa)</span><span class="q">1</span></label>
+              <label class="shop-item"><input type="checkbox" class="have"><span class="name">Raw mango (unripe, sour)</span><span class="q">½</span></label>
+              <label class="shop-item"><input type="checkbox" class="have"><span class="name">Green chilli</span><span class="q">5</span></label>
+              <label class="shop-item"><input type="checkbox" class="have"><span class="name">Shallots</span><span class="q">10</span></label>
+              <label class="shop-item"><input type="checkbox" class="have"><span class="name">Curry leaves, with stalk</span><span class="q">as req.</span></label>
+              <label class="shop-item"><input type="checkbox" class="have"><span class="name">Tamarind</span><span class="q">lemon-size</span></label>
+            </div>
+            <div class="shop-group">
+              <div class="gh"><input type="checkbox" class="grp-all" onchange="toggleGroup(this)" title="Mark whole group as have"> Fish &amp; meat <span class="n">1</span></div>
+              <label class="shop-item"><input type="checkbox" class="have"><span class="name">Fish (snapper-type, steaks) — species unknown</span><span class="q">500 g</span></label>
+            </div>
+            <div class="shop-group">
+              <div class="gh"><input type="checkbox" class="grp-all" onchange="toggleGroup(this)" title="Mark whole group as have"> Spices &amp; seasonings <span class="n">9</span></div>
+              <label class="shop-item"><input type="checkbox" class="have"><span class="name">Chilli powder</span><span class="q">2 tsp</span></label>
+              <label class="shop-item"><input type="checkbox" class="have"><span class="name">Coriander powder</span><span class="q">1 tsp</span></label>
+              <label class="shop-item"><input type="checkbox" class="have"><span class="name">Cumin seeds</span><span class="q">¼ tsp</span></label>
+              <label class="shop-item"><input type="checkbox" class="have"><span class="name">Turmeric powder</span><span class="q">½ tsp</span></label>
+              <label class="shop-item fenugreek"><input type="checkbox" class="have"><span class="name">Fenugreek powder <span class="claim card">pot</span></span><span class="q">½ tsp</span></label>
+              <label class="shop-item fenugreek"><input type="checkbox" class="have"><span class="name">Fenugreek seeds <span class="claim card">tadka</span></span><span class="q">¼ tsp</span></label>
+              <label class="shop-item"><input type="checkbox" class="have"><span class="name">Pepper powder</span><span class="q">½ tsp</span></label>
+              <label class="shop-item"><input type="checkbox" class="have"><span class="name">Mustard</span><span class="q">½ tsp</span></label>
+              <label class="shop-item"><input type="checkbox" class="have"><span class="name">Salt</span><span class="q">to taste</span></label>
+            </div>
+            <div class="shop-group">
+              <div class="gh"><input type="checkbox" class="grp-all" onchange="toggleGroup(this)" title="Mark whole group as have"> Fats &amp; oils <span class="n">1</span></div>
+              <label class="shop-item"><input type="checkbox" class="have"><span class="name">Coconut oil</span><span class="q">for tempering</span></label>
+            </div>
+            <div class="shop-group">
+              <div class="gh"><input type="checkbox" class="grp-all" onchange="toggleGroup(this)" title="Mark whole group as have"> Other <span class="n">1</span></div>
+              <label class="shop-item"><input type="checkbox" class="have"><span class="name">Fresh coconut (grated, half shell)</span><span class="q">150–200 g</span></label>
+            </div>
+          </div>
+          <div class="allergen-line">
+            <b>Allergen line:</b> Contains: <b>fish</b>, <b>mustard</b>. Also on card: <b>coconut</b>, <b>fenugreek (legume)</b>. Fish species unknown. Reads the card only. Not an allergen certificate.
+          </div>
+          <div class="applied-swap" id="appliedSwap"><b>Applied swap (F3/H5):</b> a swap from your cook log is noted here but does not rewrite the card. The shopping list still reflects the saved card unless you apply it.</div>
+          <div class="disclaimer">Print: black text, recipe name, date, grouped rows, checkboxes. One A4/Letter page for this card. No account chrome.</div>
+        </div>
+      </section>
+
+    </div><!-- /home panel -->
+
+    <!-- ==================== CHEF PANEL ==================== -->
+    <div class="panel" id="panel-chef">
+
+      <section class="section">
+        <div class="section-head">
+          <div>
+            <div class="kicker">Chef mode · briefing · §7–8</div>
+            <h2>Chef briefing — not a fancier essay</h2>
+            <div class="sub">Short sentences. Technical words over poetic ones. Doneness and heat over clock time. No “secret”, “magic”, “authentic soul”. The system is not a chef — it writes “this card states” / “this method infers.”</div>
+          </div>
+        </div>
+        <div class="section-body">
+          <div class="callout info">
+            <span class="ct">Job</span> Get a trained cook from card to pot without folklore and without invented mise. ·
+            <b>Non-job:</b> Delight, nutrition coaching, certifying taste.
+          </div>
+        </div>
+      </section>
+
+      <!-- Station card -->
+      <section class="section" id="station">
+        <div class="section-head">
+          <div>
+            <div class="kicker">C5 · E5 · printable at arm’s length</div>
+            <h2>Station card</h2>
+            <div class="sub">Mise · sequence · do-nots · control points. <b>INFERRED</b> from CDK 1669 / Mrs. Anitha.</div>
+          </div>
+          <div class="right"><button class="btn ghost sm" onclick="printMode('station')">🖨 Print station card</button></div>
+        </div>
+        <div class="section-body">
+          <div class="station-notice" id="stationNotGenerated"><b>Station card not generated (C5).</b> No method exists and no family method was accepted — this is a list-only card (B4). Views 3 and 7 render INCOMPLETE. Do not fabricate a tadka.</div>
+          <div class="station">
+            <div class="station-head">
+              <div>
+                <h3>Kanyakumari Meen Kuzhambu</h3>
+                <div class="tagline">For: 500g fish <span class="claim card" style="background:#fff;color:var(--accent)">CARD</span> · Pot: heavy or earthen, pieces in one layer · Clay <span class="claim unknown" style="background:#fff;color:var(--unknown)">UNKNOWN</span></div>
+              </div>
+            </div>
+            <div class="station-body">
+              <h4>Mise <span class="src">all CARD unless tagged</span></h4>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Item</th><th>Prep</th></tr></thead>
+                  <tbody>
+                    <tr><td>Tamarind, lemon-size</td><td>Soaked, strained <span class="claim card">CARD</span></td></tr>
+                    <tr><td>Paste: half-shell fresh grated coconut + 2 tsp chilli powder + 1 tsp coriander + ¼ tsp cumin + ½ tsp turmeric + water to pourable</td><td><span class="claim card">CARD</span> / water volume <span class="claim unknown">UNKNOWN</span></td></tr>
+                    <tr><td>Fish 500g, steaks</td><td><span class="claim card">CARD</span>; species <span class="claim unknown">UNKNOWN</span> (source kitchen used local snapper / <i>sankara</i>-type)</td></tr>
+                    <tr><td>Drumstick × 1, scraped, 5–7 cm</td><td><span class="claim card">CARD</span></td></tr>
+                    <tr><td>Raw mango × ½, wedges</td><td><span class="claim card">CARD</span></td></tr>
+                    <tr><td>Tomato × 1, chunks</td><td><span class="claim card">CARD</span></td></tr>
+                    <tr><td>Shallots × 10, whole or halved</td><td><span class="claim card">CARD</span></td></tr>
+                    <tr><td>Green chilli × 5, slit</td><td><span class="claim card">CARD</span></td></tr>
+                    <tr><td>Fenugreek powder ½ tsp, pepper ½ tsp — held back</td><td><span class="claim card">CARD</span></td></tr>
+                    <tr><td>Tadka: coconut oil, mustard ½ tsp, fenugreek seeds ¼ tsp, curry leaves with stalk</td><td><span class="claim card">CARD</span></td></tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <h4>Sequence <span class="src">INFERRED from CDK 1669 / Mrs. Anitha</span></h4>
+              <ol class="seq">
+                <li>Paste + tamarind water + salt. Taste the liquid.</li>
+                <li>Fish, then drumstick, chilli, mango, tomato, shallots. Cover.</li>
+                <li>Boil on high, then medium. Do not stew.</li>
+                <li>Stop when fish is just set.</li>
+                <li>Fenugreek powder + pepper. Off heat.</li>
+                <li>Tadka in a second pan. Pour over. Lid 1 minute.</li>
+              </ol>
+
+              <h4>Do not</h4>
+              <ul class="do-not">
+                <li>Roast the coconut</li>
+                <li>Start with tadka</li>
+                <li>Add fenugreek powder to the raw paste</li>
+                <li>Boil after the powders</li>
+                <li>Stir the fish hard</li>
+              </ul>
+
+              <h4>Control points</h4>
+              <ol class="seq" style="counter-reset:seq">
+                <li><b>Paste is raw.</b> Roast it and you have another dish.</li>
+                <li><b>Fish doneness vs drumstick.</b> Short cook. Fish wins.</li>
+                <li><b>Fenugreek twice, two times.</b> Powder at the end or it goes bitter. Seeds in oil only until they smell.</li>
+              </ol>
+
+              <h4>Product / yield / hold</h4>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Field</th><th>Status</th></tr></thead>
+                  <tbody>
+                    <tr><td class="item">Fish</td><td>Firm, steak-able. Species UNKNOWN</td></tr>
+                    <tr><td class="item">Coconut</td><td>Freshly grated. Desiccated fails the paste</td></tr>
+                    <tr><td class="item">Mango</td><td>Unripe, sour</td></tr>
+                    <tr><td class="item">Oil</td><td>Coconut oil <span class="claim card">CARD</span>. Volume <span class="claim unknown">UNKNOWN</span></td></tr>
+                    <tr><td class="item">Yield</td><td><span class="claim unknown">UNKNOWN</span>. 500g fish typically 3–4 with rice</td></tr>
+                    <tr><td class="item">Hot hold</td><td>Poor</td></tr>
+                    <tr><td class="item">Next day</td><td>Gravy binds; fish texture suffers if it sat at a boil</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="callout warn" id="stationNextTime" style="margin-top:14px; display:none">
+                <span class="ct">Next time <span class="claim method">COOK LOG</span> — not CARD</span>
+                <span id="stationNextTimeText">—</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Compressed nine views (chef) -->
+      <section class="section">
+        <div class="section-head">
+          <div>
+            <div class="kicker">Compressed nine views · chef mode</div>
+            <h2>Nine views — diagnostic brief</h2>
+            <div class="sub">Chef mode briefs. Missing columns are called out. UNKNOWN fields stay blank.</div>
+          </div>
+        </div>
+        <div class="section-body">
+          <div class="view-tabs" id="chefViewTabs">
+            <button class="view-tab active" data-v="1">1 · Function</button>
+            <button class="view-tab" data-v="2">2 · Pillars</button>
+            <button class="view-tab" data-v="3">3 · Process</button>
+            <button class="view-tab" data-v="4">4 · Load-bearing</button>
+            <button class="view-tab" data-v="5">5 · Regional</button>
+            <button class="view-tab" data-v="6">6 · Ratio</button>
+            <button class="view-tab" data-v="7">7 · Sensory</button>
+            <button class="view-tab" data-v="8">8 · Dietary</button>
+            <button class="view-tab" data-v="9">9 · Nutrition</button>
+          </div>
+
+          <div class="view-panel active" data-v="1">
+            <div class="callout info"><span class="ct">Function</span>Job + failure if omitted. View 1’s table above is chef-ready: coriander owns paste body and chilli-buffer; the two fenugreeks are two times of one idea.</div>
+          </div>
+          <div class="view-panel" data-v="2">
+            <div class="callout warn"><span class="ct">Pillars — diagnostic only</span>Missing column called out: <b>earth / round / body</b> is owned by coriander, cumin, turmeric, coconut solids. View 2 under-reports coriander; View 1 does not. That disagreement is required output.</div>
+          </div>
+          <div class="view-panel" data-v="3">
+            <div class="incomplete-banner" style="margin-bottom:12px"><b>INCOMPLETE</b> — no method (B4).</div>
+            <div class="callout info"><span class="ct">Process</span>Sequence, heat, cue, failure. Gravy first, fish poached, perfume last. Cue over clock: fish opaque and just flaking. Late fenugreek + pepper off heat. Tadka last, lid 1 minute.</div>
+          </div>
+          <div class="view-panel" data-v="4">
+            <div class="callout info"><span class="ct">Load-bearing</span>Structural: fish, coconut body, one real sour, fenugreek, coconut-oil leaf tadka, salt in the liquid. Modular: drumstick, tomato, chilli count, pepper vs chilli, shallot count. Identity shift: gingelly oil, kudampuli, roasted coconut, coconut milk boiled hard, uncooked large onion.</div>
+          </div>
+          <div class="view-panel" data-v="5">
+            <div class="callout info"><span class="ct">Regional</span>Neighbour dishes and the swap that moves the border: kudampuli → Kerala; gingelly oil → inland Tamil; roasted coconut → varutharacha. Regional veto active (G2).</div>
+          </div>
+          <div class="view-panel" data-v="6">
+            <div class="callout info"><span class="ct">Ratio</span>Working ratios against 500g fish: half a coconut (do not halve), 2:1 chilli:coriander, fenugreek powder ½ tsp ceiling, seed ¼ tsp ceiling, ×5 green chilli aggressive, 10 shallots is a base.</div>
+          </div>
+          <div class="view-panel" data-v="7">
+            <div class="incomplete-banner" style="margin-bottom:12px"><b>INCOMPLETE</b> — no method (B4).</div>
+            <div class="callout info"><span class="ct">Sensory</span>Texture stack: flake of fish, sour mango, drumstick scrape, raw-ground grain, crisp leaf. Hold physics: hot hold poor (fish weeps); next day gravy binds, cool fast, reheat once.</div>
+          </div>
+          <div class="view-panel" data-v="8">
+            <div class="callout danger"><span class="ct">Allergen brief + cannot-guarantee list</span>Contains fish, mustard (EU 14). Also coconut, fenugreek (legume). No “safe”. Mill / shared equipment UNKNOWN. Garlic / ginger absent — do not invent.</div>
+          </div>
+          <div class="view-panel" data-v="9">
+            <div class="callout info"><span class="ct">Nutrition</span>Assumption log + bands: 1,300–2,200 kcal per pot, sodium UNKNOWN, no point-kcal. Tighteners: name the fish, weigh the coconut, measure the oil, set portions.</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Open questions -->
+      <section class="section">
+        <div class="section-head">
+          <div>
+            <div class="kicker">Chef mode · required blanks</div>
+            <h2>Open questions</h2>
+            <div class="sub">Leave blank rather than invent: fish species and cut; coconut freshness; pot material; yield; hold time; exact water; oil volume; salt mass.</div>
+          </div>
+        </div>
+        <div class="section-body">
+          <ul class="ing-list">
+            <li><span class="name">Which fish?</span><span class="claim unknown">UNKNOWN</span></li>
+            <li><span class="name">How much water?</span><span class="claim unknown">UNKNOWN</span></li>
+            <li><span class="name">How much oil?</span><span class="claim unknown">UNKNOWN</span></li>
+            <li><span class="name">Fresh vs frozen coconut?</span><span class="claim unknown">UNKNOWN</span></li>
+            <li><span class="name">Must the pot be clay?</span><span class="claim unknown">UNKNOWN</span></li>
+            <li><span class="name">How sour is today’s mango?</span><span class="claim unknown">UNKNOWN</span></li>
+          </ul>
+          <div class="callout danger" style="margin-top:14px">
+            <span class="ct">Refusal</span> No method + no identified family → Views 3 and 7 render <b>INCOMPLETE</b>. Photo of ingredients only → method INFERRED if a sourced match exists, else missing. Requests to certify taste → refused.
+          </div>
+          <p style="font-size:14px; font-weight:600; color:var(--terra); margin-top:16px">Untasted briefing. Season after.</p>
+        </div>
+      </section>
+
+    </div><!-- /chef panel -->
+
+    <!-- ============ FOOTER / DISCLAIMERS ============ -->
+    <footer class="foot">
+      <div class="prod-line">This analysis has not been tasted. Treat it as a briefing, then season.</div>
+      <div><b>View 8 disclaimer (every surface):</b> Reads the card only. Does not test food. Does not know your kitchen. Not medical advice.</div>
+      <div style="margin-top:6px"><b>View 9 disclaimer:</b> Table estimate from stated assumptions. Not a lab analysis of this pot. Not medical advice.</div>
+      <div style="margin-top:6px">Product: a recipe that can be entered, understood, saved, shopped, cooked, and corrected — without inventing a single shallot that was not on the card.</div>
+    </footer>
+
+  </main>
+
+</div><!-- /app -->
+
+  <!-- ============ PRINT: SHOPPING LIST ============ -->
+  <div class="print-area print-list">
+    <div class="print-sheet">
+      <h1>Kanyakumari Meen Kuzhambu — Shopping list</h1>
+      <div class="meta">Generated 01 Sep 2026 · from the structured object, not prose · Family: Coastal Tamil meen kuzhambu (INFERRED)</div>
+      <div class="print-group"><h3>Fish &amp; meat</h3>
+        <div class="checkline"><span>Fish (snapper-type, steaks) — species UNKNOWN</span><span>500 g</span></div>
+      </div>
+      <div class="print-group"><h3>Fresh produce</h3>
+        <div class="checkline"><span>Tomato</span><span>1</span></div>
+        <div class="checkline"><span>Drumstick (moringa)</span><span>1</span></div>
+        <div class="checkline"><span>Raw mango (unripe, sour)</span><span>½</span></div>
+        <div class="checkline"><span>Green chilli</span><span>5</span></div>
+        <div class="checkline"><span>Shallots</span><span>10</span></div>
+        <div class="checkline"><span>Curry leaves, with stalk</span><span>as required</span></div>
+        <div class="checkline"><span>Tamarind</span><span>lemon-size</span></div>
+      </div>
+      <div class="print-group"><h3>Spices &amp; seasonings</h3>
+        <div class="checkline"><span>Chilli powder</span><span>2 tsp</span></div>
+        <div class="checkline"><span>Coriander powder</span><span>1 tsp</span></div>
+        <div class="checkline"><span>Cumin seeds</span><span>¼ tsp</span></div>
+        <div class="checkline"><span>Turmeric powder</span><span>½ tsp</span></div>
+        <div class="checkline"><span>Fenugreek powder (pot)</span><span>½ tsp</span></div>
+        <div class="checkline"><span>Fenugreek seeds (tadka)</span><span>¼ tsp</span></div>
+        <div class="checkline"><span>Pepper powder</span><span>½ tsp</span></div>
+        <div class="checkline"><span>Mustard</span><span>½ tsp</span></div>
+        <div class="checkline"><span>Salt</span><span>to taste</span></div>
+      </div>
+      <div class="print-group"><h3>Fats &amp; oils</h3>
+        <div class="checkline"><span>Coconut oil</span><span>for tempering</span></div>
+      </div>
+      <div class="print-group"><h3>Other</h3>
+        <div class="checkline"><span>Fresh coconut (grated, half shell)</span><span>150–200 g</span></div>
+      </div>
+      <div class="allergen"><b>Contains:</b> fish, mustard. Also on card: coconut, fenugreek (legume). Fish species unknown. Reads the card only. Not an allergen certificate.</div>
+      <div class="untasted">This analysis has not been tasted. Treat it as a briefing, then season.</div>
+    </div>
+  </div>
+
+  <!-- ============ PRINT: STATION CARD ============ -->
+  <div class="print-area print-station">
+    <div class="print-sheet">
+      <h1>Kanyakumari Meen Kuzhambu — Station card</h1>
+      <div class="meta">For: 500g fish (CARD) · Pot: heavy or earthen, pieces in one layer (clay UNKNOWN) · Method INFERRED from CDK 1669 / Mrs. Anitha</div>
+      <h3>Mise</h3>
+      <table>
+        <tr><th>Item</th><th>Prep</th></tr>
+        <tr><td>Tamarind, lemon-size</td><td>Soaked, strained (CARD)</td></tr>
+        <tr><td>Paste: half-shell fresh coconut + 2 tsp chilli + 1 tsp coriander + ¼ tsp cumin + ½ tsp turmeric + water to pourable</td><td>CARD / water UNKNOWN</td></tr>
+        <tr><td>Fish 500g, steaks</td><td>CARD; species UNKNOWN (snapper / sankara-type)</td></tr>
+        <tr><td>Drumstick × 1, scraped, 5–7 cm</td><td>CARD</td></tr>
+        <tr><td>Raw mango × ½, wedges</td><td>CARD</td></tr>
+        <tr><td>Tomato × 1, chunks</td><td>CARD</td></tr>
+        <tr><td>Shallots × 10, whole or halved</td><td>CARD</td></tr>
+        <tr><td>Green chilli × 5, slit</td><td>CARD</td></tr>
+        <tr><td>Fenugreek powder ½ tsp + pepper ½ tsp — held back</td><td>CARD</td></tr>
+        <tr><td>Tadka: coconut oil, mustard ½ tsp, fenugreek seeds ¼ tsp, curry leaves with stalk</td><td>CARD</td></tr>
+      </table>
+      <h3>Sequence (INFERRED)</h3>
+      <ol>
+        <li>Paste + tamarind water + salt. Taste the liquid.</li>
+        <li>Fish, then drumstick, chilli, mango, tomato, shallots. Cover.</li>
+        <li>Boil on high, then medium. Do not stew.</li>
+        <li>Stop when fish is just set.</li>
+        <li>Fenugreek powder + pepper. Off heat.</li>
+        <li>Tadka in a second pan. Pour over. Lid 1 minute.</li>
+      </ol>
+      <h3>Do not</h3>
+      <p>Roast the coconut · start with tadka · add fenugreek powder to the raw paste · boil after the powders · stir the fish hard.</p>
+      <h3>Control points</h3>
+      <ol>
+        <li>Paste is raw. Roast it and you have another dish.</li>
+        <li>Fish doneness vs drumstick. Short cook. Fish wins.</li>
+        <li>Fenugreek twice, two times. Powder at the end or it goes bitter. Seeds in oil only until they smell.</li>
+      </ol>
+      <div class="allergen"><b>Contains:</b> fish, mustard. Also on card: coconut, fenugreek (legume). Fish species unknown. Reads the card only. Not an allergen certificate.</div>
+      <div class="print-note" id="printNextTime" style="display:none; border:1px solid #999; border-radius:8px; padding:9px 12px; font-size:12px; margin-top:14px;"><b>Next time (COOK LOG):</b> <span id="printNextTimeText">—</span></div>
+      <div class="untasted">Untasted briefing. Season after. · This analysis has not been tasted. Treat it as a briefing, then season.</div>
+    </div>
+  </div>
+
+  <!-- ============ PRINT: HOME-MODE ONE-PAGER (E6) ============ -->
+  <div class="print-area print-onepager">
+    <div class="print-sheet">
+      <h1>Kanyakumari Meen Kuzhambu — home one-pager (E6)</h1>
+      <div class="meta">Family: Coastal Tamil meen kuzhambu (INFERRED) · 28 Aug 2026 · not a legal nutrition label</div>
+      <h3>Keep</h3>
+      <div>coconut body · some sour · fenugreek · curry-leaf coconut oil</div>
+      <h3>Negotiate</h3>
+      <div>drumstick · tomato · chilli count · fish variety</div>
+      <h3>Do not “fix”</h3>
+      <div>roast the coconut · simmer it like mutton</div>
+      <h3>Ingredients</h3>
+      <div id="opIngredients"></div>
+      <h3>Energy band (optional, I5)</h3>
+      <div>~1,300–2,200 kcal for the pot · sodium UNKNOWN · per-bowl only when portions are set</div>
+      <div class="allergen"><b>Contains:</b> fish, mustard. Also on card: coconut, fenugreek (legume). Fish species unknown. Reads the card only. Not an allergen certificate.</div>
+      <div class="untasted">This analysis has not been tasted. Treat it as a briefing, then season.</div>
+    </div>
+  </div>
+
+<div class="nrp-screen" id="newRecipePage">
+  <div class="nrp-header">
+    <div>
+      <div class="crumb">Library / <b>New recipe</b></div>
+      <h2 style="margin-top:2px" id="nrpHeaderTitle">New recipe</h2>
+    </div>
+    <div class="right">
+      <span class="claim inferred" id="nrpEditBadge" style="display:none">editing saved recipe (D4)</span>
+      <span class="claim method">B1 · B2 · B3 · B4 · B5 · B6</span>
+      <button class="btn ghost sm" onclick="closeNewRecipe()">✕ Close</button>
+    </div>
+  </div>
+  <div class="nrp-body">
+    <div class="steps">
+      <div class="step active"><span class="n">1</span> Intake</div>
+      <div class="step"><span class="n">2</span> Review parse</div>
+      <div class="step"><span class="n">3</span> Method</div>
+      <div class="step"><span class="n">4</span> Analyse</div>
+    </div>
+
+    <!-- Step 1 — Intake -->
+    <div class="nrp-step active" id="nrpStep1">
+      <div class="nrp-name-row">
+        <label>Recipe name <span class="claim unknown">editable · default = family (D1)</span></label>
+        <input id="nrpName" value="Kanyakumari Meen Kuzhambu" placeholder="Name this recipe">
+      </div>
+      <div class="method-tabs">
+        <button class="active" data-method="paste">📋 Paste (B1)</button>
+        <button data-method="photo">📷 Photo (B2)</button>
+        <button data-method="form">📝 Form (B5)</button>
+      </div>
+      <div class="method-panel paste active" data-method="paste">
+        <p>Paste a recipe card. Mixed units, “to taste”, “as required” and vernacular names accepted. Two fenugreek lines stay separate. No garlic invented.</p>
+        <textarea id="nrpPaste" spellcheck="false" placeholder="Fish — 500g&#10;Tomato — 1 Nos&#10;…"></textarea>
+        <div class="alias-row"><b>Vernacular aliases (B6):</b> drumstick / murungakkai / moringa · shallots / chinna vengayam / cheriya ulli · fenugreek / methi / uluva / vendhayam · tamarind / puli · curry leaves / karuveppilai.</div>
+      </div>
+      <div class="method-panel photo" data-method="photo">
+        <p>Photograph a recipe card — JPEG/PNG from phone or desktop. The OCR draft is visible before analysis (B2); low-confidence lines are flagged, not dropped.</p>
+        <label class="dropzone" id="nrpDrop">
+          <div style="font-size:15px">📷 Drop a recipe-card photo here or click to browse</div>
+          <div style="font-size:12px; margin-top:6px">Simulated in the mockup with the golden card OCR</div>
+          <input type="file" id="nrpFile" accept="image/*">
+        </label>
+        <div id="nrpOcr"></div>
+      </div>
+      <div class="method-panel form" data-method="form">
+        <p>Structured form — produces the same object as paste and photo (B5). Units include tsp, tbsp, g, kg, nos, to taste, as required, lemon size, half shell.</p>
+        <div id="nrpFormRows"></div>
+        <button class="btn ghost sm" onclick="addFormRow()">＋ Add ingredient</button>
+      </div>
+      <div class="nrp-actions">
+        <button class="btn primary" onclick="goStep(2)">Review parse →</button>
+      </div>
+    </div>
+
+    <!-- Step 2 — Review parse -->
+    <div class="nrp-step" id="nrpStep2">
+      <p style="font-size:13.5px; color:var(--ink-soft); margin-bottom:12px">Correct the parse before analysis (B3). Edit inline, <b>split</b> the wrapped chilli/coriander line, <b>mark</b> non-ingredient headers, <b>merge</b> or <b>delete</b> lines. The corrected object is what analysis reads.</p>
+      <div class="nrp-parse" id="nrpParseList"></div>
+      <div class="nrp-actions">
+        <button class="btn ghost" onclick="goStep(1)">← Intake</button>
+        <button class="btn primary" onclick="goStep(3)">Method →</button>
+      </div>
+    </div>
+
+    <!-- Step 3 — Method -->
+    <div class="nrp-step" id="nrpStep3">
+      <p style="font-size:13.5px; color:var(--ink-soft); margin-bottom:12px">Method is optional (B4). Absent method → analyse list-only (Views 3 &amp; 7 render <b>INCOMPLETE</b>), or accept a matched family method tagged <span class="claim inferred">INFERRED</span> with the source named.</p>
+      <div class="method-options">
+        <label><input type="radio" name="method" value="none" checked> No method on the card — analyse list-only</label>
+        <label><input type="radio" name="method" value="paste"> Paste a method (typed or attached)</label>
+        <label><input type="radio" name="method" value="inferred"> Accept matched family method — <span class="claim inferred">INFERRED</span> from CDK 1669 / Mrs. Anitha</label>
+      </div>
+      <textarea id="nrpMethodText" style="display:none" placeholder="Paste the method here…" rows="5"></textarea>
+      <div class="nrp-actions">
+        <button class="btn ghost" onclick="goStep(2)">← Review parse</button>
+        <button class="btn primary" onclick="analyseNewRecipe()">Analyse →</button>
+      </div>
+    </div>
+
+    <!-- Step 4 — Analysing -->
+    <div class="nrp-step" id="nrpStep4">
+      <div class="nrp-analysing">
+        <div class="spinner"></div>
+        <p style="font-weight:600">Analysing across nine views…</p>
+        <p class="tiny">identification · function · taste pillars · process · load-bearing · regional · ratio · sensory · dietary · nutrition</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="auth-screen" id="authScreen">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <span class="mark">◌</span>
+      <h1>Recipe Systems</h1>
+      <p>A recipe analysis product, not a generator. Enter a recipe — typed, pasted, or photographed — and get a structured briefing across nine fixed views.</p>
+      <ul>
+        <li>The nine views are the product — contracts, not a writing style</li>
+        <li>Home mode explains · Chef mode briefs</li>
+        <li>No invented ingredients. Ever.</li>
+        <li>Shopping list &amp; station card print first-class</li>
+      </ul>
+      <div class="fixture">Golden fixture: <b>Kanyakumari meen kuzhambu</b> — CDK 1669 / Mrs. Anitha, Palma Garden, Kottavilai.</div>
+    </div>
+    <div class="auth-form-wrap">
+      <div class="auth-tabs">
+        <button id="authTabLogin" class="active" onclick="authTab('login')">Sign in</button>
+        <button id="authTabSignup" onclick="authTab('signup')">Create account</button>
+      </div>
+      <div class="auth-save-note" id="authSaveNote" style="display:none">You're signed out — sign in to save this recipe (A1). Your recipe is ready to claim.</div>
+      <form id="authForm" novalidate>
+        <div class="field" id="fieldName" style="display:none">
+          <label for="authName">Name</label>
+          <input id="authName" type="text" placeholder="Priya" autocomplete="name">
+        </div>
+        <div class="field">
+          <label for="authEmail">Email</label>
+          <input id="authEmail" type="email" placeholder="you@example.com" autocomplete="email">
+        </div>
+        <div class="field">
+          <label for="authPassword">Password</label>
+          <input id="authPassword" type="password" placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <div class="field" id="fieldPack" style="display:none">
+          <label for="authPack">Allergen label pack</label>
+          <select id="authPack"><option value="EU">EU 14</option><option value="US">US major 9</option></select>
+        </div>
+        <div class="auth-error" id="authError"></div>
+        <button class="btn primary" type="submit" id="authSubmit" style="width:100%; justify-content:center">Sign in</button>
+      </form>
+      <div class="auth-divider"><span>or continue with SSO</span></div>
+      <div class="sso-row">
+        <button class="btn ghost sso" onclick="sso('Google')">G&nbsp; Google</button>
+        <button class="btn ghost sso" onclick="sso('GitHub')">⌥&nbsp; GitHub</button>
+      </div>
+      <button class="guest-btn" onclick="continueAsGuest()">Continue as guest — analyse one card first (A2)</button>
+      <p class="auth-foot">Mockup auth. Guest saves migrate onto a new account (A2). Label pack saved on the account (H1).</p>
+    </div>
+  </div>
+</div>
+
+<div class="confirm-modal" id="confirmModal">
+  <div class="confirm-card">
+    <h3>Delete this recipe? (D6)</h3>
+    <p>Removes the photo, structured object, analyses, shopping lists, and cook logs for <b id="confirmName">Kanyakumari Meen Kuzhambu</b>. No public residue.</p>
+    <div class="confirm-actions">
+      <button class="btn ghost" onclick="closeConfirm()">Cancel</button>
+      <button class="btn terra" onclick="doDelete()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ---------- Mode toggle ----------
+  function setMode(m){
+    document.getElementById('panel-home').classList.toggle('active', m==='home');
+    document.getElementById('panel-chef').classList.toggle('active', m==='chef');
+    document.getElementById('modeHome').classList.toggle('active', m==='home');
+    document.getElementById('modeChef').classList.toggle('active', m==='chef');
+    document.getElementById('modeNote').textContent = m==='home'
+      ? 'Home mode explains. Both modes read the same structured recipe object. Neither may invent an ingredient that is not in that object.'
+      : 'Chef mode briefs: identification, station card, control points, product/yield/hold, compressed nine views, open questions. Untasted briefing. Season after.';
+    if(typeof accountPref!=='undefined' && accountPref){ accountPref.mode=m; persist(); }
+  }
+
+  // ---------- View tabs (generic, binds both tab groups) ----------
+  document.querySelectorAll('.view-tabs').forEach(group=>{
+    group.querySelectorAll('.view-tab').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        group.querySelectorAll('.view-tab').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        const panels = group.parentElement.querySelectorAll('.view-panel');
+        panels.forEach(p=>p.classList.toggle('active', p.dataset.v===btn.dataset.v));
+      });
+    });
+  });
+
+  // ---------- Shopping list: tick "have" + live counters (E2) ----------
+  document.querySelectorAll('.shop-item input.have').forEach(cb=>{
+    cb.addEventListener('change', ()=>{ cb.closest('.shop-item').classList.toggle('have', cb.checked); updateShop(); });
+  });
+
+  // ---------- Star rating ----------
+  document.querySelectorAll('.stars[data-stars]').forEach(row=>{
+    row.querySelectorAll('span').forEach((s,i)=>{
+      s.addEventListener('click', ()=>{
+        row.querySelectorAll('span').forEach((x,j)=> x.classList.toggle('on', j<=i));
+      });
+    });
+  });
+
+  // ---------- Print modes ----------
+  let printTarget='';
+  function printMode(which){
+    if(which==='list') syncPrintList();
+    if(which==='onepager') syncOnePager();
+    printTarget=which;
+    if(window.matchMedia && window.matchMedia('print').addEventListener){
+      window.print();            // beforeprint adds the body class; afterprint removes it
+    } else {
+      document.body.classList.add('print-'+which);
+      window.print();
+      document.body.classList.remove('print-list','print-station','print-onepager');
+    }
+  }
+  window.addEventListener('beforeprint', ()=>{ if(printTarget){ document.body.classList.remove('print-list','print-station','print-onepager'); document.body.classList.add('print-'+printTarget); } });
+  window.addEventListener('afterprint', ()=>{ document.body.classList.remove('print-list','print-station','print-onepager'); printTarget=''; });
+  if(window.matchMedia){ window.matchMedia('print').addEventListener('change', m=>{ if(!m.matches) document.body.classList.remove('print-list','print-station','print-onepager'); }); }
+
+  // ---------- Toast ----------
+  function toast(msg){
+    const t=document.getElementById('toast');
+    t.textContent=msg; t.classList.add('show');
+    clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),2600);
+  }
+
+  // ---------- Save (D1) + Re-analyse (C6/D5) ----------
+  document.getElementById('saveBtn').addEventListener('click', ()=>{
+    if(authState!=='user'){ pendingSave=true; openAuth('login','save'); return; }
+    toast('Saved to library (D1). Default name is the family — editable.');
+  });
+  function reanalyze(){
+    const b=document.getElementById('reanalyzeBtn');
+    const old=b.innerHTML; b.disabled=true; b.innerHTML='↻ Re-analysing…';
+    setTimeout(()=>{
+      b.disabled=false; b.innerHTML=old;
+      analysisState.snapshots++;
+      applyAnalysisState();
+      toast('Re-analysed. Previous analysis snapshotted (D5). Cook notes preserved — nothing silently overwritten.');
+    },900);
+  }
+
+  // ---------- Paste a recipe (B1/B2) ----------
+  function escapeHtml(s){ return s.replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function parsePaste(){
+    const raw=document.getElementById('pasteInput').value;
+    const lines=raw.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+    const out=document.getElementById('parseOut');
+    if(!lines.length){ out.innerHTML='<div class="callout danger"><span class="ct">Empty paste</span>Nothing to parse.</div>'; return; }
+    const lis=lines.map(l=>{
+      const m=l.match(/^(.*?)\s*(?:—|-|:)\s*(.*)$/);
+      if(m) return '<li><span class="qty">'+escapeHtml(m[2].trim())+'</span><span class="name">'+escapeHtml(m[1].trim())+'</span></li>';
+      return '<li style="background:var(--inferred-bg)"><span class="name">'+escapeHtml(l)+'</span><span class="claim inferred">low-confidence → flagged, not dropped</span></li>';
+    }).join('');
+    out.innerHTML='<p style="font-size:12.5px; color:var(--muted); margin-bottom:8px">Paste/OCR draft visible before analysis (B2). '+lines.length+' lines · mixed units &amp; vernacular names accepted · two fenugreek lines kept separate · no garlic invented.</p><ul class="ing-list">'+lis+'</ul>';
+  }
+  function applyPaste(){ toast('Parse accepted. Corrected object is what analysis reads (B3).'); }
+
+  // ---------- View 4 substitution preview (C7) ----------
+  document.querySelectorAll('.swap-row').forEach(row=>{
+    row.addEventListener('click', ()=>{
+      document.querySelectorAll('.swap-row').forEach(r=>{ r.classList.remove('selected'); r.querySelectorAll('.result-chip').forEach(c=>c.remove()); });
+      row.classList.add('selected');
+      const cls=row.dataset['class'];
+      const label={structural:'Structural · different dish or a broken one', modular:'Modular · same family', shift:'Identity shift · another coast or recipe'}[cls];
+      const chip=document.createElement('span');
+      chip.className='result-chip '+cls; chip.textContent=label;
+      row.cells[1].appendChild(chip);
+      document.getElementById('swapNote').innerHTML='<b style="color:var(--ink)">'+label+'</b> — the swap states its class and does not invent a new recipe (C7).';
+    });
+  });
+
+  // ---------- View 8 dietary profile (H1/H3) ----------
+  function updateProfile(){
+    const active=[...document.querySelectorAll('#profileChips .pchip.active')].map(b=>b.dataset.row);
+    const rows=[...document.querySelectorAll('.pat-row')];
+    rows.forEach(r=> r.classList.remove('hl-conflict','hl-unknown','hl-fit'));
+    const note=document.getElementById('profileNote');
+    if(!active.length){ note.textContent='Select a pattern to highlight conflicts first (H3). Unknown is not a pass. Never “safe”.'; return; }
+    let c=0,u=0,f=0;
+    new Set(active).forEach(key=>{
+      const row=rows.find(r=>r.dataset.row===key); if(!row) return;
+      const st=row.querySelector('.pat-status');
+      const cls=st.classList.contains('conflict')?'hl-conflict':(st.classList.contains('unknown')?'hl-unknown':'hl-fit');
+      row.classList.add(cls);
+      if(st.classList.contains('conflict'))c++; else if(st.classList.contains('unknown'))u++; else f++;
+    });
+    note.textContent='Profile highlights → '+c+' conflict · '+u+' unknown · '+f+' fits. Conflicts first. Unknown is not a pass. Never “safe”.';
+  }
+  function clearProfile(){ document.querySelectorAll('#profileChips .pchip').forEach(b=>b.classList.remove('active')); updateProfile(); }
+  document.querySelectorAll('#profileChips .pchip').forEach(b=> b.addEventListener('click', ()=>{ b.classList.toggle('active'); updateProfile(); }));
+
+  // ---------- View 9 live nutrition (I2/I3/I4) ----------
+  let portions=4;
+  function fmt(n){ return Math.round(n/10)*10; }
+  function updateNutrition(){
+    const density=+document.getElementById('density').value;
+    const grams=+document.getElementById('coconutG').value;
+    const tbsp=+document.getElementById('oilTbsp').value;
+    document.getElementById('densityVal').textContent=density;
+    document.getElementById('coconutGVal').textContent=grams;
+    document.getElementById('oilTbspVal').textContent=tbsp;
+    const fish=500*density/100;
+    const coconut=grams*3.6;          // fresh coconut ~354 kcal / 100 g
+    const oil=tbsp*14*8.8;            // coconut oil ~884 kcal / 100 g
+    const veg=160;                    // tomato, drumstick, mango, shallots, spices — modest
+    const total=fish+coconut+oil+veg;
+    const protein=Math.round(500*(density<=100?0.20:0.18));
+    document.getElementById('rEnergy').textContent=fmt(total).toLocaleString()+' kcal';
+    document.getElementById('rProtein').textContent=protein+' g';
+    if(portions>0){ document.getElementById('rBowl').textContent=fmt(total/portions).toLocaleString()+' kcal'; document.getElementById('rBowlS').textContent='per bowl · '+portions+' portions · still a band'; }
+    else { document.getElementById('rBowl').textContent='—'; document.getElementById('rBowlS').textContent='set portions (I3)'; }
+  }
+  document.querySelectorAll('#portionsRow .pchip').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      document.querySelectorAll('#portionsRow .pchip').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+      portions=+b.dataset.p; updateNutrition();
+    });
+  });
+  updateNutrition();
+
+  // ---------- Shopping list: group all-have + live counters + print reflects have/need (E2) ----------
+  function updateShop(){
+    const items=[...document.querySelectorAll('.shop-item')];
+    const have=items.filter(i=>i.querySelector('input').checked).length;
+    document.getElementById('shopCount').textContent=have+' of '+items.length+' have';
+    document.querySelectorAll('.shop-group').forEach(g=>{
+      const cb=g.querySelector('.grp-all'); if(!cb) return;
+      const all=g.querySelectorAll('.shop-item input');
+      cb.checked=all.length>0 && [...all].every(i=>i.checked);
+    });
+  }
+  function toggleGroup(cb){
+    const g=cb.closest('.shop-group');
+    const on=cb.checked;               // capture once — updateShop flips grp-all mid-loop otherwise
+    g.querySelectorAll('.shop-item input').forEach(i=>{ i.checked=on; i.dispatchEvent(new Event('change',{bubbles:true})); });
+  }
+  function syncPrintList(){
+    const sheet=document.querySelector('.print-area.print-list');
+    sheet.querySelectorAll('.print-group').forEach(g=>{
+      const name=g.querySelector('h3').textContent.trim();
+      const domGroup=[...document.querySelectorAll('.shop-group')].find(x=>x.querySelector('.gh').textContent.includes(name));
+      if(!domGroup) return;
+      g.innerHTML='<h3>'+name+'</h3>';
+      domGroup.querySelectorAll('.shop-item').forEach(item=>{
+        const have=item.querySelector('input').checked;
+        const line=document.createElement('div');
+        line.className='checkline';
+        const nameEl=item.querySelector('.name').cloneNode(true);
+        const q=document.createElement('span'); q.textContent=item.querySelector('.q').textContent;
+        line.appendChild(nameEl); line.appendChild(q);
+        if(have){ line.style.textDecoration='line-through'; line.style.color='#999'; }
+        g.appendChild(line);
+      });
+    });
+    let note=sheet.querySelector('.print-note');
+    if(!note){ note=document.createElement('div'); note.className='print-note'; note.style.cssText='font-size:11px;color:#666;margin-top:10px;'; sheet.appendChild(note); }
+    const all=[...document.querySelectorAll('.shop-item input')];
+    const have=all.filter(i=>i.checked).length;
+    note.textContent='Have: '+have+' · Need: '+(all.length-have)+'. Struck items = already owned (E2).';
+  }
+
+  // ---------- Cook log save (F1–F4) ----------
+  document.getElementById('saveLog').addEventListener('click', ()=>{
+    const date=document.querySelector('#logForm input[type=date]').value||'today';
+    const notes=document.querySelector('#logForm textarea').value.trim();
+    const next=document.querySelector('#logForm input[type=text]').value.trim();
+    const swap=document.getElementById('logSwap').value;
+    const restriction=document.getElementById('logRestriction').checked;
+    const rated=[...document.querySelectorAll('#logForm .stars[data-stars] span')].filter(s=>s.classList.contains('on')).length;
+    const plate=document.getElementById('logPlateImg').getAttribute('src')||'';
+    const entry=document.createElement('div');
+    entry.className='log-entry';
+    entry.innerHTML=
+      '<span class="k">Cook log · '+escapeHtml(date)+'</span> · '+('★'.repeat(rated))+' '+rated+'/5'+
+      (restriction?' · <span class="claim absent">restriction-driven (H5)</span>':'')+
+      (swap!=='No changes'?' · <b>Used:</b> '+escapeHtml(swap):'')+
+      (notes?'<br><b>Notes:</b> '+escapeHtml(notes):'')+
+      (next?'<br><b>Next time:</b> '+escapeHtml(next):'')+
+      (plate?'<br><img src="'+plate+'" alt="plate" style="max-width:140px;border-radius:8px;margin-top:6px;border:1px solid var(--line)">':'')+
+      (swap!=='No changes'?' <button class="btn ghost sm" style="margin-top:8px" onclick="applySwap()">Apply swap to card (F3)</button>':'')+
+      ' <span class="claim method">COOK LOG</span> — not CARD.';
+    document.getElementById('logEntries').appendChild(entry);
+    if(next){ analysisState.nextTime=next; applyAnalysisState(); }
+    const sel=document.querySelector('#libItems .lib-item.selected');
+    if(sel){
+      const m=sel.querySelector('.m'); if(m) m.textContent='Coastal Tamil fish curry · 28 Aug 2026 · last cooked '+date;
+      if(rated>0){
+        let badges=sel.querySelector('.badges');
+        if(!badges){ badges=document.createElement('div'); badges.className='badges'; sel.appendChild(badges); }
+        badges.querySelectorAll('.pill.lime').forEach(p=>p.remove());
+        const p=document.createElement('span'); p.className='pill lime'; p.textContent='cooked · '+date+' · '+rated+'★';
+        badges.appendChild(p);
+      }
+    }
+    document.getElementById('logForm').classList.remove('open');
+    toast('Cook log saved. Surfaces at the top on reopen (F6). Next time → station card (F4).');
+  });
+
+  // ---------- Mode-aware sidebar nav (C3) ----------
+  document.querySelectorAll('.side-nav a[data-nav]').forEach(a=>{
+    a.addEventListener('click', ()=>{
+      document.querySelectorAll('.side-nav a').forEach(x=>x.classList.remove('active'));
+      a.classList.add('active');
+      if(a.dataset.mode) setMode(a.dataset.mode);
+      const target=document.querySelector(a.getAttribute('href'));
+      setTimeout(()=>{ if(target) target.scrollIntoView({behavior:'smooth', block:'start'}); },60);
+    });
+  });
+
+  updateProfile();
+
+  // ================= AUTH (A1 / A2) =================
+  let authState='none';            // 'none' | 'guest' | 'user'
+  let accountPref={mode:'home', pack:'EU'};
+  let userInfo={name:'', email:''};
+  let pendingSave=false;
+  const LS='recipeSystemsMockAuth';
+  function persist(){ if(authState==='user') localStorage.setItem(LS, JSON.stringify({state:'user', user:userInfo, pref:accountPref})); }
+  function showAuth(){ document.getElementById('authScreen').classList.add('open'); }
+  function hideAuth(){ document.getElementById('authScreen').classList.remove('open'); }
+  function authTab(which){
+    const signup=which==='signup';
+    document.getElementById('authTabLogin').classList.toggle('active', !signup);
+    document.getElementById('authTabSignup').classList.toggle('active', signup);
+    document.getElementById('fieldName').style.display= signup?'block':'none';
+    document.getElementById('fieldPack').style.display= signup?'block':'none';
+    document.getElementById('authSubmit').textContent= signup?'Create account':'Sign in';
+    document.getElementById('authError').classList.remove('show');
+  }
+  function openAuth(tab, saveMode){
+    authTab(tab||'login');
+    document.getElementById('authSaveNote').style.display= saveMode?'block':'none';
+    showAuth();
+  }
+  function setAuthError(msg){
+    const el=document.getElementById('authError');
+    el.textContent=msg; el.classList.add('show');
+  }
+  function updateAccountUI(){
+    const isUser=authState==='user';
+    document.getElementById('accountAv').textContent= userInfo.name? userInfo.name[0].toUpperCase():'?';
+    document.getElementById('accountName').textContent= isUser? userInfo.name:'Guest';
+    document.getElementById('amName').textContent= isUser? userInfo.name:'Guest';
+    document.getElementById('amEmail').textContent= isUser? userInfo.email : 'guest — analyse one card first (A2)';
+    document.getElementById('amMode').value=accountPref.mode;
+    document.getElementById('amPack').value=accountPref.pack;
+    document.getElementById('guestBanner').classList.toggle('show', authState==='guest');
+    document.getElementById('sidePack').textContent= accountPref.pack==='EU'?'EU 14':'US major 9';
+    document.getElementById('sideAccount').textContent= isUser? ('Signed in as '+userInfo.name+' · A1') : (authState==='guest'?'Guest session · A2':'Signed out · A1');
+    if(isUser && accountPref.mode) setMode(accountPref.mode);
+  }
+  function completeAuth(msg){
+    authState='user';
+    persist(); updateAccountUI(); hideAuth();
+    document.getElementById('guestBanner').classList.remove('show');
+    if(pendingSave){
+      pendingSave=false;
+      if(pendingName){ addNewRecipeToLibrary(pendingName); pendingName=''; }
+      toast('Saved to library (D1). Default name is the family — editable.');
+    }
+    else toast(msg);
+  }
+  document.getElementById('authForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    const email=document.getElementById('authEmail').value.trim();
+    const password=document.getElementById('authPassword').value;
+    const signup=document.getElementById('authTabSignup').classList.contains('active');
+    const name=document.getElementById('authName').value.trim();
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setAuthError('Enter a valid email address.');
+    if(signup && name.length<2) return setAuthError('Enter your name.');
+    if(password.length<6) return setAuthError(signup?'Password must be at least 6 characters.':'Enter your password.');
+    const btn=document.getElementById('authSubmit');
+    btn.textContent='Working…'; btn.disabled=true;
+    setTimeout(()=>{
+      btn.disabled=false;
+      userInfo={name: signup?name: email.split('@')[0].replace(/[._-]/g,' '), email};
+      if(signup) accountPref.pack=document.getElementById('authPack').value;
+      completeAuth(signup?'Account created. Welcome, '+userInfo.name+' (A1).':'Signed in. Welcome back, '+userInfo.name+' (A1).');
+    },700);
+  });
+  function sso(provider){
+    userInfo={name: provider==='Google'?'Priya Kumar':'Priya G', email: provider==='Google'?'priya.kumar@gmail.com':'priya@github.dev'};
+    completeAuth('Signed in with '+provider+' (SSO / A1).');
+  }
+  function continueAsGuest(){
+    authState='guest'; userInfo={name:'Guest', email:''};
+    hideAuth(); updateAccountUI();
+    toast('Guest session (A2). You can ingest and see analysis — sign in to keep your recipes.');
+  }
+  function signOut(){
+    authState='none'; pendingSave=false;
+    userInfo={name:'', email:''};
+    localStorage.removeItem(LS);
+    document.getElementById('authSaveNote').style.display='none';
+    document.getElementById('authName').value='';
+    document.getElementById('authEmail').value='';
+    document.getElementById('authPassword').value='';
+    document.getElementById('authError').classList.remove('show');
+    updateAccountUI(); showAuth();
+    document.getElementById('accountMenu').classList.remove('open');
+  }
+  function toggleAccountMenu(e){
+    e.stopPropagation();
+    document.getElementById('accountMenu').classList.toggle('open');
+  }
+  document.addEventListener('click', e=>{ if(!e.target.closest('.account-wrap')) document.getElementById('accountMenu').classList.remove('open'); });
+  document.getElementById('amMode').addEventListener('change', e=>{ accountPref.mode=e.target.value; setMode(e.target.value); persist(); toast('Mode preference saved on your account (C3).'); });
+  document.getElementById('amPack').addEventListener('change', e=>{ accountPref.pack=e.target.value; persist(); updateAccountUI(); toast('Label pack set to '+(e.target.value==='EU'?'EU 14':'US major 9')+' (H1).'); });
+  function goView8(){
+    setMode('home');
+    const tab=[...document.querySelectorAll('.view-tabs')[0].querySelectorAll('.view-tab')].find(t=>t.dataset.v==='8');
+    if(tab) tab.click();
+    setTimeout(()=> document.querySelector('.view-panel[data-v="8"]').scrollIntoView({behavior:'smooth', block:'start'}),60);
+    document.getElementById('accountMenu').classList.remove('open');
+  }
+  // ================= NEW RECIPE PAGE (B1–B6) =================
+  let nrpLines=[];      // {name, qty, isHeader, low, confirmed}
+  let nrpMethod='none';
+  let pendingName='';
+  const GOLDEN_PASTE=['Fish — 500g','Tomato — 1 Nos','Drumstick — 1 Nos','Mango — 1/2 Nos','Green Chilli — 5 Nos','Grated Coconut — Half Shell','Chilli Powder — 2 Tsp Coriander Powder','Cumin Seeds — 1/4 Tsp','Turmeric Powder — 1/2 Tsp','Shallots — 10 Nos','Salt — To Taste','Tamarind — A Lemon Size','Fenugreek Powder — 1/2 Tsp','Pepper Powder — 1/2 Tsp','Mustard — 1/2 Tsp','Fenugreek — 1/4 Tsp','Curry Leaves — As Required','Coconut Oil — For Tempering'].join('\n');
+  const NRP_UNITS=['nos','g','kg','tsp','tbsp','ml','lemon size','half shell','to taste','as required','cup','handful'];
+  function newRecipe(){
+    document.getElementById('newRecipePage').classList.add('open');
+    document.getElementById('nrpName').value='Kanyakumari Meen Kuzhambu';
+    document.getElementById('nrpEditBadge').style.display='none';
+    document.getElementById('nrpHeaderTitle').textContent='New recipe';
+    document.getElementById('nrpPaste').value=GOLDEN_PASTE;
+    document.getElementById('nrpOcr').innerHTML='';
+    document.getElementById('nrpFile').value='';
+    document.getElementById('nrpMethodText').value=''; document.getElementById('nrpMethodText').style.display='none';
+    document.querySelectorAll('.method-options input').forEach(r=> r.checked = r.value==='none');
+    document.getElementById('nrpFormRows').innerHTML=''; addFormRow(); addFormRow(); addFormRow();
+    nrpLines=[]; nrpMethod='none';
+    showMethod('paste');
+    goStep(1);
+  }
+  function closeNewRecipe(){ document.getElementById('newRecipePage').classList.remove('open'); }
+  function showMethod(m){
+    document.querySelectorAll('.method-tabs button').forEach(b=> b.classList.toggle('active', b.dataset.method===m));
+    document.querySelectorAll('.method-panel').forEach(p=> p.classList.toggle('active', p.dataset.method===m));
+  }
+  document.querySelectorAll('.method-tabs button').forEach(b=> b.addEventListener('click', ()=> showMethod(b.dataset.method)));
+  function parseToLines(raw){
+    return raw.split(/\r?\n/).map(l=>l.trim()).filter(Boolean).map(l=>{
+      const m=l.match(/^(.*?)\s*(?:—|-|:)\s*(.*)$/);
+      if(m) return {name:m[1].trim(), qty:m[2].trim(), isHeader:false, low:false, confirmed:false};
+      return {name:l, qty:'', isHeader:false, low:true, confirmed:false};
+    });
+  }
+  function aliasInfo(name){
+    const n=name.toLowerCase();
+    if(/drumstick|murungakkai|moringa/.test(n)) return 'moringa pod';
+    if(/shallots|chinna vengayam|cheriya ulli/.test(n)) return 'shallots';
+    if(/tamarind|puli/.test(n)) return 'tamarind';
+    if(/curry leaves|karuveppilai/.test(n)) return 'curry leaves';
+    if(/fenugreek|methi|uluva|vendhayam/.test(n)) return 'fenugreek';
+    return null;
+  }
+  function renderReview(){
+    const wrap=document.getElementById('nrpParseList');
+    wrap.innerHTML='';
+    nrpLines.forEach((line,i)=>{
+      const row=document.createElement('div');
+      row.className='nrp-row'+(line.isHeader?' header':'')+(line.low?' low':'');
+      const alias=aliasInfo(line.name);
+      row.innerHTML=
+        '<div style="min-width:0"><input class="nrp-name" value="'+escapeHtml(line.name)+'" data-i="'+i+'" placeholder="Ingredient">'+
+        (line.low?'<div class="low-chip">⚠ low-confidence — flagged, not dropped (B2)</div>':'')+
+        (alias?('<div class="alias-chip">'+(line.confirmed?'✓ confirmed: ':'confirm: ')+alias+'</div>'):'')+'</div>'+
+        '<input class="nrp-qty" value="'+escapeHtml(line.qty)+'" data-i="'+i+'" placeholder="Qty">'+
+        '<div class="ops">'+
+          (alias?'<button title="Confirm alias: '+alias+'" onclick="confirmAlias('+i+')">✓</button>':'')+
+          '<button title="Split wrapped line (B3)" onclick="splitRow('+i+')">⇆</button>'+
+          '<button title="Merge into previous" onclick="mergeRow('+i+')">↶</button>'+
+          '<button title="Mark as header (not an ingredient)" onclick="toggleHeader('+i+')">T</button>'+
+          '<button title="Delete line" onclick="deleteRow('+i+')">✕</button>'+
+        '</div>';
+      wrap.appendChild(row);
+    });
+    const add=document.createElement('div');
+    add.className='nrp-hint';
+    add.innerHTML='<button class="btn ghost sm" onclick="addRow()">＋ Add line</button> · Edit inline. Split the wrapped chilli/coriander line, mark headers, merge, delete.';
+    wrap.appendChild(add);
+  }
+  function collectReview(){
+    document.querySelectorAll('#nrpParseList .nrp-row').forEach(row=>{
+      const i=+row.querySelector('.nrp-name').dataset.i;
+      if(isNaN(i)||!nrpLines[i]) return;
+      nrpLines[i].name=row.querySelector('.nrp-name').value.trim();
+      nrpLines[i].qty=row.querySelector('.nrp-qty').value.trim();
+    });
+  }
+  function confirmAlias(i){ nrpLines[i].confirmed=true; renderReview(); toast('Alias confirmed: '+aliasInfo(nrpLines[i].name)+' (B6).'); }
+  function splitRow(i){
+    const line=nrpLines[i];
+    const m=line.qty.match(/^(\d+(?:\.\d+)?(?:\/\d+)?\s*\S+)\s+(.+)$/);
+    if(!m){ toast('Nothing to split — the quantity has no trailing name.'); return; }
+    line.qty=m[1];
+    nrpLines.splice(i+1,0,{name:m[2], qty:'', isHeader:false, low:false, confirmed:false});
+    renderReview();
+    toast('Split into two lines (B3): “'+line.name+' — '+m[1]+'” and “'+m[2]+'”.');
+  }
+  function mergeRow(i){
+    if(i===0){ toast('First row — nothing above to merge.'); return; }
+    nrpLines[i-1].name+=' + '+nrpLines[i].name;
+    if(!nrpLines[i-1].qty) nrpLines[i-1].qty=nrpLines[i].qty;
+    nrpLines.splice(i,1); renderReview(); toast('Merged into the previous line.');
+  }
+  function toggleHeader(i){ nrpLines[i].isHeader=!nrpLines[i].isHeader; renderReview(); }
+  function deleteRow(i){ nrpLines.splice(i,1); renderReview(); }
+  function addRow(){ nrpLines.push({name:'', qty:'', isHeader:false, low:false, confirmed:false}); renderReview(); }
+  function addFormRow(name, qty){
+    const wrap=document.getElementById('nrpFormRows');
+    const div=document.createElement('div');
+    div.className='form-row';
+    div.innerHTML=
+      '<input class="f-name" placeholder="Ingredient" value="'+(name||'')+'">'+
+      '<input class="f-qty" placeholder="Amount" value="'+(qty||'')+'">'+
+      '<select class="f-unit">'+NRP_UNITS.map(u=>'<option>'+u+'</option>').join('')+'</select>'+
+      '<button class="del" title="Remove" onclick="this.closest(\'.form-row\').remove()">✕</button>';
+    wrap.appendChild(div);
+  }
+  function useForm(){
+    const rows=[...document.querySelectorAll('#nrpFormRows .form-row')].map(r=>({name:r.querySelector('.f-name').value.trim(), qty:(r.querySelector('.f-qty').value.trim()+' '+r.querySelector('.f-unit').value.trim()).trim()}));
+    nrpLines=rows.filter(r=>r.name).map(r=>({name:r.name, qty:r.qty, isHeader:false, low:false, confirmed:false}));
+    return nrpLines.length>0;
+  }
+  function ocrPreview(lines){
+    return lines.map(l=> '<div class="nrp-row'+(l.low?' low':'')+'" style="grid-template-columns:1fr 120px"><span style="font-weight:600">'+escapeHtml(l.name)+'</span><span>'+escapeHtml(l.qty)+'</span></div>').join('');
+  }
+  document.getElementById('nrpFile').addEventListener('change', function(){
+    if(!this.files || !this.files.length) return;
+    // Simulated OCR of the golden card (B2): draft visible before analysis, one wrapped line to split.
+    const fake='Fish — 500g\nChilli Powder — 2 Tsp Coriander Powder\nTomato — 1 Nos\nDrumstick — 1 Nos\nMango — 1/2\nGreen Chilli — 5\nGrated Coconut — Half Shell\nTamarind — lemon size\nFenugreek Powder — 1/2 Tsp\nFenugreek Seeds — 1/4 Tsp\nCurry Leaves — As Required\n[low contrast — unreadable line]';
+    nrpLines=parseToLines(fake);
+    document.getElementById('nrpOcr').innerHTML=
+      '<p class="nrp-hint">OCR draft (B2) — visible before analysis. Low-confidence lines are flagged, never dropped.</p>'+
+      '<div class="nrp-parse">'+ocrPreview(nrpLines)+'</div>'+
+      '<div class="nrp-actions"><button class="btn primary sm" onclick="goStep(2)">Use this OCR parse →</button></div>';
+  });
+  document.querySelectorAll('.method-options input').forEach(r=> r.addEventListener('change', ()=>{
+    nrpMethod=r.value;
+    document.getElementById('nrpMethodText').style.display= r.value==='paste'?'block':'none';
+  }));
+  function goStep(n){
+    if(n===2){
+      const m=[...document.querySelectorAll('.method-tabs button')].find(b=>b.classList.contains('active')).dataset.method;
+      if(m==='paste'){ nrpLines=parseToLines(document.getElementById('nrpPaste').value); if(!nrpLines.length){ toast('Paste a recipe first (B1).'); return; } }
+      else if(m==='form'){ if(!useForm()){ toast('Add at least one ingredient (B5).'); return; } }
+      else if(m==='photo'){ if(!nrpLines.length){ toast('Upload a recipe-card photo first (B2).'); return; } }
+      renderReview();
+    }
+    if(n===3) collectReview();
+    document.querySelectorAll('.nrp-step').forEach(s=>s.classList.remove('active'));
+    document.getElementById('nrpStep'+n).classList.add('active');
+    document.querySelectorAll('.steps .step').forEach((s,i)=>{ s.classList.toggle('active', i===n-1); s.classList.toggle('done', i<n-1); });
+    const body=document.querySelector('.nrp-body'); if(body) body.scrollTop=0;
+  }
+  function analyseNewRecipe(){
+    collectReview();
+    if(nrpMethod==='paste' && !document.getElementById('nrpMethodText').value.trim()){ toast('Paste the method text, or choose “no method” / “accept matched family method” (B4).'); return; }
+    if(!nrpLines.filter(l=>!l.isHeader).length){ toast('Add at least one ingredient.'); return; }
+    const title=document.getElementById('nrpName').value.trim()||'New recipe';
+    const wasEdit=document.getElementById('nrpEditBadge').style.display==='inline-block';
+    goStep(4);
+    setTimeout(()=>{
+      closeNewRecipe();
+      document.getElementById('nrpEditBadge').style.display='none';
+      document.getElementById('nrpHeaderTitle').textContent='New recipe';
+      setEmptyMode(false);
+      analysisState.title=title; syncTitles();
+      analysisState.method=nrpMethod;
+      analysisState.incomplete = (nrpMethod==='none');
+      applyAnalysisState();
+      if(wasEdit){
+        analysisState.snapshots++;
+        applyAnalysisState();
+        toast('Recipe updated (D4). Cook logs remain. Previous analysis snapshotted (D5).');
+        return;
+      }
+      if(authState!=='user'){ pendingSave=true; pendingName=title; openAuth('signup','save'); return; }
+      addNewRecipeToLibrary(title);
+      toast(analysisState.incomplete
+        ? 'Analysed list-only — Views 3 & 7 INCOMPLETE, station card not generated (B4/C5). Saved to library (D1).'
+        : (nrpMethod==='inferred'
+            ? 'Analysed across nine views. Method INFERRED from CDK 1669 / Mrs. Anitha (B4). Saved to library (D1).'
+            : 'Analysed across nine views with your method (B4). Saved to library (D1).'));
+    },1500);
+  }
+  function addNewRecipeToLibrary(name){
+    const list=document.getElementById('libraryList');
+    if(!list) return;
+    const holder=document.getElementById('libItems');
+    holder.querySelectorAll('.lib-item').forEach(x=>x.classList.remove('selected'));
+    const item=document.createElement('div');
+    item.className='lib-item selected';
+    item.setAttribute('data-name', name);
+    item.setAttribute('data-tags', (analysisState.tags||[]).join(' '));
+    item.onclick=function(){ openLibraryRecipe(this); };
+    item.innerHTML='<div class="t">'+escapeHtml(name)+'</div><div class="m">Analysed today · saved (D1)</div><div class="lib-tags">'+(analysisState.tags||[]).map(t=>'<span class="lib-tag">'+escapeHtml(t)+'</span>').join('')+'</div><div class="badges"><span class="pill lime">just analysed</span></div>';
+    holder.insertBefore(item, holder.firstChild);
+    document.getElementById('libEmpty').style.display='none';
+    setEmptyMode(false);
+  }
+  function draftToast(name){ toast(name+' is a saved draft in the mockup — the golden fixture (Kanyakumari meen kuzhambu) is loaded.'); }
+  // restore session, else show the login screen
+  (function initAuth(){
+    try{
+      const saved=JSON.parse(localStorage.getItem(LS));
+      if(saved && saved.state==='user'){ authState='user'; userInfo=saved.user; accountPref=Object.assign({mode:'home',pack:'EU'}, saved.pref); updateAccountUI(); return; }
+    }catch(err){}
+    authState='none';
+    document.getElementById('authSaveNote').style.display='none';
+    updateAccountUI();
+    showAuth();
+  })();
+
+  // ============ PRODUCTION-GRADE FLOW (D3–D6, E6, F3–F6, G2, H7, I7, C5) ============
+  let analysisState={ title:'Kanyakumari Meen Kuzhambu', family:'Coastal Tamil meen kuzhambu', method:'inferred', incomplete:false, snapshots:0, tags:['coastal-tamil','fish-curry','kumari','golden-fixture'], nextTime:'' };
+
+  function applyAnalysisState(){
+    const inc=analysisState.incomplete;
+    document.querySelectorAll('.incomplete-banner').forEach(b=> b.classList.toggle('show', inc));
+    const sn=document.getElementById('stationNotGenerated'); if(sn) sn.classList.toggle('show', inc);
+    const heroMethod=document.getElementById('heroMethodChip');
+    if(heroMethod) heroMethod.innerHTML = inc
+      ? 'Method: <span class="claim absent">LIST-ONLY</span> — no method accepted (B4)'
+      : 'Method: <span class="claim inferred">INFERRED</span> from CDK 1669 / Mrs. Anitha';
+    const stn=document.getElementById('stationNextTime');
+    if(stn){ const has=!!analysisState.nextTime; stn.style.display=has?'block':'none'; if(has) document.getElementById('stationNextTimeText').textContent=analysisState.nextTime; }
+    const pnt=document.getElementById('printNextTime');
+    if(pnt){ pnt.style.display=analysisState.nextTime?'block':'none'; if(analysisState.nextTime) document.getElementById('printNextTimeText').textContent=analysisState.nextTime; }
+    const pill=document.getElementById('snapPill');
+    if(pill) pill.style.display = analysisState.snapshots>0 ? 'inline-flex' : 'none';
+    const v8=document.getElementById('v8Pack');
+    if(v8 && typeof accountPref!=='undefined') v8.textContent = accountPref.pack==='EU'?'EU 14':'US major 9';
+  }
+
+  function syncTitles(){
+    const t=analysisState.title;
+    const el=document.getElementById('recipeTitle'); if(el && !el.querySelector('input')) el.textContent=t;
+    const sel=document.querySelector('#libItems .lib-item.selected .t'); if(sel) sel.textContent=t;
+    const st=document.querySelector('.station-head h3'); if(st) st.textContent=t;
+    const p1=document.querySelector('.print-area.print-list h1'); if(p1 && p1.firstChild) p1.firstChild.textContent=t+' — Shopping list';
+    const p2=document.querySelector('.print-area.print-station h1'); if(p2 && p2.firstChild) p2.firstChild.textContent=t+' — Station card';
+    const p3=document.querySelector('.print-area.print-onepager h1'); if(p3 && p3.firstChild) p3.firstChild.textContent=t+' — home one-pager (E6)';
+  }
+
+  function renameRecipe(){
+    const el=document.getElementById('recipeTitle');
+    const cur=analysisState.title;
+    el.innerHTML='<input id="renameInput" value="'+escapeHtml(cur)+'" style="font-family:inherit;font-size:inherit;width:100%;border:1px solid var(--accent);border-radius:6px;padding:2px 6px;">';
+    const inp=document.getElementById('renameInput'); inp.focus(); inp.select();
+    const commit=()=>{ const v=inp.value.trim()||cur; analysisState.title=v; el.textContent=v; syncTitles(); toast('Renamed to “'+v+'” (D1).'); };
+    inp.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); commit(); } if(e.key==='Escape'){ el.textContent=cur; } });
+    inp.addEventListener('blur', commit);
+  }
+
+  function renderHeroTags(){
+    const wrap=document.getElementById('heroTags'); if(!wrap) return;
+    wrap.innerHTML='';
+    analysisState.tags.forEach(t=>{
+      const s=document.createElement('span'); s.className='hero-tag';
+      s.innerHTML=escapeHtml(t)+' <button title="remove tag">×</button>';
+      s.querySelector('button').onclick=()=>{ analysisState.tags=analysisState.tags.filter(x=>x!==t); renderHeroTags(); toast('Tag removed (D3).'); };
+      wrap.appendChild(s);
+    });
+    const sel=document.querySelector('#libItems .lib-item.selected .lib-tags');
+    if(sel) sel.innerHTML=analysisState.tags.map(t=>'<span class="lib-tag">'+escapeHtml(t)+'</span>').join('');
+  }
+
+  function addTag(){
+    const v=document.getElementById('tagInput').value.trim().toLowerCase();
+    if(!v) return;
+    if(!analysisState.tags.includes(v)) analysisState.tags.push(v);
+    document.getElementById('tagInput').value='';
+    renderHeroTags(); toast('Tag added (D3): '+v);
+  }
+
+  function filterLibrary(q){
+    q=(q||'').trim().toLowerCase();
+    let shown=0;
+    document.querySelectorAll('#libItems .lib-item').forEach(it=>{
+      const hay=((it.dataset.name||'')+' '+(it.dataset.tags||'')+' '+((it.dataset.name||'').toLowerCase()==='kanyakumari meen kuzhambu'?'fish drumstick mango coconut tamarind': '')).toLowerCase();
+      const ok=!q||hay.includes(q);
+      it.style.display=ok?'':'none';
+      if(ok) shown++;
+    });
+    document.getElementById('libEmpty').style.display=shown?'none':'block';
+  }
+
+  function openLibraryRecipe(el){
+    document.querySelectorAll('#libItems .lib-item').forEach(x=>x.classList.remove('selected'));
+    el.classList.add('selected');
+    setEmptyMode(false);
+    const name=el.dataset.name;
+    if(name==='Kanyakumari Meen Kuzhambu'){ analysisState.incomplete=false; applyAnalysisState(); toast('Opened “'+name+'” (D2).'); }
+    else toast('“'+name+'” is a saved draft in the mockup — the golden fixture analysis is loaded as the worked example.');
+  }
+
+  function editRecipe(){
+    document.getElementById('newRecipePage').classList.add('open');
+    document.getElementById('nrpHeaderTitle').textContent='Edit recipe (D4)';
+    document.getElementById('nrpEditBadge').style.display='inline-block';
+    document.getElementById('nrpName').value=analysisState.title;
+    document.getElementById('nrpPaste').value=GOLDEN_PASTE;
+    document.getElementById('nrpOcr').innerHTML='';
+    document.getElementById('nrpFile').value='';
+    document.getElementById('nrpMethodText').value=''; document.getElementById('nrpMethodText').style.display='none';
+    document.querySelectorAll('.method-options input').forEach(r=> r.checked = r.value==='inferred');
+    document.getElementById('nrpFormRows').innerHTML=''; addFormRow(); addFormRow(); addFormRow();
+    nrpLines=parseToLines(GOLDEN_PASTE); nrpMethod='inferred';
+    showMethod('paste');
+    goStep(1);
+    toast('Editing “'+analysisState.title+'” (D4). Cook logs remain.');
+  }
+
+  function confirmDelete(){ document.getElementById('confirmName').textContent=analysisState.title; document.getElementById('confirmModal').classList.add('open'); }
+  function closeConfirm(){ document.getElementById('confirmModal').classList.remove('open'); }
+  function doDelete(){
+    closeConfirm();
+    const sel=document.querySelector('#libItems .lib-item.selected');
+    if(sel) sel.remove();
+    const remain=document.querySelectorAll('#libItems .lib-item').length;
+    if(remain===0) setEmptyMode(true);
+    else document.querySelector('#libItems .lib-item').classList.add('selected');
+    filterLibrary(document.getElementById('libSearch').value);
+    toast('Recipe deleted (D6). Photo, object, analyses, lists and logs removed. No public residue.');
+  }
+  function setEmptyMode(on){
+    document.querySelectorAll('.hero, .mode-switch, .mode-note, #panel-home, #panel-chef').forEach(el=>{ if(el) el.style.display=on?'none':''; });
+    document.getElementById('emptyAnalysis').classList.toggle('show', on);
+  }
+
+  function platePreview(input){
+    const img=document.getElementById('logPlateImg');
+    if(input.files && input.files[0]){ img.src=URL.createObjectURL(input.files[0]); img.classList.add('show'); }
+    else img.classList.remove('show');
+  }
+  function applySwap(){ document.getElementById('appliedSwap').classList.add('show'); toast('Swap noted — the card is NOT silently rewritten. Cook notes + shopping list still reflect the saved card (F3/H5).'); }
+
+  function setVeto(block){
+    document.getElementById('vetoStatus').textContent = block?'vetoed':'passing';
+    document.getElementById('vetoStatus').className = 'veto-tag '+(block?'active':'pass');
+    document.getElementById('vetoedSentence').classList.toggle('show', block);
+    toast(block?'Regional sentence vetoed by reviewer (G2).':'Regional sentence allowed (G2).');
+  }
+
+  function syncOnePager(){
+    const wrap=document.getElementById('opIngredients'); if(!wrap) return;
+    wrap.innerHTML='';
+    document.querySelectorAll('.shop-item').forEach(item=>{
+      const d=document.createElement('div'); d.className='checkline';
+      const n=item.querySelector('.name').cloneNode(true);
+      const q=document.createElement('span'); q.textContent=item.querySelector('.q').textContent;
+      d.appendChild(n); d.appendChild(q); wrap.appendChild(d);
+    });
+  }
+
+  // initial render
+  renderHeroTags();
+  applyAnalysisState();
+  syncTitles();
+</script>
+
+</body>
+</html>

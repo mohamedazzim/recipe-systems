@@ -1,0 +1,30 @@
+{
+  "id": "rs-039",
+  "version": 1,
+  "name": "Hyderabadi Chicken Biryani",
+  "region": "other",
+  "category": "non-veg",
+  "input_type": "photo",
+  "method": {
+    "provided": false,
+    "inferred": false
+  },
+  "lines": [
+    "Basmati Rice — 2 Cups",
+    "Chicken — 500g",
+    "Curd — 1 Cup",
+    "Onion — 3 Nos",
+    "Mint — A Handful",
+    "Saffron — A Pinch",
+    "Ghee — 3 Tbsp",
+    "Biryani Masala — 1 Tbsp"
+  ],
+  "review": {
+    "reviewer_slot": null,
+    "status": "unassigned"
+  },
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 deterministic corpus fixture (QG5 Volume tier). Synthetic input data for testing; no real-world source claim."
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "id": "rs-025",
+  "version": 1,
+  "name": "Appam",
+  "region": "kerala",
+  "category": "veg",
+  "input_type": "paste",
+  "method": {
+    "provided": false,
+    "inferred": false
+  },
+  "lines": [
+    "Raw Rice — 2 Cups",
+    "Grated Coconut — 1 Cup",
+    "Yeast — 1/2 Tsp",
+    "Sugar — 1 Tbsp",
+    "Salt — To Taste"
+  ],
+  "review": {
+    "reviewer_slot": "kerala",
+    "status": "unassigned"
+  },
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 deterministic corpus fixture (QG5 Volume tier). Synthetic input data for testing; no real-world source claim."
+  }
+}

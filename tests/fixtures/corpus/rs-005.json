@@ -1,0 +1,29 @@
+{
+  "id": "rs-005",
+  "version": 1,
+  "name": "Poricha Kootu",
+  "region": "tamil-nadu",
+  "category": "veg",
+  "input_type": "paste",
+  "method": {
+    "provided": false,
+    "inferred": false
+  },
+  "lines": [
+    "Moong Dal — 1/2 Cup",
+    "Snake Gourd — 250g",
+    "Grated Coconut — 1/2 Cup",
+    "Black Pepper — 1 Tsp",
+    "Cumin — 1 Tsp",
+    "Coconut Oil — 1 Tsp",
+    "Salt — To Taste"
+  ],
+  "review": {
+    "reviewer_slot": "tn_kanyakumari",
+    "status": "unassigned"
+  },
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 deterministic corpus fixture (QG5 Volume tier). Synthetic input data for testing; no real-world source claim."
+  }
+}

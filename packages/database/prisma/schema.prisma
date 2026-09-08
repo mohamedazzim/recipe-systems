@@ -1,0 +1,439 @@
+// Recipe Systems — Prisma schema (authoritative ERD v13, E:\recipe\Recipe_Systems_ERD_FINAL.md)
+//
+// OWNERSHIP (SCAFFOLD §2): Prisma owns ALL Postgres DDL, exclusively. This file is the single
+// schema authority; docs/ is a copy of the spec corpus, never an alternate schema.
+//
+// ERD §12 constructs Prisma cannot express are applied verbatim as raw SQL in migration 002:
+//   - CHECK constraints (chk_recipe_owner_xor, chk_ocr_confidence_range, chk_restriction_item_type_matches_value, ...)
+//   - partial unique indexes (uq_analysis_current, uq_recipe_ingredient_line)
+//   - EXCLUDE USING gist overlap protections (btree_gist, migration 001)
+//   - composite FKs (fk_analysis_snapshot_same_recipe, fk_shopping_state_recipe_line)
+//   - trg_line_soft_delete_cleans_shopping_state trigger (C-28)
+// Enum-like columns stay VARCHAR + CHECK per the ERD — no native Postgres enums (ERD §1.1/§5).
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────────── §5 Account, guest session & dietary profile ─────────────────────────────
+
+model Account {
+  id            String    @id @default(uuid()) @db.Uuid
+  email         String    @unique @db.VarChar(320)
+  passwordHash  String?   @map("password_hash") @db.VarChar(255) // nullable: Keycloak owns credentials (SCAFFOLD §3)
+  authProvider  String    @map("auth_provider") @db.VarChar(32) // CHECK password/sso (migration 002)
+  preferredMode String    @default("home") @map("preferred_mode") @db.VarChar(16) // CHECK home/chef
+  labelPack     String?   @map("label_pack") @db.VarChar(8) // CHECK US/EU
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(6) // Archive/hide only
+
+  restrictionProfile AccountRestrictionProfile?
+  recipes            Recipe[]
+  guestClaims        GuestSession[]             @relation("claimedBy")
+
+  @@map("account")
+}
+
+model GuestSession {
+  id                 String    @id @default(uuid()) @db.Uuid
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  expiresAt          DateTime  @map("expires_at") @db.Timestamptz(6) // Application-enforced TTL (Q11 pilot default)
+  claimedAt          DateTime? @map("claimed_at") @db.Timestamptz(6) // Set when migrated to an account
+  claimedByAccountId String?   @map("claimed_by_account_id") @db.Uuid // FK → account.id; audit trail only
+  claimedByAccount   Account?  @relation("claimedBy", fields: [claimedByAccountId], references: [id])
+
+  recipes Recipe[]
+
+  @@map("guest_session")
+}
+
+model AccountRestrictionProfile {
+  id        String   @id @default(uuid()) @db.Uuid
+  accountId String   @unique @map("account_id") @db.Uuid
+  labelPack String   @map("label_pack") @db.VarChar(8) // CHECK US/EU
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  account Account                  @relation(fields: [accountId], references: [id])
+  items   AccountRestrictionItem[]
+
+  @@map("account_restriction_profile")
+}
+
+model AccountRestrictionItem {
+  id                   String   @id @default(uuid()) @db.Uuid
+  restrictionProfileId String   @map("restriction_profile_id") @db.Uuid
+  allergenId           String?  @map("allergen_id") @db.Uuid // FK; required iff restriction_type = 'allergen'
+  dietPattern          String?  @map("diet_pattern") @db.VarChar(64) // Required iff restriction_type = 'diet_pattern'
+  restrictionType      String   @map("restriction_type") @db.VarChar(32) // CHECK allergen / diet_pattern (chk_restriction_item_type_matches_value)
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  profile  AccountRestrictionProfile  @relation(fields: [restrictionProfileId], references: [id], onDelete: Cascade)
+  allergen DietaryAllergenDefinition? @relation(fields: [allergenId], references: [id])
+
+  @@map("account_restriction_item")
+}
+
+// ───────────────────────────── §5 Recipe & ingredient identity ─────────────────────────────
+
+model Recipe {
+  id                   String    @id @default(uuid()) @db.Uuid
+  accountId            String?   @map("account_id") @db.Uuid // nullable — XOR with guest_session_id (chk_recipe_owner_xor)
+  guestSessionId       String?   @map("guest_session_id") @db.Uuid // nullable — XOR with account_id
+  title                String    @db.VarChar(255) // Editable
+  rawText              String?   @map("raw_text")
+  photoUri             String?   @map("photo_uri")
+  methodText           String?   @map("method_text")
+  methodSourceTag      String?   @map("method_source_tag") @db.VarChar(16) // CHECK CARD/METHOD/INFERRED/UNKNOWN
+  methodInferredSource String?   @map("method_inferred_source") // Required when tag = INFERRED
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt            DateTime? @map("deleted_at") @db.Timestamptz(6) // Archive/hide only; D6 is a hard DELETE
+
+  account       Account?                  @relation(fields: [accountId], references: [id])
+  guestSession  GuestSession?             @relation(fields: [guestSessionId], references: [id])
+  inputs        RecipeInput[]
+  lines         RecipeIngredientLine[]
+  tags          RecipeTag[]
+  analyses      Analysis[]
+  shoppingList  ShoppingListGeneration[]
+  shoppingState IngredientShoppingState[]
+  cookLogs      CookLog[]
+
+  // ERD §12 partial indexes (WHERE deleted_at IS NULL / WHERE guest_session_id IS NOT NULL)
+  // are applied verbatim as raw SQL in migration 002 — no non-partial duplicates here.
+  @@map("recipe")
+}
+
+model RecipeInput {
+  id        String   @id @default(uuid()) @db.Uuid
+  recipeId  String   @map("recipe_id") @db.Uuid
+  inputType String   @map("input_type") @db.VarChar(16) // CHECK paste/photo/form (chk_recipe_input_type)
+  rawText   String?  @map("raw_text") // paste/form untouched input before parse review
+  photoUri  String?  @map("photo_uri") // the original image, distinct from recipe.photo_uri
+  ocrText   String?  @map("ocr_text") // B2: OCR draft visible before analysis
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@index([recipeId, createdAt(sort: Desc)], map: "ix_recipe_input_recipe_created")
+  @@map("recipe_input")
+}
+
+model RecipeIngredientLine {
+  id             String    @id @default(uuid()) @db.Uuid
+  recipeId       String    @map("recipe_id") @db.Uuid
+  ingredientId   String?   @map("ingredient_id") @db.Uuid // FK → ingredient_dictionary.id
+  shoppingKey    String    @map("shopping_key") @db.Uuid // UNIQUE with recipe_id, unconditionally (C-39)
+  lineNo         Int       @map("line_no") // unique among non-deleted rows (partial index, migration 002)
+  displayName    String    @map("display_name") @db.VarChar(255)
+  amount         Decimal?  @db.Decimal(12, 4)
+  amountText     String?   @map("amount_text") @db.VarChar(128) // "to taste", "half shell", ...
+  unit           String?   @db.VarChar(64)
+  groupName      String?   @map("group_name") @db.VarChar(64) // shopping grouping
+  confirmedSense String?   @map("confirmed_sense") @db.VarChar(255) // user-confirmed meaning
+  includeOnList  Boolean   @default(true) @map("include_on_list")
+  sourceTag      String    @map("source_tag") @db.VarChar(16) // six-value provenance tag: CARD/METHOD/INFERRED/ABSENT/UNKNOWN/ASSUMED
+  needsReview    Boolean   @default(false) @map("needs_review") // C-34: low-confidence OCR lines
+  ocrConfidence  Decimal?  @map("ocr_confidence") @db.Decimal(4, 3) // 0–1 (chk_ocr_confidence_range)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6) // soft-deleted on split/merge (C-28 trigger)
+
+  recipe     Recipe                @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  dictionary IngredientDictionary? @relation(fields: [ingredientId], references: [id])
+
+  @@unique([recipeId, shoppingKey]) // C-39: full UNIQUE constraint — valid composite-FK target
+  @@map("recipe_ingredient_line")
+}
+
+model RecipeTag {
+  recipeId  String   @map("recipe_id") @db.Uuid
+  tagText   String   @map("tag_text") @db.VarChar(100)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@id([recipeId, tagText]) // PK (recipe_id, tag_text) — C-42: no duplicate index
+  @@map("recipe_tag")
+}
+
+model IngredientDictionary {
+  id            String   @id @default(uuid()) @db.Uuid
+  canonicalName String   @unique @map("canonical_name") @db.VarChar(255)
+  description   String?
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  aliases                IngredientAlias[]
+  recipeLines            RecipeIngredientLine[]
+  allergenMappings       DietaryAllergenMapping[]
+  foodCompositionEntries NutritionFoodCompositionEntry[]
+
+  @@map("ingredient_dictionary")
+}
+
+model IngredientAlias {
+  id                   String   @id @default(uuid()) @db.Uuid
+  ingredientId         String   @map("ingredient_id") @db.Uuid
+  aliasText            String   @unique @map("alias_text") @db.VarChar(255)
+  language             String?  @db.VarChar(32)
+  requiresConfirmation Boolean  @default(false) @map("requires_confirmation")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  ingredient IngredientDictionary @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+
+  @@index([language, aliasText], map: "ix_ingredient_alias_language")
+  @@map("ingredient_alias")
+}
+
+// ───────────────────────────── §6 Analysis ─────────────────────────────
+
+model Analysis {
+  id                   String   @id @default(uuid()) @db.Uuid
+  recipeId             String   @map("recipe_id") @db.Uuid
+  snapshotOfAnalysisId String?  @map("snapshot_of_analysis_id") @db.Uuid
+  // Composite self-FK (snapshot_of_analysis_id, recipe_id) → analysis(id, recipe_id) applied as
+  // raw SQL in migration 002 (fk_analysis_snapshot_same_recipe) — Prisma cannot express it.
+  mode                 String   @map("mode") @db.VarChar(16) // CHECK home/chef
+  family               String?  @db.VarChar(255) // Identification
+  familyConfidence     String?  @map("family_confidence") @db.VarChar(255) // Free text
+  architectureSummary  String?  @map("architecture_summary")
+  notThisNeighbors     Json?    @map("not_this_neighbors") // C-35: tagged array of excluded neighbour families
+  absentFamilyItems    Json?    @map("absent_family_items") // C-35: tagged array of confirmed-absent items
+  promptVersion        String?  @map("prompt_version") @db.VarChar(64) // Reproducibility pin
+  modelVersion         String?  @map("model_version") @db.VarChar(128) // Reproducibility pin
+  status               String   @map("status") @db.VarChar(16) // CHECK generating/complete/failed
+  isCurrent            Boolean  @map("is_current") // one current per recipe (partial unique index, migration 002)
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  recipe      Recipe               @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  views       AnalysisView[]
+  stationCard AnalysisStationCard?
+
+  @@unique([id, recipeId], map: "uq_analysis_id_recipe") // FK target for the composite self-FK
+  @@index([recipeId, createdAt(sort: Desc)], map: "ix_analysis_recipe_created")
+  @@map("analysis")
+}
+
+model AnalysisView {
+  id         String   @id @default(uuid()) @db.Uuid
+  analysisId String   @map("analysis_id") @db.Uuid
+  viewNumber Int      @map("view_number") @db.SmallInt // CHECK 1–9
+  viewKey    String   @map("view_key") @db.VarChar(64)
+  status     String   @db.VarChar(16) // CHECK COMPLETE/INCOMPLETE (chk_analysis_view_status)
+  payload    Json
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  analysis Analysis        @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  claims   AnalysisClaim[]
+
+  @@map("analysis_view")
+}
+
+model AnalysisClaim {
+  id              String   @id @default(uuid()) @db.Uuid
+  analysisViewId  String   @map("analysis_view_id") @db.Uuid
+  allergenId      String?  @map("allergen_id") @db.Uuid // FK → dietary_allergen_definition.id — View 8 only
+  claimText       String   @map("claim_text")
+  claimTag        String   @map("claim_tag") @db.VarChar(16) // CHECK six canonical tags: CARD/METHOD/INFERRED/ABSENT/UNKNOWN/ASSUMED
+  sourceReference String?  @map("source_reference")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  view     AnalysisView               @relation(fields: [analysisViewId], references: [id], onDelete: Cascade)
+  allergen DietaryAllergenDefinition? @relation(fields: [allergenId], references: [id])
+
+  @@index([analysisViewId, claimTag], map: "ix_analysis_claim_tag")
+  // ix_analysis_claim_allergen is a partial index (WHERE allergen_id IS NOT NULL) — raw SQL, migration 002.
+  @@map("analysis_claim")
+}
+
+model AnalysisStationCard {
+  id               String   @id @default(uuid()) @db.Uuid
+  analysisId       String   @unique @map("analysis_id") @db.Uuid
+  mise             Json
+  sequence         Json
+  doNots           Json     @map("do_nots")
+  controlPoints    Json     @map("control_points")
+  productYieldHold Json?    @map("product_yield_hold")
+  printable        Boolean  @default(true)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  analysis Analysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+
+  @@map("analysis_station_card")
+}
+
+// ───────────────────────────── §7 Shopping ─────────────────────────────
+
+model ShoppingListGeneration {
+  id          String   @id @default(uuid()) @db.Uuid
+  recipeId    String   @map("recipe_id") @db.Uuid
+  layout      String?  @db.VarChar(32) // grouped/flat
+  generatedAt DateTime @default(now()) @map("generated_at") @db.Timestamptz(6)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  recipe Recipe             @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  items  ShoppingListItem[]
+
+  @@index([recipeId, generatedAt(sort: Desc)], map: "ix_shopping_generation_recipe")
+  @@map("shopping_list_generation")
+}
+
+model ShoppingListItem {
+  id                String   @id @default(uuid()) @db.Uuid
+  generationId      String   @map("generation_id") @db.Uuid
+  shoppingKey       String?  @map("shopping_key") @db.Uuid // Historical only
+  displayName       String   @map("display_name") @db.VarChar(255)
+  displayQuantity   String   @map("display_quantity") @db.VarChar(128)
+  unit              String?  @db.VarChar(64)
+  groupName         String?  @map("group_name") @db.VarChar(64)
+  stateAtGeneration String   @map("state_at_generation") @db.VarChar(8) // CHECK have/need
+  position          Int
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  generation ShoppingListGeneration @relation(fields: [generationId], references: [id], onDelete: Cascade)
+
+  @@index([generationId, position], map: "ix_shopping_item_generation")
+  @@map("shopping_list_item")
+}
+
+model IngredientShoppingState {
+  id          String   @id @default(uuid()) @db.Uuid
+  recipeId    String   @map("recipe_id") @db.Uuid
+  shoppingKey String   @map("shopping_key") @db.Uuid
+  // Composite FK (recipe_id, shopping_key) → recipe_ingredient_line(recipe_id, shopping_key),
+  // ON DELETE CASCADE — raw SQL in migration 002 (fk_shopping_state_recipe_line, C-39).
+  state       String   @default("need") @db.VarChar(8) // CHECK have/need
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@unique([recipeId, shoppingKey]) // ERD §12: uq_ingredient_shopping_state
+  @@map("ingredient_shopping_state")
+}
+
+// ───────────────────────────── §8 Cook loop ─────────────────────────────
+
+model CookLog {
+  id                  String   @id @default(uuid()) @db.Uuid
+  recipeId            String   @map("recipe_id") @db.Uuid
+  cookedAt            DateTime @default(now()) @map("cooked_at") @db.Date // Default today
+  rating              Int?     @db.SmallInt // CHECK 1–5
+  note                String? // Private
+  nextTimeInstruction String?  @map("next_time_instruction")
+  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  recipe Recipe         @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  swaps  CookLogSwap[]
+  photos CookLogPhoto[]
+
+  @@index([recipeId, cookedAt(sort: Desc)], map: "ix_cook_log_recipe_date")
+  @@map("cook_log")
+}
+
+model CookLogSwap {
+  id                     String   @id @default(uuid()) @db.Uuid
+  cookLogId              String   @map("cook_log_id") @db.Uuid
+  shoppingKey            String?  @map("shopping_key") @db.Uuid // Historical only
+  ingredientNameSnapshot String   @map("ingredient_name_snapshot") @db.VarChar(255)
+  changeType             String   @map("change_type") @db.VarChar(16) // CHECK skipped/reduced/increased/swapped
+  originalValue          String?  @map("original_value")
+  actualValue            String?  @map("actual_value")
+  appliedToRecipe        Boolean  @default(false) @map("applied_to_recipe")
+  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  cookLog CookLog @relation(fields: [cookLogId], references: [id], onDelete: Cascade)
+
+  @@index([cookLogId], map: "ix_cook_swap_log")
+  @@map("cook_log_swap")
+}
+
+model CookLogPhoto {
+  id        String   @id @default(uuid()) @db.Uuid
+  cookLogId String   @unique @map("cook_log_id") @db.Uuid
+  photoUri  String   @map("photo_uri")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  cookLog CookLog @relation(fields: [cookLogId], references: [id], onDelete: Cascade)
+
+  @@map("cook_log_photo")
+}
+
+// ───────────────────────────── §9 Dietary ─────────────────────────────
+
+model DietaryAllergenDefinition {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique @db.VarChar(64)
+  name        String   @db.VarChar(255)
+  labelPack   String?  @map("label_pack") @db.VarChar(16) // US/EU/both
+  isStatutory Boolean  @map("is_statutory")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  mappings         DietaryAllergenMapping[]
+  restrictionItems AccountRestrictionItem[]
+  claims           AnalysisClaim[]
+
+  @@map("dietary_allergen_definition")
+}
+
+model DietaryAllergenMapping {
+  id              String    @id @default(uuid()) @db.Uuid
+  ingredientId    String    @map("ingredient_id") @db.Uuid
+  allergenId      String    @map("allergen_id") @db.Uuid // NOT NULL (C-30)
+  version         Int
+  effectiveFrom   DateTime  @map("effective_from") @db.Timestamptz(6)
+  effectiveTo     DateTime? @map("effective_to") @db.Timestamptz(6)
+  sourceReference String?   @map("source_reference")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  ingredient IngredientDictionary      @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  allergen   DietaryAllergenDefinition @relation(fields: [allergenId], references: [id])
+
+  @@index([ingredientId, version], map: "ix_allergen_mapping_ingredient_version")
+  @@map("dietary_allergen_mapping")
+}
+
+// ───────────────────────────── §10 Nutrition ─────────────────────────────
+
+model NutritionFoodCompositionEntry {
+  id                     String   @id @default(uuid()) @db.Uuid
+  ingredientId           String   @map("ingredient_id") @db.Uuid // NOT NULL (C-30)
+  externalSource         String   @map("external_source") @db.VarChar(64)
+  externalId             String   @map("external_id") @db.VarChar(128)
+  foodName               String   @map("food_name") @db.VarChar(255)
+  isPrimaryForIngredient Boolean  @default(false) @map("is_primary_for_ingredient")
+  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  ingredient IngredientDictionary              @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  versions   NutritionFoodCompositionVersion[]
+
+  @@unique([externalSource, externalId], map: "uq_food_composition_source")
+  @@map("nutrition_food_composition_entry")
+}
+
+model NutritionFoodCompositionVersion {
+  id                String    @id @default(uuid()) @db.Uuid
+  entryId           String    @map("entry_id") @db.Uuid
+  energyKcalPer100g Decimal?  @map("energy_kcal_per_100g") @db.Decimal(12, 4) // CHECK >= 0
+  proteinGPer100g   Decimal?  @map("protein_g_per_100g") @db.Decimal(12, 4)
+  fatGPer100g       Decimal?  @map("fat_g_per_100g") @db.Decimal(12, 4)
+  carbGPer100g      Decimal?  @map("carb_g_per_100g") @db.Decimal(12, 4)
+  fiberGPer100g     Decimal?  @map("fiber_g_per_100g") @db.Decimal(12, 4)
+  sodiumMgPer100g   Decimal?  @map("sodium_mg_per_100g") @db.Decimal(12, 4)
+  sourceVersion     String    @map("source_version") @db.VarChar(128)
+  effectiveFrom     DateTime  @map("effective_from") @db.Timestamptz(6)
+  effectiveTo       DateTime? @map("effective_to") @db.Timestamptz(6)
+
+  entry NutritionFoodCompositionEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  @@map("nutrition_food_composition_version")
+}

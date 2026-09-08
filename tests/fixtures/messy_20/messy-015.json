@@ -1,0 +1,23 @@
+{
+  "id": "messy-015",
+  "version": 1,
+  "name": "Chole from memory",
+  "region": "north",
+  "lines": [
+    "chole 2 cups",
+    "onion 2",
+    "tomato 2",
+    "masala 2 tsp",
+    "ginger 1",
+    "tea bag 1",
+    "ghee 2 tbsp",
+    "garam masala pinch"
+  ],
+  "messy_features": [
+    "vague-quantity"
+  ],
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 messy_20 set (QG5: week-12 twenty messy recipes, separate named set). Synthetic adversarial inputs; never merged into the corpus count."
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "id": "messy-017",
+  "version": 1,
+  "name": "Hyderabadi biryani (layers)",
+  "region": "telangana",
+  "lines": [
+    "Layer 1: rice 2 cups saffron pinch",
+    "Layer 2: chicken 500g curd 1 cup",
+    "onion 3 mint handful",
+    "ghee 3 tbsp biryani masala 1 tbsp"
+  ],
+  "messy_features": [
+    "header-line",
+    "split-line"
+  ],
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 messy_20 set (QG5: week-12 twenty messy recipes, separate named set). Synthetic adversarial inputs; never merged into the corpus count."
+  }
+}

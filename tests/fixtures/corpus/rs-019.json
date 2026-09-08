@@ -1,0 +1,29 @@
+{
+  "id": "rs-019",
+  "version": 1,
+  "name": "Kothu Parotta",
+  "region": "tamil-nadu",
+  "category": "non-veg",
+  "input_type": "paste",
+  "method": {
+    "provided": false,
+    "inferred": false
+  },
+  "lines": [
+    "Parotta — 3 Nos",
+    "Egg — 2 Nos",
+    "Onion — 1 Nos",
+    "Tomato — 1 Nos",
+    "Green Chilli — 2 Nos",
+    "Curry Masala — 1 Tsp",
+    "Oil — 2 Tbsp"
+  ],
+  "review": {
+    "reviewer_slot": "tn_kanyakumari",
+    "status": "unassigned"
+  },
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 deterministic corpus fixture (QG5 Volume tier). Synthetic input data for testing; no real-world source claim."
+  }
+}

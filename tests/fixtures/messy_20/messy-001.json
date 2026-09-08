@@ -1,0 +1,28 @@
+{
+  "id": "messy-001",
+  "version": 1,
+  "name": "Messy Meen Kuzhambu",
+  "region": "tamil-nadu",
+  "lines": [
+    "F1sh - 5OO g",
+    "murungakkai - 1",
+    "Mango - 1/2 nos",
+    "coconut half shell",
+    "oil for tempering",
+    "chilli 5",
+    "chilli powder 2 tsp",
+    "coriander powder 1 tsp",
+    "puli - lemon size",
+    "methi powder - 1/2",
+    "vendhayam - 1/4 tsp"
+  ],
+  "messy_features": [
+    "ocr-typo",
+    "vernacular-alias",
+    "mixed-units"
+  ],
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 messy_20 set (QG5: week-12 twenty messy recipes, separate named set). Synthetic adversarial inputs; never merged into the corpus count."
+  }
+}

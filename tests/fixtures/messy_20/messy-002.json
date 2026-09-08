@@ -1,0 +1,25 @@
+{
+  "id": "messy-002",
+  "version": 1,
+  "name": "Smudged Sambar Card",
+  "region": "tamil-nadu",
+  "lines": [
+    "For the dal:",
+    "toor dal 3/4 cup",
+    "chinna vengayam - 8",
+    "tomato - 1",
+    "sambar powder - 2 tsp",
+    "drumstick - 2",
+    "salt - to taste",
+    "coriander - handful"
+  ],
+  "messy_features": [
+    "header-line",
+    "vernacular-alias",
+    "to-taste"
+  ],
+  "provenance": {
+    "synthetic": true,
+    "note": "D-04 messy_20 set (QG5: week-12 twenty messy recipes, separate named set). Synthetic adversarial inputs; never merged into the corpus count."
+  }
+}

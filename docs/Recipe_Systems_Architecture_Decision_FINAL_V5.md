@@ -76,7 +76,7 @@ Every application table has one logical writer:
 
 -   Web API owns account, guest, recipe, tag, restriction, and cook-loop writes.
     
--   Intake owns raw input and OCR-related draft writes.
+-   Intake owns `recipe_input` and `recipe_ingredient_line` writes — the complete draft-line lifecycle: raw intake rows, OCR draft lines, and every B3 parse-review mutation (edit/add/delete/split/merge, sense confirmation) up to the analysis enqueue gate (INV-03, INV-05, INV-07). The Web API/BFF exposes the intake and parse-review HTTP endpoints (API §3) but delegates every `recipe_ingredient_line` mutation to the Intake module — it never writes that table independently (Q4 resolved 2026-09-08, SCAFFOLD §7).
     
 -   Analysis worker owns analysis-family writes.
     

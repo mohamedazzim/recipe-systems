@@ -463,6 +463,74 @@ execution output; Git: not available / not authorized throughout.
   with CURLE_WRITE_ERROR 23) and single-slash `taskkill /PID /F` (//T //F unreliable). Verified live:
   full stop→start cycle, test:e2e 15/15, test:unit all suites green. `STARTUP.md` (repo root) is the
   human-readable command reference for the same workflows (stack, migrations, API/web env, tests, gates).
+- 2026-09-08 — **D-11 PRE-FLIGHT (read-only; no implementation code changed)**:
+  Inspected: DISPATCH D-11, BUILD_PLAN P2-2/§7.3, SCAFFOLD §3/§7, ADR §2/§4/§10/§19, Tech Stack
+  §11/§16, ERD §5 (ocr_text/needs_review/ocr_confidence, C-34), API §3 OCR route, Epic-B B2
+  TC-02/03/04, TEST_PLAN QG4 + P2 row, HANDOFF H-10, current code (intake/recipes/storage modules,
+  packages/ocr-adapter scaffold, D-10 immutability gate).
+  **What D-10 provides:** photo input rows with photo_uri; Intake-only draft-line writes;
+  assertOwned (INV-17); StorageService; GuestOrJwt+Csrf guards.
+  **Findings/decisions:**
+  - **CONTRADICTION (decision P1 required):** ERD §5 places `ocr_text` ON `recipe_input`, and ADR
+    §4's pipeline persists the raw row BEFORE OCR — so D-11 must write ocr_text after row
+    creation, which the D-10 immutability gate would fire on. Proposed resolution: narrow
+    immutability to the raw-event fields (input_type/raw_text/photo_uri — never updateable);
+    allow exactly ONE write-once OCR path owned by Intake:
+    `recipeInput.updateMany({ where: { id, ocrText: null }, data: { ocrText } })` — DB-level
+    write-once; gate amended to permit only updateMany-with-null-guard in intake.service.ts and
+    still fire on any singular `recipeInput.update` anywhere. Amends a D-10 gate → reviewed
+    patch; D-10 history preserved as-is (dated new entry, no erasure).
+  - **No-photo / unreadable OCR** → single documented failure surface `422 OCR_UNREADABLE`
+    (API §3 defines one OCR failure code; no new invented code).
+  - **Low-confidence threshold:** not canonically specified. Conservative policy per adapter
+    scaffold comment (no reliable confidence → review, never a score): normalize 0–1; flag
+    `needs_review=TRUE` via a named constant in the intake module; missing confidence → flagged.
+  - **Q3 NOT reopened** (stale Worker→OCR diagram edge stays OPEN; implementation follows
+    Intake-only per ADR §2/SCAFFOLD §3). **Q10 NOT resolved** (D-11 ships the adapter SEAM;
+    GCV initial candidate behind it; CI/verify uses a deterministic stub; real provider
+    exercised only when credentials exist — dev has none; benchmark harness itself is a
+    separate wks-1–4 track item, absence recorded, not a blocker).
+  - **API response shape:** OCR lines follow the D-10 wire-shape convention — amount/unit null
+    (parsing is D-12); confidence=ocr_confidence, low_confidence=needs_review.
+  - **QG4 fault cells:** OCR timeout/down → adapter failure surfaces as 503, NOTHING persisted
+    (OCR runs before any draft-line write), photo + input row intact, retry = re-POST. INV-04:
+    flagged lines always created (never dropped) — test with stub output containing
+    low-confidence lines.
+  **Verdict: D-11 GO** — dependencies verified (D-10 live, Q4 canonical, guards/services in
+  place); one required architecture decision (P1) + three scoped decisions recorded above; no
+  blockers. Resume point: implement D-11 starting with the P1 gate amendment (reviewed patch to
+  scripts/regression-gates.sh + H-10 note), then packages/ocr-adapter (normalize + GCV provider +
+  deterministic golden stub), then Intake OCR endpoint + tests.
+- 2026-09-08 — **D-10 raw intake + photo pipeline (H-10)**: recipes + intake + storage modules
+  (Q4-resolved one-writer split), POST /recipes/parse-text + /upload live, recipe_input
+  immutability regression gate + fire-proofs, QG4 no-dangling-URI evidence (upload-first +
+  rollback + live-object integration probe). Verified: unit 25/25 new (workspace 251), integration
+  40/40 (real DB+MinIO), E2E 25/25, gates PASS, verify-local exit 0. Decisions D-10A–K recorded in
+  H-10. Full-suite E2E re-run note: a backgrounded playwright run hung once (~30 min, killed via
+  taskkill /F /IM node.exe which also took down dev servers — restarted; re-run foreground
+  25/25 in 2.0m).
+- 2026-09-08 — **D-10 PRE-FLIGHT · Q4/Q5 decision trace — STARTING STATE (read-only, no code changed)**:
+  Inspected: SCAFFOLD §7 register, ADR §2 one-writer + §13 invariants + B2/B3 responsibility row,
+  IMPROVEMENT_PLAN P0-4/P0-5, ERD §5 (`recipe_input`, `recipe_ingredient_line`), BUILD_PLAN §P2,
+  API doc §3. Findings: (a) **Q4 OPEN** — "Intake drafts vs Web API corrections" (SCAFFOLD §7,
+  IMPROVEMENT_PLAN P0-4); (b) ADR §2 already assigns Intake "raw input and OCR-related draft
+  writes" and its B2/B3 row assigns Intake the raw→flag→review lifecycle; INV-03 (one logical
+  writer/table), INV-05 (needs_review gate), INV-07 (analysis never mutates lines) all support a
+  single Intake writer; (c) **code scan: zero app write paths** touch `recipe_input` /
+  `recipe_ingredient_line` (only packages/database schema+generated+db test); api modules =
+  account/auth only — no competing writer, no bypass, no update/delete path exists; schema
+  `recipe_input` has no `updated_at` (immutable by construction); `recipe_ingredient_line` has
+  `updated_at`/`deleted_at` (B3 split/merge soft-delete — consistent with Intake ownership);
+  (d) **Q5 inconsistency recorded, NOT resolved** (outside D-10 STOP scope): SCAFFOLD Q5 OPEN vs
+  regression-gates admin-module "working assumption" for dictionary/alias writes.
+  **RESOLUTION APPLIED (same session, docs-only):** Q4 → RESOLVED — Intake is the sole logical
+  writer of `recipe_ingredient_line` for the full lifecycle (draft creation + B3 corrections;
+  BFF exposes HTTP endpoints, delegates mutations to Intake). Canonical updates: ADR §2 (amended),
+  SCAFFOLD §7 Q4/Q5 rows, IMPROVEMENT_PLAN P0-4 (RESOLVED) + P0-5 (finding note), CHANGE_LOG
+  2026-09-08, this log. Q5 deliberately NOT resolved (Track-R gate item). Verdict: **D-10 GO**
+  — no contradiction found; Q4 ambiguity cleared. Exact resume point: D-10 implementation on
+  dispatch — `recipe_input` immutable rows (paste/photo/form), MinIO photo → URI only,
+  Intake module owns all draft-line writes, QG4 evidence.
 - 2026-09-08 — **D-05 schema freeze (H-05)**: `packages/schemas` frozen contract set v1.0.0 —
   nine view payloads, identification, six canonical claim tags + claim schema, station card,
   shared inputs, analysis envelope; Zod strict runtime validation; 112/112 contract tests;
@@ -506,7 +574,79 @@ execution output; Git: not available / not authorized throughout.
 
 ### H-10 — D-10 Raw intake rows + photo pipeline
 
-☐ No entry yet.
+- BASE_SHA / COMMIT_SHA: **none recorded** — Git not available / not authorized.
+- Date / agent session: 2026-09-08 · D-10 dispatch session (preceded by Q4 pre-flight, H-05 trace).
+- Status: **DONE** (implementation + tests + full verification below; dispatch D-10 done criteria met).
+- Implementation summary:
+  - `apps/api/src/modules/recipes/` — Web API's writer of `recipe` (ADR §2): `createForIntake`
+    (account XOR guest owner, placeholder title 'Untitled recipe'), `assertOwned` (404 for
+    missing AND foreign — no existence leak, INV-17), `removeIfIntakeEmpty` (D-10K compensation).
+  - `apps/api/src/modules/intake/` — SOLE logical writer of `recipe_input` +
+    `recipe_ingredient_line` (Q4 resolved): `recordPaste` (raw row + one verbatim draft line per
+    non-empty raw line, atomic $transaction), `recordPhoto` (URI only, never a blob — ADR §3),
+    `recordForm` (B5, service-level — no HTTP route in API §3 yet), `createDraftLines`,
+    `listDraftLines`. Draft rows: shopping_key uuid, line_no card order, display_name = as-written
+    text (B1 mixed units / "to taste" / vernacular verbatim), source_tag CARD, needs_review false
+    (OCR flagging = D-11), amount/unit/quantity/category/confirmed_sense stay null (parsing = D-12).
+    **No update/delete/upsert method for recipe_input exists in this service (immutability).**
+  - `apps/api/src/modules/intake/storage.service.ts` — S3-compatible object storage
+    (@aws-sdk/client-s3, MinIO dev): `ensureBucket` (idempotent bootstrap), `uploadImage`
+    (JPEG/PNG, 10 MB cap, key `recipes/<uuid>.<ext>`, URI `s3://<bucket>/<key>`, upload failure →
+    STORAGE_UPLOAD_FAILED and nothing persisted), `deleteObject` (best-effort rollback),
+    `objectExists` (QG4 probe).
+  - `apps/api/src/modules/intake/intake.controller.ts` — API §3 surface: POST /recipes/parse-text
+    (HttpCode 200, GuestOrJwt+Csrf guards, zod-validated text, returns {recipe:{raw_text, lines[],
+    flags:[]}} in the documented wire shape), POST /recipes/upload (201, multipart file, returns
+    {recipe_id, image_id, file_key}); QG4 ordering: upload first, persist second, compensation
+    deletes the object and (if no intake row landed) the empty recipe row.
+  - Regression gate (scripts/regression-gates.sh): "recipe_input immutability" — fires on any
+    `recipeInput.update/updateMany/upsert/delete/deleteMany` or raw `UPDATE/DELETE FROM
+    recipe_input` outside migrations; fire-proofed in qg2_gates.test.ts (both ORM and raw SQL
+    plants, scratch trees).
+  - Env wiring: S3_ENDPOINT/S3_BUCKET/S3_ACCESS_KEY/S3_SECRET_KEY added to scripts/dev.sh,
+    start-dev.cmd, STARTUP.md (.env.example already carried them).
+  - jest.integration.config.js: moduleNameMapper for @recipe-systems/database + ts-jest
+    esModuleInterop/decorators override (integration suites may now require app services).
+- Files added:
+  - `apps/api/src/modules/recipes/{recipe.service.ts, recipe.service.test.ts, recipes.module.ts}`
+  - `apps/api/src/modules/intake/{intake.service.ts, intake.service.test.ts, storage.service.ts,
+    storage.service.test.ts, intake.controller.ts, intake.module.ts}`
+  - `tests/integration/intake_storage.test.ts` (real Postgres + real MinIO)
+  - `tests/e2e/intake.spec.ts` (7 tests, real HTTP surface)
+- Files modified:
+  - `apps/api/src/app.module.ts` (IntakeModule) · `apps/api/package.json` (@aws-sdk/client-s3,
+    @types/multer) · `jest.integration.config.js` · `scripts/regression-gates.sh` ·
+    `tests/integration/qg2_gates.test.ts` (+2 fire-proofs) · `scripts/dev.sh` · `start-dev.cmd` ·
+    `STARTUP.md`
+- Tests executed and results:
+  - Unit: intake/recipes/storage **25/25** (workspace total 251); includes B1 TC-02 two-fenugreek
+    distinctness, verbatim mixed-unit/vernacular preservation, URI-only photo rows, ownership
+    refusal, immutability surface assertion (no update/delete/upsert method names), QG4
+    upload-failure → no-URI + rollback-delete behavior.
+  - Integration **40/40** (real DB + MinIO): golden paste → 1 raw row + 11 draft lines with both
+    fenugreeks distinct and ordered; photo upload → URI row whose object EXISTS in MinIO
+    (QG4 no-dangling-URI); foreign guest session rejected with 404 (INV-17) and persisted nothing;
+    QG2 gate fire-proofs incl. 2 new immutability plants.
+  - E2E **25/25** (7 new intake): guest golden paste via HTTP, verbatim B1 preservation, 403
+    CSRF_MISMATCH without token, 400 INVALID_TEXT, JPEG upload → 201 + file_key shape, 400
+    INVALID_IMAGE for non-images, account signup→paste flow.
+  - Lint clean · typecheck 0 errors · regression gates PASS (incl. new immutability gate) ·
+    contract-check OK · `verify-local.sh` **exit 0 · ALL STEPS PASSED**.
+- Decisions recorded (D-10A–D-10K): placeholder title (no title input in API §3); URI format
+  s3://bucket/key; file_key recipes/uuid.ext; JPEG/PNG + 10 MB cap; source_tag CARD for drafts;
+  form channel service-level only (B5, no HTTP contract yet); parse-text returns the documented
+  wire shape with unparsed fields null (parsing is D-12); upload-first QG4 ordering with
+  best-effort object+recipe compensation; ownership enforced inside IntakeService via
+  RecipeService.assertOwned.
+- Deviations: none vs. dispatch. Intentional non-changes: OCR (D-11), parse-review endpoints
+  (D-12), method attach (D-13), enqueue gate (D-14) — untouched; openapi/openapi.json unchanged
+  (the generator renders frozen schemas, not HTTP routes).
+- Known limitations: recipe_input rows are write-once by design — no re-intake overwrite (new
+  intake = new row); 'Untitled recipe' placeholder until title editing lands; form intake has no
+  HTTP surface yet.
+- Traceability: P2-1 · DISPATCH D-10 · ADR §2/§3/§4 · ERD §5 recipe_input/recipe_ingredient_line ·
+  API §3 · Stories B1/B2/B5 · Q4 resolution (SCAFFOLD §7) · INV-03/INV-17 · TEST_PLAN QG4.
+- Audit result: A-10 not yet executed — PENDING.
 
 ### H-11 — D-11 OCR adapter + low-confidence flagging
 

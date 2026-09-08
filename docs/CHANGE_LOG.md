@@ -22,8 +22,48 @@
 
 ---
 
-## 2026-09-07 — Implementation reconciliation: mentor repo aligned to the authoritative program
+## 2026-09-08 — D-10 shipped: raw intake rows + photo pipeline (H-10)
 
+- Author / session: Hermes Agent (D-10 dispatch, after Q4 pre-flight resolution).
+- What changed: `apps/api` gained `recipes` (Web API's `recipe` writer) and `intake` (sole writer
+  of `recipe_input`/`recipe_ingredient_line`, Q4-resolved) modules plus an S3 storage service;
+  HTTP surface POST /recipes/parse-text + /recipes/upload per API §3; `recipe_input` immutability
+  regression gate added; S3_* env wired into dev.sh/start-dev.cmd/STARTUP.md.
+- Why: P2-1 per BUILD_PLAN; the one-writer boundary formalized in the Q4 resolution.
+- Register impact: none (Q4 stays RESOLVED; Q5 still OPEN).
+- Tests: unit 25/25 new (workspace 251) · integration 40/40 (real DB + MinIO, QG4 live-URI probe,
+  INV-17 ownership) · E2E 25/25 · verify-local exit 0.
+- Decisions D-10A–D-10K recorded in HANDOFF H-10.
+
+## 2026-09-08 — D-10 pre-flight: Q4 resolved (Intake = sole writer of `recipe_ingredient_line`)
+
+- Author / session: Hermes Agent (D-10 pre-flight dispatch; Q4 STOP-condition resolution).
+- What changed: **Q4 resolved.** Decision — Intake is the sole logical writer of
+  `recipe_ingredient_line` across the entire intake lifecycle: draft creation AND later user
+  corrections (edit/add/delete/split/merge, sense confirmation) before analysis. The Web API/BFF
+  exposes the intake and parse-review HTTP endpoints (API §3) but delegates every
+  `recipe_ingredient_line` mutation to the Intake module; it never writes that table
+  independently. Prior OPEN state preserved: the ambiguity ("Intake drafts vs Web API corrections")
+  remains visible as the struck-through register row and in IMPROVEMENT_PLAN P0-4's problem
+  statement.
+- Why: ADR §2 already assigns Intake "raw input and OCR-related draft writes"; the ADR B2/B3
+  responsibility row assigns Intake the raw→flag→review lifecycle; B3 corrections are draft-line
+  mutations in the same lifecycle (soft-delete on split/merge); INV-03 (one logical writer per
+  table), INV-05 (needs_review gate) and INV-07 (analysis never mutates lines) are all satisfied
+  by a single Intake writer. Code scan found zero app write paths for these tables (no competing
+  writer exists), and `recipe_input` is immutable by construction (no `updated_at` column).
+- Documents updated: ADR §2 (Intake bullet names the tables + delegation rule); SCAFFOLD §7
+  (Q4 register row RESOLVED, Q5 row note added — Q5 remains OPEN); IMPROVEMENT_PLAN P0-4
+  (RESOLVED with rationale) + P0-5 (pre-flight finding note); HANDOFF §5 (pre-flight starting
+  state + resolution record).
+- Register impact: Q4 → RESOLVED. Q5 → OPEN with documented pre-flight finding (gates' admin-module
+  "working assumption" vs unnamed ADR ownership — resolution remains a Track-R-gate item).
+- Tests/gates: none run — no code changed (pre-flight + documentation only).
+- Resume point: D-10 implementation may proceed on dispatch — `recipe_input` immutable raw rows,
+  photo → object storage (URI only), draft `recipe_ingredient_line` writes through the Intake
+  module only, QG4 no-dangling-URI evidence.
+
+## 2026-09-07 — Implementation reconciliation: mentor repo aligned to the authoritative program
 - Author / session: Hermes Agent (owner-authorized governance decision).
 - What changed: `E:\Pente_Recipe_System-main` reconciled to the canonical corpus —
   Prisma owns all DDL (24 ERD v13 tables, migration 002 with the §12 constraint suite applied

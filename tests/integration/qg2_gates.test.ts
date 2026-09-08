@@ -145,6 +145,30 @@ describe('QG2 static gates fire on real violations (D-01 criterion)', () => {
     }
   });
 
+  it('immutability: a prisma.recipeInput.update reference fires', () => {
+    const s = makeScratch();
+    try {
+      s.write('apps/api/src/modules/x/service.ts', 'prisma.recipeInput.update({ where: {}, data: {} });\n');
+      const result = runGates(s.dir);
+      expect(result.exit).toBe(1);
+      expect(result.out).toContain('recipe_input must be immutable');
+    } finally {
+      s.cleanup();
+    }
+  });
+
+  it('immutability: raw SQL DELETE FROM recipe_input fires', () => {
+    const s = makeScratch();
+    try {
+      s.write('apps/api/scripts/purge.sql', "DELETE FROM recipe_input WHERE id = 'x';\n");
+      const result = runGates(s.dir);
+      expect(result.exit).toBe(1);
+      expect(result.out).toContain('recipe_input must be immutable');
+    } finally {
+      s.cleanup();
+    }
+  });
+
   it('the REAL repository tree still passes every gate (no accidental drift)', () => {
     const result = runGates(ROOT.replace(/\\/g, '/'));
     expect(result.exit).toBe(0);

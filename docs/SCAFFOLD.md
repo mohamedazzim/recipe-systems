@@ -103,8 +103,8 @@ Nothing on this list is decided by these documents. Each row points at where the
 | Q1 | Analysis-input snapshot persistence (worker/job payload vs ERD v14 column) | ADR §6 vs ERD `analysis` |
 | Q2 | Printed allergen-line source under the snapshot-only render rule | E4/H4/E5 vs ADR §7 permitted-source table |
 | Q3 | Remove the Worker→OCR edge from the topology diagram (ADR §10, now `diagram.png`) — OCR is Intake-only | ADR §2/§10 vs Tech Stack §18 |
-| Q4 | Single writer of `recipe_ingredient_line` (Intake drafts vs Web API corrections) | ADR §2 one-writer list vs INV-03 |
-| Q5 | Writer of `ingredient_dictionary` / `ingredient_alias` | ADR §2 (unnamed) |
+| Q4 | ~~Single writer of `recipe_ingredient_line` (Intake drafts vs Web API corrections)~~ — **Resolved 2026-09-08:** Intake is the sole logical writer of `recipe_ingredient_line` across the entire intake lifecycle — draft creation AND later user corrections (edit/add/delete/split/merge, sense confirmation) before analysis. The Web API/BFF exposes the HTTP endpoints but delegates all line mutations to the Intake module; no independent BFF writes. ADR §2 amended to name the tables and the delegation rule; IMPROVEMENT_PLAN P0-4 RESOLVED; CHANGE_LOG 2026-09-08. | ADR §2 one-writer list vs INV-03 |
+| Q5 | Writer of `ingredient_dictionary` / `ingredient_alias` (OPEN — note 2026-09-08: regression gates enforce an admin/reference-data-module writer labeled "Q5 working assumption"; defensible under ADR §2 + INV-15 but not yet canonical — recorded, NOT resolved) | ADR §2 (unnamed) |
 | Q6 | G2 "publishable" state home (manual queue vs `analysis_claim` status column) | ADR §8 |
 | Q7 | Cloud vendor: AWS primary vs R2 alternative; managed-PG provider | Tech Stack §25 |
 | Q8 | ~~Keycloak pilot vs Auth0 — amend Tech Stack §1/§14/§25~~ — **Resolved 2026-09-07:** Keycloak selected as the sole identity/authentication provider (OIDC/OAuth2). Tech Stack §1/§14/§25/§26 amended to name Keycloak; ADR §19/§24 updated; Auth0 removed from the active architecture (prior state preserved in CHANGE_LOG.md). | Tech Stack §25.3 |

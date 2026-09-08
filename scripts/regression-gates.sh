@@ -65,6 +65,16 @@ if [ -z "$hits" ]; then note "no DDL outside packages/database/prisma/migrations
   fire "DDL outside Prisma migrations:"; echo "$hits"
 fi
 
+# --- 3b. recipe_input immutability (D-10 done criterion; Q4 Intake write-once) ------------------
+echo "-- immutability: recipe_input has no UPDATE/DELETE path anywhere"
+pat='recipeInput\.(update|updateMany|upsert|delete|deleteMany)|\b(UPDATE|DELETE FROM)\s+recipe_input'
+hits=$(grep -rInE "$pat" "$SCAN/apps" "$SCAN/packages" --include="*.ts" --include="*.tsx" --include="*.sql" \
+  --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.next --exclude-dir=generated 2>/dev/null \
+  | grep -vE "packages/database/prisma/migrations/" || true)
+if [ -z "$hits" ]; then note "recipe_input is write-once (no update/delete references, D-10)"; else
+  fire "recipe_input must be immutable:"; echo "$hits"
+fi
+
 # --- 4. Provenance tags (SCAFFOLD §6) ----------------------------------------------------------
 echo "-- provenance: claim_tag values subset of the six canonical tags"
 CANON="CARD METHOD INFERRED ABSENT UNKNOWN ASSUMED"

@@ -6,5 +6,24 @@ module.exports = {
   testEnvironment: 'node',
   roots: ['<rootDir>/tests/integration'],
   testMatch: ['**/*.test.ts'],
+  transform: {
+    '^.+\\.(t|j)s$': [
+      'ts-jest',
+      {
+        tsconfig: {
+          esModuleInterop: true,
+          skipLibCheck: true,
+          strict: false,
+          experimentalDecorators: true,
+          emitDecoratorMetadata: false,
+        },
+      },
+    ],
+  },
+  moduleNameMapper: {
+    // Integration tests consume the database package's TS source directly
+    // (same pattern as apps/api/jest.config.js).
+    '^@recipe-systems/database$': '<rootDir>/packages/database/src/index.ts',
+  },
   collectCoverageFrom: [],
 };

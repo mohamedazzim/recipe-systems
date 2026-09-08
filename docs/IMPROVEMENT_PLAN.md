@@ -41,11 +41,12 @@
 ### P0-4. Q4 — Single writer of `recipe_ingredient_line` *(before P2 ships draft lines)*
 
 **Declared in:** ADR §2 one-writer list vs INV-03 (SCAFFOLD §7 Q4). **Gates:** P2 draft lines (BUILD_PLAN §1.3; D-10 stops and raises it if still open).
-**Problem:** Intake drafts and Web API corrections both plausibly write draft lines; the one-writer rule needs one answer. **Status:** OPEN.
+**Problem:** Intake drafts and Web API corrections both plausibly write draft lines; the one-writer rule needs one answer. **Status:** ~~OPEN~~ → **RESOLVED 2026-09-08.** Decision: Intake is the sole logical writer of `recipe_ingredient_line` across the entire intake lifecycle — draft creation AND later user corrections (edit/add/delete/split/merge, sense confirmation) before analysis. The Web API/BFF exposes the HTTP endpoints but delegates all line mutations to the Intake module; no independent BFF writes. Rationale: ADR §2 already assigns Intake "raw input and OCR-related draft writes" and the ADR B2/B3 responsibility row assigns Intake the raw→flag→review lifecycle; B3 corrections are draft-line mutations in the same lifecycle (soft-delete on split/merge); INV-03/INV-05/INV-07 are satisfied by one writer. ADR §2 amended; SCAFFOLD §7 Q4 RESOLVED; CHANGE_LOG 2026-09-08.
 
 ### P0-5. Q5 — Writer of `ingredient_dictionary` / `ingredient_alias` *(before Track R curation)*
 
 **Declared in:** ADR §2 (unnamed) (SCAFFOLD §7 Q5). **Gates:** Track R curation feeding P2 sense confirmation (BUILD_PLAN §1.3).
+**Pre-flight finding (2026-09-08, NOT resolved):** `scripts/regression-gates.sh` already enforces an admin/reference-data-module writer for `ingredient_dictionary`/`ingredient_alias`, labeled "Q5 working assumption". Defensible under ADR §2 (admin/reference-data module owns curated reference-data writes) and INV-15 (curated reference data changes only through reviewed workflows), but the ADR list does not NAME these tables — the assumption is not yet canonical. Q5 stays OPEN; resolution remains a Track-R-gate decision, not a D-10 pre-flight item.
 **Working assumption in force:** the admin/reference-data module writes them (TEST_PLAN QG2, D-29). **Status:** OPEN.
 
 ### P0-6. Q2 — Printed allergen-line source *(due week 8)*

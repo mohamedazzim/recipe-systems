@@ -28,6 +28,17 @@ jobs:
           --health-interval 5s
           --health-timeout 3s
           --health-retries 12
+      minio:
+        image: minio/minio:latest
+        env:
+          MINIO_ROOT_USER: minioadmin
+          MINIO_ROOT_PASSWORD: minioadmin
+        ports: ["9000:9000"]
+        options: >-
+          --health-cmd "curl -sf http://localhost:9000/minio/health/live"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 12
     env:
       DATABASE_URL: postgresql://recipe:recipe_ci_password@localhost:5432/recipe
       NODE_ENV: ci

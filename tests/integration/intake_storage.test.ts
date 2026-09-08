@@ -95,6 +95,7 @@ describe('D-10 intake: real Postgres + real MinIO', () => {
   });
 
   it('photo: upload → URI-only raw row; the persisted URI resolves to a live object (QG4)', async () => {
+    await storage.ensureBucket(); // mirror the app's bootstrap (the running dev API does this; CI does not)
     const actor = await newGuestActor();
     const stored = await storage.uploadImage(TINY_JPEG, 'image/jpeg');
     uploadedKeys.push(stored.key);

@@ -74,6 +74,13 @@ describe('StorageService', () => {
     expect(send.mock.calls[1][0].name).toBe('CreateBucket');
   });
 
+  it('QG4: ensureBucket NEVER throws when storage is down (degraded start, CI-safe boot)', async () => {
+    const { send } = mockSend();
+    send.mockRejectedValue(new Error('connection refused')); // HeadBucket AND CreateBucket both fail
+    const svc = new StorageService();
+    await expect(svc.ensureBucket()).resolves.toBeUndefined();
+  });
+
   it('deleteObject is best-effort: storage errors do not propagate (QG4 rollback path)', async () => {
     const { send } = mockSend();
     send.mockRejectedValue(new Error('down'));

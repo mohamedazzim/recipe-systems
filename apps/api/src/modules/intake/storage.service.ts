@@ -44,12 +44,20 @@ export class StorageService {
     });
   }
 
-  /** Idempotent bootstrap: create the bucket when it does not exist yet. */
+  /** Idempotent bootstrap: create the bucket when it does not exist yet.
+   *  NEVER throws — object storage being down at startup is a controlled,
+   *  per-request failure (uploads return STORAGE_UPLOAD_FAILED), not a boot crash
+   *  (QG4 posture; CI boots the API with no object storage running). */
   async ensureBucket(): Promise<void> {
     try {
-      await this.client.send(new HeadBucketCommand({ Bucket: this.bucket }));
+      try {
+        await this.client.send(new HeadBucketCommand({ Bucket: this.bucket }));
+        return;
+      } catch {
+        await this.client.send(new CreateBucketCommand({ Bucket: this.bucket }));
+      }
     } catch {
-      await this.client.send(new CreateBucketCommand({ Bucket: this.bucket }));
+      // Degraded start: intake photo uploads will fail per-request until storage is up.
     }
   }
 

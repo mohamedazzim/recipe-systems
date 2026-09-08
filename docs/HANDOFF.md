@@ -463,6 +463,13 @@ execution output; Git: not available / not authorized throughout.
   with CURLE_WRITE_ERROR 23) and single-slash `taskkill /PID /F` (//T //F unreliable). Verified live:
   full stop→start cycle, test:e2e 15/15, test:unit all suites green. `STARTUP.md` (repo root) is the
   human-readable command reference for the same workflows (stack, migrations, API/web env, tests, gates).
+- 2026-09-08 — **Git push (owner-authorized)**: implementation repo pushed to
+  `github.com/mohamedazzim/recipe-systems` (branch `main`). Commit `432b601` "feat(D-10): raw
+  intake pipeline — immutable recipe_input rows, MinIO photo storage" carries the D-10 + Q4/D-11
+  pre-flight delta on top of the user's Initial commit `871ec48` (which already contained the
+  D-01..D-05 state). Remote verified via `git ls-remote` (`432b60144e58df4d094e4a15e3fd14bb68cc346a`).
+  H-10 SHA line updated with real evidence; earlier H entries keep their historical
+  "none recorded" state (accurate at the time written — preserved, not rewritten).
 - 2026-09-08 — **D-11 PRE-FLIGHT (read-only; no implementation code changed)**:
   Inspected: DISPATCH D-11, BUILD_PLAN P2-2/§7.3, SCAFFOLD §3/§7, ADR §2/§4/§10/§19, Tech Stack
   §11/§16, ERD §5 (ocr_text/needs_review/ocr_confidence, C-34), API §3 OCR route, Epic-B B2
@@ -574,7 +581,8 @@ execution output; Git: not available / not authorized throughout.
 
 ### H-10 — D-10 Raw intake rows + photo pipeline
 
-- BASE_SHA / COMMIT_SHA: **none recorded** — Git not available / not authorized.
+- BASE_SHA / COMMIT_SHA: **BASE `871ec48` (Initial commit) · COMMIT `432b601`** — pushed to
+  `github.com/mohamedazzim/recipe-systems` branch `main` (2026-09-08, owner-authorized push).
 - Date / agent session: 2026-09-08 · D-10 dispatch session (preceded by Q4 pre-flight, H-05 trace).
 - Status: **DONE** (implementation + tests + full verification below; dispatch D-10 done criteria met).
 - Implementation summary:

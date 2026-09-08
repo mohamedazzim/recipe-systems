@@ -463,6 +463,17 @@ execution output; Git: not available / not authorized throughout.
   with CURLE_WRITE_ERROR 23) and single-slash `taskkill /PID /F` (//T //F unreliable). Verified live:
   full stop→start cycle, test:e2e 15/15, test:unit all suites green. `STARTUP.md` (repo root) is the
   human-readable command reference for the same workflows (stack, migrations, API/web env, tests, gates).
+- 2026-09-08 — **CI remediation chain (real evidence, all three failures fixed; final run SUCCESS)**:
+  CI run https://github.com/mohamedazzim/recipe-systems/actions/runs/34266143182 (commit
+  `a3b58e5`) green. Sequence: (1) `app.module.test.ts` boot failure in CI — IntakeModule's
+  onModuleInit ensureBucket() crashed bootstrap when no MinIO runs (local masked: MinIO up);
+  fixed by making ensureBucket never throw (degraded start, QG4 posture; per-request
+  STORAGE_UPLOAD_FAILED unchanged) — commit `418eae3`, regression test added. (2) integration
+  stage had no MinIO → `fd75512` added CI MinIO; first as a service container (health gate
+  failed on runner), then as a docker-run job step with curl poll — `80f08e5`. (3) fresh-CI
+  ts-jest compiled integration suites as one global script (TS2451 redeclarations; local cache
+  masked it) → pinned module CommonJS/ES2021/isolatedModules — `a3b58e5`, verified locally with
+  --no-cache 40/40.
 - 2026-09-08 — **Git push (owner-authorized)**: implementation repo pushed to
   `github.com/mohamedazzim/recipe-systems` (branch `main`). Commit `432b601` "feat(D-10): raw
   intake pipeline — immutable recipe_input rows, MinIO photo storage" carries the D-10 + Q4/D-11

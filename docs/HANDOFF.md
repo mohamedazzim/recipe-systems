@@ -1035,7 +1035,7 @@ execution output; Git: not available / not authorized throughout.
 
 ### H-14 — D-14 needs_review enqueue gate
 
-- BASE_SHA / COMMIT_SHA: **BASE `6146752` · COMMIT `(filled at D-14 completion commit)`**
+- BASE_SHA / COMMIT_SHA: **BASE `6146752` · COMMIT `bdbea9b`** (full `bdbea9b2ce7ec0532bd07e4be20e2e5895b3dfa8`) — D-14 checkpoint pushed to `github.com/mohamedazzim/recipe-systems` branch `main` (2026-09-09, owner-authorized; parent verified `6146752`).
 - Date / agent session: 2026-09-09 · D-14 dispatch session (pre-flight GO recorded in HANDOFF §5 BEFORE implementation).
 - Status: **DONE (text scope; photo golden scenario gated on D-11 — evidence below)**.
 - What shipped:

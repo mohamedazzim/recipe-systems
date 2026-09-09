@@ -36,7 +36,7 @@
   HTTP 8/8 (DB-planted flag; review clear unblocks immediately). Playwright `enqueue-gate.spec.ts`
   written — env-blocked as documented.
 - Decisions: D-14A..H (HANDOFF §5 pre-flight); SCAFFOLD register unchanged (no Q-row changes).
-- Commit(s): `(D-14 commit — filled after push)`
+- Commit(s): **`bdbea9b`** (full `bdbea9b2ce7ec0532bd07e4be20e2e5895b3dfa8`) — D-14 checkpoint, pushed to `github.com/mohamedazzim/recipe-systems` main (2026-09-09, owner-authorized; remote verified via `git ls-remote`, working tree clean).
 - Resume point: D-15 (P3-1) or D-11/Q10 when OCR re-opens. P2 blockers: D-11 ⏸ (Q10 OPEN);
   D-12 photo-path criteria pending D-11.
 

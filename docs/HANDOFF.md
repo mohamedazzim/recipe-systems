@@ -1358,7 +1358,60 @@ execution output; Git: not available / not authorized throughout.
 
 ### H-17 — D-17 Analysis worker
 
-☐ No entry yet.
+**Status: DONE** (done criteria 1–4 pass; evidence below is real execution output).
+
+- Sources: DISPATCH D-17; BUILD_PLAN P3-3; ADR §5/§6/§14; Tech Stack §9/§13; A-17; frozen
+  D-05 schemas. Pre-flight GO recorded in §5 before any code.
+- **Q1 gate result: GO with a LABELED working assumption** — DISPATCH D-17 deliverable 2
+  explicitly permits the worker/job-payload captured-state approach while Q1 is OPEN
+  (BUILD_PLAN §7.2 formal decision due week 5/P7). `recipe_snapshot` stays `unknown`.
+- Implementation (one-writer preserved — A-17):
+  - API `apps/api/src/modules/analysis/`: `POST /recipes/:recipeId/analyse` (RS-US-13) — GuestOrJwt
+    + CSRF → ownership → **D-14 gate via `getEnqueueState`** (409 `ENQUEUE_BLOCKED` + blockers) →
+    422 `METHOD_REQUIRED` (list_only, API §5) → pg-boss send with the Q1 job payload
+    (`{recipe_id, mode, prompt_version, captured:{structured_recipe}}`, pre-generated analysis UUID)
+    → **200** `{analysis_id, status:'queued', prompt_version}`. `GET /analysis/:id` (read-only;
+    UUID guard → clean 404; INV-17 ownership) + SSE `GET /analysis/:id/events` (snapshot replay on
+    connect, NOTIFY-driven pushes; connect-before-materialization streams from `queued` — signal-only).
+    Queue + events services degrade gracefully (QG4 posture). NO analysis_* writes in the API.
+  - Worker `apps/analysis-worker/`: `AnalysisJobHandler` — idempotent upsert, NOTIFY on every
+    transition, views 1–7 through the **D-16 `generateGrounded` choke point with regenerate-once**
+    (attempt-2 failure → view INCOMPLETE with payload `{}` — ungrounded output never published);
+    views 8/9 persist INCOMPLETE (deterministic producers = D-18); `finalize()` flips `is_current`
+    others-off-first in one transaction (INV-09, partial-unique safe); duplicate delivery after
+    completion short-circuits (INV-11); ProviderPending (Q9) → `failed`, job completes without
+    throw (no pointless retries, ADR §14); transient → `failed` + throw (pg-boss retry, Q13-labeled
+    3/2s/backoff pilot defaults). Boot sweep: stale `generating` → failed (P3 exit). Model pin =
+    labeled `stub-no-provider-q9`; adapter resolution = `ANALYSIS_LLM_STUB` env (fixture adapter) or
+    the labeled pending adapter — **Q9 untouched**.
+  - Migration `003_analysis_view_upsert_unique`: Prisma `@@unique` declaration for the existing
+    `uq_analysis_view` (002) — metadata alignment for idempotent upserts; `IF NOT EXISTS` no-op
+    on existing DBs. No new columns/constraints.
+  - pg-boss pinned **v10.4.2** (CJS; v12 is ESM-only and incompatible with this stack).
+- Failures & recovery (all recorded, all fixed):
+  1. pg-boss v10.4 delivers a BATCH (array) to work handlers — single-job callback threw on
+     `data.analysis_id` of undefined → silent worker + jobs failed after 3 retries. Repro script
+     proved it; callback now iterates the batch.
+  2. POST analyse defaulted 201 → `@HttpCode(200)` (the ACK is not a resource creation).
+  3. Non-UUID analysisId → Prisma P2023 500 → UUID format guard → clean 404 (live-check catch).
+  4. SSE connect racing the worker (row not yet materialized) → stream from `queued` (INV-16
+     signal-only channel; content never flows).
+  5. CI-only typecheck failure (D-15 schemas dist-main never built before typecheck; runs 13/14
+     red) → fixed `ci.yml` + `verify-local.sh` (schemas build step) in commit `1140ef4`; run
+     34343407523 green. See §5 pre-flight trace.
+- Evidence:
+  - Unit: worker 9/9; API 139/139; llm-adapter 89/89 (unchanged).
+  - Integration `tests/integration/story_d17_worker_loop.test.ts` 4/4 (real Postgres + pg-boss,
+    dedicated per-run queue): complete loop (9 views, 7 COMPLETE, one current, v2, model pin),
+    provider-pending → failed-not-stuck, INV-09 single-current flip, stale-sweep.
+  - Live stack (real Keycloak OIDC + real worker process): **15/15** — anonymous 403, parse →
+    422 METHOD_REQUIRED → analyse 200 queued → complete (9 views, v2, stub-no-provider-q9,
+    is_latest) → re-analysis flips current → foreign 404 → SSE snapshot replay. SSE live-push
+    check: `snapshot:queued → status:generating → status:complete` (INV-16 push half).
+  - verify-local exit 0 ALL STEPS PASSED; regression gates PASS; lint/typecheck clean.
+    Playwright remains environment-blocked (policy); HTTP verification never misrepresented.
+- OPEN after D-17: Q1 (job-payload assumption is labeled/temporary), Q5, Q9, Q10/D-11, Q13 (P7
+  revalidation). Resume point: **D-18 (Views 1–4 + home mode) — awaiting explicit dispatch.**
 
 ### H-18 — D-18 Views 1–4 + home mode
 
@@ -1415,3 +1468,42 @@ execution output; Git: not available / not authorized throughout.
 ### H-31 — D-31 Could-have tail (E6, F5, I5 — conditional per §13)
 
 ☐ No entry yet. (Dispatch is conditional: entry must record the week 9–10 Must-stability evidence before any work.)
+
+
+- 2026-09-09 — **D-17 EXECUTION (post pre-flight GO; H-17 filled)**: implemented per the recorded
+  plan. Implementation findings and decisions:
+  - **pg-boss pinned v10.4.2** (CJS line; v12 is ESM-only — `"type":"module"` — and breaks
+    ts-jest/ts-node/tsc for this CJS stack; downgrade recorded before implementation).
+  - **pg-boss v10.4 batch delivery**: work handlers receive an ARRAY of jobs. The first worker
+    build read `job.data` off the array → `data.analysis_id` threw inside the callback → pg-boss
+    retried 3× → jobs failed with a silent worker (no logs beyond boot). Root-caused with a minimal
+    repro (pgboss-debug.js: `DEBUG JOB = [{id,name,data}]`, keys `['0']`); fixed by iterating the
+    batch. The integration suite's `boss.fetch`+`complete` was unaffected (fetch returns wrappers)
+    — this was a live-worker-only failure, caught by live-stack verification.
+  - **API analysis module never writes analysis_*** (A-17 one-writer): the enqueue ACK carries the
+    pre-generated UUID; the row materializes at worker delivery. POST returns 200 via @HttpCode
+    (default 201 was wrong — the ACK is not a resource creation).
+  - **Non-UUID analysisId → P2023 → 500** (found by live check): UUID format guard now throws 404
+    before any Prisma call, on GET and SSE alike.
+  - **SSE connect racing the worker**: row-not-yet-materialized connects now stream from `queued`
+    (INV-16 signal-only — content never flows on this channel), instead of 404ing the connect.
+  - **Q1 payload in code**: the API's capture builder ships `{structured_recipe}` built from recipe
+    + active lines + method state in the job payload — the DISPATCH-permitted labeled assumption;
+    `recipe_snapshot` stays `unknown`; BUILD_PLAN §7.2 formal decision still owed (week 5/P7).
+  - **Q9 in code**: worker adapter = `ANALYSIS_LLM_STUB` env (fixture adapter, dev/demo) or the
+    labeled pending adapter; `analysis.model_version` = `stub-no-provider-q9`. No provider code.
+  - **Migration 003**: Prisma `@@unique([analysisId, viewNumber], map: "uq_analysis_view")` — the
+    DB constraint already exists (002); metadata alignment for idempotent upserts (ADR §14),
+    `CREATE UNIQUE INDEX IF NOT EXISTS` = no-op on existing DBs.
+  - **Integration-test queue hygiene**: `story_d17_worker_loop.test.ts` uses a dedicated per-run
+    queue (analysis_it_<ts>_<rand>) so test fetch/complete never touches the live `analysis` queue
+    (the first version abandoned fetched-but-unused jobs in `active` state — fixed, and the
+    orphaned pgboss rows were deleted).
+  - Tests/gates: worker unit 9/9; API unit 139/139 (analysis service 5/5 added); integration 4/4;
+    live stack 15/15 + SSE live-push (snapshot:queued → status:generating → status:complete);
+    regression gates PASS; lint/typecheck clean; verify-local exit 0 ALL STEPS PASSED.
+  - Intentional non-changes: D-14 logic not duplicated (gate consumed as-is); D-16 grounding not
+    re-implemented (generateGrounded consumed as the choke point); no D-18 view content (views 8/9
+    INCOMPLETE); no Q9/Q1/Q5/Q10/Q13 resolution; no UI changes.
+  - Git: feature commit `307d5a5` (307d5a5312b6dd0c89b4a4e5933288e6237e382f) + SHA-record commit pushed to main; remote SHA verified; tree clean.
+  - Resume point: **D-18 (Views 1–4 + home mode) — awaiting explicit dispatch.**

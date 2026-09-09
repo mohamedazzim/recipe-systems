@@ -33,9 +33,29 @@
   build (mirrors the database-build precedent). EOL verified LF. No runtime/architecture change.
 - Tests proving the fix: clean-dist → build steps → workspace typecheck exit 0; full verify-local
   re-run exit 0 (see H-17 run evidence). CI re-verification: run for the fix commit (polled).
-- Commit(s): `(CI-fix commit — filled after push)`
+- Commit(s): `307d5a5` (feature: `307d5a5312b6dd0c89b4a4e5933288e6237e382f`) + docs
+  SHA-record commit.
 
-## 2026-09-09 — D-16 Grounding validator (P3-2)
+## 2026-09-09 — D-17 Analysis worker (P3-3) + CI fix
+
+- **CI fix (pre-flight audit, commit `1140ef4`):** runs 13/14 were failing at typecheck —
+  D-15's `packages/schemas` main→dist change means consumers import `dist/`, but CI never built
+  schemas before typecheck (locally masked by a pre-existing dist). Added a schemas build step to
+  `ci.yml` + `verify-local.sh` (mirrors the database-build precedent). Reproduced locally (TS2307),
+  fix verified: run 34343407523 green.
+- **D-17 (feature commit):** analysis worker + pg-boss queue (v10.4.2, CJS) + NOTIFY→SSE spine.
+  API: `POST /recipes/:recipeId/analyse` (D-14 gate → 409 ENQUEUE_BLOCKED, 422 METHOD_REQUIRED,
+  200 `{analysis_id,status:'queued',prompt_version}`), read-only `GET /analysis/:id` (UUID guard,
+  INV-17), SSE `GET /analysis/:id/events` (snapshot replay + live pushes; connect-before-row
+  streams from `queued`). Worker `apps/analysis-worker`: idempotent handler through the D-16
+  `generateGrounded` choke point with regenerate-once; views 8/9 INCOMPLETE (D-18 producers);
+  INV-09 is_current flip (others-off-first); duplicate delivery converges (INV-11);
+  ProviderPending (Q9) → failed without retry; transient → failed + pg-boss retry (Q13-labeled
+  pilot defaults); boot sweep for stale generating. Q1 = labeled job-payload captured state
+  (DISPATCH-deliverable-2 assumption); `recipe_snapshot` stays `unknown`; model_version =
+  `stub-no-provider-q9`. Migration 003 declares the existing `uq_analysis_view` unique for
+  idempotent upserts. Tests: worker 9/9, API 139/139, integration 4/4 (real Postgres+pg-boss),
+  live 15/15 + SSE push, verify-local ALL STEPS PASSED.
 
 - Status: **DONE** (all three dispatch done criteria satisfied; H-16 filled with evidence).
 - Change (in `packages/llm-adapter/src/grounding/` + pipeline wiring): `validateViewGrounding` /

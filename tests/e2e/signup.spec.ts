@@ -10,8 +10,9 @@ test.describe('A1 Signup', () => {
     const email = uniqueEmail();
     await signupViaKeycloak(page, { email, password: 'EodTest123!' });
 
-    // Business outcome, user-visible: the signed-in card shows the NEW account's email.
-    await expect(page.getByRole('heading', { name: 'Signed in' })).toBeVisible();
+    // Business outcome, user-visible (UI build 2026-09-09): signup lands on the
+    // Recipe Home; the account email shows in the header.
+    await expect(page.getByRole('heading', { level: 1, name: 'Your recipes' })).toBeVisible();
     await expect(page.getByText(email)).toBeVisible();
 
     // Backend outcome: the BFF session resolves to the new account.

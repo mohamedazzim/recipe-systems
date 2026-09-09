@@ -1,0 +1,123 @@
+'use client';
+
+// Recipe Home: the real landing view after sign-in or guest entry. One
+// primary action (Create recipe), session recipes when they exist, a helpful
+// empty state when they don't, and the guest band as a secondary strip.
+
+import { useState } from 'react';
+import { ArrowRight, CookingPot } from '@phosphor-icons/react';
+import { Button } from '@/components/ui/Button';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { Heading, Text } from '@/components/ui/Typography';
+import { listSessionRecipes } from '@/lib/flow';
+import { GuestNotice } from '@/components/app/GuestNotice';
+
+export interface HomeViewProps {
+  signedIn: boolean;
+  onCreate: () => void;
+  onOpenRecipe: (recipeId: string) => void;
+  onSignUp: () => void;
+  onSignOut: () => void;
+}
+
+export function HomeView({
+  signedIn,
+  onCreate,
+  onOpenRecipe,
+  onSignUp,
+  onSignOut,
+}: HomeViewProps) {
+  const [guestNoticeDismissed, setGuestNoticeDismissed] = useState(false);
+  const recipes = listSessionRecipes();
+
+  return (
+    <div>
+      {!signedIn && !guestNoticeDismissed && (
+        <div className="mb-8">
+          <GuestNotice onSignUp={onSignUp} onDismiss={() => setGuestNoticeDismissed(true)} />
+        </div>
+      )}
+
+      <section aria-labelledby="home-heading">
+        <Heading level={1} id="home-heading">
+          Your recipes
+        </Heading>
+        <Text className="mt-2 max-w-prose text-muted">
+          Paste a recipe, review the structured ingredients, attach a method, and run the
+          nine-view analysis.
+        </Text>
+        <div className="mt-6 flex flex-wrap items-center gap-3">
+          <Button size="lg" onClick={onCreate}>
+            Create recipe
+          </Button>
+        </div>
+      </section>
+
+      <section aria-labelledby="recent-heading" className="mt-12 border-t border-border pt-8">
+        <div className="flex items-baseline justify-between gap-4">
+          <h2 id="recent-heading" className="font-display text-h2 text-ink">
+            This session
+          </h2>
+          <span className="text-caption text-faint">saved in this browser only</span>
+        </div>
+
+        {recipes.length === 0 ? (
+          <div className="mt-6">
+            <EmptyState
+              title="No recipes yet"
+              description="Your pastes from this browser will appear here."
+              action={
+                <Button onClick={onCreate} variant="outline">
+                  Paste your first recipe
+                </Button>
+              }
+              glyph={<CookingPot size={40} aria-hidden="true" />}
+            />
+          </div>
+        ) : (
+          <ul className="mt-6 divide-y divide-border rounded-lg border border-border bg-surface">
+            {recipes.map((recipe) => (
+              <li key={recipe.recipe_id}>
+                <button
+                  type="button"
+                  onClick={() => onOpenRecipe(recipe.recipe_id)}
+                  className="group flex w-full items-center justify-between gap-4 rounded-sm px-4 py-4 text-left focus-visible:outline-2 focus-visible:outline-offset--2 focus-visible:outline-gold sm:px-5"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-small font-semibold text-ink">
+                      {recipe.preview}
+                    </span>
+                    <span className="mt-0.5 block text-caption text-faint">
+                      {new Date(recipe.created_at).toLocaleString()}
+                    </span>
+                  </span>
+                  <ArrowRight
+                    size={16}
+                    aria-hidden="true"
+                    className="shrink-0 text-faint transition-transform group-hover:translate-x-0.5 group-hover:text-accent"
+                  />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {signedIn && (
+        <section aria-labelledby="account-heading" className="mt-12 border-t border-border pt-8">
+          <h2 id="account-heading" className="font-display text-h2 text-ink">
+            Account
+          </h2>
+          <p className="mt-2 max-w-prose text-small text-muted">
+            Your work is saved to your account. Sign out from the header when you are done.
+          </p>
+          <div className="mt-4">
+            <Button variant="outline" onClick={onSignOut}>
+              Sign out
+            </Button>
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}

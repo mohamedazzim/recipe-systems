@@ -32,15 +32,22 @@ test.describe('Entry page', () => {
     await expect(page).toHaveURL(/openid-connect\/registrations/);
   });
 
-  test('Analyze a recipe starts a guest session with a claimable explanation', async ({ page }) => {
+  test('Analyze a recipe starts a guest session and lands on the Recipe Home with a secondary claim band', async ({ page }) => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Analyze a recipe' }).click();
+    // The old bare guest card was replaced (UI build 2026-09-09): guests now land
+    // on the real Recipe Home; the claim band is secondary, never the main page.
     await expect(
-      page.getByRole('heading', { name: /analysing as a guest/i }),
+      page.getByRole('heading', { level: 1, name: 'Your recipes' }),
     ).toBeVisible();
+    await expect(page.getByText(/exploring as a guest/i)).toBeVisible();
     await expect(page.getByText(/can be claimed onto an account/i)).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Create account & claim' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Dismiss' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Create account and claim' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Create recipe' })).toBeVisible();
+    // Photo intake is visibly disabled (OCR deferred): shown, never functional.
+    await page.getByRole('button', { name: 'Create recipe' }).click();
+    await expect(page.getByText('Photo capture')).toBeVisible();
+    await expect(page.getByText('Coming soon.')).toBeVisible();
   });
 
   test('shows the auth error state with a retry path', async ({ page }) => {

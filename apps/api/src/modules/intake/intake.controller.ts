@@ -295,4 +295,12 @@ export class IntakeController {
   async parsePreview(@Req() req: AuthedRequest, @Param('recipeId') recipeId: string) {
     return this.intake.parsePreview(this.userActor(req), recipeId);
   }
+
+  /** D-14 read surface (UI readiness screen): the canonical enqueue-state wire
+   *  contract {can_enqueue, blockers}. Read-only; no shadow state (A-14). */
+  @Get(':recipeId/enqueue-state')
+  @UseGuards(JwtAuthGuard)
+  async enqueueState(@Req() req: AuthedRequest, @Param('recipeId') recipeId: string) {
+    return this.intake.getEnqueueState(this.userActor(req), recipeId);
+  }
 }

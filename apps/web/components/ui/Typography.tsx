@@ -11,10 +11,12 @@ export function Display({ className = '', children }: { className?: string; chil
 export function Heading({
   level = 2,
   className = '',
+  id,
   children,
 }: {
   level?: 1 | 2 | 3 | 4;
   className?: string;
+  id?: string;
   children: ReactNode;
 }) {
   const Tag = `h${level}` as 'h1' | 'h2' | 'h3' | 'h4';
@@ -24,7 +26,11 @@ export function Heading({
     3: 'font-sans text-h3',
     4: 'font-sans text-body font-semibold',
   };
-  return <Tag className={`${sizes[level]} text-ink ${className}`}>{children}</Tag>;
+  return (
+    <Tag id={id} className={`${sizes[level]} text-ink ${className}`}>
+      {children}
+    </Tag>
+  );
 }
 
 export function Text({ className = '', children }: { className?: string; children: ReactNode }) {

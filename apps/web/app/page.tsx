@@ -3,12 +3,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { API_BASE_URL, api } from '@/lib/api';
 import { User } from '@/lib/types';
-import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
-import { Heading, Text } from '@/components/ui/Typography';
-import { Alert } from '@/components/ui/Alert';
 import { LoadingScreen } from '@/components/ui/Spinner';
 import { LandingPage } from '@/components/home/LandingPage';
+import { AppShell, AppView } from '@/components/app/AppShell';
+import { HomeView } from '@/components/app/HomeView';
+import { CreateView } from '@/components/app/CreateView';
+import { RecipeWorkspace } from '@/components/app/RecipeWorkspace';
 
 type State =
   | { phase: 'loading' }
@@ -27,6 +27,7 @@ export default function Home() {
   const [state, setState] = useState<State>({ phase: 'loading' });
   const [guestSessionId, setGuestSessionId] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(readAuthError());
+  const [view, setView] = useState<AppView>({ name: 'home' });
 
   useEffect(() => {
     let cancelled = false;
@@ -53,6 +54,7 @@ export default function Home() {
         method: 'POST',
       });
       setGuestSessionId(result.guest_session_id);
+      setView({ name: 'home' });
       setState({ phase: 'guest' });
     } catch {
       setState({ phase: 'anonymous', error: 'Could not start a guest session.' });
@@ -80,62 +82,58 @@ export default function Home() {
     return <LoadingScreen label="Checking your session" />;
   }
 
-  if (state.phase === 'signed-in') {
+  if (state.phase === 'anonymous') {
     return (
-      <main className="container-rs py-12">
-        <Card elevation="flat" className="max-w-xl">
-          <Heading level={2}>Signed in</Heading>
-          <Text className="mt-2">{state.user.email}</Text>
-          <p className="mt-1 text-small text-muted">
-            Mode {state.user.preferred_mode} · label pack {state.user.label_pack ?? 'not set'}
-          </p>
-          <div className="mt-5">
-            <Button variant="secondary" onClick={signOut}>
-              Sign out
-            </Button>
+      <main>
+        {state.error && (
+          <div className="container-rs mt-6">
+            <div className="rounded-md border border-negative/40 bg-negative/8 px-4 py-3">
+              <p className="text-small font-semibold text-negative">Something went wrong</p>
+              <p className="mt-0.5 text-small text-body">{state.error}</p>
+            </div>
           </div>
-        </Card>
+        )}
+        <LandingPage
+          error={authError}
+          errorTitle="Sign-in failed"
+          onStartGuest={startGuest}
+          onStartLogin={startLogin}
+          onStartSignup={startSignup}
+        />
       </main>
     );
   }
 
-  if (state.phase === 'guest') {
-    return (
-      <main className="container-rs py-12">
-        <Card elevation="flat" className="max-w-xl">
-          <Heading level={2}>You&apos;re analysing as a guest</Heading>
-          <Text className="mt-2">
-            Guest session {guestSessionId?.slice(0, 8)}. Analyses you run now can be claimed
-            onto an account when you sign up.
-          </Text>
-          <div className="mt-5 flex flex-wrap gap-3">
-            <Button onClick={startSignup}>Create account &amp; claim</Button>
-            <Button variant="secondary" onClick={signOut}>
-              Dismiss
-            </Button>
-          </div>
-        </Card>
-      </main>
-    );
-  }
+  const user = state.phase === 'signed-in' ? state.user : null;
 
-  // Anonymous: the full entry experience.
   return (
-    <main>
-      {state.error && (
-        <div className="container-rs mt-6">
-          <Alert tone="error" title="Something went wrong">
-            {state.error}
-          </Alert>
-        </div>
+    <AppShell user={user} onNavigate={setView} onSignOut={() => void signOut()}>
+      {view.name === 'home' && (
+        <HomeView
+          signedIn={state.phase === 'signed-in'}
+          onCreate={() => setView({ name: 'create' })}
+          onOpenRecipe={(recipeId) => setView({ name: 'workspace', recipeId })}
+          onSignUp={startSignup}
+          onSignOut={() => void signOut()}
+        />
       )}
-      <LandingPage
-        error={authError}
-        errorTitle="Sign-in failed"
-        onStartGuest={startGuest}
-        onStartLogin={startLogin}
-        onStartSignup={startSignup}
-      />
-    </main>
+      {view.name === 'create' && (
+        <CreateView
+          signedIn={state.phase === 'signed-in'}
+          onBack={() => setView({ name: 'home' })}
+          onParsed={(recipeId) => setView({ name: 'workspace', recipeId })}
+        />
+      )}
+      {view.name === 'workspace' && (
+        <RecipeWorkspace
+          recipeId={view.recipeId}
+          signedIn={state.phase === 'signed-in'}
+          onBack={() => setView({ name: 'home' })}
+        />
+      )}
+      {state.phase === 'guest' && guestSessionId && (
+        <p className="sr-only">Guest session {guestSessionId.slice(0, 8)}</p>
+      )}
+    </AppShell>
   );
 }

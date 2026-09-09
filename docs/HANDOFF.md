@@ -1512,3 +1512,124 @@ execution output; Git: not available / not authorized throughout.
     verified; tree clean. CI chain: run 34350615469 failed → 34352075690 failed →
     **34353922712 success**.
   - Resume point: **D-18 (Views 1–4 + home mode) — awaiting explicit dispatch.**
+
+
+- 2026-09-09 — **UI/UX BUILD pre-flight (product flow around the implemented backend; recorded BEFORE code)**
+  **STARTING UI STATE:** `apps/web` = one page (`app/page.tsx`): public landing (`LandingPage`) when
+  anonymous, a bare 'Signed in' card, and a bare 'You're analysing as a guest' card + empty area
+  (the reported problem). No routes beyond `/`; no app views. Design system EXISTS and is complete:
+  `app/globals.css` semantic tokens (rice-flour canvas, charred-cumin ink, tamarind accent, turmeric
+  gold, curry-leaf positive, chili negative; dark theme in `.dark`), `components/ui/*` primitives
+  (Button 5 variants, Card 3 elevations, Typography/Display/Heading/Text/Eyebrow, Alert 4 tones,
+  Tabs, Field, Input/Textarea, EmptyState, Spinner/LoadingScreen, Badge with claim tags), Fraunces
+  display + IBM Plex Sans, `.container-rs`, `.eyebrow`, `.tabular`, global focus rings +
+  reduced-motion. `lib/api.ts` = BFF fetch + CSRF header + ApiError{status,code}; `lib/types.ts`
+  nearly empty. No web test framework (no jest in the workspace).
+  **BACKEND CONTRACTS CONSUMED (verified in code):** POST /recipes/parse-text (GuestOrJwt+Csrf) →
+  200 {recipe_id, recipe:{raw_text, lines, flags}}; GET /recipes/:id/lines → {items:[wire line]}
+  (JwtAuthGuard); PATCH/DELETE lines, POST lines, POST lines/:id/split (all JwtAuthGuard+Csrf; PATCH
+  body {display_name, amount, unit, quantity, category, confirmed_sense, include_on_list, is_header,
+  merge_with_next, needs_review:false-literal, expected_updated_at}; merge = PATCH merge_with_next:true
+  ALONE); PATCH /recipes/:id/method (JwtAuthGuard+Csrf) {method none|paste|inferred, method_text,
+  method_source} → {method_tag METHOD|INFERRED|null, method_source, list_only}; POST
+  /recipes/:id/analyse (GuestOrJwt+Csrf) {mode} → 200 {analysis_id, status:'queued', prompt_version}
+  · 409 ENQUEUE_BLOCKED {blockers:[{line_id, display_name}]} · 422 METHOD_REQUIRED; GET
+  /analysis/:id (GuestOrJwt) → {analysis_id, status queued|generating|complete|failed, mode,
+  is_latest, prompt_version, model_version, views:[{view_number, view_key, status, payload}]};
+  GET /analysis/:id/events (SSE: event snapshot + event status {analysis_id, status, is_latest}).
+  **GAPS FOUND (recorded, not silently bridged):**
+  1. **No readiness read endpoint** — D-14's `IntakeService.getEnqueueState` exists but has NO HTTP
+     route. The UI's readiness screen + disabled-Analyse state need the canonical backend result
+     (dispatch: no client-only calculation). **Decision:** add a minimal READ-ONLY `GET
+     /recipes/:recipeId/enqueue-state` (JwtAuthGuard, Csrf-free read) exposing the existing D-14
+     wire contract {can_enqueue, blockers}. No new business logic, no contract change (the shape is
+     the D-14 wire contract). Recorded as a UI-required, canonical-shape route addition.
+  2. **Guest review/method = client-side draft per canonical design** (API doc §3/§4 auth labels +
+     H-12 D-12A: guests keep corrections client-side until P3's analyse consumes the corrected
+     object; analyse takes {mode} only today). Guest UI therefore: paste works; review is READ-ONLY
+     with a sign-in/claim CTA; method + analyse require sign-in (honest 422 fallback). The full
+     demo flow runs on a signed-in account (chef@recipesystems.test); the claim flow bridges
+     guests. NO guard changes, NO guest-draft endpoint invented.
+  3. **needs_review=true is OCR-only** (D-11 deferred; PATCH accepts literal false only) — the
+     blocked-Analyse state is implemented in the UI (disabled button + blockers list) but is only
+     reachable with real data once D-11 ships; demo shows the ready state + the UI's blocked form
+     is unit-tested. Recorded, not faked.
+  4. **No recipe-list endpoint** — the home's 'recent recipes' is a client-side session store
+     (localStorage), labeled 'This session', containing only recipes created here. Honest, not a
+     fake backend list.
+  **UI DECISIONS:** single-page app shell with an internal view state machine (home → create →
+  workspace) inside `app/page.tsx` (no new Next routes; keeps existing E2E surface + the landing
+  contracts); workspace = one page with sections (Ingredients review / Method / Readiness+Analyse /
+  Analysis status) instead of empty separated screens; ingredient rows edit INLINE (no modals —
+  keyboard + mobile friendly); analysis status = poll + SSE, real states only (queued/generating/
+  complete/failed + per-view row statuses), NO fake progress percentages; complete-with-no-D-18 →
+  honest state 'Analysis complete. Detailed recipe views are coming next.' backed by the real
+  views array (7 COMPLETE + 2 INCOMPLETE with the real model pin); guests get a NON-BLOCKING
+  account band (secondary), never the main page; photo = disabled card 'Photo capture — coming
+  soon' (Q10 deferred, never appears functional). Existing E2E contracts (entry.spec guest
+  headings, signup.spec 'Signed in' heading) are updated DELIBERATELY in the same change — the
+  guest card strings are replaced by the Recipe Home; 'Create account & claim' + 'can be claimed
+  onto an account' survive on the home band.
+  **TEST INFRA GAP:** no web test framework → add jest + ts-jest + @testing-library/react + jsdom
+  (React 19 compatible), coverage floor on the new app components/lib, CI parity via the existing
+  workspace test step. Icons: add @phosphor-icons/react (no icon library present; no hand-rolled
+  SVGs). Playwright remains environment-blocked (policy) — component tests + real live HTTP checks
+  used instead, honestly recorded.
+  **UI pre-flight verdict: GO** — with the four recorded gaps handled as above; no fake endpoints,
+  no invented backend behavior, no auth-contract changes.
+
+
+- 2026-09-09 — **UI/UX BUILD EXECUTION (product flow around the implemented backend; pre-flight GO above)**
+  Inspected: the full web app (one landing page + two bare cards), the complete existing design
+  system (tokens + ui primitives), the BFF api helper, and every backend route the flow needs.
+  **Built (all frontend, components in `apps/web/components/app/` + `lib/`):**
+  - `AppShell`: branding bar, account/guest state, one-line nav, view state machine
+    (home → create → workspace) inside `app/page.tsx` (no new Next routes; landing contracts kept).
+  - `HomeView`: Recipe Home (primary Create recipe, session-only recipe list labeled 'This
+    session' from localStorage — no list endpoint exists, recorded above; helpful empty state;
+    the guest claim band as a secondary non-blocking strip with 'Create account and claim').
+  - `CreateView`: paste intake (real parse-text), loading/error states with real backend messages,
+    photo card visible but disabled ('Photo capture — Coming soon.', never functional).
+  - `RecipeWorkspace`: one page, four real sections. `IngredientReview` (D-12 actions: inline
+    edit with stale-edit token, add, delete 204, split by char position, merge_with_next alone,
+    sense-confirm, clear-review needs_review:false literal; review-required badge; guests
+    read-only + honest note). `MethodSection` (D-13: paste / inferred+named-source / none; the
+    canonical list-only consequence for no method; guest note per API §4). `ReadinessPanel`
+    (readiness from the new GET enqueue-state ONLY; Analyse disabled on can_enqueue=false with
+    the real blockers listed; 409 ENQUEUE_BLOCKED + 422 METHOD_REQUIRED handled). `AnalysisPanel`
+    (D-17 states only: queued/generating/complete/failed via poll + SSE named events; complete →
+    'Detailed recipe views are coming next.' with the REAL persisted view rows; no fake progress).
+  - `lib/hooks/useAnalysisStatus.ts`: poll + SSE (named status/snapshot events; poll is the
+    source of truth, INV-16), terminal-stop, error passthrough.
+  **Backend addition (recorded, minimal, read-only):** `GET /recipes/:recipeId/enqueue-state`
+  (JwtAuthGuard) exposing the existing D-14 `getEnqueueState` wire contract — required for the
+  readiness screen; no business logic added, no contract changed.
+  **UI decisions applied:** existing brand tokens/classes only (no one-off styles); inline row
+  editing (no modals — mobile/keyboard friendly); no em-dashes in copy; middle dots removed from
+  metadata strips; one accent (tamarind); tabular numerals for amounts; icons via
+  @phosphor-icons/react (mocked in unit tests); global focus rings + reduced motion already in
+  globals.css.
+  **Test infra added:** jest + ts-jest + RTL + jsdom in apps/web (React 19 compatible), phosphor
+  icon mock, style mock, EventSource stub, coverage floor 75% lines on the app components/lib.
+  **Failures & recovery:** jest transform regex shipped with doubled backslashes (mangled by
+  escaping) → rewrote the config verbatim; phosphor ESM package broke jest → dedicated icon mock;
+  refresh() cleared the stale-edit error before it rendered → set the error AFTER reloading;
+  test fixtures off-by-one on the COMPLETE/INCOMPLETE split (views 8/9 incomplete) → fixed;
+  initial-method-sync call confused the method-save assertion → assert the last matching call;
+  live check: DELETE returns 204 (not 200) → fixed expectation; the EADDRINUSE/orphan pattern
+  repeated on API restart → kill-port + orphan sweep, then restart; the orphan sweep also killed
+  the live worker once → restarted, noted as a recurring ops hazard.
+  **E2E contracts updated DELIBERATELY (same change):** entry.spec guest flow now asserts the
+  Recipe Home + secondary claim band + disabled photo card; signup.spec asserts 'Your recipes' +
+  email in the header. Landing-page contracts untouched.
+  **Evidence:** web unit 48/48 (82.98% lines, floor 75); API unit 141/141 (enqueue-state
+  controller 2/2 added); workspace unit green; integration 72/72; regression gates PASS;
+  typecheck/lint clean; live HTTP flow 13/13 (paste → two distinct fenugreek lines → readiness →
+  edit/add/split/merge/delete → method → analyse → worker → 9 real view rows → list-only 422);
+  web serves 200. Playwright remains environment-blocked (policy) — component tests + real live
+  HTTP used, honestly recorded. verify-local: pending at this line (runs next, stack stopped).
+  **Intentional non-changes:** no OCR/photo path, no guest review/method/analyse bridge (canonical
+  auth labels preserved — guests read-only with sign-in CTA), no recipe-list endpoint, no fake
+  analysis content, no D-18 view rendering, no readiness client-side calculation.
+  **Resume point:** verify-local → Git checkpoint → push → CI → final report; then D-18
+  (Views 1–4 + home mode) remains the next dispatch, awaiting explicit authorization.

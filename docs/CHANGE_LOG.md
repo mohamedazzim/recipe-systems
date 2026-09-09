@@ -42,7 +42,28 @@
   real pg-boss connection from the bootstrap test) → `247b26b` → **run
   34353922712 success**.
 
-## 2026-09-09 — D-17 Analysis worker (P3-3) + CI fix
+## 2026-09-09 — Product UI/UX build around the implemented backend
+
+- **Frontend (apps/web):** real product flow replacing the bare guest/signed-in cards:
+  `AppShell` + view state machine (home → create → workspace) in `app/page.tsx`; `HomeView`
+  (Recipe Home, primary Create recipe, session-only recipe list, secondary guest claim band);
+  `CreateView` (paste intake; photo visibly disabled, never functional); `RecipeWorkspace` with
+  `IngredientReview` (all D-12 actions: inline edit with stale-edit token, add, delete, split,
+  merge, sense-confirm, clear-review), `MethodSection` (D-13 paste/inferred/none with the
+  canonical list-only consequence), `ReadinessPanel` (canonical enqueue-state only; blocked state
+  with real blockers), `AnalysisPanel` (real D-17 states via poll + SSE; complete shows the real
+  view rows + 'detailed views coming next', no fake progress). Design system tokens/primitives
+  reused; icons via @phosphor-icons/react; no em-dashes in copy.
+- **Backend addition (minimal, read-only):** `GET /recipes/:recipeId/enqueue-state` exposing the
+  existing D-14 `getEnqueueState` contract (required for the readiness screen; no new logic).
+- **Test infra:** jest + ts-jest + RTL + jsdom added to apps/web (coverage floor 75% lines).
+  E2E contracts in entry.spec/signup.spec updated deliberately (Recipe Home + secondary guest
+  band replace the old guest card assertions); landing contracts untouched.
+- **Evidence:** web 48/48 (82.98%), API 141/141 (+2 controller), integration 72/72, gates PASS,
+  typecheck/lint clean, live HTTP flow 13/13 (full demo path incl. two distinct fenugreek lines
+  and real worker completion), verify-local exit 0. Playwright remains environment-blocked.
+- **Deliberate non-changes:** no OCR, no guest review/method bridge (canonical auth labels kept),
+  no recipe-list endpoint, no D-18 view rendering, no client-side readiness.
 
 - **CI fix (pre-flight audit, commit `1140ef4`):** runs 13/14 were failing at typecheck —
   D-15's `packages/schemas` main→dist change means consumers import `dist/`, but CI never built

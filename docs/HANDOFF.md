@@ -935,7 +935,7 @@ execution output; Git: not available / not authorized throughout.
 
 ### H-13 — D-13 Method attach
 
-- BASE_SHA / COMMIT_SHA: **BASE `83e6de0` · COMMIT `(filled at D-13 completion commit)`**
+- BASE_SHA / COMMIT_SHA: **BASE `83e6de0` · COMMIT `364d58b`** (full `364d58ba6e5ec7e5c439dbc302ea788ab2f63246`) — D-13 checkpoint pushed to `github.com/mohamedazzim/recipe-systems` branch `main` (2026-09-09, owner-authorized; parent verified `83e6de0`).
 - Date / agent session: 2026-09-09 · D-13 dispatch session (pre-flight GO recorded in HANDOFF §5 BEFORE implementation).
 - Status: **DONE (evidence below)** — all three dispatch done criteria satisfied in text scope.
 - What shipped:

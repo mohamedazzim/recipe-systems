@@ -36,7 +36,7 @@
 - Side fix: `tests/e2e/review.spec.ts` parse-text status 201→200 (D-12 latent expectation; canonical
   API §3 is 200, confirmed live — never ran on a Playwright-capable machine).
 - Decisions: D-13A..J (HANDOFF §5 2026-09-09 pre-flight); SCAFFOLD register unchanged.
-- Commit(s): `(D-13 commit — filled after push)`
+- Commit(s): **`364d58b`** (full `364d58ba6e5ec7e5c439dbc302ea788ab2f63246`) — D-13 checkpoint, pushed to `github.com/mohamedazzim/recipe-systems` main (2026-09-09, owner-authorized; remote verified via `git ls-remote`, working tree clean).
 - Resume point: D-14 (needs_review enqueue gate) awaits explicit dispatch; D-11/Q10 still deferred.
 
 ## 2026-09-09 — Git checkpoint + D-12 record (8bd7708, 83e6de0)

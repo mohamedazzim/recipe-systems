@@ -36,7 +36,7 @@
   separation; QG4 rejection; Q9 hygiene), workspace unit/lint/typecheck green, regression gates
   PASS, `verify-local` exit 0. Live-stack N/A (no HTTP surface — recorded honestly).
 - Decisions: D-15A..L (HANDOFF §5 pre-flight); SCAFFOLD register unchanged (Q9/Q1 remain OPEN).
-- Commit(s): `(D-15 commit — filled after push)`
+- Commit(s): **`1b4b2f3`** (full `1b4b2f3cdab8cfc431786959ff6cae08de5d2fca`) — D-15 checkpoint, pushed to `github.com/mohamedazzim/recipe-systems` main (2026-09-09, owner-authorized; remote verified via `git ls-remote`, working tree clean).
 - Resume point: D-16 (P3-2 grounding validator) awaits explicit dispatch; D-11/Q10 still deferred.
 
 ## 2026-09-09 — D-14 needs_review enqueue gate (P2-5)

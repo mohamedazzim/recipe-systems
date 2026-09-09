@@ -1143,7 +1143,7 @@ execution output; Git: not available / not authorized throughout.
 
 ### H-15 — D-15 Prompt specs + prompt_version
 
-- BASE_SHA / COMMIT_SHA: **BASE `50bd215` · COMMIT `(filled at D-15 completion commit)`**
+- BASE_SHA / COMMIT_SHA: **BASE `50bd215` · COMMIT `1b4b2f3`** (full `1b4b2f3cdab8cfc431786959ff6cae08de5d2fca`) — D-15 checkpoint pushed to `github.com/mohamedazzim/recipe-systems` branch `main` (2026-09-09, owner-authorized; parent verified `50bd215`).
 - Date / agent session: 2026-09-09 · D-15 dispatch session (pre-flight GO recorded in HANDOFF §5 BEFORE implementation).
 - Status: **DONE** — all three dispatch done criteria satisfied; evidence below.
 - What shipped (all in `packages/llm-adapter`, the Tech Stack §10 LLM layer — no layout change):

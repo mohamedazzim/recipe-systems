@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "description": "Nine-view JSON schemas \\u2014 FROZEN at P0-5 (D-05, 2026-09-08), v1.0.0. Runtime-validated (Zod, strict) contracts for the analysis engine: nine view payloads, identification, claims/tags, station card, shared inputs, analysis envelope. See SCHEMA_FREEZE.md.",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",

@@ -20,6 +20,25 @@
 
 **Rule:** a change that alters any Q1–Q18 row must say so in its entry. The register (SCAFFOLD §7) is the single source of truth for open decisions; this log records the history of how the register changed. No Q-row changes in D-13.
 
+## 2026-09-09 — D-15 Prompt specs + prompt_version (P3-1)
+
+- Status: **DONE** (all three dispatch done criteria satisfied; H-15 filled with evidence).
+- Change (all in `packages/llm-adapter` — Tech Stack §10 LLM layer, no layout change): per-view
+  prompt specs 1–7 pinned to Analysis Prompts §2–§8 (+ Recipe_Systems §7 per-view home/chef mode
+  focus); views 8/9 marked deterministic (no prompt invented); shared system prompt verbatim §1 +
+  home/chef mode overlays (§7); `parseViewOutput` = frozen VIEW_SCHEMAS safeParse — the single QG4
+  regenerate trigger D-16/D-17 key off; `PROMPT_VERSION = 'v2'` (the `analysis.prompt_version` write
+  stays D-17's — worker owns analysis_*); `MockLlmAdapter` deterministic CI stub; no provider, no
+  credentials (Q9 OPEN); `recipe_snapshot` stays `unknown` (Q1 OPEN). Packaging: schemas package
+  main/types → dist (D-15L; source surface + freeze record unchanged).
+- Tests: llm-adapter unit **52/52** (hand-checked valid+malformed per view against the frozen
+  schemas — A-15 BLOCKER cell run; envelope both modes; reproducibility twice-identical; mode
+  separation; QG4 rejection; Q9 hygiene), workspace unit/lint/typecheck green, regression gates
+  PASS, `verify-local` exit 0. Live-stack N/A (no HTTP surface — recorded honestly).
+- Decisions: D-15A..L (HANDOFF §5 pre-flight); SCAFFOLD register unchanged (Q9/Q1 remain OPEN).
+- Commit(s): `(D-15 commit — filled after push)`
+- Resume point: D-16 (P3-2 grounding validator) awaits explicit dispatch; D-11/Q10 still deferred.
+
 ## 2026-09-09 — D-14 needs_review enqueue gate (P2-5)
 
 - Status: **DONE** (INV-05 guard shipped in text scope; photo golden scenario gated on D-11; H-14

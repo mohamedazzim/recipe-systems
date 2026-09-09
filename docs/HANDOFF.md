@@ -556,8 +556,68 @@ execution output; Git: not available / not authorized throughout.
   (persisted drift risk, A-14) — wire names in .ts are derived, not state; qg2 plant-proofs added.
   **STOP conditions:** any write to lines from a new module, schema change, or P3 code → STOP.
   Dependencies: D-11 only for the photo golden scenario (recorded as text-scope limitation in H-14).
+- 2026-09-09 — **D-15 PRE-FLIGHT (recorded BEFORE implementation; verdict GO)**: authorized by user.
+  **Starting state:** D-10 ✅, D-11 ⏸ (Q10 OPEN), D-12 🟡 text scope, D-13 ✅, D-14 ✅ (bdbea9b +
+  50bd215 pushed), Q4 ✅, tree clean. **Canonical requirements verified:** DISPATCH D-15 (prompt spec
+  per view 1–9 + home/chef system prompts validated against frozen schemas — violations = regenerate
+  path QG4 "invalid schema"; prompt_version persisted per analysis; LLM adapter seam mocked in CI,
+  real provider only in the benchmark harness; NON-GOALS: D-16/D-17/D-18, provider selection),
+  BUILD_PLAN P3-1 (same; ERD analysis.prompt_version), A-15 (schema conformance BLOCKER — run the
+  validation, don't read it from HANDOFF; reproducibility = same prompt_version + same stubbed model →
+  identical output twice, MAJOR otherwise; mode separation home ≠ chef; QG4 malformed payload →
+  regenerate/never-publish; Q9 hygiene — no provider pinned), Analysis_Prompts.md v2 (input schema §0;
+  shared system prompt §1 with the six-tag vocabulary + 7 hard rules; per-view ROLE/TASK/OUTPUT
+  SCHEMA/few-shot §2–§8; Notes: one call per view, JSON-schema output, temperature 0.2, Zod validation
+  before return/store, V8/V9 NOT in the LLM set), Recipe_Systems §6 (nine-view worked example = the
+  acceptance data), §7 (chef mode spec: "Home mode explains. Chef mode briefs"; voice/refusal/blanks;
+  the per-view Home-vs-Chef table), Deterministic_Views.md (V8/V9 deterministic algorithms),
+  ERD/schema `analysis.prompt_version VARCHAR(64)` (reproducibility pin; writer = worker), frozen
+  packages/schemas (SCHEMA_VERSION 1.0.0: VIEW_SCHEMAS 1–9, StructuredRecipeInputSchema,
+  AnalysisEnvelopeSchema with mode + prompt_version + model_version, ClaimTag vocabulary, per-view
+  tag-subset literals), Tech Stack §10 (provider-neutral adapter, Gemini candidate = Q9), §21 QG4 row
+  (invalid LLM output → reject/regenerate; never publish), SCAFFOLD §1 (layout: no prompts package —
+  the LLM layer is packages/llm-adapter), Q9/Q1 rows (both OPEN — not resolvable here).
+  **Decisions (D-15A…K):** A) prompt module lives in `packages/llm-adapter/src/prompts/` (Tech Stack
+  §10 LLM layer; no new package → no layout change). B) `PROMPT_VERSION = 'v2'` (the canonical
+  Analysis_Prompts.md version; VARCHAR(64)-safe; bump = new dispatch unit). Prompt text carries
+  provenance pins ("Analysis Prompts §N"). C) Views 8/9 are deterministic — the registry marks them
+  `kind: 'deterministic'` (doc pointer only); no prompt text invented. D) home/chef system prompts =
+  shared prompt (verbatim §1) + mode overlay authored from Recipe_Systems §7 (home: explain; chef:
+  brief — voice rules, required blanks, refusal, per-view mode focus from the §7 table).
+  E) `parseViewOutput(view, raw)` = `VIEW_SCHEMAS[n].safeParse` — the single validation the worker's
+  QG4 regenerate path keys off (D-16/D-17 consume it; no regenerate loop built here). F) adapter seam:
+  `LlmAdapter.generate({ view, mode, input, prompt_version, model_version })` returning raw JSON;
+  `MockLlmAdapter` = deterministic fixture-driven stub (no network, CI-safe); NO provider, NO
+  credentials (Q9 stays OPEN). G) no analysis_* writes (worker owns them, INV-03) — D-15 exposes
+  PROMPT_VERSION for D-17 to stamp; the `analysis.prompt_version` write is D-17's. H) the seam's
+  `recipe_snapshot` stays `unknown` (Q1 OPEN — D-17 builds to the labeled assumption); the prompt
+  module types its input as the frozen StructuredRecipeInput. I) reproducibility proven by test: same
+  version + same mock + same input → byte-identical output, run twice (A-15 MAJOR contract).
+  J) identification + station-card prompts are OUT of D-15 scope (P3-4/D-18 owns C1 + station card
+  per BUILD_PLAN P3-4) — recorded non-change. K) live-stack verification not applicable (no HTTP
+  surface in D-15 — the seam runs inside the future worker); the package build + suite run is the
+  honest evidence level, stated as such.
+  **STOP conditions:** any analysis_* write, provider pinning/credentials, Q1/Q9 resolution, schema
+  edits, or worker code → STOP and report. Dependencies: D-05 ✅ (frozen schemas), D-14 ✅ (gate —
+  D-15's input types assume reviewed lines). No contradictions found → GO.
+- 2026-09-09 — **D-15 EXECUTION (post-implementation; H-15 filled)**: implemented per pre-flight —
+  prompt module + version pin + validation gate + mock seam, all in packages/llm-adapter. Files:
+  `packages/llm-adapter/src/prompts/{version,system,views,validate}.ts` + `src/index.ts` (rewritten)
+  + `src/prompts/{system,validate}.test.ts` + `src/mock-adapter.test.ts` (new/extended),
+  `packages/llm-adapter/{package.json,jest.config.js}` (schemas dep + mapper), `packages/schemas/
+  package.json` (main/types → dist — D-15L packaging, contract surface unchanged, SCHEMA_FREEZE
+  untouched). **Failures & recovery:** jest mapper path one `../` short → fixed; test compile errors
+  (relative import `./index`→`../index`; zod `_output` type misuse → `StructuredRecipeInput` type) →
+  fixed; VALID_VIEW_9 missed `tightening_factors`/`disclaimer` + carried an invented `notes` key →
+  the .strict() schema caught it (the gate works as designed) → fixture corrected; two prompt-content
+  regexes didn't match template line-wrapping/case → fixed. **Evidence:** llm-adapter unit 52/52
+  (hand-checked valid+malformed per view, envelope both modes, reproducibility twice-identical, mode
+  separation, QG4 rejection, Q9 hygiene), workspace unit/lint/typecheck green, gates PASS,
+  verify-local exit 0. Live-stack N/A (no HTTP surface — D-15K, recorded honestly). Intentional
+  non-changes per pre-flight C/J/G. **Resume point:** D-16 (P3-2 grounding validator) awaits
+  explicit dispatch; D-11/Q10 still deferred.
 - 2026-09-09 — **D-14 EXECUTION (post-implementation; H-14 filled)**: implemented per pre-flight —
-  `IntakeService.getEnqueueState` (read-only, canonical flag only, active = deletedAt IS NULL) +
+   `IntakeService.getEnqueueState` (read-only, canonical flag only, active = deletedAt IS NULL) +
   `parse-preview` gains `enqueue` (D-14B) + review PATCH gains `needs_review: false` (literal-false
   zod; true → 400; explicit user confirmation only, never auto-cleared — D-14C) + new static gate for
   shadow enqueue-readiness STATE in .prisma/.sql (A-14 drift MAJOR) with qg2 plant proofs.
@@ -1083,7 +1143,56 @@ execution output; Git: not available / not authorized throughout.
 
 ### H-15 — D-15 Prompt specs + prompt_version
 
-☐ No entry yet.
+- BASE_SHA / COMMIT_SHA: **BASE `50bd215` · COMMIT `(filled at D-15 completion commit)`**
+- Date / agent session: 2026-09-09 · D-15 dispatch session (pre-flight GO recorded in HANDOFF §5 BEFORE implementation).
+- Status: **DONE** — all three dispatch done criteria satisfied; evidence below.
+- What shipped (all in `packages/llm-adapter`, the Tech Stack §10 LLM layer — no layout change):
+  1. **Prompt spec per view** — `src/prompts/views.ts`: views 1–7 carry the canonical ROLE/TASK/OUTPUT
+     SCHEMA/rules text (pinned to Analysis Prompts §2–§8, provenance per spec) + each view's home/chef
+     mode focus from the Recipe_Systems §7 table; views 8/9 marked `kind: 'deterministic'` (Deterministic
+     Views doc) — no prompt invented (D-15C). `buildViewPrompt(view, mode)` assembles the pair.
+  2. **Home/chef system prompts** — `src/prompts/system.ts`: the shared lens verbatim (Analysis Prompts
+     §1: six-tag vocabulary, 7 hard rules) + `HOME_MODE_OVERLAY` (explains) / `CHEF_MODE_OVERLAY`
+     (briefs — voice, required blanks, refusal) authored from Recipe_Systems §7 (D-15D).
+     `systemPromptFor(mode)` = shared + overlay; per-view mode focus injected into the user prompt.
+  3. **Validation + QG4 trigger** — `src/prompts/validate.ts`: `parseViewOutput(view, raw)` =
+     `VIEW_SCHEMAS[n].safeParse` (frozen, strict) — THE single gate D-16/D-17's regenerate path keys
+     off; malformed output → `{ ok: false, errors }`, never published (D-15E).
+  4. **prompt_version** — `src/prompts/version.ts`: `PROMPT_VERSION = 'v2'` (the canonical
+     Analysis_Prompts.md version, D-15B) + provenance. The `analysis.prompt_version` write is D-17's
+     (worker owns analysis_* writes — INV-03); D-15 exposes the pin (D-15G).
+  5. **Adapter seam** — `src/index.ts`: `LlmAdapter.generate({ view, mode, recipe_snapshot,
+     prompt_version, model_version })` + `MockLlmAdapter` (fixture-driven, zero network, deterministic,
+     throws on unregistered keys — never invents) + `generateValidated` (generate→parse). No provider
+     pinned, no credentials (Q9 stays OPEN); `recipe_snapshot` stays `unknown` at the seam (Q1 OPEN —
+     D-17 builds to the labeled assumption) (D-15F/H).
+  6. **Packaging (D-15L)** — `packages/schemas/package.json` main/types now point at `dist/` (the
+     package already had a tsc build + dist output; src/index.ts remains the canonical SOURCE surface
+     per SCHEMA_FREEZE). Mirrors the database package's dist-main + jest-src pattern. No schema/contract
+     change — the freeze record is untouched.
+- Non-changes (intentional): no identification/station-card prompts (P3-4/D-18 scope, D-15J); no
+  worker/enqueue code; no regenerate LOOP (D-16/D-17); no provider; no analysis_* writes; no schema
+  edits; Q1/Q9 not resolved.
+- Evidence:
+  - llm-adapter unit **52/52** (4 suites): schema-conformance suite with HAND-CHECKED instance
+    documents — 7 valid + 7 malformed LLM-view instances run through `parseViewOutput` against the
+    frozen schemas (A-15 BLOCKER cell, run not read); deterministic 8/9 through the same gate;
+    full hand-checked AnalysisEnvelope (all nine views, both modes) parses;
+  - reproducibility proven: same `PROMPT_VERSION` + same mock + same input → byte-identical output,
+    run twice (A-15 MAJOR contract); mode separation: home vs chef prompts differ AND mode-scoped
+    fixtures differ on the same recipe;
+  - QG4 cell: malformed model output rejected end-to-end through `generateValidated`;
+  - Q9 hygiene asserted: no provider name/key/endpoint anywhere in the seam;
+  - workspace unit + lint + typecheck green; regression gates PASS; `verify-local` exit 0 (D-15 run);
+  - live-stack: not applicable (no HTTP surface — the seam runs inside the future worker; recorded
+    honestly per D-15K).
+- Failures & recovery (HANDOFF §5): jest moduleNameMapper path miscount (one `../` short) → fixed;
+  test-compile issues (wrong relative import, zod `_output` type misuse) → fixed; VALID_VIEW_9
+  fixture initially missed `tightening_factors`/`disclaimer` and carried an invented `notes` key —
+  corrected to the frozen schema (the .strict() schemas caught it — the gate works); two test regexes
+  didn't account for template line-wrapping/case → fixed.
+- Resume point: **D-16 (P3-2 grounding validator) — WAITING for explicit user authorization.**
+  D-15's seam + `parseViewOutput` are D-16's inputs. D-11/Q10 remain deferred.
 
 ### H-16 — D-16 Grounding validator
 

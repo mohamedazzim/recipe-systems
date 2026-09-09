@@ -22,6 +22,75 @@
 
 ---
 
+## 2026-09-09 — D-12 parse review shipped (text scope; OCR deferred)
+
+- Author / session: Hermes Agent (D-12 dispatch, TEXT/PASTE scope — user directive 2026-09-09:
+  OCR paused for the day; D-11/Q10 deferred; decision trace + D-12A…I recorded in HANDOFF §5
+  BEFORE code).
+- What changed: `apps/api/src/modules/intake/intake.service.ts` + `intake.controller.ts` — the
+  full B3 parse-review editor for text-originated draft lines: edit / add / delete (soft) /
+  split / merge / header marking / sense confirmation, stale-edit rejection on `updated_at`
+  (409 STALE_EDIT), corrected-object read path (`GET /lines`, `GET /parse-preview`). All
+  mutations stay under the Intake writer boundary (Q4); `recipe_input` untouched throughout.
+  `tests/integration/story_b3_parse_review.test.ts` (new), unit tests extended, E2E
+  `tests/e2e/review.spec.ts` (new). No schema change; no OCR fields fabricated for text lines.
+- Why: pasted text has no OCR stage (B1); B3's review loop is source-channel-agnostic; the
+  canonical sequence is preserved (D-11 remains deferred, D-13/D-14 untouched — D-14 depends
+  on D-11).
+- Register impact: none. Q10 stays OPEN (prior STOP history preserved verbatim); Q3/Q5/Q9/Q1/Q2
+  untouched.
+- Verification (all real executions): API unit 123/123; integration 48/48 (new story_b3 8/8 —
+  caught + fixed a real bug: downward line_no shift collided on the partial unique index);
+  all-workspace unit 112/112; regression gates PASS; lint/typecheck clean; verify-local
+  **exit 0 · ALL STEPS PASSED**. E2E specs written but NOT executable on this machine —
+  corporate policy kills Playwright-launched browsers (exit 1260 ERROR_BLOCKED_BY_POLICY,
+  chrome+edge, headed+headless; bundled Chromium download network-blocked); equivalent live-
+  stack verification via the real HTTP surface (Keycloak OIDC → session → BFF → Postgres)
+  **11/11 PASS**.
+- Commit(s): none (no git operations authorized).
+- Resume point: D-12 photo-path criteria wait for D-11/Q10; next dispatchable unit = D-13
+  (method attach, depends on D-12); D-14 needs D-11. A-12 audit pending.
+
+## 2026-09-09 (cont.) — Q10 benchmark attempt #2: pre-run verification failed — still blocked
+
+- Author / session: Hermes Agent (Q10 benchmark attempt #2; user provided `tests/fixtures/corpus_images/`, 15 JPGs).
+- What changed: nothing in the repo beyond this log — the benchmark was NOT executed.
+- Why: pre-run verification failed on all three required inputs. (1) **Images**: valid JPEGs
+  (no EXIF, ~280×240 px) whose OCR text is generic EN/FR recipe cards — Spaghetti Bolognese,
+  Chocolate Chip Cookies, Crépes, Ratatouille, Pad Thai… — with zero correspondence to the D-04
+  corpus (0 grep hits for the dishes; corpus = Tamil/Kerala/other-Indian recipes with vernacular
+  ingredient names). Not the team's card dataset, provenance unverifiable (a ChatGPT-generated
+  image file was downloaded 4 min before the images appeared — flagged, not asserted). (2)
+  **Manifest**: none provided; no image maps to any rs-NNN reference set → no ground truth.
+  (3) **Credentials**: none available anywhere (env ×2, .env ×3, gcloud paths, Hermes .env,
+  cmdkey, Downloads/Desktop/Documents/Temp, files.zip). Running the benchmark would have been
+  unfalsifiable.
+- Register impact: Q10 remains OPEN; GCV remains candidate; prior STOP history preserved verbatim.
+- Verification: tesseract (Docker) OCR of all 15 images → dish list recorded in HANDOFF §5;
+  corpus grep → 0 overlap; full credential sweep → absent.
+- Resume point: unchanged — real team card images + ground-truth manifest + credentials outside
+  the repo are still required before the benchmark can execute.
+
+## 2026-09-09 — Q10 OCR benchmark blocked: no real-card images + no provider credentials
+
+- Author / session: Hermes Agent (Q10 resolution attempt, pre-D-11; user-authorized benchmark task).
+- What changed: no production code. Added `scripts/ocr-benchmark.js` (deterministic benchmark
+  harness, stdlib-only; self-test PASS 3/3). Decision trace recorded in HANDOFF §5; SCAFFOLD §7
+  Q10 row noted; IMPROVEMENT_PLAN P0-2 noted.
+- Why: Q10 requires "real-photo benchmarking" (Tech Stack §11/§25.5; ADR §2) but the D-04 corpus
+  is synthetic JSON text (`provenance.synthetic:true`), no recipe-card photos exist in the repo,
+  and no OCR provider credentials are available on the machine — the benchmark cannot execute on
+  its canonical input. No results fabricated; no canonical threshold invented (the sources define
+  none — gap recorded; a project-proposed criterion is recorded in HANDOFF §5 and clearly labeled
+  as non-canonical).
+- Register impact: Q10 remains OPEN (GCV still initial candidate). Q1/Q2/Q3/Q5/Q9 untouched.
+- Commit(s): none (no git operations authorized for this task).
+- Verification: `node scripts/ocr-benchmark.js --self-test` → PASS 3/3 (clean / dropped-critical /
+  missing-confidence cases); `--manifest` real run → exit 2 "BLOCKED: 1/1 manifest images do not
+  exist"; repo-wide image search → only `docs/diagram.png` +
+  `docs/recipe_app_workflow_diagram_v2_fixed.png` (diagrams, not cards); `.env`
+  `OCR_PROVIDER=disabled`; no GCV/gcloud credentials present.
+
 ## 2026-09-08 — D-10 shipped: raw intake rows + photo pipeline (H-10)
 
 - Author / session: Hermes Agent (D-10 dispatch, after Q4 pre-flight resolution).

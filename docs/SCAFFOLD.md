@@ -109,7 +109,7 @@ Nothing on this list is decided by these documents. Each row points at where the
 | Q7 | Cloud vendor: AWS primary vs R2 alternative; managed-PG provider | Tech Stack §25 |
 | Q8 | ~~Keycloak pilot vs Auth0 — amend Tech Stack §1/§14/§25~~ — **Resolved 2026-09-07:** Keycloak selected as the sole identity/authentication provider (OIDC/OAuth2). Tech Stack §1/§14/§25/§26 amended to name Keycloak; ADR §19/§24 updated; Auth0 removed from the active architecture (prior state preserved in CHANGE_LOG.md). | Tech Stack §25.3 |
 | Q9 | Final LLM provider after quality/cost/grounding benchmark | Tech Stack §1, §25.4 |
-| Q10 | Final OCR provider after real-card benchmarking | Tech Stack §11, §25.5 |
+| Q10 | Final OCR provider after real-card benchmarking — note 2026-09-09: benchmark attempt **BLOCKED** (recorded, NOT resolved) — the D-04 corpus is synthetic JSON text (`provenance.synthetic:true`), no real recipe-card photos exist in the repo, and no provider credentials exist on the machine; harness + proposed criterion + full trace in HANDOFF §5 (`scripts/ocr-benchmark.js`, self-test PASS); GCV stays candidate. Attempt #2 (same day): user-provided `corpus_images/` (15 JPGs) fail verification — generic EN/FR cards with zero D-04 corpus correspondence, no manifest, credentials still absent — **still BLOCKED, NOT resolved** | Tech Stack §11, §25.5 |
 | Q11 | Guest-session TTL + cleanup schedule | ERD §15.12, ADR §24.7 |
 | Q12 | RPO / RTO targets | ADR §17, §24.11 |
 | Q13 | Retry counts / backoff values | ADR §24.12 |

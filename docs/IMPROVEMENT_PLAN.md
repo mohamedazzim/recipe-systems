@@ -31,6 +31,7 @@
 **Declared in:** Tech Stack §1/§25.4 (Q9), §11/§25.5 (Q10). **Gates:** P3 prompt layer and P2 OCR (BUILD_PLAN §7.3 — the benchmark must land before P3/P2 ship).
 **Problem:** provider selection is deferred to a quality/cost/grounding benchmark (Q9) and a real-card OCR benchmark (Q10); the benchmark harness is scaffolded in D-11/D-15 but the decisions are people+data decisions.
 **Options on the table:** run the harness on the D-04 corpus + real-card photos in weeks 1–4; record; decide. **Status:** OPEN.
+**2026-09-09 Q10 benchmark attempt — BLOCKED (recorded, NOT resolved):** the D-04 corpus is synthetic JSON text (`provenance.synthetic:true`) — no real recipe-card photos exist in the repo, and no OCR provider credentials exist on the machine, so the canonical "real-photo benchmark" (Tech Stack §11) cannot execute. Harness delivered: `scripts/ocr-benchmark.js` (deterministic, self-test PASS 3/3); proposed criterion + full decision trace in HANDOFF §5. GCV remains candidate. Unblock: user supplies real card images (gitignored) + provider credentials OUTSIDE the repo. **Attempt #2 (same day, still BLOCKED):** user-provided `corpus_images/` (15 JPGs) fail verification — generic EN/FR recipe cards with zero D-04 corpus correspondence, no manifest/reference mapping, credentials still absent → benchmark not executed (would be unfalsifiable).
 
 ### P0-3. Q3 — Topology diagram still draws the Worker→OCR edge *(confirm before P2 OCR work)*
 

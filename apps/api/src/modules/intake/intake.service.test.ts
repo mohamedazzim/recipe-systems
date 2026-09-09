@@ -1,3 +1,5 @@
+import { ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Prisma } from '@recipe-systems/database';
 import type { Actor } from '../../common/guards/guest-or-jwt.guard';
 import { IntakeService, splitRawLines, toWireLine } from './intake.service';
 import type { RecipeService } from '../recipes/recipe.service';
@@ -29,13 +31,42 @@ function mockPrisma(recipeService?: Partial<RecipeService>) {
   };
   const prisma: any = {
     recipeInput: { create: jest.fn() },
-    recipeIngredientLine: { create: jest.fn(), findMany: jest.fn() },
+    recipeIngredientLine: {
+      create: jest.fn(),
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      update: jest.fn(),
+      aggregate: jest.fn(),
+    },
     $transaction: jest.fn(async (fnOrArray: any) => {
       if (Array.isArray(fnOrArray)) return Promise.all(fnOrArray);
       return fnOrArray(prisma);
     }),
   };
   return { prisma, recipes: recipes as unknown as RecipeService };
+}
+
+/** A realistic active draft line for review-method mocks. */
+function mockLine(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'l1',
+    recipeId: 'r1',
+    shoppingKey: 'sk-1',
+    lineNo: 1,
+    displayName: 'Fish — 500g',
+    amount: null,
+    amountText: null,
+    unit: null,
+    groupName: null,
+    confirmedSense: null,
+    includeOnList: true,
+    sourceTag: 'CARD',
+    needsReview: false,
+    ocrConfidence: null,
+    updatedAt: new Date('2026-09-09T10:00:00.000Z'),
+    deletedAt: null,
+    ...overrides,
+  };
 }
 
 describe('splitRawLines (B1 raw-text handling)', () => {
@@ -53,7 +84,7 @@ describe('splitRawLines (B1 raw-text handling)', () => {
   });
 });
 
-describe('IntakeService', () => {
+describe('IntakeService — D-10 intake', () => {
   it('recordPaste persists an immutable raw paste row and one draft line per raw line', async () => {
     const { prisma, recipes } = mockPrisma();
     prisma.recipeInput.create.mockResolvedValue({ id: 'in1' });
@@ -125,15 +156,22 @@ describe('IntakeService', () => {
     expect(prisma.recipeInput.create).not.toHaveBeenCalled();
   });
 
-  it('IMMUTABILITY: exposes no update/delete/upsert surface for recipe_input', () => {
+  it('IMMUTABILITY (D-10): recipe_input is write-once — even the D-12 line mutators never touch it', async () => {
+    const { prisma, recipes } = mockPrisma();
+    prisma.recipeIngredientLine.findFirst.mockResolvedValue(mockLine());
+    prisma.recipeIngredientLine.update.mockResolvedValue(mockLine());
+    const svc = new IntakeService(prisma, recipes);
+    // The service exposes line mutation methods (D-12) — but recipe_input stays create-only.
     const methodNames = Object.getOwnPropertyNames(IntakeService.prototype).filter(
       (n) => n !== 'constructor',
     );
-    // The only recipe_input writers are recordPaste/recordPhoto/recordForm (write-once creates).
-    const creators = ['recordPaste', 'recordPhoto', 'recordForm'];
-    creators.forEach((name) => expect(methodNames).toContain(name));
-    const mutators = methodNames.filter((n) => /update|upsert|delete/i.test(n));
-    expect(mutators).toEqual([]);
+    expect(methodNames).toEqual(expect.arrayContaining(['recordPaste', 'recordPhoto', 'recordForm']));
+    await svc.softDeleteLine(userActor, 'r1', 'l1');
+    // Only recipeIngredientLine.update was used; recipeInput has no update/delete surface at all.
+    expect(prisma.recipeIngredientLine.update).toHaveBeenCalled();
+    expect(prisma.recipeInput).not.toHaveProperty('update');
+    expect(prisma.recipeInput).not.toHaveProperty('delete');
+    expect(prisma.recipeInput).not.toHaveProperty('upsert');
   });
 
   it('listDraftLines returns non-deleted lines in card order', async () => {
@@ -147,24 +185,253 @@ describe('IntakeService', () => {
     });
     expect(lines).toHaveLength(2);
   });
+});
 
-  it('toWireLine maps a draft row to the API §3 wire shape (unparsed fields null)', () => {
+describe('toWireLine (API §3 wire shape + D-12B)', () => {
+  it('maps real review fields; id + updated_at present (stale-edit token)', () => {
+    const updatedAt = new Date('2026-09-09T10:00:00.000Z');
     expect(
       toWireLine({
         id: 'l1',
         displayName: 'Fish — 500g',
+        amountText: '500g',
+        amount: { toString: () => '500' } as any,
+        unit: 'g',
+        groupName: 'fish_meat',
+        confirmedSense: 'fish',
         includeOnList: true,
+        updatedAt,
       } as any),
     ).toEqual({
+      id: 'l1',
       display_name: 'Fish — 500g',
-      canonical_name: null,
-      amount: null,
-      unit: null,
-      quantity: null,
-      category: null,
-      is_header: false,
+      canonical_name: null, // dictionary lands at D-29
+      amount: '500g',
+      unit: 'g',
+      quantity: 500,
+      category: 'fish_meat',
+      is_header: false, // headers never appear in the corrected object (D-12C)
       include_on_list: true,
-      confirmed_sense: null,
+      confirmed_sense: 'fish',
+      updated_at: '2026-09-09T10:00:00.000Z',
     });
+  });
+
+  it('unparsed draft maps to nulls and a true include_on_list default', () => {
+    const wire = toWireLine({
+      id: 'l2',
+      displayName: 'Murungakkai — to taste',
+      amount: null,
+      amountText: null,
+      unit: null,
+      groupName: null,
+      confirmedSense: null,
+      includeOnList: true,
+      updatedAt: new Date('2026-09-09T10:00:00.000Z'),
+    } as any);
+    expect(wire.quantity).toBeNull();
+    expect(wire.amount).toBeNull();
+    expect(wire.confirmed_sense).toBeNull();
+    expect(wire.display_name).toBe('Murungakkai — to taste');
+  });
+});
+
+describe('IntakeService — D-12 parse review (text scope)', () => {
+  it('updateLine applies review fields and returns the updated line (B3 AC-1)', async () => {
+    const { prisma, recipes } = mockPrisma();
+    const line = mockLine();
+    prisma.recipeIngredientLine.findFirst.mockResolvedValue(line);
+    prisma.recipeIngredientLine.update.mockResolvedValue({ ...line, displayName: 'Fish — 500 gm' });
+    const svc = new IntakeService(prisma, recipes);
+    const updated = await svc.updateLine(
+      userActor,
+      'r1',
+      'l1',
+      { displayName: 'Fish — 500 gm', amountText: '500g', amount: 500, unit: 'g', confirmedSense: 'fish' },
+      line.updatedAt.toISOString(),
+    );
+    expect(updated.displayName).toBe('Fish — 500 gm');
+    const updateCall = prisma.recipeIngredientLine.update.mock.calls[0][0];
+    expect(updateCall.where).toEqual({ id: 'l1' });
+    expect(updateCall.data.displayName).toBe('Fish — 500 gm');
+    expect(updateCall.data.amountText).toBe('500g');
+    expect(updateCall.data.unit).toBe('g');
+    expect(updateCall.data.confirmedSense).toBe('fish');
+    expect(updateCall.data.amount).toBeInstanceOf(Prisma.Decimal);
+  });
+
+  it('updateLine rejects a stale edit with 409 STALE_EDIT + current line (D-12D)', async () => {
+    const { prisma, recipes } = mockPrisma();
+    const line = mockLine();
+    prisma.recipeIngredientLine.findFirst.mockResolvedValue(line);
+    const svc = new IntakeService(prisma, recipes);
+    const stale = new Date(line.updatedAt.getTime() - 60_000).toISOString();
+    try {
+      await svc.updateLine(userActor, 'r1', 'l1', { displayName: 'X' }, stale);
+      fail('expected ConflictException');
+    } catch (err) {
+      expect(err).toBeInstanceOf(ConflictException);
+      expect((err as any).response.code).toBe('STALE_EDIT');
+      expect((err as any).response.details.current_line.id).toBe('l1');
+    }
+    expect(prisma.recipeIngredientLine.update).not.toHaveBeenCalled();
+  });
+
+  it('markHeader soft-deletes the line (D-12C — no header column; excluded from corrected object)', async () => {
+    const { prisma, recipes } = mockPrisma();
+    const line = mockLine({ displayName: 'For the marinade:' });
+    prisma.recipeIngredientLine.findFirst.mockResolvedValue(line);
+    prisma.recipeIngredientLine.update.mockResolvedValue({ ...line, deletedAt: new Date() });
+    const svc = new IntakeService(prisma, recipes);
+    await svc.markHeader(userActor, 'r1', 'l1', line.updatedAt.toISOString());
+    const call = prisma.recipeIngredientLine.update.mock.calls[0][0];
+    expect(call.data.deletedAt).toBeInstanceOf(Date);
+  });
+
+  it('softDeleteLine 404s for a missing or foreign line (INV-17 shape)', async () => {
+    const { prisma, recipes } = mockPrisma();
+    prisma.recipeIngredientLine.findFirst.mockResolvedValue(null);
+    const svc = new IntakeService(prisma, recipes);
+    try {
+      await svc.softDeleteLine(userActor, 'r1', 'nope');
+      fail('expected NotFoundException');
+    } catch (err) {
+      expect(err).toBeInstanceOf(NotFoundException);
+      expect((err as any).response.code).toBe('LINE_NOT_FOUND');
+    }
+  });
+
+  it('splitLine splits at the point, soft-deletes the original, shifts downstream, new shopping_keys (D-12E)', async () => {
+    const { prisma, recipes } = mockPrisma();
+    const original = mockLine({ displayName: 'Chilli Powder — 2 Tsp Coriander Powder — 1 Tsp' });
+    prisma.recipeIngredientLine.findFirst.mockResolvedValue(original);
+    prisma.recipeIngredientLine.findMany.mockResolvedValue([{ id: 'dn', lineNo: 9 }]);
+    prisma.recipeIngredientLine.update.mockResolvedValue({ id: 'orig' });
+    prisma.recipeIngredientLine.create
+      .mockResolvedValueOnce({ id: 'n1', displayName: 'Chilli Powder — 2 Tsp' })
+      .mockResolvedValueOnce({ id: 'n2', displayName: 'Coriander Powder — 1 Tsp' });
+    const svc = new IntakeService(prisma, recipes);
+    const splitPoint = original.displayName.indexOf(' Coriander') + 1; // 'C' of Coriander
+    const [l1, l2] = await svc.splitLine(userActor, 'r1', 'l1', splitPoint, original.updatedAt.toISOString());
+    expect(l1.displayName).toBe('Chilli Powder — 2 Tsp');
+    expect(l2.displayName).toBe('Coriander Powder — 1 Tsp');
+    // original soft-deleted
+    const softDelete = prisma.recipeIngredientLine.update.mock.calls.find(
+      (c: any) => c[0].where.id === 'l1',
+    );
+    expect(softDelete[0].data.deletedAt).toBeInstanceOf(Date);
+    // downstream shifted +1 in desc order
+    expect(prisma.recipeIngredientLine.findMany).toHaveBeenCalledWith({
+      where: { recipeId: 'r1', deletedAt: null, lineNo: { gt: original.lineNo } },
+      orderBy: { lineNo: 'desc' },
+    });
+    expect(prisma.recipeIngredientLine.update.mock.calls.some(
+      (c: any) => c[0].where.id === 'dn' && c[0].data.lineNo === 10,
+    )).toBe(true);
+    // two fresh lines at the original position with NEW shopping keys
+    const creates = prisma.recipeIngredientLine.create.mock.calls.map((c: any) => c[0].data);
+    expect(creates[0]).toEqual(
+      expect.objectContaining({ lineNo: original.lineNo, displayName: 'Chilli Powder — 2 Tsp', needsReview: original.needsReview, includeOnList: original.includeOnList }),
+    );
+    expect(creates[1]).toEqual(
+      expect.objectContaining({ lineNo: original.lineNo + 1, displayName: 'Coriander Powder — 1 Tsp' }),
+    );
+    expect(creates[0].shoppingKey).not.toBe(original.shoppingKey);
+    expect(new Set([creates[0].shoppingKey, creates[1].shoppingKey, original.shoppingKey]).size).toBe(3);
+  });
+
+  it('splitLine rejects a split that leaves an empty half (D-12E validation)', async () => {
+    const { prisma, recipes } = mockPrisma();
+    const original = mockLine({ displayName: 'Fish — 500g' });
+    prisma.recipeIngredientLine.findFirst.mockResolvedValue(original);
+    const svc = new IntakeService(prisma, recipes);
+    await expect(
+      svc.splitLine(userActor, 'r1', 'l1', 11, original.updatedAt.toISOString()), // == length → empty second half
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      svc.splitLine(userActor, 'r1', 'l1', 0, original.updatedAt.toISOString()),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('mergeWithNext concatenates, soft-deletes both, ORs needs_review, shifts −1 (D-12F)', async () => {
+    const { prisma, recipes } = mockPrisma();
+    const line = mockLine({ id: 'l1', lineNo: 3, displayName: 'Chilli Powder — 2 Tsp', needsReview: false });
+    const next = { ...mockLine({ id: 'l2', lineNo: 4, displayName: 'Coriander Powder — 1 Tsp' }), needsReview: true };
+    prisma.recipeIngredientLine.findFirst
+      .mockResolvedValueOnce(line) // getOwnedLine
+      .mockResolvedValueOnce(next); // merge target lookup
+    prisma.recipeIngredientLine.findMany.mockResolvedValue([{ id: 'dn', lineNo: 9 }]);
+    prisma.recipeIngredientLine.update.mockResolvedValue({ id: 'x' });
+    prisma.recipeIngredientLine.create.mockResolvedValue({ id: 'm1', displayName: 'Chilli Powder — 2 Tsp Coriander Powder — 1 Tsp' });
+    const svc = new IntakeService(prisma, recipes);
+    const merged = await svc.mergeWithNext(userActor, 'r1', 'l1', line.updatedAt.toISOString());
+    expect(merged.displayName).toBe('Chilli Powder — 2 Tsp Coriander Powder — 1 Tsp');
+    const createCall = prisma.recipeIngredientLine.create.mock.calls[0][0].data;
+    expect(createCall).toEqual(
+      expect.objectContaining({
+        lineNo: 3,
+        needsReview: true, // OR of both — conservative, never silently cleared
+      }),
+    );
+    expect(createCall.ocrConfidence).toBeUndefined(); // fresh draft — no fabricated confidence
+    expect(createCall.shoppingKey).not.toBe(line.shoppingKey);
+    // both originals soft-deleted
+    const softDeletes = prisma.recipeIngredientLine.update.mock.calls
+      .filter((c: any) => ['l1', 'l2'].includes(c[0].where.id))
+      .map((c: any) => c[0].data.deletedAt);
+    expect(softDeletes).toHaveLength(2);
+    // downstream −1
+    expect(prisma.recipeIngredientLine.update.mock.calls.some(
+      (c: any) => c[0].where.id === 'dn' && c[0].data.lineNo === 8,
+    )).toBe(true);
+  });
+
+  it('mergeWithNext errors when there is no next line', async () => {
+    const { prisma, recipes } = mockPrisma();
+    const line = mockLine({ id: 'l1' });
+    prisma.recipeIngredientLine.findFirst
+      .mockResolvedValueOnce(line)
+      .mockResolvedValueOnce(null);
+    const svc = new IntakeService(prisma, recipes);
+    await expect(
+      svc.mergeWithNext(userActor, 'r1', 'l1', line.updatedAt.toISOString()),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('addLine appends after the max line_no (B3 AC-1)', async () => {
+    const { prisma, recipes } = mockPrisma();
+    prisma.recipeIngredientLine.aggregate.mockResolvedValue({ _max: { lineNo: 11 } });
+    prisma.recipeIngredientLine.create.mockResolvedValue({ id: 'n12' });
+    const svc = new IntakeService(prisma, recipes);
+    await svc.addLine(userActor, 'r1', { displayName: 'Curry Leaves — a handful' });
+    const createCall = prisma.recipeIngredientLine.create.mock.calls[0][0].data;
+    expect(createCall).toEqual(
+      expect.objectContaining({
+        recipeId: 'r1',
+        lineNo: 12,
+        displayName: 'Curry Leaves — a handful',
+        sourceTag: 'CARD',
+        needsReview: false,
+      }),
+    );
+    expect(createCall.shoppingKey).toBeTruthy();
+  });
+
+  it('parsePreview: confirmed when no line needs review, draft when any does (D-12G)', async () => {
+    const { prisma, recipes } = mockPrisma();
+    const svc = new IntakeService(prisma, recipes);
+    prisma.recipeIngredientLine.findMany.mockResolvedValue([
+      mockLine({ id: 'l1', needsReview: false }),
+      mockLine({ id: 'l2', needsReview: false }),
+    ]);
+    const clean = await svc.parsePreview(userActor, 'r1');
+    expect(clean.status).toBe('confirmed');
+
+    prisma.recipeIngredientLine.findMany.mockResolvedValue([
+      mockLine({ id: 'l1', needsReview: false }),
+      mockLine({ id: 'l2', needsReview: true }),
+    ]);
+    const flagged = await svc.parsePreview(userActor, 'r1');
+    expect(flagged.status).toBe('draft');
   });
 });

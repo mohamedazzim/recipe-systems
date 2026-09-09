@@ -437,6 +437,150 @@ A story is DONE only when its entry's done-criteria lines cover every acceptance
 Tasks outside the D-unit numbering are recorded here (no H-number invented). All evidence is real
 execution output; Git: not available / not authorized throughout.
 
+- 2026-09-09 — **OCR DEFERRED + D-12 text-scope decision trace — STARTING STATE (user directive, recorded before any code)**:
+  **DECISION (dispatcher/user 2026-09-09):** OCR work is paused for the day. Q10 stays OPEN
+  (prior STOP history preserved above, verbatim). D-11 (OCR adapter + provider), GCV production
+  integration, real-card benchmarking, and photo-OCR processing are all DEFERRED — not started.
+  **WHY TEXT/PASTE WORK PROCEEDS INDEPENDENTLY:** canonical evidence — B3's review loop operates
+  on `recipe_ingredient_line` draft rows regardless of source channel; D-10 already creates draft
+  lines for paste input (`source_tag: CARD`, `needs_review: false`, verbatim `display_name`);
+  Recipe_Systems §12's parse-review operations (edit/add/delete/split/merge, mark headers, sense
+  confirmation) do not require an OCR stage for text-originated lines — pasted text has no OCR
+  stage (B1). No OCR fields are fabricated for text input; `needs_review`/`ocr_confidence` stay
+  untouched (false/null) on text lines.
+  **UNITS WORKED TODAY:** D-12 (P2-3 Parse review) — TEXT/PASTE SCOPE ONLY. The photo-path done
+  criteria (golden PHOTO split test, OCR-flagged-line review) remain deferred until D-11 lands;
+  H-12 will be recorded as IN PROGRESS, never DONE, until those halves exist.
+  **UNITS DELIBERATELY UNTOUCHED:** D-11 (deferred), D-13 (method attach — separate unit,
+  depends on D-12), D-14 (needs_review enqueue gate — depends on D-11, explicitly NOT allowed
+  today per its canonical dependency), D-29 dictionary (Q5 open). Q3/Q5/Q9/Q1/Q2 untouched.
+  **D-12 design decisions (recorded, grounded in canonical docs):**
+  - **D-12A auth:** API doc §3 labels all review routes `Auth: Bearer` → JwtAuthGuard (account
+    session cookie) exactly as the doc labels parse-text/upload "Bearer or guest" → GuestOrJwtGuard.
+    Guests keep their corrections client-side on the ephemeral draft (same precedent as the
+    method-endpoint note in API §4) until P3's analyse consumes the corrected object. No silent
+    deviation from the doc's auth labels.
+  - **D-12B wire shape:** line objects gain `id` and `updated_at` (addressing + stale-edit token;
+    D-05 structured_recipe.id = line_id confirms ids belong on the wire). Mapping: wire `amount` →
+    `amount_text`, wire `quantity` → `amount` (Decimal→number), wire `category` → `group_name`,
+    `canonical_name` stays null until D-29, `is_header` stays false (see D-12C).
+  - **D-12C headers (B3 AC-2):** ERD v13 has NO header column and Recipe_Systems §12 says the
+    corrected object has "No headers". Canonical exclusion mechanism = soft-delete. `is_header:
+    true` on PATCH soft-deletes the line (excluded from the corrected object; raw preserved in
+    `recipe_input`). No schema change (adding a column would require ERD v14 — out of scope).
+  - **D-12D stale edits (QG4 cell, ERD §13):** no `version` column exists → optimistic lock on
+    `updated_at`. PATCH/split require `expected_updated_at` (ISO, the value the client read);
+    mismatch → 409 `STALE_EDIT` with the current line for reload/merge. DELETE/add carry no token
+    (documented: delete is idempotent-ish; add creates a new row).
+  - **D-12E split contract:** API doc gives no body → `{ split_point: number }` — 1-based count of
+    chars in the first half; halves are trimmed substrings of the original text (deterministic,
+    preserves raw identity). Both halves non-empty. Original soft-deleted; two new lines with NEW
+    shopping_keys (C-39) at the original position; downstream active line_nos shifted +1.
+  - **D-12F merge contract:** PATCH `{ merge_with_next: true }` merges with the NEXT active line;
+    `display_name` = line1 + ' ' + line2 verbatim; new shopping_key (C-39); `needs_review` = OR of
+    both (conservative — never silently clears a review flag); `ocr_confidence` = null (merged line
+    is a fresh draft; no fabricated confidence); downstream active line_nos shifted −1.
+  - **D-12G parse-preview status:** no recipe review-status column exists; the canonical review
+    flag is `needs_review` (INV-05 — D-14's guard reads "the canonical flag only"). status =
+    `draft` when any active line has needs_review=true, else `confirmed`. Text drafts (no flagged
+    lines) → `confirmed`. No new status column invented.
+  - **D-12H sense confirmation:** PATCH stores `confirmed_sense` as user text (API doc body).
+    Dictionary resolution (`ingredient_id`/`canonical_name`) reads the dictionary D-29 curates
+    (Q5 working assumption) — the dictionary is empty in dev until D-29, so no resolution occurs
+    yet; no invented dictionary rows.
+  **EXACT RESUME POINT (pre-implementation):** D-12 implementation proceeds NOW in text scope;
+    after D-12, next decisions are D-13 dispatch (authorization required) and D-11/Q10 when OCR
+    is re-opened. H-12 recorded IN PROGRESS until the photo-path criteria can pass after D-11.
+- 2026-09-09 — **D-12 EXECUTION COMPLETE (text scope; H-12 filled)**: all six RS-US-08 routes
+  live under the Intake writer boundary; stale-edit 409 on updated_at; split/merge with
+  direction-aware line_no shifts (real integration bug caught + fixed); corrected-object read
+  paths; parse-preview derived from needs_review. Evidence: API unit 123/123 · integration 48/48
+  (story_b3 8/8) · all-workspace unit 112/112 · regression gates PASS · lint/typecheck clean ·
+  verify-local exit 0. **Playwright E2E environment blocker (recorded, not a code issue):** on
+  this corporate-managed machine, Playwright-launched browsers are killed by policy — exit code
+  1260 (ERROR_BLOCKED_BY_POLICY) with chrome AND msedge channels, headed and headless (reproduced
+  with DEBUG=pw:browser); the bundled Chromium download is network-blocked (CDN + npmmirror).
+  The new tests/e2e/review.spec.ts is canonical for machines where Playwright runs; equivalent
+  live-stack verification executed over the real HTTP surface (Keycloak OIDC → session cookie →
+  BFF → Postgres) — 11/11 PASS (script kept OUTSIDE the repo). Next: D-13 dispatch decision
+  (user authorization required); D-14 + D-11 stay gated. H-12 status: IN PROGRESS (photo-path
+  criteria deferred), never DONE.
+- 2026-09-09 — **Q10 OCR provider benchmark — decision trace (BLOCKED; Q10 stays OPEN; no production code changed)**:
+  **STARTING STATE:** Q10 OPEN (SCAFFOLD §7; Tech Stack §11: "final OCR provider must be
+  benchmarked against the team's real recipe-card dataset, including handwriting, poor lighting,
+  multilingual/vernacular terms" — **NO numeric threshold defined anywhere**; Tech Stack §25.5;
+  ADR §2 Decision 3 OCR=Intake-only). GCV = **INITIAL CANDIDATE** (Tech Stack §11/§25.5, BUILD_PLAN
+  P2-2) — not decided. D-11 gated by Q10 (DISPATCH D-11 NON-GOALS); D-11 remains UNIMPLEMENTED
+  (user instruction 2026-09-09: resolve Q10 first, do not implement D-11).
+  **INSPECTED:** SCAFFOLD §7, DISPATCH D-11, BUILD_PLAN P2-2/§7.3, Tech Stack §11/§25.5, ADR §2/§19,
+  HANDOFF H-04/H-10 + §5 D-11 pre-flight, IMPROVEMENT_PLAN P0-2, tests/fixtures/corpus (50) +
+  messy_20 (20) + golden_kanyakumari_card.json + reviewers.json, .env (`OCR_PROVIDER=disabled`).
+  **BENCHMARK ATTEMPT — BLOCKED (real evidence; nothing fabricated):**
+  (1) **NO REAL-CARD IMAGES:** D-04 corpus = 50+20 SYNTHETIC JSON text fixtures
+  (`provenance.synthetic:true`; H-04: "deterministic test data, no real-world source claims").
+  Repo-wide image search: only `docs/diagram.png` + `docs/recipe_app_workflow_diagram_v2_fixed.png`
+  (both diagrams, not cards). The real-card photos BUILD_PLAN §7.3 names as benchmark input were
+  never added to the repo.
+  (2) **NO PROVIDER CREDENTIALS:** no GOOGLE_APPLICATION_CREDENTIALS / VISION_API_KEY / gcloud /
+  service-account file on this machine — GCV (or any provider) cannot be called.
+  (3) **NO CANONICAL THRESHOLD:** the sources require real-photo benchmarking but define no numeric
+  pass/fail threshold — gap recorded here; no fake canonical threshold invented.
+  **DELIVERED (task-authorized):** `scripts/ocr-benchmark.js` — deterministic, stdlib-only harness:
+  manifest-driven (image → reference_lines + critical flags); metric core (line preservation,
+  missing/dropped lines, char-error count, confidence availability, low-confidence detection,
+  latency); provider seam (mock for self-test; gcv HTTP runner gated on VISION_API_KEY — marked
+  UNTESTED, credentials live outside the repo). Verified: `node scripts/ocr-benchmark.js
+  --self-test` → **PASS 3/3** (deterministic cases incl. dropped-critical-line detection and
+  missing-confidence flagging). A `--manifest` real run correctly exits 2 "BLOCKED: 1/1 manifest
+  images do not exist" — that is the benchmark result until real inputs exist. Note: the H-10
+  pre-flight "harness absence" note is superseded — the harness now exists; the block is images
+  + credentials, not tooling.
+  **PROPOSED CRITERION (project recommendation, NOT canonical):** per card ≥95% reference-line
+  preservation (normalized whitespace/case/dash/fraction; tolerance ≤2 chars or ≤20% of line
+  length); zero dropped critical lines (golden card: both fenugreek lines critical); per-line
+  confidence available; lines <0.9 confidence or missing confidence must be detectable →
+  `needs_review` candidates (INV-04); latency recorded per image (suggested budget <10s inside the
+  canonical "photo→first analysis <2 min" P7 exit).
+  **VERDICT: Q10 STOP (BLOCKED)** — the benchmark cannot execute on its canonical input (real
+  cards) because the inputs do not exist in the repo. Q10 stays OPEN; GCV stays candidate.
+  **D-11 consequence:** remains undispacted until Q10 resolves. When dispatched, D-11 ships the
+  adapter SEAM + deterministic CI stub regardless (H-10 pre-flight note stands — CI never calls a
+  real provider).
+  **EXACT RESUME POINT:** user provides real recipe-card photos (e.g. gitignored
+  `tests/fixtures/corpus_images/`) + GCV credentials OUTSIDE the repo (VISION_API_KEY env) → build
+  the manifest → `node scripts/ocr-benchmark.js --manifest …` → record results here → Q10
+  RESOLVED or STOP → D-11 dispatch decision.
+- 2026-09-09 (cont.) — **Q10 benchmark attempt #2 — PRE-RUN VERIFICATION FAILED (still BLOCKED; prior STOP preserved)**:
+  User added `tests/fixtures/corpus_images/` (15 JPGs) and stated credentials were supplied
+  externally. Pre-run verification (real evidence):
+  **(1) IMAGES — fail canonical input requirement:** 15 valid JPEGs (JFIF baseline, ~273–318 ×
+  226–241 px, density 1×1, **no EXIF/camera metadata**). Local OCR (tesseract via Docker, eng)
+  reads clean printed-style recipe text in EN + FR: Spaghetti Bolognese, Chicken Curry, Chocolate
+  Chip Cookies, Pancakes, Tomato Soup, Beef Stew, Chana Masala, Crépes, Fish Tacos, Vegetable
+  Stir-Fry, Apple Pie, Pad Thai, Ratatouille. **Zero correspondence to the D-04 corpus** (grep: 0
+  hits for spaghetti/bolognese/crêpes/ratatouille/pad thai/apple pie; the corpus is Tamil/Kerala/
+  other-Indian dishes with vernacular ingredient names — none appear). The canonical benchmark is
+  "the team's REAL recipe-card dataset incl. handwriting, poor lighting, vernacular terms" — this
+  set is generic international printed cards, not the team's cards. Real-photo provenance is NOT
+  verifiable from file evidence (no EXIF, thumbnail resolution, clean tesseract reads); a
+  ChatGPT-generated image file was downloaded to ~/Downloads 4 min before corpus_images appeared —
+  flagged as a provenance concern, NOT asserted as fact.
+  **(2) MANIFEST/REFERENCE MAPPING — absent:** no manifest was provided and no card maps to any
+  rs-NNN reference set → no ground-truth reference text exists for any image → the line-preservation
+  metric has nothing canonical to compare against.
+  **(3) CREDENTIALS — absent:** sweep of bash env, full Windows env (cmd set), .env / .env.example /
+  apps/web/.env.local.example, gcloud default paths (~/.config/gcloud, %APPDATA%/gcloud), Hermes
+  .env, Windows Credential Manager (cmdkey), Downloads/Desktop/Documents/Temp, and files.zip →
+  no VISION_API_KEY / GOOGLE_APPLICATION_CREDENTIALS / GCV key anywhere. Only `OCR_PROVIDER=disabled`.
+  **VERDICT: benchmark NOT executed** (running it would be unfalsifiable — no credentials to call a
+  provider, no reference mapping, and a corpus that fails the canonical input requirement). Q10 stays
+  OPEN; GCV stays candidate. **Prior STOP history preserved verbatim above.**
+  **NEEDED TO UNBLOCK:** (a) OCR credentials via environment (VISION_API_KEY) or gcloud ADC —
+  never inside the repo; (b) a manifest mapping each image → ground-truth reference lines, or real
+  cards corresponding to the D-04 corpus (incl. vernacular ingredient names); (c) user confirmation
+  of image provenance (real photographs of the team's cards vs generated).
+  **EXACT RESUME POINT:** unchanged — benchmark still cannot run. Once (a)+(b) hold, run
+  `node scripts/ocr-benchmark.js --manifest …` and record the results here.
 - 2026-09-07 — **Playwright E2E infrastructure**: `@playwright/test` added at root,
   `playwright.config.ts` (testDir tests/e2e, workers 1, retries 0), `tests/e2e/helpers/auth.ts`
   (real Keycloak login/registration helper), root script `test:e2e`. Local-only by design (hosted CI
@@ -673,7 +817,64 @@ execution output; Git: not available / not authorized throughout.
 
 ### H-12 — D-12 Parse review
 
-☐ No entry yet.
+- BASE_SHA / COMMIT_SHA: **none recorded** — Git not available / not authorized.
+- Date / agent session: 2026-09-09 · D-12 dispatch session (text/paste scope — OCR deferred by
+  user directive; decision trace + D-12A…I decisions in HANDOFF §5 2026-09-09, recorded BEFORE code).
+- Status: **IN PROGRESS (text scope shipped)** — the full parse-review editor for text-originated
+  draft lines is implemented, tested, and verified; the PHOTO-path done criteria (golden PHOTO
+  split test, OCR-flagged-line review) remain deferred until D-11 lands. NOT DONE.
+- Implementation summary:
+  - `apps/api/src/modules/intake/intake.service.ts` — D-12 review methods, all under the Intake
+    writer boundary (Q4): `updateLine` (edit incl. amount_text/amount/unit/group_name/
+    confirmed_sense/include_on_list), `markHeader` (is_header → soft-delete, D-12C),
+    `softDeleteLine`, `splitLine` (split_point; NEW shopping_keys C-39; review flags inherited,
+    parse fields reset; downstream line_nos shifted, direction-aware to satisfy the partial
+    unique index), `mergeWithNext` (verbatim concatenation; needs_review OR'd — never silently
+    cleared; ocr_confidence never carried), `addLine` (append), `parsePreview` (status derived
+    from needs_review — D-12G, no new column). Stale-edit optimistic lock on `updated_at` (D-12D)
+    → 409 STALE_EDIT with the current line. `recipe_input` untouched by every path (immutability
+    gate green).
+  - `apps/api/src/modules/intake/intake.controller.ts` — RS-US-08 routes per API §3:
+    PATCH/DELETE `/recipes/:recipeId/lines/:lineId`, POST `.../split`, POST `/lines` (201),
+    GET `/lines` (200 `{items}`), GET `/parse-preview` (200 `{status, lines}`). JwtAuthGuard per
+    the doc's "Auth: Bearer" labels (D-12A) + CsrfGuard on state changes. Wire shape per D-12B
+    (lines carry `id` + `updated_at`); parse-text 200 now carries `recipe_id` (D-12I — the review
+    routes need it; upload already returned it).
+- Tests (all real executions):
+  - Unit `apps/api/src/modules/intake/intake.service.test.ts` — extended to 21 tests incl. split
+    halves + shift, merge OR + soft-deletes, stale-edit 409, header soft-delete, wire mapping;
+    API workspace suite **123/123**.
+  - Integration `tests/integration/story_b3_parse_review.test.ts` (new) — **8/8**: TC-01 split
+    wrapped line → corrected object = the 11 canonical lines; TC-03 raw byte-unchanged through
+    split+edit+delete+merge; TC-02 header exclusion + fenugreeks distinct; D-12D stale-edit
+    roundtrip; D-12F merge roundtrip; vernacular verbatim; D-12G confirmed; INV-17 foreign 404.
+    Real bug caught + fixed: downward line_no shift collided on the partial unique index
+    (recipe_id, line_no) WHERE deleted_at IS NULL — shift order is now direction-aware.
+  - Full integration suite **48/48**; all-workspace unit **112/112**; regression gates **PASS**
+    (incl. recipe_input immutability — test assertions rephrased to `not.toHaveProperty` so the
+    gate's static pattern keeps firing only on real code paths); lint clean (fixed one
+    no-unused-vars); typecheck clean; `verify-local` **exit 0 · ALL STEPS PASSED**.
+  - E2E: `tests/e2e/review.spec.ts` (new, 5 specs) written against the live stack. **Not
+    executable on this machine** — Playwright cannot launch any browser: corporate policy kills
+    the launched process (exit code 1260, ERROR_BLOCKED_BY_POLICY; reproduced with chrome AND
+    msedge channels, headed and headless; the bundled Chromium download is also network-blocked).
+    Environment blocker recorded in HANDOFF §5; the spec remains canonical for machines where
+    Playwright runs. Equivalent live-stack verification executed instead via the real HTTP
+    surface (real Keycloak OIDC → session cookie → BFF → Postgres): **11/11 PASS** — paste,
+    split, edit-with-mapped-fields, stale-edit 409 + reload recovery, is_header exclusion,
+    delete 204, corrected object (headers excluded, fenugreeks distinct), parse-preview
+    confirmed, 401 without session. Temp script outside the repo (not committed).
+- Deviations recorded: D-12A…I in HANDOFF §5 (auth per doc labels; wire gains id/updated_at;
+  is_header → soft-delete, no ERD column; stale-edit token name; split/merge contracts;
+  parse-preview status derivation; sense confirmation free text until D-29; parse-text
+  recipe_id).
+- Intentional non-changes: OCR fields never written for text lines (`needs_review` false,
+  `ocr_confidence` null); no D-11/D-13/D-14 code; no schema change (no is_header column — ERD
+  v14 would be required); `recipe_input` immutability preserved; no dictionary rows invented
+  (D-29).
+- Resume point: photo-path D-12 criteria (golden photo split; OCR-flagged-line review) wait for
+  D-11/Q10; D-13 (method attach) is the next dispatchable unit (separate unit, depends on D-12);
+  D-14 needs D-11. A-12 audit not yet executed.
 
 ### H-13 — D-13 Method attach
 

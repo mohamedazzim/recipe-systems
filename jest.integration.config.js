@@ -28,6 +28,9 @@ module.exports = {
     // Integration tests consume the database package's TS source directly
     // (same pattern as apps/api/jest.config.js).
     '^@recipe-systems/database$': '<rootDir>/packages/database/src/index.ts',
+    // D-16: the grounding validator lives in the LLM-adapter package — consume
+    // its TS source the same way.
+    '^@recipe-systems/llm-adapter$': '<rootDir>/packages/llm-adapter/src/index.ts',
   },
   collectCoverageFrom: [],
 };

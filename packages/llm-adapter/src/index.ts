@@ -13,6 +13,7 @@
 import { AnalysisMode, StructuredRecipeInput } from '@recipe-systems/schemas';
 import { buildViewPrompt, isLlmView, ViewNumber } from './prompts/views';
 import { parseViewOutput, ParseViewResult } from './prompts/validate';
+import { GroundingVerdict, validateViewGrounding } from './grounding/validator';
 
 export interface LlmGenerateRequest {
   /** Which view the model must produce (1–9; 8/9 are deterministic — D-17 never calls the LLM for them). */
@@ -86,12 +87,57 @@ export async function generateValidated(
   return parseViewOutput(request.view, raw);
 }
 
+// ---------------------------------------------------------------------------
+// D-16 (P3-2): the grounding stage — the single choke point every view output
+// passes through (DISPATCH D-16 deliverable 3, A-16). The worker's per-view
+// pipeline is: generate → parseViewOutput → validateViewGrounding → attempt
+// decision (regenerate-once / INCOMPLETE). No view payload may be stored
+// without a grounding verdict.
+// ---------------------------------------------------------------------------
+
+export interface GroundedGeneration {
+  view: ViewNumber;
+  mode: AnalysisMode;
+  parse: ParseViewResult;
+  /** Grounding verdict against the captured state (null when the parse failed —
+   *  a malformed payload is rejected before grounding). */
+  grounding: GroundingVerdict | null;
+}
+
+export async function generateGrounded(
+  adapter: LlmAdapter,
+  request: LlmGenerateRequest,
+  captured: StructuredRecipeInput,
+): Promise<GroundedGeneration> {
+  const parse = await generateValidated(adapter, request);
+  if (!parse.ok) {
+    return { view: request.view, mode: request.mode, parse, grounding: null };
+  }
+  const grounding = validateViewGrounding(request.view, parse.data, captured);
+  return { view: request.view, mode: request.mode, parse, grounding };
+}
+
 export { PROMPT_VERSION, PROMPT_VERSION_PROVENANCE } from './prompts/version';
 export { SHARED_SYSTEM_PROMPT, HOME_MODE_OVERLAY, CHEF_MODE_OVERLAY, systemPromptFor } from './prompts/system';
 export { VIEW_PROMPT_SPECS, LLM_VIEWS, buildViewPrompt, isLlmView } from './prompts/views';
 export type { ViewPromptSpec, ViewNumber } from './prompts/views';
 export { parseViewOutput } from './prompts/validate';
 export type { ParseViewResult, ViewPayload } from './prompts/validate';
+export {
+  buildVocabulary,
+  textMentions,
+  citedTokensInText,
+} from './grounding/captured';
+export type { CapturedVocabulary } from './grounding/captured';
+export {
+  validateViewGrounding,
+  validateClaimGrounding,
+  validateClaimsGrounding,
+} from './grounding/validator';
+export type { GroundingVerdict, GroundingViolation } from './grounding/validator';
+export { groundingAttempt, formatCorrection } from './grounding/attempts';
+export type { GroundingAttemptAction } from './grounding/attempts';
+export type { Claim } from '@recipe-systems/schemas';
 
 export const LLM_ADAPTER_SEAM =
   'provider-neutral (Tech Stack §10; Q9 OPEN — benchmark wks 1–4; no provider pinned in-repo)';

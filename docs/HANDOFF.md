@@ -600,8 +600,77 @@ execution output; Git: not available / not authorized throughout.
   **STOP conditions:** any analysis_* write, provider pinning/credentials, Q1/Q9 resolution, schema
   edits, or worker code → STOP and report. Dependencies: D-05 ✅ (frozen schemas), D-14 ✅ (gate —
   D-15's input types assume reviewed lines). No contradictions found → GO.
+- 2026-09-09 — **D-16 PRE-FLIGHT (recorded BEFORE implementation; verdict GO)**: authorized by user.
+  **Starting state:** D-10 ✅, D-11 ⏸ (Q10 OPEN), D-12 🟡 text scope, D-13 ✅, D-14 ✅, D-15 ✅
+  (1b4b2f3 + 46fd99f pushed), Q4 ✅, Q9/Q1 OPEN (not resolvable here), tree clean. **Canonical
+  requirements verified:** DISPATCH D-16 (grounding validator = the no-invention enforcement layer:
+  every claim's reference resolves against the captured structured recipe lines only; unresolved
+  positive/neutral → ABSENT marking or failure; regenerate-once; still failing → view INCOMPLETE —
+  never current, never invented; ABSENT rule; single choke point in the P3 pipeline; NON-GOALS
+  worker/UI), ADR §6 runtime grounding validator (validate every ingredient reference in the nine
+  view payloads AND claims against the captured state: active lines, confirmed senses, dictionary,
+  aliases; missing valid only when ABSENT-marked; regenerate once with a correction instruction;
+  still failing → INCOMPLETE + recorded, never published/current), A-16 (INV-10 BLOCKER plants:
+  invented ingredient / non-captured reference / reworded capture — all caught; golden invariants
+  green through the validator with the garlic plant proven not to reach View 1/8/9; regenerate-once
+  = first→regenerate, second→INCOMPLETE never current, third silent attempt = BLOCKER; choke point —
+  no bypass; ABSENT-for-captured = MAJOR), Recipe_Systems §3 rule 1 (the structured recipe object is
+  the only mise — non-object items usable only to mark ABSENT), SCAFFOLD §6 no-invention rule,
+  BUILD_PLAN P3-2 + P3 exit (grounding failure → INCOMPLETE, never current), frozen schemas
+  (StructuredRecipeInputSchema carries ingredients{id,display_name,canonical_name,confirmed_sense} +
+  method_steps + explicitly_absent; ClaimSchema{claim_text,claim_tag,source_reference}; VIEW_SCHEMAS
+  tag subsets), golden fixture (card.lines + expected.absent — garlic recorded absent;
+  golden-check invariant no_ginger_garlic), D-15 pipeline (parseViewOutput + MockLlmAdapter +
+  generateValidated in packages/llm-adapter). **Decisions (D-16A…K):** A) validator lives in
+  `packages/llm-adapter/src/grounding/` — the D-15 pipeline package IS the single choke point
+  (deliverable 3); provider-neutral; no new package. B) captured state = the frozen
+  StructuredRecipeInput passed as a PARAMETER (Q1 stays OPEN — no persistence decision; ADR §6:
+  the worker captures state at enqueue and supplies it). C) mechanical reference vocabulary today =
+  captured ingredient ids + per-line name tokens (display_name/canonical_name/confirmed_sense) +
+  method-step ids + explicitly_absent list; dictionary/alias resolution = Q5/Track R — noted, not
+  built. D) structured resolution: every `ingredient_id` in views 1/2/4 must resolve to a captured
+  id; unresolved positive/neutral = grounding failure. E) claim grounding: tag ∈ six canonical;
+  CARD/METHOD → `source_reference` resolves to a captured id AND the claim text contains the cited
+  element's name token (reworded-capture catch); ABSENT → subject must NOT be a captured ingredient
+  (ABSENT-for-captured = MAJOR); INFERRED → source_reference = named pattern string or null;
+  UNKNOWN/ASSUMED → no positive reference channel. F) ABSENT rule: non-captured references are valid
+  ONLY via tag ABSENT or the captured `explicitly_absent` list; any non-ABSENT claim or view field
+  mentioning an explicitly_absent item = failure (this is the mechanical garlic-catch for View 8/9
+  text). G) view 5's regional-contrast text (not_this/key_difference) describes OTHER variants — the
+  prompt's own few-shot names non-captured ingredients there; exempt from the structured-id checks
+  (it has none) and only the absent-channel scan applies; view 5 stays human-gated (G2,
+  needs_review literal true). H) unknown-word detection beyond the captured vocabulary + absent
+  list is NOT built (no canonical ingredient lexicon exists — dictionary = Q5); recorded scope
+  boundary: mechanical catches = structured ids + claims + absent channel. I) regenerate-once:
+  `groundingAttempt(attempt, verdict)` — attempt 1 failure → `{action:'regenerate',
+  correction_instruction}`; attempt 2 → `{action:'incomplete'}`; attempt ≥3 → THROWS (A-16: no
+  third silent attempt). The worker LOOP is D-17's — D-16 provides the decision + instruction.
+  J) choke point: `generateGrounded(adapter, request, captured)` = generate → parseViewOutput →
+  grounding verdict (the worker's single entry); D-15's `generateValidated` stays as the schema-only
+  stage. K) no new static gate (the existing one-writer analysis_* gate + golden-check cover the
+  static surface; INV-10 is a runtime contract proven by plant tests).
+  **STOP conditions:** provider code, Q1/Q9 resolution, analysis_* writes, worker plumbing, schema
+  edits, or an invented persistence model → STOP. Dependencies: D-15 ✅ (pipeline + schemas +
+  mock). No contradictions found → GO.
+- 2026-09-09 — **D-16 EXECUTION (post-implementation; H-16 filled)**: implemented per pre-flight —
+  `packages/llm-adapter/src/grounding/{captured,validator,attempts}.ts` (new) + `src/index.ts`
+  (choke-point chain `generateGrounded` + grounding exports) + `src/grounding/validator.test.ts`
+  (new, 37 tests) + `tests/integration/story_d16_golden_grounding.test.ts` (new, 6/6 against the
+  REAL golden fixture) + `jest.integration.config.js` (llm-adapter mapper). **Failures & recovery:**
+  (1) reference collector missed `source_ingredient_ids` → view-2 pillar plant slipped through →
+  added. (2) refactor broke single-string `ingredient_id` handling (array-only push) → restored
+  string+array. (3) import-path errors (`ViewPayload` is llm-adapter-local, not a schemas export;
+  missing `GroundingVerdict`/`validateViewGrounding` imports in index.ts) → fixed. (4) test-fixture
+  bugs (CAPTURED lacked the fixture's extra golden ids; reworded-capture example still contained the
+  captured token; "malformed" payload actually parsed) → fixtures corrected — the validator itself
+  held throughout. **Evidence:** llm-adapter unit 89/89 (plants: invented id, reworded id, garlic/
+  ginger in payloads, invented CARD claim, reworded capture, ABSENT-for-captured — all caught;
+  regenerate-once + third-attempt throw; choke-point chain), golden integration 6/6, workspace
+  unit/lint/typecheck green, gates PASS, verify-local exit 0. Live-stack N/A (pure function).
+  Intentional non-changes per pre-flight B/F/G/H. **Resume point:** D-17 (P3-3 worker) awaits
+  explicit dispatch; D-11/Q10 deferred.
 - 2026-09-09 — **D-15 EXECUTION (post-implementation; H-15 filled)**: implemented per pre-flight —
-  prompt module + version pin + validation gate + mock seam, all in packages/llm-adapter. Files:
+   prompt module + version pin + validation gate + mock seam, all in packages/llm-adapter. Files:
   `packages/llm-adapter/src/prompts/{version,system,views,validate}.ts` + `src/index.ts` (rewritten)
   + `src/prompts/{system,validate}.test.ts` + `src/mock-adapter.test.ts` (new/extended),
   `packages/llm-adapter/{package.json,jest.config.js}` (schemas dep + mapper), `packages/schemas/
@@ -1196,7 +1265,57 @@ execution output; Git: not available / not authorized throughout.
 
 ### H-16 — D-16 Grounding validator
 
-☐ No entry yet.
+- BASE_SHA / COMMIT_SHA: **BASE `46fd99f` · COMMIT `(filled at D-16 completion commit)`**
+- Date / agent session: 2026-09-09 · D-16 dispatch session (pre-flight GO recorded in HANDOFF §5 BEFORE implementation).
+- Status: **DONE** — all three dispatch done criteria satisfied; evidence below.
+- What shipped (all in `packages/llm-adapter/src/grounding/` + pipeline wiring in `src/index.ts`):
+  1. **Grounding validator (ADR §6, INV-10)** — `validateViewGrounding(view, payload, captured)` +
+     `validateClaimGrounding(claim, captured)` + `validateClaimsGrounding(claims, captured)`.
+     Mechanical reference vocabulary (D-16C): captured ingredient ids, per-line name tokens
+     (display_name/canonical_name/confirmed_sense), method-step ids, `explicitly_absent` list.
+     Checks: structured `ingredient_id`/`ingredient_ids`/`source_ingredient_ids` references in
+     views 1/2/4 must resolve to captured ids; absent-channel scan — any mention of an
+     `explicitly_absent` item inside a view payload or a non-ABSENT claim fails; claim rules —
+     CARD/METHOD cite a captured id AND the text carries the cited line's name token (reworded-capture
+     catch), ABSENT-for-captured = MAJOR, INFERRED cites a named pattern, UNKNOWN/ASSUMED have no
+     positive-reference channel.
+  2. **ABSENT rule** — non-captured items valid ONLY via tag ABSENT or the captured
+     `explicitly_absent` list (SCAFFOLD §6 no-invention; Recipe_Systems §3.1).
+  3. **Regenerate-once (A-16)** — `groundingAttempt(attempt, violations)`: attempt 1 → `regenerate`
+     + correction instruction (formatted for re-prompt); attempt 2 → `incomplete`; attempt ≥3
+     THROWS (third silent attempt = BLOCKER). The worker's loop is D-17's; D-16 provides the decision.
+  4. **Choke point (deliverable 3)** — `generateGrounded(adapter, request, captured)` =
+     generate → parseViewOutput (schema) → grounding verdict; the single entry the worker uses.
+     Malformed output is rejected before grounding (schema first).
+- Scope boundaries (intentional, recorded): captured state = the frozen StructuredRecipeInput as a
+  PARAMETER (Q1 stays OPEN — no persistence model invented); no provider (Q9 OPEN); no worker
+  plumbing; no analysis_* writes; view 5's regional-contrast text has no structured ids (only the
+  absent-channel scan applies; human-gated G2); unknown-word detection beyond the captured
+  vocabulary is not built (no canonical lexicon — dictionary = Q5/Track R).
+- Evidence:
+  - llm-adapter unit **89/89** (5 suites; +37 grounding tests): grounded output passes; plants —
+    invented ingredient id, reworded id, garlic/ginger smuggled into view payloads (absent channel),
+    invented ingredient in a CARD claim, reworded capture (text never names the cited line),
+    ABSENT-for-captured MAJOR — every plant caught; sanctioned ABSENT claims pass; regenerate-once
+    semantics incl. third-attempt throw; choke-point chain (valid → green, planted → fails at
+    grounding, malformed → rejected before grounding);
+  - golden-fixture integration (new `tests/integration/story_d16_golden_grounding.test.ts`,
+    real `golden_kanyakumari_card.json`) **6/6**: captured vocabulary resolves all card lines;
+    hand-checked golden claims (fish, fenugreek powder/seeds as distinct, garlic/ginger ABSENT) all
+    green; both fenugreek lines structurally distinct; garlic-positive, ginger-in-view-8, and
+    invented-id plants all caught — DISPATCH done criterion 1;
+  - workspace unit/lint/typecheck green; regression gates PASS (existing one-writer + golden-check
+    gates cover the static surface — D-16K: no new static gate); `verify-local` exit 0 (D-16 run);
+  - live-stack: not applicable (pure function — no HTTP surface introduced).
+- Failures & recovery (HANDOFF §5): missing `source_ingredient_ids` in the reference collector
+  (view-2 pillar plant slipped through) → added; refactor dropped single-string `ingredient_id`
+  handling → restored string+array handling; `ViewPayload`/`GroundingVerdict` import-path errors →
+  fixed; test-fixture issues (CAPTURED lacked fixture ids; reworded-capture text still contained the
+  captured token; a "malformed" payload that actually parsed) → fixtures corrected — the validator
+  itself held.
+- Resume point: **D-17 (P3-3 analysis worker) — WAITING for explicit user authorization.** D-17's
+  documented inputs are all in place: D-15 pipeline + mock, D-16 grounding + regenerate-once.
+  D-11/Q10 remain deferred.
 
 ### H-17 — D-17 Analysis worker
 

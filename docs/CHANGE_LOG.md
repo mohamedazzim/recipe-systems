@@ -20,6 +20,24 @@
 
 **Rule:** a change that alters any Q1–Q18 row must say so in its entry. The register (SCAFFOLD §7) is the single source of truth for open decisions; this log records the history of how the register changed. No Q-row changes in D-13.
 
+## 2026-09-09 — D-16 Grounding validator (P3-2)
+
+- Status: **DONE** (all three dispatch done criteria satisfied; H-16 filled with evidence).
+- Change (in `packages/llm-adapter/src/grounding/` + pipeline wiring): `validateViewGrounding` /
+  `validateClaimGrounding` / `validateClaimsGrounding` (ADR §6, INV-10) — structured references in
+  views 1/2/4 resolve against captured ids; ABSENT rule via tag ABSENT or the captured
+  `explicitly_absent` list; CARD/METHOD claims cite a captured id + carry its name token;
+  ABSENT-for-captured = MAJOR; `groundingAttempt` regenerate-once (attempt 3 throws — A-16 BLOCKER);
+  `generateGrounded` = the single choke-point chain (generate → schema → grounding). Captured state
+  = frozen StructuredRecipeInput as a parameter (Q1 OPEN); no provider (Q9 OPEN); no worker writes.
+- Tests: llm-adapter unit **89/89** (+37: invented/reworded/absent plants all caught; attempt
+  semantics; choke point), golden-fixture integration **6/6** (real `golden_kanyakumari_card.json`;
+  garlic/ginger plants caught — done criterion 1), workspace unit/lint/typecheck green, regression
+  gates PASS (no new static gate — D-16K), `verify-local` exit 0. Live-stack N/A (pure function).
+- Decisions: D-16A..K (HANDOFF §5 pre-flight); SCAFFOLD register unchanged (Q9/Q1 remain OPEN).
+- Commit(s): `(D-16 commit — filled after push)`
+- Resume point: D-17 (P3-3 analysis worker) awaits explicit dispatch; D-11/Q10 still deferred.
+
 ## 2026-09-09 — D-15 Prompt specs + prompt_version (P3-1)
 
 - Status: **DONE** (all three dispatch done criteria satisfied; H-15 filled with evidence).

@@ -35,7 +35,7 @@
   garlic/ginger plants caught — done criterion 1), workspace unit/lint/typecheck green, regression
   gates PASS (no new static gate — D-16K), `verify-local` exit 0. Live-stack N/A (pure function).
 - Decisions: D-16A..K (HANDOFF §5 pre-flight); SCAFFOLD register unchanged (Q9/Q1 remain OPEN).
-- Commit(s): `(D-16 commit — filled after push)`
+- Commit(s): **`1c2741f`** (full `1c2741f7ec94d7633f76986ca6bd5579178523c8`) — D-16 checkpoint, pushed to `github.com/mohamedazzim/recipe-systems` main (2026-09-09, owner-authorized; remote verified via `git ls-remote`, working tree clean).
 - Resume point: D-17 (P3-3 analysis worker) awaits explicit dispatch; D-11/Q10 still deferred.
 
 ## 2026-09-09 — D-15 Prompt specs + prompt_version (P3-1)

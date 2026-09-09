@@ -1265,7 +1265,7 @@ execution output; Git: not available / not authorized throughout.
 
 ### H-16 — D-16 Grounding validator
 
-- BASE_SHA / COMMIT_SHA: **BASE `46fd99f` · COMMIT `(filled at D-16 completion commit)`**
+- BASE_SHA / COMMIT_SHA: **BASE `46fd99f` · COMMIT `1c2741f`** (full `1c2741f7ec94d7633f76986ca6bd5579178523c8`) — D-16 checkpoint pushed to `github.com/mohamedazzim/recipe-systems` branch `main` (2026-09-09, owner-authorized; parent verified `46fd99f`).
 - Date / agent session: 2026-09-09 · D-16 dispatch session (pre-flight GO recorded in HANDOFF §5 BEFORE implementation).
 - Status: **DONE** — all three dispatch done criteria satisfied; evidence below.
 - What shipped (all in `packages/llm-adapter/src/grounding/` + pipeline wiring in `src/index.ts`):

@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { AnalysisPanel } from '@/components/app/AnalysisPanel';
 import type { AnalysisState } from '@/lib/types';
 
@@ -14,7 +14,17 @@ function stateOf(status: AnalysisState['status'], views: AnalysisState['views'] 
   };
 }
 
-describe('AnalysisPanel (D-17 states, real data only)', () => {
+function props(overrides: Partial<Parameters<typeof AnalysisPanel>[0]> = {}) {
+  return {
+    analysisId: 'a-123' as string | null,
+    recipeId: 'r1',
+    lines: [],
+    methodState: null,
+    ...overrides,
+  };
+}
+
+describe('AnalysisPanel (D-17 states + D-18 result)', () => {
   beforeEach(() => {
     jest.useFakeTimers();
     (globalThis as unknown as { fetch: unknown }).fetch = jest.fn();
@@ -26,32 +36,28 @@ describe('AnalysisPanel (D-17 states, real data only)', () => {
   });
 
   it('renders nothing without an analysis id', () => {
-    render(<AnalysisPanel analysisId={null} recipeId="r1" />);
+    render(<AnalysisPanel {...props({ analysisId: null })} />);
     expect(screen.queryByText('Analysis status')).not.toBeInTheDocument();
   });
 
   it('queued: shows the real queued state, no fake progress', async () => {
     (globalThis.fetch as jest.Mock).mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => stateOf('queued'),
+      ok: true, status: 200, json: async () => stateOf('queued'),
     });
-    render(<AnalysisPanel analysisId="a-123" recipeId="r1" />);
+    render(<AnalysisPanel {...props()} />);
     expect(await screen.findByText(/Waiting for a worker to pick it up/)).toBeInTheDocument();
     expect(screen.queryByText(/%/)).not.toBeInTheDocument();
   });
 
   it('generating: the honest processing state', async () => {
     (globalThis.fetch as jest.Mock).mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => stateOf('generating'),
+      ok: true, status: 200, json: async () => stateOf('generating'),
     });
-    render(<AnalysisPanel analysisId="a-123" recipeId="r1" />);
+    render(<AnalysisPanel {...props()} />);
     expect((await screen.findAllByText('Your recipe is being analysed.')).length).toBeGreaterThan(0);
   });
 
-  it('complete: shows the coming-next state with the real view rows', async () => {
+  it('complete: renders the real D-18 views (identification + view tabs), no placeholder', async () => {
     const views = Array.from({ length: 9 }, (_, i) => ({
       view_number: i + 1,
       view_key: `view_${i + 1}`,
@@ -59,25 +65,24 @@ describe('AnalysisPanel (D-17 states, real data only)', () => {
       payload: {},
     }));
     (globalThis.fetch as jest.Mock).mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => stateOf('complete', views),
+      ok: true, status: 200, json: async () => stateOf('complete', views),
     });
-    render(<AnalysisPanel analysisId="a-123" recipeId="r1" />);
+    render(<AnalysisPanel {...props()} />);
     expect(await screen.findByText('Analysis complete.')).toBeInTheDocument();
-    expect(screen.getByText(/Detailed recipe views are coming next/)).toBeInTheDocument();
-    expect(screen.getAllByText('Complete')).toHaveLength(7);
-    expect(screen.getAllByText('Incomplete')).toHaveLength(2);
-    expect(screen.getByText('stub-no-provider-q9')).toBeInTheDocument();
+    // The "coming next" placeholder is GONE.
+    expect(screen.queryByText(/Detailed recipe views are coming next/)).not.toBeInTheDocument();
+    // The real result surface is present (identification honest state + tabs).
+    expect(screen.getByText('Identification not available')).toBeInTheDocument();
+    expect(screen.getByRole('tablist', { name: 'Analysis views' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '1 · Why it works' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '4 · Substitutions' })).toBeInTheDocument();
   });
 
   it('failed: honest failure copy, nothing published', async () => {
     (globalThis.fetch as jest.Mock).mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => stateOf('failed'),
+      ok: true, status: 200, json: async () => stateOf('failed'),
     });
-    render(<AnalysisPanel analysisId="a-123" recipeId="r1" />);
+    render(<AnalysisPanel {...props()} />);
     expect(await screen.findByText('The analysis run failed.')).toBeInTheDocument();
     expect(screen.getByText(/Nothing was published from this run/)).toBeInTheDocument();
   });
@@ -88,10 +93,7 @@ describe('AnalysisPanel (D-17 states, real data only)', () => {
       status: 404,
       json: async () => ({ error: { code: 'ANALYSIS_NOT_FOUND', message: 'Analysis not found' } }),
     });
-    render(<AnalysisPanel analysisId="a-123" recipeId="r1" />);
-    await act(async () => {
-      await Promise.resolve();
-    });
+    render(<AnalysisPanel {...props()} />);
     expect(await screen.findByText('Analysis not found')).toBeInTheDocument();
   });
 });

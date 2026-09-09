@@ -112,6 +112,55 @@ export class AnalysisController {
     };
   }
 
+  /** API doc §5 (RS-US-13): the latest analysis for a recipe — the workspace
+   *  reopens to the current result. Read-only; same assembly as getAnalysis;
+   *  INV-17: 404 for missing AND foreign (no existence leak). */
+  @Get('recipes/:recipeId/analysis')
+  @UseGuards(GuestOrJwtGuard)
+  async latestAnalysis(@Req() req: ActorRequest, @Param('recipeId') recipeId: string) {
+    if (!UUID_RE.test(recipeId)) {
+      throw new NotFoundException({ code: 'ANALYSIS_NOT_FOUND', message: 'Analysis not found' });
+    }
+    const actor = this.actorOf(req);
+    const recipe = await this.prisma.recipe.findUnique({ where: { id: recipeId } });
+    if (!recipe) {
+      throw new NotFoundException({ code: 'ANALYSIS_NOT_FOUND', message: 'Analysis not found' });
+    }
+    const owns =
+      actor.kind === 'user'
+        ? recipe.accountId === actor.user.accountId
+        : recipe.guestSessionId === actor.guestSessionId;
+    if (!owns) {
+      throw new NotFoundException({ code: 'ANALYSIS_NOT_FOUND', message: 'Analysis not found' });
+    }
+    const analysis = await this.prisma.analysis.findFirst({
+      where: { recipeId, isCurrent: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!analysis) {
+      throw new NotFoundException({ code: 'ANALYSIS_NOT_FOUND', message: 'Analysis not found' });
+    }
+    const views = await this.prisma.analysisView.findMany({
+      where: { analysisId: analysis.id },
+      orderBy: { viewNumber: 'asc' },
+    });
+    return {
+      analysis_id: analysis.id,
+      status: analysis.status,
+      mode: analysis.mode,
+      is_latest: analysis.isCurrent,
+      prompt_version: analysis.promptVersion,
+      model_version: analysis.modelVersion,
+      created_at: analysis.createdAt.toISOString(),
+      views: views.map((v) => ({
+        view_number: v.viewNumber,
+        view_key: v.viewKey,
+        status: v.status,
+        payload: v.payload,
+      })),
+    };
+  }
+
   /**
    * SSE status stream (Tech Stack §13): snapshot replay on connect, then live
    * NOTIFY-driven events — a dropped NOTIFY always recovers via the snapshot

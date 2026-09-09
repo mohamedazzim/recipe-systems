@@ -7,7 +7,9 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft } from '@phosphor-icons/react';
 import { Heading } from '@/components/ui/Typography';
+import { api, ApiError } from '@/lib/api';
 import { listSessionRecipes } from '@/lib/flow';
+import type { AnalysisState, MethodState } from '@/lib/types';
 import { IngredientReview } from '@/components/app/IngredientReview';
 import type { WireLine } from '@/lib/types';
 import { MethodSection } from '@/components/app/MethodSection';
@@ -24,13 +26,32 @@ export interface RecipeWorkspaceProps {
 
 export function RecipeWorkspace({ recipeId, signedIn, onBack, initialLines = null }: RecipeWorkspaceProps) {
   const [analysisId, setAnalysisId] = useState<string | null>(null);
+  const [lines, setLines] = useState<WireLine[]>(initialLines ?? []);
+  const [methodState, setMethodState] = useState<MethodState | null>(null);
   const [title, setTitle] = useState('Recipe');
 
   useEffect(() => {
     const record = listSessionRecipes().find((r) => r.recipe_id === recipeId);
     if (record) setTitle(record.preview);
     setAnalysisId(null);
-  }, [recipeId]);
+    setLines(initialLines ?? []);
+    setMethodState(null);
+    // Reopen the workspace on the latest persisted analysis (API §5, read-only).
+    let cancelled = false;
+    api<AnalysisState>(`/recipes/${recipeId}/analysis`)
+      .then((latest) => {
+        if (!cancelled) setAnalysisId(latest.analysis_id);
+      })
+      .catch((err: unknown) => {
+        // 404 ANALYSIS_NOT_FOUND = no analysis yet: expected, stay quiet.
+        if (!(err instanceof ApiError && err.code === 'ANALYSIS_NOT_FOUND') && !cancelled) {
+          // other errors are surfaced by the status panel's own poll
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [recipeId, initialLines]);
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -51,14 +72,20 @@ export function RecipeWorkspace({ recipeId, signedIn, onBack, initialLines = nul
       </p>
 
       <div className="mt-8">
-        <IngredientReview recipeId={recipeId} signedIn={signedIn} title={title} initialLines={initialLines} />
+        <IngredientReview
+          recipeId={recipeId}
+          signedIn={signedIn}
+          title={title}
+          initialLines={initialLines}
+          onLinesLoaded={setLines}
+        />
       </div>
 
-      <MethodSection recipeId={recipeId} signedIn={signedIn} />
+      <MethodSection recipeId={recipeId} signedIn={signedIn} onChange={setMethodState} />
 
       <ReadinessPanel recipeId={recipeId} signedIn={signedIn} onAnalysed={setAnalysisId} />
 
-      <AnalysisPanel analysisId={analysisId} recipeId={recipeId} />
+      <AnalysisPanel analysisId={analysisId} recipeId={recipeId} lines={lines} methodState={methodState} />
     </div>
   );
 }

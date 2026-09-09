@@ -10,10 +10,16 @@ import { CheckCircle, Clock, XCircle } from '@phosphor-icons/react';
 import { Alert } from '@/components/ui/Alert';
 import { Spinner } from '@/components/ui/Spinner';
 import { useAnalysisStatus } from '@/lib/hooks/useAnalysisStatus';
+import { AnalysisViews } from '@/components/app/AnalysisViews';
+import type { MethodState, WireLine } from '@/lib/types';
 
 export interface AnalysisPanelProps {
   analysisId: string | null;
   recipeId: string;
+  /** Current draft lines for ingredient-name resolution in the views. */
+  lines: WireLine[];
+  /** D-13 method wire state for the inferred-source display. */
+  methodState: MethodState | null;
 }
 
 const STATUS_COPY: Record<string, { label: string; live: boolean }> = {
@@ -23,7 +29,7 @@ const STATUS_COPY: Record<string, { label: string; live: boolean }> = {
   failed: { label: 'The analysis run failed.', live: false },
 };
 
-export function AnalysisPanel({ analysisId, recipeId }: AnalysisPanelProps) {
+export function AnalysisPanel({ analysisId, recipeId, lines, methodState }: AnalysisPanelProps) {
   const { analysis, error } = useAnalysisStatus(analysisId);
 
   if (!analysisId) {
@@ -90,28 +96,7 @@ export function AnalysisPanel({ analysisId, recipeId }: AnalysisPanelProps) {
 
             {analysis.status === 'complete' && (
               <div className="mt-5 border-t border-border pt-4">
-                <p className="text-small text-body">
-                  Analysis generated successfully. Detailed recipe views are coming next.
-                </p>
-                {analysis.views.length > 0 && (
-                  <ul className="mt-3 grid gap-1.5 sm:grid-cols-3">
-                    {analysis.views.map((view) => (
-                      <li
-                        key={view.view_number}
-                        className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2 text-caption"
-                      >
-                        <span className="font-semibold text-body">View {view.view_number}</span>
-                        <span
-                          className={
-                            view.status === 'COMPLETE' ? 'font-semibold text-positive' : 'font-semibold text-muted'
-                          }
-                        >
-                          {view.status === 'COMPLETE' ? 'Complete' : 'Incomplete'}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <AnalysisViews analysis={analysis} lines={lines} methodState={methodState} />
               </div>
             )}
           </div>

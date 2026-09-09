@@ -1,11 +1,14 @@
 // D-17 (P3-3): Q9-honest adapter resolution. NO provider is selected here —
 // the worker stays provider-neutral through the D-15 seam (Tech Stack §10).
-// - ANALYSIS_LLM_STUB=1 → the deterministic fixture adapter (dev/demo only, for
-//   the golden card — labeled; never production).
+// - ANALYSIS_LLM_STUB=1 → a deterministic dev/demo stub that builds its view
+//   payloads FROM THE CAPTURED INGREDIENT IDS in the request (so the D-16
+//   grounding gate validates them against the same captured state — the full
+//   pipeline, including rejection, stays exercised; labeled, never production).
 // - default → ProviderPendingError: jobs fail cleanly as `failed` (never stuck
 //   at `generating`) until Q9 lands a real provider adapter.
 
-import { LlmAdapter, LlmGenerateRequest, MockLlmAdapter } from '@recipe-systems/llm-adapter';
+import { LlmAdapter, LlmGenerateRequest } from '@recipe-systems/llm-adapter';
+import type { StructuredRecipeInput } from '@recipe-systems/schemas';
 
 export class ProviderPendingError extends Error {
   constructor() {
@@ -21,98 +24,109 @@ class PendingAdapter implements LlmAdapter {
   }
 }
 
-// Minimal golden-card fixtures for the dev/demo stub (views 1–7, home+chef share
-// the same payloads here — the mode separation contract is proven in llm-adapter).
-const STUB_VIEW_1 = {
-  items: [
-    {
-      ingredient_id: 'fish_500g',
-      job: 'Protein, fat, reason for the sour',
-      if_omitted: 'Not this dish',
-      tag: 'CARD',
-    },
-  ],
-  role_groups: [{ role: 'Body / richness', ingredient_ids: ['fish_500g'] }],
-};
-const STUB_VIEW_2 = {
-  pillars: [
-    {
-      pillar: 'Sour',
-      source_ingredient_ids: ['tamarind_lemon_size'],
-      if_missing: 'Heavy, oily, flat',
-      tag: 'CARD',
-    },
-  ],
-  blind_spot_notes: [],
-};
-const STUB_VIEW_3 = {
-  status: 'COMPLETE',
-  stages: [
-    {
-      stage_name: 'Load and heat',
-      action: 'Add fish, cover; boil then reduce to medium',
-      cue: 'Fish opaque and just flaking',
-      duration: 'UNKNOWN',
-      tag: 'METHOD',
-    },
-  ],
-  incomplete_reason: null,
-};
-const STUB_VIEW_4 = {
-  substitutions: [
-    {
-      ingredient_id: 'coconut_half_shell',
-      substitute: 'Coconut milk (reduced quantity)',
-      consequence: 'Thinner body; still holds structurally since tamarind is kept',
-      tag: 'INFERRED',
-    },
-  ],
-};
-const STUB_VIEW_5 = {
-  family: 'Coastal Tamil (Kanyakumari) style meen kuzhambu',
-  architecture: 'Raw-ground coconut paste, triple sour, late fenugreek+pepper',
-  confidence: 'high',
-  not_this: [
-    { variant: 'Kerala meen curry', key_difference: 'Kudampuli instead of tamarind/mango' },
-  ],
-  needs_review: true,
-  tag: 'INFERRED',
-};
-const STUB_VIEW_6 = {
-  ratios: [{ components: 'chilli powder : coriander', ratio: '2 tsp : 1 tsp', structural: true, tag: 'CARD' }],
-  unresolvable: [{ components: 'salt : liquid', reason: 'salt quantity is null', tag: 'UNKNOWN' }],
-};
-const STUB_VIEW_7 = {
-  status: 'COMPLETE',
-  memorable_elements: [
-    {
-      element: 'Late fenugreek+pepper finish',
-      grounded_in: 'Process stage finish aroma, per View 3',
-      tag: 'INFERRED',
-    },
-  ],
-};
+/** Dev/demo only: deterministic outputs built from the captured state, so the
+ *  D-16 grounding choke point still decides COMPLETE vs INCOMPLETE for every
+ *  view. Never production — Q9 stays OPEN. */
+class StubAdapter implements LlmAdapter {
+  async generate(request: LlmGenerateRequest): Promise<unknown> {
+    const snapshot = request.recipe_snapshot as StructuredRecipeInput;
+    const ids = snapshot.structured_recipe.ingredients.map((i) => i.id);
+    const names = snapshot.structured_recipe.ingredients.map((i) => i.display_name);
+    const first = ids[0];
+    const second = ids[1] ?? ids[0];
 
-const STUB_VIEWS: Record<number, unknown> = {
-  1: STUB_VIEW_1,
-  2: STUB_VIEW_2,
-  3: STUB_VIEW_3,
-  4: STUB_VIEW_4,
-  5: STUB_VIEW_5,
-  6: STUB_VIEW_6,
-  7: STUB_VIEW_7,
-};
+    switch (request.view) {
+      case 1:
+        return {
+          items: ids.map((id, i) => ({
+            ingredient_id: id,
+            job: names[i] ? `${names[i]} carries its own job in the dish` : 'Contributes to the dish',
+            if_omitted: 'The dish changes noticeably',
+            tag: 'CARD' as const,
+          })),
+          role_groups: ids.length > 0 ? [{ role: 'Together', ingredient_ids: ids }] : [],
+        };
+      case 2:
+        return {
+          pillars:
+            ids.length > 0
+              ? [
+                  {
+                    pillar: 'Body',
+                    source_ingredient_ids: ids.slice(0, Math.min(2, ids.length)),
+                    if_missing: 'Thinner, less complete result',
+                    tag: 'CARD' as const,
+                  },
+                ]
+              : [],
+          blind_spot_notes: [],
+        };
+      case 3:
+        return {
+          status: 'COMPLETE',
+          stages: [
+            {
+              stage_name: 'Build the dish',
+              action: `Prepare ${names[0] ?? 'the ingredients'}; follow the recorded method to the end.`,
+              cue: 'Done when the method cue is met',
+              duration: 'UNKNOWN',
+              tag: 'METHOD' as const,
+            },
+          ],
+          incomplete_reason: null,
+        };
+      case 4:
+        return {
+          substitutions:
+            first !== undefined
+              ? [
+                  {
+                    ingredient_id: first,
+                    substitute: 'A close equivalent',
+                    consequence: 'Small flavour shift; the structure holds',
+                    tag: 'INFERRED' as const,
+                  },
+                ]
+              : [],
+        };
+      case 5:
+        return {
+          family: 'Coastal Tamil (Kanyakumari) style meen kuzhambu',
+          architecture: 'Raw-ground coconut paste, triple sour, late fenugreek+pepper',
+          confidence: 'high',
+          not_this: [
+            { variant: 'Kerala meen curry', key_difference: 'Kudampuli instead of tamarind/mango' },
+          ],
+          needs_review: true,
+          tag: 'INFERRED',
+        };
+      case 6:
+        return {
+          ratios: [
+            { components: 'chilli powder : coriander', ratio: '2 tsp : 1 tsp', structural: true, tag: 'CARD' },
+          ],
+          unresolvable: [{ components: 'salt : liquid', reason: 'salt quantity is null', tag: 'UNKNOWN' }],
+        };
+      case 7:
+        return {
+          status: 'COMPLETE',
+          memorable_elements: [
+            {
+              element: second !== first && second !== undefined ? 'The second ingredient returns in the finish' : 'The finish repeats the main ingredient',
+              grounded_in: 'Process stage finish aroma, per View 3',
+              tag: 'INFERRED',
+            },
+          ],
+        };
+      default:
+        throw new Error(`stub adapter has no fixture for view ${String(request.view)}`);
+    }
+  }
+}
 
 export function resolveAdapter(env: Record<string, string | undefined>): LlmAdapter {
   if (env.ANALYSIS_LLM_STUB === '1') {
-    const fixtures = [1, 2, 3, 4, 5, 6, 7].flatMap((view) =>
-      (['home', 'chef'] as const).map((mode) => ({
-        view: view as 1 | 2 | 3 | 4 | 5 | 6 | 7,
-        mode,
-        output: STUB_VIEWS[view],
-      })),
-    );
-    return new MockLlmAdapter(fixtures);
+    return new StubAdapter();
   }
   return new PendingAdapter();
 }

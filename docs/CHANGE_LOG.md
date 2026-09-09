@@ -42,6 +42,21 @@
   real pg-boss connection from the bootstrap test) → `247b26b` → **run
   34353922712 success**.
 
+## 2026-09-09 — D-18 Views 1–4 + home mode (P3-4)
+
+- **Backend:** read-only `GET /recipes/:recipeId/analysis` (API §5, RS-US-13) — latest current
+  analysis + view rows, INV-17, UUID guard. +3 controller tests.
+- **Web:** `AnalysisViews` (identification C1 from the persisted view_5 payload + Tabs over
+  Views 1–4 in home voice; claim tags; View 2 blind-spot visible; View 3 incomplete reason;
+  unavailable/refused states never invented) replaces the "coming next" placeholder; workspace
+  lifts lines/method state and reopens on the latest analysis; `lib/views.ts` helpers (UNKNOWN
+  blanking, name resolution with visible unresolved ids).
+- **Worker dev stub (Q9-labeled):** builds payloads from the captured ids so the D-16 grounding
+  gate validates them against the same state (demo shows the real COMPLETE path; rejection path
+  still exercised). Never production.
+- **Evidence:** web 69/69, API 148/148, worker 21/21, integration 73/73, gates PASS, lint/
+  typecheck clean, live 13/13, verify-local exit 0.
+
 ## 2026-09-09 — Fix: D-12 text/paste review bugs (semicolon segmentation + delete 204)
 
 - **Bug 1:** single-line semicolon-separated pastes became one giant draft line (`splitRawLines`

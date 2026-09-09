@@ -32,6 +32,8 @@ export interface IngredientReviewProps {
    *  is Bearer-only (API doc §3). Signed-in users fetch fresh lines but
    *  render these immediately as a first paint. */
   initialLines?: WireLine[] | null;
+  /** Lift the authoritative lines upward (name resolution for the views). */
+  onLinesLoaded?: (lines: WireLine[]) => void;
 }
 
 interface EditorState {
@@ -54,7 +56,7 @@ function emptyEditor(line: WireLine): EditorState {
   };
 }
 
-export function IngredientReview({ recipeId, signedIn, title, initialLines = null }: IngredientReviewProps) {
+export function IngredientReview({ recipeId, signedIn, title, initialLines = null, onLinesLoaded }: IngredientReviewProps) {
   const [lines, setLines] = useState<WireLine[] | null>(initialLines);
   const [error, setError] = useState<string | null>(null);
   /** RECIPE_NOT_FOUND for a signed-in actor means a cross-session recipe
@@ -72,6 +74,7 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
     try {
       const result = await api<{ items: WireLine[] }>(`/recipes/${recipeId}/lines`);
       setLines(result.items);
+      onLinesLoaded?.(result.items);
       setError(null);
     } catch (err) {
       if (err instanceof ApiError && err.code === 'RECIPE_NOT_FOUND') {
@@ -85,7 +88,7 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
           : 'Could not load the ingredient lines. Refresh the page to retry.',
       );
     }
-  }, [recipeId]);
+  }, [recipeId, onLinesLoaded]);
 
   useEffect(() => {
     setEditingId(null);
@@ -94,6 +97,7 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
       // Guests: read-only, render the parse-text lines, never fetch Bearer-only
       // routes (API §3). No spinner, no dead request.
       setLines(initialLines ?? []);
+      onLinesLoaded?.(initialLines ?? []);
       setError(null);
       return;
     }

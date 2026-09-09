@@ -23,6 +23,7 @@ module.exports = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
     '^@phosphor-icons/react$': '<rootDir>/test/phosphor-mock.tsx',
+    '^@recipe-systems/schemas$': '<rootDir>/../packages/schemas/src/index.ts',
     '\\.(css|scss|sass)$': '<rootDir>/test/style-mock.js',
   },
   setupFilesAfterEnv: ['<rootDir>/test/setup.ts'],

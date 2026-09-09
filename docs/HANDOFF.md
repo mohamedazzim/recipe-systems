@@ -1706,3 +1706,86 @@ execution output; Git: not available / not authorized throughout.
   **Intentional non-changes:** no amount/unit/sense parsing (D-12 later stages), no OCR/Q10, no
   D-13/14/15/16/17 changes, recipe_input immutability preserved, Q4 Intake sole line writer.
   **Resume point:** verify-local → Git checkpoint → push → CI; then D-18 (Views 1–4) awaiting dispatch.
+
+
+- 2026-09-09 — **D-18 PRE-FLIGHT (P3-4 Views 1–4 + home mode; recorded BEFORE code)**
+  **Canonical contract (verified in docs + frozen schemas):**
+  - DISPATCH D-18: render Views 1–4 from `analysis_*` rows (P0-5 schemas) + identification (C1) +
+    claim tags (C4) + home mode as the default presentation. Done criteria: golden CI invariants
+    stay green; grounding failure → view INCOMPLETE, never current (INV-10); two fenugreeks = two
+    uses of one idea; coriander appears in View 1; View 2 records the blind spot; home mode by
+    default; failed jobs never stuck at generating. NON-GOALS: Views 5–9 (D-19), chef mode (D-20),
+    disclaimers (D-21).
+  - Frozen payloads (packages/schemas, `.strict()`): View 1 {items[{ingredient_id, job,
+    if_omitted, tag CARD|METHOD|INFERRED|ASSUMED}], role_groups[{role, ingredient_ids[]}]};
+    View 2 {pillars[{pillar, source_ingredient_ids[], if_missing, tag}], blind_spot_notes
+    [{ingredient_id, note}]}; View 3 {status COMPLETE|INCOMPLETE, stages[{stage_name, action, cue,
+    duration|UNKNOWN, tag}], incomplete_reason}; View 4 {substitutions[{ingredient_id, substitute,
+    consequence, tag INFERRED}]}. IdentificationSchema {family, architecture, confidence,
+    not_this[], absent_on_card[], tags{family:INFERRED}} lives in the ENVELOPE; the persisted
+    analysis_* rows hold NINE views only (D-17), and the identification content is carried by the
+    persisted view_5 payload {family, architecture, confidence, not_this[{variant,
+    key_difference}], needs_review:true, tag:INFERRED}.
+  - **Decision (identification source):** the C1 block renders from the persisted view_5 row
+    (family/architecture/confidence/not_this) — the only persisted identification source. The
+    envelope's absent_on_card field has NO persisted row → honestly omitted (recorded, never
+    invented). The full View 5 presentation stays D-19.
+  - **Home-mode voice (Recipe_Systems §7):** View 1 = why each ingredient exists; View 2 =
+    friendly balance table (blind-spot note VISIBLE — required output, not a bug); View 3 =
+    narrative walkthrough; View 4 = what you can skip. UNKNOWN fields stay blank (duration
+    UNKNOWN renders nothing). Claim tags C4 visible per item (Badge primitive exists); inferred
+    method names its source = the D-13 method wire state from the workspace (method_tag/method_
+    source — no GET-method route exists, so the workspace's method state is lifted for the
+    display; fallback = the tag alone).
+  - **API:** GET /analysis/:id (exists, GuestOrJwt) returns views[{view_number, view_key, status
+    COMPLETE|INCOMPLETE, payload}] — the D-18 data source. The canonical GET
+    /recipes/:recipeId/analysis (API §5, RS-US-13, Bearer or guest, 404 ANALYSIS_NOT_FOUND) does
+    NOT exist yet — **Decision:** add it as a minimal READ-ONLY route (same assembly as the
+    existing getAnalysis, latest is_current analysis for the recipe) so reopening a workspace
+    shows the latest analysis. Doc-defined, no new business logic, no writer changes.
+  - **States:** queued/generating/complete/failed (analysis.status, existing) + per-view
+    COMPLETE/INCOMPLETE (view.status) + **unavailable view** (a view_number with no row → honest
+    "not available yet" state, never fake content). INCOMPLETE views show their persisted
+    incomplete_reason (View 3) or the grounding-refusal state (payload {} — INV-10: never current,
+    never content).
+  - **Ingredient name resolution:** payloads reference ingredient_id; names resolve from the
+    current draft lines (GET /recipes/:id/lines — signed-in) + the workspace's initialLines.
+    Unresolved ids render with the id visible and a neutral label — never dropped (INV-04
+    spirit). Q1 stays OPEN (no captured-state persistence invented; the display uses the only
+    persisted sources).
+  - **UI structure:** the workspace's AnalysisPanel gains the real result rendering: when
+    complete → identification block + Tabs (primitive exists) over Views 1–4, claim tags via
+    Badge, grounded in the persisted payloads. Home mode only (no chef toggle — P4). The
+    "Detailed recipe views are coming next" placeholder is REPLACED by the real rendering.
+  - **Pre-flight verdict: GO** — Q1/Q5/Q9/Q10 untouched; no backend writers changed; no fake
+    content; golden invariants re-verified by the existing gates.
+
+
+- 2026-09-09 — **D-18 EXECUTION (P3-4 Views 1–4 + home mode; pre-flight GO above)**
+  **Built:**
+  - Backend: `GET /recipes/:recipeId/analysis` (API §5, RS-US-13, GuestOrJwt, read-only) — the
+    latest is_current analysis with its view rows; INV-17 404 for missing/foreign; UUID guard.
+    Controller unit tests 3/3 (assembly, foreign 404, none 404).
+  - Web: `lib/views.ts` (pure helpers: home-mode UNKNOWN blanking, ingredient-name resolution
+    from current lines with visible unresolved ids, identification-from-view_5, payload guards);
+    `components/app/AnalysisViews.tsx` (identification block C1 + Tabs over Views 1–4 in home
+    voice; claim tags via Badge; View 2 blind-spot alert visible; View 3 narrative + incomplete
+    reason; unavailable/incomplete honest states — never invented content); `AnalysisPanel`
+    complete → real result (placeholder removed); `RecipeWorkspace` lifts lines + method state +
+    loads the latest analysis on open; `IngredientReview` onLinesLoaded callback.
+  - Worker dev stub (Q9): `StubAdapter` builds view payloads FROM THE CAPTURED ingredient ids
+    (request.recipe_snapshot.structured_recipe) so the D-16 grounding gate validates them against
+    the same captured state — the full pipeline (including rejection) stays exercised in the demo;
+    labeled dev-only, never production. (The previous static-id stub made every real recipe fail
+    grounding → views 1/2/4 INCOMPLETE — the gate working as designed; the stub now demonstrates
+    the COMPLETE path honestly.)
+  **Evidence:** web 69/69 (AnalysisViews 9 cases incl. UNKNOWN blank, blind spot, INCOMPLETE
+  reason, unavailable, unresolved ids); API 148/148 (+4); worker 21/21; workspace unit green;
+  integration 73/73; gates PASS; lint/typecheck clean; live 13/13 (analyse → worker → latest
+  analysis route → views 1–4 COMPLETE with payloads → view 5 identification → views 8/9
+  INCOMPLETE → 404-none → foreign 404).
+  **Intentional non-changes:** Q1/Q5/Q9/Q10 OPEN; no Views 5–9 presentation (identification uses
+  the persisted view_5 payload only — the full View 5 surface is D-19); no chef mode (P4); no
+  fake content; INV-10 respected (INCOMPLETE views render refusal states, never invented data).
+  **Resume point:** verify-local → Git checkpoint → push → CI → report; then D-19 (Views 5–9)
+  awaiting dispatch.

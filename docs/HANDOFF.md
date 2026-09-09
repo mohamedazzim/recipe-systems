@@ -1130,3 +1130,385 @@ execution output; Git: not available / not authorized throughout.
   - Full integration suite **48/48**; all-workspace unit **112/112**; regression gates **PASS**
     (incl. recipe_input immutability — test assertions rephrased to `not.toHaveProperty` so the
     gate's static pattern keeps firing only on real code paths); lint clean (fixed one
+    no-unused-vars); typecheck clean; `verify-local` **exit 0 · ALL STEPS PASSED**.
+  - E2E: `tests/e2e/review.spec.ts` (new, 5 specs) written against the live stack. **Not
+    executable on this machine** — Playwright cannot launch any browser: corporate policy kills
+    the launched process (exit code 1260, ERROR_BLOCKED_BY_POLICY; reproduced with chrome AND
+    msedge channels, headed and headless; the bundled Chromium download is also network-blocked).
+    Environment blocker recorded in HANDOFF §5; the spec remains canonical for machines where
+    Playwright runs. Equivalent live-stack verification executed instead via the real HTTP
+    surface (real Keycloak OIDC → session cookie → BFF → Postgres): **11/11 PASS** — paste,
+    split, edit-with-mapped-fields, stale-edit 409 + reload recovery, is_header exclusion,
+    delete 204, corrected object (headers excluded, fenugreeks distinct), parse-preview
+    confirmed, 401 without session. Temp script outside the repo (not committed).
+- Deviations recorded: D-12A…I in HANDOFF §5 (auth per doc labels; wire gains id/updated_at;
+  is_header → soft-delete, no ERD column; stale-edit token name; split/merge contracts;
+  parse-preview status derivation; sense confirmation free text until D-29; parse-text
+  recipe_id).
+- Intentional non-changes: OCR fields never written for text lines (`needs_review` false,
+  `ocr_confidence` null); no D-11/D-13/D-14 code; no schema change (no is_header column — ERD
+  v14 would be required); `recipe_input` immutability preserved; no dictionary rows invented
+  (D-29).
+- Resume point: photo-path D-12 criteria (golden photo split; OCR-flagged-line review) wait for
+  D-11/Q10; D-13 (method attach) is the next dispatchable unit (separate unit, depends on D-12);
+  D-14 needs D-11. A-12 audit not yet executed.
+
+### H-13 — D-13 Method attach
+
+- BASE_SHA / COMMIT_SHA: **BASE `83e6de0` · COMMIT `364d58b`** (full `364d58ba6e5ec7e5c439dbc302ea788ab2f63246`) — D-13 checkpoint pushed to `github.com/mohamedazzim/recipe-systems` branch `main` (2026-09-09, owner-authorized; parent verified `83e6de0`).
+- Date / agent session: 2026-09-09 · D-13 dispatch session (pre-flight GO recorded in HANDOFF §5 BEFORE implementation).
+- Status: **DONE (evidence below)** — all three dispatch done criteria satisfied in text scope.
+- What shipped:
+  1. **Method entry/attach on the corrected object, optional (B4 AC-1)** — `PATCH /recipes/:recipeId/method`
+     (API §4, RS-US-09) via a new `RecipesController` (recipes module; JwtAuthGuard + CsrfGuard — Bearer
+     only; guest method selection stays client-side per API §4). Modes:
+     - `paste` → `method_text` + tag `METHOD` (no inferred source);
+     - `inferred` → `method_text` + tag `INFERRED` + `method_inferred_source` = named source (REQUIRED —
+       source-less INFERRED refused 400 `INVALID_METHOD`, A-13 MAJOR avoided);
+     - `none` → all three method columns cleared → `list_only: true`.
+  2. **Wire shape** `{method_tag: "METHOD"|"INFERRED"|null, method_source: string|null, list_only: boolean}`
+     — derived from persisted state (`list_only := method_source_tag IS NULL`). `accept_inferred` accepted
+     but redundant with `method:"inferred"` (D-13F).
+  3. **No method + accepted matched family method → INFERRED with named source; Views 3/7 NOT INCOMPLETE**
+     — `list_only: false` with tag INFERRED (dispatch criterion 2).
+  4. **No method + list-only → Views 3/7 INCOMPLETE flag** — `list_only: true` (dispatch criterion 3; the
+     rendering assertion stays in P3's view tests per the dispatch note — this unit proves the flag).
+  5. **INFERRED provenance ready for C4** — tag + named source persisted on `recipe`
+     (`method_inferred_source`); `analysis_claim` untouched (C4 = P3).
+- Ownership: all writes in `RecipeService.attachMethod` (one-writer, ADR §2); no
+  `recipe_ingredient_line` writes (Q4 boundary proven by integration test); no schema change.
+- Non-changes (intentional): no GET-method route (D-13I), no identification/matching (P3), no Views 1–4
+  generation, no D-14 gate, no OCR, no `analysis_claim` writes.
+- Evidence:
+  - API unit **128/128** (5 new method tests in `recipe.service.test.ts`);
+  - integration (real Postgres) **54/54** — new `story_b4_method_attach.test.ts` 6/6: paste/inferred/none
+    persistence, fresh-recipe list-only, Q4 boundary (no line writes), INV-17 foreign 404;
+  - regression gates **PASS**; lint + typecheck clean;
+  - `verify-local` exit 0 (D-13 run);
+  - live-stack HTTP verification (Keycloak OIDC → BFF → Postgres) **10/10 PASS**: guest 401, paste 200
+    METHOD, inferred 200 INFERRED + "CDK 1669 / Mrs. Anitha", none 200 list-only, source-less inferred 400,
+    empty paste 400, unknown method 400, foreign actor 404; DB row confirmed `method_source_tag=INFERRED`,
+    `method_inferred_source='CDK 1669 / Mrs. Anitha'`;
+  - Playwright E2E `tests/e2e/method.spec.ts` written (5 specs) but NOT executable on this machine
+    (policy exit 1260 — unchanged environment blocker). Side fix: parse-text status expectation 201→200 in
+    review.spec.ts + method.spec.ts (canonical doc §3 says 200; confirmed live).
+- Failures & recovery (full trace in HANDOFF §5): manual API restart used a wrong Keycloak client env
+  (`recipe-systems-web` instead of `scripts/dev.sh`'s `recipe-systems-bff` → Keycloak "Client not found");
+  live-check script skipped `#HttpOnly_` cookie-jar lines → sent `recipe_session=undefined` → JWSInvalid
+  500 (script bug, not API); integration INV-17 assertion matched the wrong exception shape → corrected to
+  `response.code`.
+- Resume point: D-13 is complete in text scope; photo/OCR interplay for method-from-card is D-11/Q10-
+  gated only if a card-extracted method ever becomes a D-unit requirement. Next dispatchable: **D-14
+  (needs_review enqueue gate) — WAITING for explicit user authorization.**
+
+### H-14 — D-14 needs_review enqueue gate
+
+- BASE_SHA / COMMIT_SHA: **BASE `6146752` · COMMIT `bdbea9b`** (full `bdbea9b2ce7ec0532bd07e4be20e2e5895b3dfa8`) — D-14 checkpoint pushed to `github.com/mohamedazzim/recipe-systems` branch `main` (2026-09-09, owner-authorized; parent verified `6146752`).
+- Date / agent session: 2026-09-09 · D-14 dispatch session (pre-flight GO recorded in HANDOFF §5 BEFORE implementation).
+- Status: **DONE (text scope; photo golden scenario gated on D-11 — evidence below)**.
+- What shipped:
+  1. **Enqueue guard (INV-05)** — `IntakeService.getEnqueueState(actor, recipeId)` → wire
+     `{ can_enqueue: boolean, blockers: [{ line_id, display_name }] }`. Read-only; reads the canonical
+     `needs_review` flag only (no shadow state — A-14); ACTIVE = `deleted_at IS NULL` (soft-deleted
+     flagged lines never block); `assertOwned` inside (INV-17 404). THE single implementation P3's
+     enqueue must reuse (A-14: duplicates = MAJOR) — D-14F: the actual refusal wiring is P3's
+     (no enqueue path exists yet); the guard is the shared check.
+  2. **User-visible blockers** — `GET /recipes/:id/parse-preview` now carries
+     `enqueue: { can_enqueue, blockers }` (D-14B, additive — no new endpoint; the API doc defines
+     none). The UI sees what blocks, line by line.
+  3. **Clearing path (done criterion)** — review PATCH gains `needs_review: false`
+     (zod `z.literal(false)`: clients can never SET the flag — `needs_review: true` → 400
+     `INVALID_LINE_EDIT`; OCR/D-11 owns true; clearing is an explicit user confirmation only —
+     ordinary edits never touch the flag, no auto-clear). Clearing the last flagged line unblocks
+     immediately (proven at service + integration + live-HTTP level).
+  4. **Shadow-state gate** — new static regression gate: persisted enqueue-readiness names
+     (`enqueue_ready|analysis_ready|review_complete|can_enqueue|ready_for_analysis`) in .prisma/.sql
+     fire the gate (A-14 drift MAJOR); qg2 plant-proofs added (schema + raw-SQL plants). Wire names in
+     .ts are derived, not state — deliberately out of gate scope.
+- Non-changes (intentional): no new endpoint, no schema change, no enqueue implementation (P3), no
+  D-11/OCR, no auto-clear, no new writer (Q4: the gate writes nothing — proven by test).
+- Evidence:
+  - API unit **134/134** (6 new D-14 tests: blocked/clean/soft-deleted-excluded/404/clear/no-auto-clear);
+  - integration (real Postgres) **62/62** — new `inv05_enqueue_gate.test.ts` 6/6 (file named by
+    invariant, not story ID — D-14 has no story; deviation recorded): clean enqueues; planted flag
+    (D-11 simulation) blocks named line by line; clearing via review unblocks immediately; soft-deleted
+    flag never blocks; foreign 404; gate writes nothing (byte-identical rows); qg2 +2 plant proofs;
+  - regression gates **PASS** (new INV-05 gate armed); lint + typecheck clean;
+  - `verify-local` exit 0 (D-14 run);
+  - live-stack HTTP (real OIDC → BFF → Postgres, DB-planted flag) **8/8 PASS**: clean can_enqueue;
+    flagged → blocked with line named; needs_review:true → 400; review clear → unblocked immediately;
+  - Playwright `tests/e2e/enqueue-gate.spec.ts` written (2 specs, env-blocked as documented).
+- Failures & recovery (HANDOFF §5): wire initially leaked camelCase (`canEnqueue`) — canonical wire
+  is snake_case (D-13 MethodState convention); renamed EnqueueState to wire shape; a reckless
+  replace_all in the unit test renamed service-internal camelCase identifiers — reverted surgically
+  (model fields/LinePatch stay camelCase; only wire assertions snake_case).
+- Text-scope limitation: text lines are born `needs_review=false`; flags are planted at DB level in
+  tests exactly as D-11 OCR will produce them. The photo golden scenario (photograph → flagged →
+  blocked → review → enqueuable) completes when D-11 lands; the gate is channel-agnostic.
+- Resume point: **D-15 (P3-1 prompt specs) or D-11/Q10 when OCR re-opens — WAITING for explicit user
+  authorization. P2 remaining blockers: D-11 ⏸ (Q10 OPEN — needs real card corpus + provider creds);
+  D-12 photo-path criteria pending D-11.**
+
+### H-15 — D-15 Prompt specs + prompt_version
+
+- BASE_SHA / COMMIT_SHA: **BASE `50bd215` · COMMIT `1b4b2f3`** (full `1b4b2f3cdab8cfc431786959ff6cae08de5d2fca`) — D-15 checkpoint pushed to `github.com/mohamedazzim/recipe-systems` branch `main` (2026-09-09, owner-authorized; parent verified `50bd215`).
+- Date / agent session: 2026-09-09 · D-15 dispatch session (pre-flight GO recorded in HANDOFF §5 BEFORE implementation).
+- Status: **DONE** — all three dispatch done criteria satisfied; evidence below.
+- What shipped (all in `packages/llm-adapter`, the Tech Stack §10 LLM layer — no layout change):
+  1. **Prompt spec per view** — `src/prompts/views.ts`: views 1–7 carry the canonical ROLE/TASK/OUTPUT
+     SCHEMA/rules text (pinned to Analysis Prompts §2–§8, provenance per spec) + each view's home/chef
+     mode focus from the Recipe_Systems §7 table; views 8/9 marked `kind: 'deterministic'` (Deterministic
+     Views doc) — no prompt invented (D-15C). `buildViewPrompt(view, mode)` assembles the pair.
+  2. **Home/chef system prompts** — `src/prompts/system.ts`: the shared lens verbatim (Analysis Prompts
+     §1: six-tag vocabulary, 7 hard rules) + `HOME_MODE_OVERLAY` (explains) / `CHEF_MODE_OVERLAY`
+     (briefs — voice, required blanks, refusal) authored from Recipe_Systems §7 (D-15D).
+     `systemPromptFor(mode)` = shared + overlay; per-view mode focus injected into the user prompt.
+  3. **Validation + QG4 trigger** — `src/prompts/validate.ts`: `parseViewOutput(view, raw)` =
+     `VIEW_SCHEMAS[n].safeParse` (frozen, strict) — THE single gate D-16/D-17's regenerate path keys
+     off; malformed output → `{ ok: false, errors }`, never published (D-15E).
+  4. **prompt_version** — `src/prompts/version.ts`: `PROMPT_VERSION = 'v2'` (the canonical
+     Analysis_Prompts.md version, D-15B) + provenance. The `analysis.prompt_version` write is D-17's
+     (worker owns analysis_* writes — INV-03); D-15 exposes the pin (D-15G).
+  5. **Adapter seam** — `src/index.ts`: `LlmAdapter.generate({ view, mode, recipe_snapshot,
+     prompt_version, model_version })` + `MockLlmAdapter` (fixture-driven, zero network, deterministic,
+     throws on unregistered keys — never invents) + `generateValidated` (generate→parse). No provider
+     pinned, no credentials (Q9 stays OPEN); `recipe_snapshot` stays `unknown` at the seam (Q1 OPEN —
+     D-17 builds to the labeled assumption) (D-15F/H).
+  6. **Packaging (D-15L)** — `packages/schemas/package.json` main/types now point at `dist/` (the
+     package already had a tsc build + dist output; src/index.ts remains the canonical SOURCE surface
+     per SCHEMA_FREEZE). Mirrors the database package's dist-main + jest-src pattern. No schema/contract
+     change — the freeze record is untouched.
+- Non-changes (intentional): no identification/station-card prompts (P3-4/D-18 scope, D-15J); no
+  worker/enqueue code; no regenerate LOOP (D-16/D-17); no provider; no analysis_* writes; no schema
+  edits; Q1/Q9 not resolved.
+- Evidence:
+  - llm-adapter unit **52/52** (4 suites): schema-conformance suite with HAND-CHECKED instance
+    documents — 7 valid + 7 malformed LLM-view instances run through `parseViewOutput` against the
+    frozen schemas (A-15 BLOCKER cell, run not read); deterministic 8/9 through the same gate;
+    full hand-checked AnalysisEnvelope (all nine views, both modes) parses;
+  - reproducibility proven: same `PROMPT_VERSION` + same mock + same input → byte-identical output,
+    run twice (A-15 MAJOR contract); mode separation: home vs chef prompts differ AND mode-scoped
+    fixtures differ on the same recipe;
+  - QG4 cell: malformed model output rejected end-to-end through `generateValidated`;
+  - Q9 hygiene asserted: no provider name/key/endpoint anywhere in the seam;
+  - workspace unit + lint + typecheck green; regression gates PASS; `verify-local` exit 0 (D-15 run);
+  - live-stack: not applicable (no HTTP surface — the seam runs inside the future worker; recorded
+    honestly per D-15K).
+- Failures & recovery (HANDOFF §5): jest moduleNameMapper path miscount (one `../` short) → fixed;
+  test-compile issues (wrong relative import, zod `_output` type misuse) → fixed; VALID_VIEW_9
+  fixture initially missed `tightening_factors`/`disclaimer` and carried an invented `notes` key —
+  corrected to the frozen schema (the .strict() schemas caught it — the gate works); two test regexes
+  didn't account for template line-wrapping/case → fixed.
+- Resume point: **D-16 (P3-2 grounding validator) — WAITING for explicit user authorization.**
+  D-15's seam + `parseViewOutput` are D-16's inputs. D-11/Q10 remain deferred.
+
+### H-16 — D-16 Grounding validator
+
+- BASE_SHA / COMMIT_SHA: **BASE `46fd99f` · COMMIT `1c2741f`** (full `1c2741f7ec94d7633f76986ca6bd5579178523c8`) — D-16 checkpoint pushed to `github.com/mohamedazzim/recipe-systems` branch `main` (2026-09-09, owner-authorized; parent verified `46fd99f`).
+- Date / agent session: 2026-09-09 · D-16 dispatch session (pre-flight GO recorded in HANDOFF §5 BEFORE implementation).
+- Status: **DONE** — all three dispatch done criteria satisfied; evidence below.
+- What shipped (all in `packages/llm-adapter/src/grounding/` + pipeline wiring in `src/index.ts`):
+  1. **Grounding validator (ADR §6, INV-10)** — `validateViewGrounding(view, payload, captured)` +
+     `validateClaimGrounding(claim, captured)` + `validateClaimsGrounding(claims, captured)`.
+     Mechanical reference vocabulary (D-16C): captured ingredient ids, per-line name tokens
+     (display_name/canonical_name/confirmed_sense), method-step ids, `explicitly_absent` list.
+     Checks: structured `ingredient_id`/`ingredient_ids`/`source_ingredient_ids` references in
+     views 1/2/4 must resolve to captured ids; absent-channel scan — any mention of an
+     `explicitly_absent` item inside a view payload or a non-ABSENT claim fails; claim rules —
+     CARD/METHOD cite a captured id AND the text carries the cited line's name token (reworded-capture
+     catch), ABSENT-for-captured = MAJOR, INFERRED cites a named pattern, UNKNOWN/ASSUMED have no
+     positive-reference channel.
+  2. **ABSENT rule** — non-captured items valid ONLY via tag ABSENT or the captured
+     `explicitly_absent` list (SCAFFOLD §6 no-invention; Recipe_Systems §3.1).
+  3. **Regenerate-once (A-16)** — `groundingAttempt(attempt, violations)`: attempt 1 → `regenerate`
+     + correction instruction (formatted for re-prompt); attempt 2 → `incomplete`; attempt ≥3
+     THROWS (third silent attempt = BLOCKER). The worker's loop is D-17's; D-16 provides the decision.
+  4. **Choke point (deliverable 3)** — `generateGrounded(adapter, request, captured)` =
+     generate → parseViewOutput (schema) → grounding verdict; the single entry the worker uses.
+     Malformed output is rejected before grounding (schema first).
+- Scope boundaries (intentional, recorded): captured state = the frozen StructuredRecipeInput as a
+  PARAMETER (Q1 stays OPEN — no persistence model invented); no provider (Q9 OPEN); no worker
+  plumbing; no analysis_* writes; view 5's regional-contrast text has no structured ids (only the
+  absent-channel scan applies; human-gated G2); unknown-word detection beyond the captured
+  vocabulary is not built (no canonical lexicon — dictionary = Q5/Track R).
+- Evidence:
+  - llm-adapter unit **89/89** (5 suites; +37 grounding tests): grounded output passes; plants —
+    invented ingredient id, reworded id, garlic/ginger smuggled into view payloads (absent channel),
+    invented ingredient in a CARD claim, reworded capture (text never names the cited line),
+    ABSENT-for-captured MAJOR — every plant caught; sanctioned ABSENT claims pass; regenerate-once
+    semantics incl. third-attempt throw; choke-point chain (valid → green, planted → fails at
+    grounding, malformed → rejected before grounding);
+  - golden-fixture integration (new `tests/integration/story_d16_golden_grounding.test.ts`,
+    real `golden_kanyakumari_card.json`) **6/6**: captured vocabulary resolves all card lines;
+    hand-checked golden claims (fish, fenugreek powder/seeds as distinct, garlic/ginger ABSENT) all
+    green; both fenugreek lines structurally distinct; garlic-positive, ginger-in-view-8, and
+    invented-id plants all caught — DISPATCH done criterion 1;
+  - workspace unit/lint/typecheck green; regression gates PASS (existing one-writer + golden-check
+    gates cover the static surface — D-16K: no new static gate); `verify-local` exit 0 (D-16 run);
+  - live-stack: not applicable (pure function — no HTTP surface introduced).
+- Failures & recovery (HANDOFF §5): missing `source_ingredient_ids` in the reference collector
+  (view-2 pillar plant slipped through) → added; refactor dropped single-string `ingredient_id`
+  handling → restored string+array handling; `ViewPayload`/`GroundingVerdict` import-path errors →
+  fixed; test-fixture issues (CAPTURED lacked fixture ids; reworded-capture text still contained the
+  captured token; a "malformed" payload that actually parsed) → fixtures corrected — the validator
+  itself held.
+- Resume point: **D-17 (P3-3 analysis worker) — WAITING for explicit user authorization.** D-17's
+  documented inputs are all in place: D-15 pipeline + mock, D-16 grounding + regenerate-once.
+  D-11/Q10 remain deferred.
+
+### H-17 — D-17 Analysis worker
+
+**Status: DONE** (done criteria 1–4 pass; evidence below is real execution output).
+
+- Sources: DISPATCH D-17; BUILD_PLAN P3-3; ADR §5/§6/§14; Tech Stack §9/§13; A-17; frozen
+  D-05 schemas. Pre-flight GO recorded in §5 before any code.
+- **Q1 gate result: GO with a LABELED working assumption** — DISPATCH D-17 deliverable 2
+  explicitly permits the worker/job-payload captured-state approach while Q1 is OPEN
+  (BUILD_PLAN §7.2 formal decision due week 5/P7). `recipe_snapshot` stays `unknown`.
+- Implementation (one-writer preserved — A-17):
+  - API `apps/api/src/modules/analysis/`: `POST /recipes/:recipeId/analyse` (RS-US-13) — GuestOrJwt
+    + CSRF → ownership → **D-14 gate via `getEnqueueState`** (409 `ENQUEUE_BLOCKED` + blockers) →
+    422 `METHOD_REQUIRED` (list_only, API §5) → pg-boss send with the Q1 job payload
+    (`{recipe_id, mode, prompt_version, captured:{structured_recipe}}`, pre-generated analysis UUID)
+    → **200** `{analysis_id, status:'queued', prompt_version}`. `GET /analysis/:id` (read-only;
+    UUID guard → clean 404; INV-17 ownership) + SSE `GET /analysis/:id/events` (snapshot replay on
+    connect, NOTIFY-driven pushes; connect-before-materialization streams from `queued` — signal-only).
+    Queue + events services degrade gracefully (QG4 posture). NO analysis_* writes in the API.
+  - Worker `apps/analysis-worker/`: `AnalysisJobHandler` — idempotent upsert, NOTIFY on every
+    transition, views 1–7 through the **D-16 `generateGrounded` choke point with regenerate-once**
+    (attempt-2 failure → view INCOMPLETE with payload `{}` — ungrounded output never published);
+    views 8/9 persist INCOMPLETE (deterministic producers = D-18); `finalize()` flips `is_current`
+    others-off-first in one transaction (INV-09, partial-unique safe); duplicate delivery after
+    completion short-circuits (INV-11); ProviderPending (Q9) → `failed`, job completes without
+    throw (no pointless retries, ADR §14); transient → `failed` + throw (pg-boss retry, Q13-labeled
+    3/2s/backoff pilot defaults). Boot sweep: stale `generating` → failed (P3 exit). Model pin =
+    labeled `stub-no-provider-q9`; adapter resolution = `ANALYSIS_LLM_STUB` env (fixture adapter) or
+    the labeled pending adapter — **Q9 untouched**.
+  - Migration `003_analysis_view_upsert_unique`: Prisma `@@unique` declaration for the existing
+    `uq_analysis_view` (002) — metadata alignment for idempotent upserts; `IF NOT EXISTS` no-op
+    on existing DBs. No new columns/constraints.
+  - pg-boss pinned **v10.4.2** (CJS; v12 is ESM-only and incompatible with this stack).
+- Failures & recovery (all recorded, all fixed):
+  1. pg-boss v10.4 delivers a BATCH (array) to work handlers — single-job callback threw on
+     `data.analysis_id` of undefined → silent worker + jobs failed after 3 retries. Repro script
+     proved it; callback now iterates the batch.
+  2. POST analyse defaulted 201 → `@HttpCode(200)` (the ACK is not a resource creation).
+  3. Non-UUID analysisId → Prisma P2023 500 → UUID format guard → clean 404 (live-check catch).
+  4. SSE connect racing the worker (row not yet materialized) → stream from `queued` (INV-16
+     signal-only channel; content never flows).
+  5. CI-only typecheck failure (D-15 schemas dist-main never built before typecheck; runs 13/14
+     red) → fixed `ci.yml` + `verify-local.sh` (schemas build step) in commit `1140ef4`; run
+     34343407523 green. See §5 pre-flight trace.
+- Evidence:
+  - Unit: worker 9/9; API 139/139; llm-adapter 89/89 (unchanged).
+  - Integration `tests/integration/story_d17_worker_loop.test.ts` 4/4 (real Postgres + pg-boss,
+    dedicated per-run queue): complete loop (9 views, 7 COMPLETE, one current, v2, model pin),
+    provider-pending → failed-not-stuck, INV-09 single-current flip, stale-sweep.
+  - Live stack (real Keycloak OIDC + real worker process): **15/15** — anonymous 403, parse →
+    422 METHOD_REQUIRED → analyse 200 queued → complete (9 views, v2, stub-no-provider-q9,
+    is_latest) → re-analysis flips current → foreign 404 → SSE snapshot replay. SSE live-push
+    check: `snapshot:queued → status:generating → status:complete` (INV-16 push half).
+  - verify-local exit 0 ALL STEPS PASSED; regression gates PASS; lint/typecheck clean.
+    Playwright remains environment-blocked (policy); HTTP verification never misrepresented.
+- OPEN after D-17: Q1 (job-payload assumption is labeled/temporary), Q5, Q9, Q10/D-11, Q13 (P7
+  revalidation). Resume point: **D-18 (Views 1–4 + home mode) — awaiting explicit dispatch.**
+
+### H-18 — D-18 Views 1–4 + home mode
+
+☐ No entry yet.
+
+### H-19 — D-19 Views 5–9
+
+☐ No entry yet.
+
+### H-20 — D-20 Chef mode + station card
+
+☐ No entry yet.
+
+### H-21 — D-21 Disclaimer sweep
+
+☐ No entry yet.
+
+### H-22 — D-22 Library save / browse / delete
+
+☐ No entry yet.
+
+### H-23 — D-23 Print list + station card
+
+☐ No entry yet.
+
+### H-24 — D-24 Cook loop
+
+☐ No entry yet.
+
+### H-25 — D-25 Aliases, tags, edit + re-analyse
+
+☐ No entry yet.
+
+### H-26 — D-26 Profiles, swaps, next-time, I3/I4
+
+☐ No entry yet.
+
+### H-27 — D-27 Regional veto + retention/ops
+
+☐ No entry yet.
+
+### H-28 — D-28 Week-12 pilot gate
+
+☐ No entry yet.
+
+### H-29 — D-29 Track R reference data
+
+☐ No entry yet.
+
+### H-30 — D-30 Track S shopping data
+
+☐ No entry yet.
+
+### H-31 — D-31 Could-have tail (E6, F5, I5 — conditional per §13)
+
+☐ No entry yet. (Dispatch is conditional: entry must record the week 9–10 Must-stability evidence before any work.)
+
+
+- 2026-09-09 — **D-17 EXECUTION (post pre-flight GO; H-17 filled)**: implemented per the recorded
+  plan. Implementation findings and decisions:
+  - **pg-boss pinned v10.4.2** (CJS line; v12 is ESM-only — `"type":"module"` — and breaks
+    ts-jest/ts-node/tsc for this CJS stack; downgrade recorded before implementation).
+  - **pg-boss v10.4 batch delivery**: work handlers receive an ARRAY of jobs. The first worker
+    build read `job.data` off the array → `data.analysis_id` threw inside the callback → pg-boss
+    retried 3× → jobs failed with a silent worker (no logs beyond boot). Root-caused with a minimal
+    repro (pgboss-debug.js: `DEBUG JOB = [{id,name,data}]`, keys `['0']`); fixed by iterating the
+    batch. The integration suite's `boss.fetch`+`complete` was unaffected (fetch returns wrappers)
+    — this was a live-worker-only failure, caught by live-stack verification.
+  - **API analysis module never writes analysis_*** (A-17 one-writer): the enqueue ACK carries the
+    pre-generated UUID; the row materializes at worker delivery. POST returns 200 via @HttpCode
+    (default 201 was wrong — the ACK is not a resource creation).
+  - **Non-UUID analysisId → P2023 → 500** (found by live check): UUID format guard now throws 404
+    before any Prisma call, on GET and SSE alike.
+  - **SSE connect racing the worker**: row-not-yet-materialized connects now stream from `queued`
+    (INV-16 signal-only — content never flows on this channel), instead of 404ing the connect.
+  - **Q1 payload in code**: the API's capture builder ships `{structured_recipe}` built from recipe
+    + active lines + method state in the job payload — the DISPATCH-permitted labeled assumption;
+    `recipe_snapshot` stays `unknown`; BUILD_PLAN §7.2 formal decision still owed (week 5/P7).
+  - **Q9 in code**: worker adapter = `ANALYSIS_LLM_STUB` env (fixture adapter, dev/demo) or the
+    labeled pending adapter; `analysis.model_version` = `stub-no-provider-q9`. No provider code.
+  - **Migration 003**: Prisma `@@unique([analysisId, viewNumber], map: "uq_analysis_view")` — the
+    DB constraint already exists (002); metadata alignment for idempotent upserts (ADR §14),
+    `CREATE UNIQUE INDEX IF NOT EXISTS` = no-op on existing DBs.
+  - **Integration-test queue hygiene**: `story_d17_worker_loop.test.ts` uses a dedicated per-run
+    queue (analysis_it_<ts>_<rand>) so test fetch/complete never touches the live `analysis` queue
+    (the first version abandoned fetched-but-unused jobs in `active` state — fixed, and the
+    orphaned pgboss rows were deleted).
+  - Tests/gates: worker unit 9/9; API unit 139/139 (analysis service 5/5 added); integration 4/4;
+    live stack 15/15 + SSE live-push (snapshot:queued → status:generating → status:complete);
+    regression gates PASS; lint/typecheck clean; verify-local exit 0 ALL STEPS PASSED.
+  - Intentional non-changes: D-14 logic not duplicated (gate consumed as-is); D-16 grounding not
+    re-implemented (generateGrounded consumed as the choke point); no D-18 view content (views 8/9
+    INCOMPLETE); no Q9/Q1/Q5/Q10/Q13 resolution; no UI changes.
+  - Git: feature `307d5a5` (307d5a5312b6dd0c89b4a4e5933288e6237e382f); CI fixes
+    `221b1ac` (llm-adapter build before typecheck — CI-only: dist missing on fresh checkout) and
+    `247b26b` (worker bootstrap test fully mocked — CI-only: DATABASE_URL set in CI made the old
+    test open a real pg-boss connection and hang the unit step); pushed to main; remote SHA
+    verified; tree clean. CI chain: run 34350615469 failed → 34352075690 failed →
+    **34353922712 success**.
+  - Resume point: **D-18 (Views 1–4 + home mode) — awaiting explicit dispatch.**

@@ -522,8 +522,60 @@ execution output; Git: not available / not authorized throughout.
   generation, no OCR (Q10 stays untouched).
   **STOP conditions:** any need to write `recipe_ingredient_line` (Q4) or `analysis_claim`/P3 tables
   or to alter schema → STOP and report. Dependencies: D-12 ✅ (recipe + corrected lines exist).
+- 2026-09-09 — **D-14 PRE-FLIGHT (recorded BEFORE implementation; verdict GO)**: authorized by user.
+  **Starting state:** D-10 ✅, D-11 ⏸ (Q10 OPEN), D-12 🟡 text scope, D-13 ✅ (364d58b + 6146752 pushed),
+  Q4 ✅, tree clean. **Canonical requirements verified:** DISPATCH D-14 (INV-05 enqueue guard; "Depends
+  on: D-11" = the photo-path golden scenario only — the GATE itself is channel-agnostic, reads
+  `needs_review` on active lines; text scope authorized by user, same pattern as D-12), ADR invariant
+  table INV-05 ("Active needs_review lines block Analysis enqueue"), ADR §1 ownership ("Intake owns
+  recipe_input and recipe_ingredient_line writes — the complete draft-line lifecycle … up to the
+  analysis enqueue gate (INV-03, INV-05, INV-07)"), Epic-B boundary ("analysis is blocked while any
+  active line has needs_review = TRUE (INV-05)"), BUILD_PLAN P2-5 + exit ("analysis refuses to enqueue
+  until review is clean"), A-14 (INV-05 BLOCKER via every route; single source of truth = the canonical
+  flag — shadow state = MAJOR; golden path photo→flagged→blocked→clean→enqueuable; completeness check
+  SHARED with P3, duplicate implementations = MAJOR). API doc: no enqueue/readiness route exists and no
+  block error code is specified (analyse = P3, RS-US-13; 422 METHOD_REQUIRED is the only analyse error)
+  — D-14 adds NO new endpoint. **Existing code:** `listDraftLines` already defines ACTIVE =
+  `deletedAt IS NULL`; `needs_review` is set false for text lines at parse and can become true ONLY via
+  D-11 OCR flagging or merge-OR; no wire field exposes it; no public path clears it (LinePatch has no
+  needs_review field).
+  **Decisions (D-14A…H):** A) gate lives in IntakeService as a READ-ONLY `getEnqueueState(actor,
+  recipeId)` → `{ canEnqueue: boolean, blockers: [{ lineId, displayName }] }` — the single shared check
+  (A-14): P3's analyse must call THIS method (deliverable 2); assertOwned INV-17 404 inside.
+  B) user-facing surface = `GET /recipes/:id/parse-preview` gains `enqueue: { can_enqueue, blockers }`
+  (additive; "the user sees what blocks them, line by line" via the existing review surface; no new
+  endpoint — API doc defines none). C) "clearing the last flagged line" (done criterion) needs a public
+  path: review PATCH gains `needs_review: false` (zod `z.literal(false)` — clients can NEVER set true;
+  OCR/D-11 owns true; no auto-clear: explicit user confirmation only, never tied to other edits).
+  D) soft-deleted lines are inactive (`deletedAt IS NULL` = active, the existing listDraftLines
+  definition) — deleted flagged lines never block. E) no writes anywhere in the gate (Q4 preserved);
+  split/merge flag inheritance untouched. F) refusal wiring = P3 (no enqueue path exists yet — D-14
+  proves the check; the analyse 409/422 contract is P3's). G) no new schema columns; `needs_review`
+  exists since migration 002. H) new static regression gate: shadow enqueue-readiness STATE
+  (`enqueue_ready|analysis_ready|review_complete|can_enqueue|ready_for_analysis`) in .prisma/.sql only
+  (persisted drift risk, A-14) — wire names in .ts are derived, not state; qg2 plant-proofs added.
+  **STOP conditions:** any write to lines from a new module, schema change, or P3 code → STOP.
+  Dependencies: D-11 only for the photo golden scenario (recorded as text-scope limitation in H-14).
+- 2026-09-09 — **D-14 EXECUTION (post-implementation; H-14 filled)**: implemented per pre-flight —
+  `IntakeService.getEnqueueState` (read-only, canonical flag only, active = deletedAt IS NULL) +
+  `parse-preview` gains `enqueue` (D-14B) + review PATCH gains `needs_review: false` (literal-false
+  zod; true → 400; explicit user confirmation only, never auto-cleared — D-14C) + new static gate for
+  shadow enqueue-readiness STATE in .prisma/.sql (A-14 drift MAJOR) with qg2 plant proofs.
+  Files: `apps/api/src/modules/intake/intake.{service,controller}.ts` + `intake.service.test.ts`
+  (modified), `tests/integration/inv05_enqueue_gate.test.ts` (new, 6/6), `tests/integration/
+  qg2_gates.test.ts` (+2 plants), `tests/e2e/enqueue-gate.spec.ts` (new, env-blocked),
+  `scripts/regression-gates.sh` (new gate). **Failures & recovery:** (1) wire leaked camelCase
+  `canEnqueue` — canonical wire = snake_case (D-13 MethodState convention) → renamed EnqueueState to
+  the wire shape, unit/integration assertions converted. (2) an over-broad replace_all renamed
+  service-internal camelCase identifiers inside intake.service.test.ts (model fields, LinePatch args)
+  — reverted surgically: model/LinePatch stay camelCase, ONLY wire assertions snake_case; two wire
+  assertions (toWireLine expected object + `wire.display_name`) restored. **Evidence:** API unit
+  134/134, integration 62/62, gates PASS (new gate armed), lint/typecheck clean, verify-local exit 0,
+  live-stack 8/8 (clean → DB-planted flag → blocked named → set-true 400 → review clear → unblocked
+  immediately). Intentional non-changes per pre-flight F/G/E. **Resume point:** D-15 (P3-1) or
+  D-11/Q10 when OCR re-opens — WAITING for explicit user authorization.
 - 2026-09-09 — **D-13 EXECUTION (post-implementation; H-13 filled)**: implemented per pre-flight —
-  `RecipeService.attachMethod` + `toMethodState`, new `RecipesController` (`PATCH /recipes/:id/method`,
+   `RecipeService.attachMethod` + `toMethodState`, new `RecipesController` (`PATCH /recipes/:id/method`,
   JwtAuthGuard+CsrfGuard, zod boundary validation: source-less INFERRED → 400 INVALID_METHOD), recipes
   module registers the controller. Files: `apps/api/src/modules/recipes/{recipe.service,recipes.controller,
   recipes.module}.ts` (modified/new), unit tests +5, `tests/integration/story_b4_method_attach.test.ts`
@@ -983,7 +1035,51 @@ execution output; Git: not available / not authorized throughout.
 
 ### H-14 — D-14 needs_review enqueue gate
 
-☐ No entry yet.
+- BASE_SHA / COMMIT_SHA: **BASE `6146752` · COMMIT `(filled at D-14 completion commit)`**
+- Date / agent session: 2026-09-09 · D-14 dispatch session (pre-flight GO recorded in HANDOFF §5 BEFORE implementation).
+- Status: **DONE (text scope; photo golden scenario gated on D-11 — evidence below)**.
+- What shipped:
+  1. **Enqueue guard (INV-05)** — `IntakeService.getEnqueueState(actor, recipeId)` → wire
+     `{ can_enqueue: boolean, blockers: [{ line_id, display_name }] }`. Read-only; reads the canonical
+     `needs_review` flag only (no shadow state — A-14); ACTIVE = `deleted_at IS NULL` (soft-deleted
+     flagged lines never block); `assertOwned` inside (INV-17 404). THE single implementation P3's
+     enqueue must reuse (A-14: duplicates = MAJOR) — D-14F: the actual refusal wiring is P3's
+     (no enqueue path exists yet); the guard is the shared check.
+  2. **User-visible blockers** — `GET /recipes/:id/parse-preview` now carries
+     `enqueue: { can_enqueue, blockers }` (D-14B, additive — no new endpoint; the API doc defines
+     none). The UI sees what blocks, line by line.
+  3. **Clearing path (done criterion)** — review PATCH gains `needs_review: false`
+     (zod `z.literal(false)`: clients can never SET the flag — `needs_review: true` → 400
+     `INVALID_LINE_EDIT`; OCR/D-11 owns true; clearing is an explicit user confirmation only —
+     ordinary edits never touch the flag, no auto-clear). Clearing the last flagged line unblocks
+     immediately (proven at service + integration + live-HTTP level).
+  4. **Shadow-state gate** — new static regression gate: persisted enqueue-readiness names
+     (`enqueue_ready|analysis_ready|review_complete|can_enqueue|ready_for_analysis`) in .prisma/.sql
+     fire the gate (A-14 drift MAJOR); qg2 plant-proofs added (schema + raw-SQL plants). Wire names in
+     .ts are derived, not state — deliberately out of gate scope.
+- Non-changes (intentional): no new endpoint, no schema change, no enqueue implementation (P3), no
+  D-11/OCR, no auto-clear, no new writer (Q4: the gate writes nothing — proven by test).
+- Evidence:
+  - API unit **134/134** (6 new D-14 tests: blocked/clean/soft-deleted-excluded/404/clear/no-auto-clear);
+  - integration (real Postgres) **62/62** — new `inv05_enqueue_gate.test.ts` 6/6 (file named by
+    invariant, not story ID — D-14 has no story; deviation recorded): clean enqueues; planted flag
+    (D-11 simulation) blocks named line by line; clearing via review unblocks immediately; soft-deleted
+    flag never blocks; foreign 404; gate writes nothing (byte-identical rows); qg2 +2 plant proofs;
+  - regression gates **PASS** (new INV-05 gate armed); lint + typecheck clean;
+  - `verify-local` exit 0 (D-14 run);
+  - live-stack HTTP (real OIDC → BFF → Postgres, DB-planted flag) **8/8 PASS**: clean can_enqueue;
+    flagged → blocked with line named; needs_review:true → 400; review clear → unblocked immediately;
+  - Playwright `tests/e2e/enqueue-gate.spec.ts` written (2 specs, env-blocked as documented).
+- Failures & recovery (HANDOFF §5): wire initially leaked camelCase (`canEnqueue`) — canonical wire
+  is snake_case (D-13 MethodState convention); renamed EnqueueState to wire shape; a reckless
+  replace_all in the unit test renamed service-internal camelCase identifiers — reverted surgically
+  (model fields/LinePatch stay camelCase; only wire assertions snake_case).
+- Text-scope limitation: text lines are born `needs_review=false`; flags are planted at DB level in
+  tests exactly as D-11 OCR will produce them. The photo golden scenario (photograph → flagged →
+  blocked → review → enqueuable) completes when D-11 lands; the gate is channel-agnostic.
+- Resume point: **D-15 (P3-1 prompt specs) or D-11/Q10 when OCR re-opens — WAITING for explicit user
+  authorization. P2 remaining blockers: D-11 ⏸ (Q10 OPEN — needs real card corpus + provider creds);
+  D-12 photo-path criteria pending D-11.**
 
 ### H-15 — D-15 Prompt specs + prompt_version
 

@@ -426,6 +426,7 @@ describe('IntakeService — D-12 parse review (text scope)', () => {
     ]);
     const clean = await svc.parsePreview(userActor, 'r1');
     expect(clean.status).toBe('confirmed');
+    expect(clean.enqueue).toEqual({ can_enqueue: true, blockers: [] }); // D-14B
 
     prisma.recipeIngredientLine.findMany.mockResolvedValue([
       mockLine({ id: 'l1', needsReview: false }),
@@ -433,5 +434,84 @@ describe('IntakeService — D-12 parse review (text scope)', () => {
     ]);
     const flagged = await svc.parsePreview(userActor, 'r1');
     expect(flagged.status).toBe('draft');
+    expect(flagged.enqueue.can_enqueue).toBe(false);
+    expect(flagged.enqueue.blockers).toHaveLength(1);
+    expect(flagged.enqueue.blockers[0].line_id).toBe('l2');
+  });
+});
+
+describe('IntakeService — D-14 needs_review enqueue gate (INV-05)', () => {
+  it('getEnqueueState: clean active lines → can_enqueue true, no blockers', async () => {
+    const { prisma, recipes } = mockPrisma();
+    prisma.recipeIngredientLine.findMany.mockResolvedValue([
+      mockLine({ id: 'l1', needsReview: false }),
+      mockLine({ id: 'l2', needsReview: false }),
+    ]);
+    const svc = new IntakeService(prisma, recipes);
+    await expect(svc.getEnqueueState(userActor, 'r1')).resolves.toEqual({
+      can_enqueue: true,
+      blockers: [],
+    });
+  });
+
+  it('getEnqueueState: any active needs_review line blocks, named line by line', async () => {
+    const { prisma, recipes } = mockPrisma();
+    prisma.recipeIngredientLine.findMany.mockResolvedValue([
+      mockLine({ id: 'l1', displayName: 'Fish — 500g', needsReview: false }),
+      mockLine({ id: 'l2', displayName: 'Chilli — 5 Nos', needsReview: true }),
+      mockLine({ id: 'l3', displayName: 'Tamarind — A Lemon Size', needsReview: true }),
+    ]);
+    const svc = new IntakeService(prisma, recipes);
+    const state = await svc.getEnqueueState(userActor, 'r1');
+    expect(state.can_enqueue).toBe(false);
+    expect(state.blockers).toEqual([
+      { line_id: 'l2', display_name: 'Chilli — 5 Nos' },
+      { line_id: 'l3', display_name: 'Tamarind — A Lemon Size' },
+    ]);
+  });
+
+  it('getEnqueueState: reads the canonical flag only — soft-deleted flagged lines never block', async () => {
+    // listDraftLines filters deletedAt: null, so a soft-deleted flagged row never
+    // reaches the gate (active = non-deleted, D-14D).
+    const { prisma, recipes } = mockPrisma();
+    prisma.recipeIngredientLine.findMany.mockResolvedValue([
+      mockLine({ id: 'l1', needsReview: false }),
+    ]);
+    const svc = new IntakeService(prisma, recipes);
+    const state = await svc.getEnqueueState(userActor, 'r1');
+    expect(state.can_enqueue).toBe(true);
+    expect(state.blockers).toEqual([]);
+  });
+
+  it('getEnqueueState: foreign/missing recipe → 404 (INV-17 enforced inside the gate)', async () => {
+    const { prisma, recipes } = mockPrisma({
+      assertOwned: jest.fn().mockRejectedValue(new NotFoundException({ code: 'RECIPE_NOT_FOUND' })),
+    });
+    const svc = new IntakeService(prisma, recipes);
+    await expect(svc.getEnqueueState(userActor, 'r1')).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('updateLine: needsReview=false clears the flag (the only path — D-14C)', async () => {
+    const { prisma, recipes } = mockPrisma();
+    const line = mockLine({ id: 'l1', needsReview: true, updatedAt: new Date('2026-09-09T10:00:00Z') });
+    prisma.recipeIngredientLine.findFirst.mockResolvedValue(line);
+    prisma.recipeIngredientLine.update.mockResolvedValue({ ...line, needsReview: false });
+    const svc = new IntakeService(prisma, recipes);
+    await svc.updateLine(userActor, 'r1', 'l1', { needsReview: false }, line.updatedAt.toISOString());
+    expect(prisma.recipeIngredientLine.update).toHaveBeenCalledWith({
+      where: { id: 'l1' },
+      data: expect.objectContaining({ needsReview: false }),
+    });
+  });
+
+  it('updateLine: ordinary edits never touch needs_review (no auto-clear)', async () => {
+    const { prisma, recipes } = mockPrisma();
+    const line = mockLine({ id: 'l1', needsReview: true, updatedAt: new Date('2026-09-09T10:00:00Z') });
+    prisma.recipeIngredientLine.findFirst.mockResolvedValue(line);
+    prisma.recipeIngredientLine.update.mockResolvedValue(line);
+    const svc = new IntakeService(prisma, recipes);
+    await svc.updateLine(userActor, 'r1', 'l1', { displayName: 'renamed' }, line.updatedAt.toISOString());
+    const data = prisma.recipeIngredientLine.update.mock.calls[0][0].data;
+    expect(data.needsReview).toBeUndefined();
   });
 });

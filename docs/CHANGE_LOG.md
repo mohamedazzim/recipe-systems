@@ -20,6 +20,26 @@
 
 **Rule:** a change that alters any Q1–Q18 row must say so in its entry. The register (SCAFFOLD §7) is the single source of truth for open decisions; this log records the history of how the register changed. No Q-row changes in D-13.
 
+## 2026-09-09 — D-14 needs_review enqueue gate (P2-5)
+
+- Status: **DONE** (INV-05 guard shipped in text scope; photo golden scenario gated on D-11; H-14
+  filled with evidence).
+- Change: `IntakeService.getEnqueueState` (read-only, canonical `needs_review` flag only, active =
+  `deleted_at IS NULL`; INV-17 404 inside) — THE shared check P3's enqueue must reuse. Wire shape
+  `{ can_enqueue, blockers: [{ line_id, display_name }] }` (snake_case, D-13 convention).
+  `GET /recipes/:id/parse-preview` + `enqueue` field (additive; no new endpoint — API doc defines
+  none). Review PATCH + `needs_review: false` (literal false; `true` → 400 INVALID_LINE_EDIT; OCR
+  owns true; no auto-clear). New static gate: shadow enqueue-readiness state in .prisma/.sql fires
+  (A-14 drift MAJOR) with qg2 plant proofs.
+- Tests: API unit 134/134 (+6), integration 62/62 (new `inv05_enqueue_gate.test.ts` 6/6; qg2 +2),
+  regression gates PASS (new gate armed), lint/typecheck clean, `verify-local` exit 0. Live-stack
+  HTTP 8/8 (DB-planted flag; review clear unblocks immediately). Playwright `enqueue-gate.spec.ts`
+  written — env-blocked as documented.
+- Decisions: D-14A..H (HANDOFF §5 pre-flight); SCAFFOLD register unchanged (no Q-row changes).
+- Commit(s): `(D-14 commit — filled after push)`
+- Resume point: D-15 (P3-1) or D-11/Q10 when OCR re-opens. P2 blockers: D-11 ⏸ (Q10 OPEN);
+  D-12 photo-path criteria pending D-11.
+
 ## 2026-09-09 — D-13 Method attach (P2-4)
 
 - Status: **DONE** (dispatch criteria 1–3 all satisfied; H-13 filled with evidence).

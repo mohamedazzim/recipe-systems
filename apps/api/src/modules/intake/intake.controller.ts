@@ -32,6 +32,8 @@ import { IMAGE_CONTENT_TYPES, ImageContentType, MAX_IMAGE_BYTES, StorageService 
 const parseTextSchema = z.object({ text: z.string().min(1) });
 
 // D-12 wire contract (API doc §3 PATCH body + D-12D expected_updated_at token)
+// D-14C: needs_review accepts literal `false` only — clearing a flag is an explicit
+// user confirmation; clients can never set needs_review (OCR/D-11 owns true).
 const patchLineSchema = z
   .object({
     display_name: z.string().min(1).max(255).optional(),
@@ -43,6 +45,7 @@ const patchLineSchema = z
     include_on_list: z.boolean().optional(),
     is_header: z.boolean().optional(),
     merge_with_next: z.boolean().optional(),
+    needs_review: z.literal(false).optional(),
     expected_updated_at: z.string().min(1),
   })
   .strict();
@@ -211,6 +214,7 @@ export class IntakeController {
     if (d.category !== undefined) patch.groupName = d.category;
     if (d.confirmed_sense !== undefined) patch.confirmedSense = d.confirmed_sense;
     if (d.include_on_list !== undefined) patch.includeOnList = d.include_on_list;
+    if (d.needs_review !== undefined) patch.needsReview = d.needs_review; // D-14C: literal false only
 
     const updated = await this.intake.updateLine(actor, recipeId, lineId, patch, d.expected_updated_at);
     return toWireLine(updated);

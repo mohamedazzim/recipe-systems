@@ -138,6 +138,19 @@ else
   fire "scripts/golden-check.js missing (D-03 deliverable)"
 fi
 
+# --- 6c. INV-05 single source of truth (A-14): no shadow enqueue-readiness STATE ----------------
+# Persisted-state scan only (.prisma columns + raw SQL): a parallel column/field that can drift
+# is a MAJOR (A-14). Wire-level derived names in .ts (e.g. can_enqueue in a response body) are
+# derived, not state — deliberately out of scope for this gate.
+echo "-- INV-05: no shadow enqueue-readiness state (needs_review is the only flag)"
+pat='(enqueue_ready|analysis_ready|review_complete|can_enqueue|ready_for_analysis)'
+hits=$(grep -rInE "$pat" "$SCAN/apps" "$SCAN/packages" --include="*.prisma" --include="*.sql" \
+  --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.next --exclude-dir=generated 2>/dev/null \
+  | grep -vE "packages/database/prisma/migrations/" || true)
+if [ -z "$hits" ]; then note "no shadow enqueue-readiness state in schema/SQL (INV-05, A-14)"; else
+  fire "shadow enqueue-readiness state (drift risk vs needs_review):"; echo "$hits"
+fi
+
 echo ""
 if [ "$FAIL" -ne 0 ]; then
   echo "RESULT: regression gates FAILED (see [gate:FIRE] lines above)"

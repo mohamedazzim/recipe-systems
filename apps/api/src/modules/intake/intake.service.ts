@@ -75,6 +75,18 @@ export interface LinePatch {
   groupName?: string | null; // wire "category"
   confirmedSense?: string | null;
   includeOnList?: boolean;
+  /** D-14C: explicit review confirmation. Literal `false` only — clients can never SET
+   *  needs_review (OCR/D-11 owns true); clearing is a deliberate user action, never
+   *  automatic and never implied by another edit (D-14: no auto-clear). */
+  needsReview?: false;
+}
+
+/** D-14A: the single enqueue-completeness check (A-14: P3's enqueue must reuse THIS —
+ *  no duplicate implementations). Read-only; the canonical flag only (no shadow state).
+ *  Field names are the WIRE shape (snake_case, same convention as D-13 MethodState). */
+export interface EnqueueState {
+  can_enqueue: boolean;
+  blockers: Array<{ line_id: string; display_name: string }>;
 }
 
 @Injectable()
@@ -203,6 +215,10 @@ export class IntakeService {
     };
     if (patch.amount !== undefined) {
       data.amount = patch.amount === null ? null : new Prisma.Decimal(patch.amount);
+    }
+    if (patch.needsReview === false) {
+      // D-14C: explicit user confirmation — the ONLY path that clears the flag.
+      data.needsReview = false;
     }
     return this.prisma.recipeIngredientLine.update({ where: { id: lineId }, data });
   }
@@ -358,12 +374,27 @@ export class IntakeService {
     return this.prisma.recipeIngredientLine.create({ data });
   }
 
-  /** B3 AC-6: the corrected object analysis will read + its review status (D-12G:
-   *  the canonical review flag is needs_review — INV-05; no new status column). */
-  async parsePreview(actor: Actor, recipeId: string): Promise<{ status: 'draft' | 'confirmed'; lines: WireLine[] }> {
+  /** D-14A / INV-05: the enqueue completeness check. ACTIVE = `deletedAt IS NULL`
+   *  (soft-deleted lines never block). Reads the canonical `needs_review` flag only —
+   *  no shadow state (A-14). Read-only; ownership enforced via assertOwned (INV-17). */
+  async getEnqueueState(actor: Actor, recipeId: string): Promise<EnqueueState> {
+    const lines = await this.listDraftLines(actor, recipeId);
+    const blockers = lines
+      .filter((l) => l.needsReview)
+      .map((l) => ({ line_id: l.id, display_name: l.displayName }));
+    return { can_enqueue: blockers.length === 0, blockers };
+  }
+
+  /** B3 AC-6: the corrected object analysis will read + review status (D-12G);
+   *  D-14B: + the shared enqueue state so the UI sees what blocks, line by line. */
+  async parsePreview(
+    actor: Actor,
+    recipeId: string,
+  ): Promise<{ status: 'draft' | 'confirmed'; lines: WireLine[]; enqueue: EnqueueState }> {
     const lines = await this.listDraftLines(actor, recipeId);
     const status = lines.some((l) => l.needsReview) ? 'draft' : 'confirmed';
-    return { status, lines: lines.map(toWireLine) };
+    const enqueue = await this.getEnqueueState(actor, recipeId);
+    return { status, lines: lines.map(toWireLine), enqueue };
   }
 
   /** Shift active line_nos strictly after `afterLineNo` by `delta` (+1/-1) against the

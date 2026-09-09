@@ -169,6 +169,33 @@ describe('QG2 static gates fire on real violations (D-01 criterion)', () => {
     }
   });
 
+  it('INV-05: a shadow readiness column in schema.prisma fires (A-14 drift MAJOR)', () => {
+    const s = makeScratch();
+    try {
+      s.write(
+        'packages/database/prisma/schema.prisma',
+        'model Recipe {\n  id String @id\n  review_complete Boolean @default(false)\n}\n',
+      );
+      const result = runGates(s.dir);
+      expect(result.exit).toBe(1);
+      expect(result.out).toContain('shadow enqueue-readiness state');
+    } finally {
+      s.cleanup();
+    }
+  });
+
+  it('INV-05: a shadow readiness column in raw SQL fires', () => {
+    const s = makeScratch();
+    try {
+      s.write('apps/api/scripts/patch.sql', 'ALTER TABLE recipe ADD COLUMN ready_for_analysis boolean;\n');
+      const result = runGates(s.dir);
+      expect(result.exit).toBe(1);
+      expect(result.out).toContain('shadow enqueue-readiness state');
+    } finally {
+      s.cleanup();
+    }
+  });
+
   it('the REAL repository tree still passes every gate (no accidental drift)', () => {
     const result = runGates(ROOT.replace(/\\/g, '/'));
     expect(result.exit).toBe(0);

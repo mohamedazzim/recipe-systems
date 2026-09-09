@@ -33,8 +33,14 @@
   build (mirrors the database-build precedent). EOL verified LF. No runtime/architecture change.
 - Tests proving the fix: clean-dist → build steps → workspace typecheck exit 0; full verify-local
   re-run exit 0 (see H-17 run evidence). CI re-verification: run for the fix commit (polled).
-- Commit(s): `307d5a5` (feature: `307d5a5312b6dd0c89b4a4e5933288e6237e382f`) + docs
-  SHA-record commit.
+- Commit(s): `307d5a5` (feature: `307d5a5312b6dd0c89b4a4e5933288e6237e382f`) +
+  `221b1ac` (CI fix 2: llm-adapter build before typecheck) + `247b26b` (CI fix 3:
+  worker bootstrap unit test fully mocked — in CI `DATABASE_URL` is set, so the
+  earlier version started a real pg-boss connection and hung the unit step) +
+  docs SHA-record commit. CI remediation chain: run 34350615469 failed (typecheck —
+  llm-adapter dist missing in CI) → `221b1ac` → run 34352075690 failed (unit tests —
+  real pg-boss connection from the bootstrap test) → `247b26b` → **run
+  34353922712 success**.
 
 ## 2026-09-09 — D-17 Analysis worker (P3-3) + CI fix
 

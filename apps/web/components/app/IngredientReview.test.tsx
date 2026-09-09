@@ -174,6 +174,18 @@ describe('IngredientReview (D-12 actions)', () => {
     expect((globalThis.fetch as jest.Mock).mock.calls.length).toBe(0);
   });
 
+  it('RECIPE_NOT_FOUND (cross-session recipe) shows the ownership state, not a raw error', async () => {
+    (globalThis.fetch as jest.Mock).mockResolvedValue({
+      ok: false,
+      status: 404,
+      json: async () => ({ error: { code: 'RECIPE_NOT_FOUND', message: 'Recipe not found' } }),
+    });
+    render(<IngredientReview {...props({ initialLines: null })} />);
+    expect(await screen.findByText('This recipe belongs to a different session')).toBeInTheDocument();
+    expect(screen.getByText(/created in a guest session/)).toBeInTheDocument();
+    expect(screen.queryByText('Loading ingredients...')).not.toBeInTheDocument();
+  });
+
   it('failed load shows the error with a retry instead of an endless spinner', async () => {
     (globalThis.fetch as jest.Mock).mockResolvedValue({
       ok: false,

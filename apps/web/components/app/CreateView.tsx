@@ -17,11 +17,13 @@ import { previewOf, recordSessionRecipe } from '@/lib/flow';
 
 export interface CreateViewProps {
   signedIn: boolean;
+  /** The current identity's accountId (null when guest). */
+  accountId: string | null;
   onBack: () => void;
   onParsed: (recipeId: string, lines: WireLine[]) => void;
 }
 
-export function CreateView({ signedIn, onBack, onParsed }: CreateViewProps) {
+export function CreateView({ signedIn, accountId, onBack, onParsed }: CreateViewProps) {
   const [text, setText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +37,8 @@ export function CreateView({ signedIn, onBack, onParsed }: CreateViewProps) {
         method: 'POST',
         body: JSON.stringify({ text }),
       });
-      recordSessionRecipe(result.recipe_id, previewOf(text));
+      recordSessionRecipe(result.recipe_id, previewOf(text),
+        signedIn && accountId ? { kind: 'user', accountId } : { kind: 'guest' });
       onParsed(result.recipe_id, result.recipe.lines);
     } catch (err) {
       if (err instanceof ApiError) {

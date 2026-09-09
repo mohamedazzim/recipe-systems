@@ -57,6 +57,9 @@ function emptyEditor(line: WireLine): EditorState {
 export function IngredientReview({ recipeId, signedIn, title, initialLines = null }: IngredientReviewProps) {
   const [lines, setLines] = useState<WireLine[] | null>(initialLines);
   const [error, setError] = useState<string | null>(null);
+  /** RECIPE_NOT_FOUND for a signed-in actor means a cross-session recipe
+   *  (INV-17: foreign recipes 404). Distinct copy, never a raw error. */
+  const [foreignRecipe, setForeignRecipe] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editor, setEditor] = useState<EditorState | null>(null);
@@ -65,11 +68,17 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
   const [splitPoint, setSplitPoint] = useState('');
 
   const refresh = useCallback(async (): Promise<void> => {
+    setForeignRecipe(false);
     try {
       const result = await api<{ items: WireLine[] }>(`/recipes/${recipeId}/lines`);
       setLines(result.items);
       setError(null);
     } catch (err) {
+      if (err instanceof ApiError && err.code === 'RECIPE_NOT_FOUND') {
+        setForeignRecipe(true);
+        setError(null);
+        return;
+      }
       setError(
         err instanceof ApiError
           ? err.message
@@ -248,6 +257,23 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
       setSaving(false);
     }
   };
+
+  if (foreignRecipe) {
+    return (
+      <section aria-labelledby="ingredients-heading">
+        <h2 id="ingredients-heading" className="font-display text-h2 text-ink">
+          Review your ingredients
+        </h2>
+        <div className="mt-4">
+          <Alert tone="info" title="This recipe belongs to a different session">
+            Recipes can only be opened by the identity that created them. This one was
+            {signedIn ? 'created in a guest session' : 'created under an account'}. Sign in
+            with that identity to open it, or create a new recipe here.
+          </Alert>
+        </div>
+      </section>
+    );
+  }
 
   if (lines === null) {
     if (error !== null) {

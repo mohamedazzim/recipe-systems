@@ -112,6 +112,7 @@ export default function Home() {
       {view.name === 'home' && (
         <HomeView
           signedIn={state.phase === 'signed-in'}
+          accountId={user?.id ?? null}
           onCreate={() => setView({ name: 'create' })}
           onOpenRecipe={(recipeId) => setView({ name: 'workspace', recipeId })}
           onSignUp={startSignup}
@@ -121,6 +122,7 @@ export default function Home() {
       {view.name === 'create' && (
         <CreateView
           signedIn={state.phase === 'signed-in'}
+          accountId={user?.id ?? null}
           onBack={() => setView({ name: 'home' })}
           onParsed={(recipeId, lines) => setView({ name: 'workspace', recipeId, initialLines: lines })}
         />

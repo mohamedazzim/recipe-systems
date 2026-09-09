@@ -9,11 +9,13 @@ import { ArrowRight, CookingPot } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Heading, Text } from '@/components/ui/Typography';
-import { listSessionRecipes } from '@/lib/flow';
+import { isOwnedBy, listSessionRecipes } from '@/lib/flow';
 import { GuestNotice } from '@/components/app/GuestNotice';
 
 export interface HomeViewProps {
   signedIn: boolean;
+  /** The current identity's owner tag (null = guest). */
+  accountId: string | null;
   onCreate: () => void;
   onOpenRecipe: (recipeId: string) => void;
   onSignUp: () => void;
@@ -22,6 +24,7 @@ export interface HomeViewProps {
 
 export function HomeView({
   signedIn,
+  accountId,
   onCreate,
   onOpenRecipe,
   onSignUp,
@@ -29,6 +32,9 @@ export function HomeView({
 }: HomeViewProps) {
   const [guestNoticeDismissed, setGuestNoticeDismissed] = useState(false);
   const recipes = listSessionRecipes();
+  const owner = signedIn && accountId ? { kind: 'user' as const, accountId } : { kind: 'guest' as const };
+  const mine = recipes.filter((r) => isOwnedBy(r, owner));
+  const others = recipes.filter((r) => !isOwnedBy(r, owner));
 
   return (
     <div>
@@ -76,7 +82,7 @@ export function HomeView({
           </div>
         ) : (
           <ul className="mt-6 divide-y divide-border rounded-lg border border-border bg-surface">
-            {recipes.map((recipe) => (
+            {mine.map((recipe) => (
               <li key={recipe.recipe_id}>
                 <button
                   type="button"
@@ -102,6 +108,27 @@ export function HomeView({
           </ul>
         )}
       </section>
+
+      {others.length > 0 && (
+        <section aria-labelledby="other-heading" className="mt-10">
+          <h2 id="other-heading" className="font-display text-h2 text-ink">
+            Other sessions
+          </h2>
+          <p className="mt-1 text-small text-muted">
+            These recipes belong to a different identity and cannot be opened here.
+          </p>
+          <ul className="mt-4 divide-y divide-border rounded-lg border border-border">
+            {others.map((recipe) => (
+              <li key={recipe.recipe_id} className="px-4 py-3 sm:px-5">
+                <p className="text-small font-semibold text-muted">{recipe.preview}</p>
+                <p className="mt-0.5 text-caption text-faint">
+                  {signedIn ? 'Created in a guest session.' : 'Created under an account.'}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {signedIn && (
         <section aria-labelledby="account-heading" className="mt-12 border-t border-border pt-8">

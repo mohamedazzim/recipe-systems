@@ -73,9 +73,13 @@ export interface AnalyseAck {
   prompt_version: string;
 }
 
-/** Client-side session record (localStorage): recipes created in this browser. */
+/** Client-side session record (localStorage): recipes created in this browser.
+ *  `owner` tags the creating identity so cross-session recipes are never
+ *  offered to the wrong actor (the backend correctly 404s foreign recipes). */
 export interface SessionRecipe {
   recipe_id: string;
   created_at: string;
   preview: string;
+  /** 'user:<accountId>' or 'guest'; absent on legacy records. */
+  owner?: string;
 }

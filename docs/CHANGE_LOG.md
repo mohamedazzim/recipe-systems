@@ -42,7 +42,20 @@
   real pg-boss connection from the bootstrap test) → `247b26b` → **run
   34353922712 success**.
 
-## 2026-09-09 — Product UI/UX build around the implemented backend
+## 2026-09-09 — Fix: authenticated ingredient retrieval (cross-session 404)
+
+- **Failure:** signed-in chef opened a guest-created recipe from the session list; GET /lines
+  correctly 404'd (INV-17 assertOwned) and the UI showed a raw load error. The authenticated
+  flow itself was never broken (fresh paste → lines 200 verified live).
+- **Fix (frontend only, canonical):** session records now carry the creating identity
+  (`SessionRecipe.owner`); HomeView splits "mine" (openable) from "Other sessions" (listed,
+  explained, never openable); IngredientReview maps RECIPE_NOT_FOUND to a dedicated
+  cross-session state. No backend change, no auth weakening, no new claim flow.
+- **Tests:** web 55/55 incl. `RecipeWorkspace.flow.test.tsx` (authenticated paste → workspace →
+  lines appear immediately + edits target the persisted id), owner-split + isOwnedBy tests
+  (legacy untagged records conservatively foreign), RECIPE_NOT_FOUND state test; guest no-fetch
+  regressions preserved. Live 8/8 (persisted-id match psql-verified, lines/edit/method/readiness/
+  analyse). verify-local exit 0.
 
 - **Frontend (apps/web):** real product flow replacing the bare guest/signed-in cards:
   `AppShell` + view state machine (home → create → workspace) in `app/page.tsx`; `HomeView`

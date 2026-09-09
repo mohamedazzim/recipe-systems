@@ -13,7 +13,7 @@ describe('CreateView (paste intake)', () => {
   });
 
   function props(overrides: Partial<Parameters<typeof CreateView>[0]> = {}) {
-    return { signedIn: true, onBack: jest.fn(), onParsed: jest.fn(), ...overrides };
+    return { signedIn: true, accountId: 'acc-1', onBack: jest.fn(), onParsed: jest.fn(), ...overrides };
   }
 
   it('photo capture is present but clearly disabled (coming soon)', () => {
@@ -40,6 +40,9 @@ describe('CreateView (paste intake)', () => {
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body as string)).toEqual({ text: 'Meen Kuzhambu' });
     expect(p.onParsed).toHaveBeenCalledWith('r42', []);
+    // the session record carries the creating identity (ownership regression)
+    const stored = JSON.parse(window.localStorage.getItem('rs.session.recipes') ?? '[]');
+    expect(stored[0].owner).toBe('user:acc-1');
   });
 
   it('shows the backend error message (no generic fallback)', async () => {
@@ -55,7 +58,7 @@ describe('CreateView (paste intake)', () => {
   });
 
   it('guest note is shown for guests, absent for signed-in', () => {
-    const { rerender } = render(<CreateView {...props({ signedIn: false })} />);
+    const { rerender } = render(<CreateView {...props({ signedIn: false, accountId: null })} />);
     expect(screen.getByText(/As a guest you can paste/)).toBeInTheDocument();
     rerender(<CreateView {...props({ signedIn: true })} />);
     expect(screen.queryByText(/As a guest you can paste/)).not.toBeInTheDocument();

@@ -1635,3 +1635,41 @@ execution output; Git: not available / not authorized throughout.
   to main; remote SHA verified; tree clean; CI run **34361814176 success**; stack restored
   (web/API/Keycloak 200, worker consuming). Next: D-18 (Views 1–4 + home mode) — awaiting
   explicit dispatch.
+
+
+- 2026-09-09 — **BUG FIX: authenticated ingredient retrieval ("Recipe not found" in the workspace)**
+  **Failure (user-reported, reproduced):** signed in as chef, the workspace title rendered but the
+  ingredient section showed "Could not load the ingredient lines / Recipe not found".
+  **Evidence (live trace, no code changed first):**
+  - Path A (fresh authenticated paste): POST /recipes/parse-text (chef) → 200,
+    recipe_id `aa7c2d44-...`; GET /recipes/:id/lines → 200 with real rows. The authenticated flow
+    itself was NEVER broken.
+  - Path B (reproduced exactly): a GUEST-created recipe (the user's earlier ground-beef paste was
+    guest-owned), then chef signs in in the same browser; GET /recipes/:id/lines on the guest-owned
+    id → 404 `RECIPE_NOT_FOUND`. Correct INV-17 behavior: assertOwned returns not-found for foreign
+    recipes (no existence leak) — the API was right.
+  - DB check: parse-text's returned recipe_id IS the persisted `recipe` row id (psql-verified), and
+    the row is account-owned XOR guest-owned by construction.
+  **Root cause (frontend):** the "This session" list (localStorage, no recipe-list endpoint exists)
+  mixed recipes from BOTH identities and did not tag ownership; opening a guest-owned recipe while
+  authenticated hit the correct 404 and the UI rendered it as a raw load error. Titles come from
+  the session store because no title persistence exists (canonical placeholder: 'Untitled recipe').
+  **Decision (canonical, no backend change, no auth weakening):** tag session records with their
+  creating identity; the home splits "mine" (openable) from "Other sessions" (listed, explained,
+  never openable); the review surface maps RECIPE_NOT_FOUND to a dedicated cross-session state
+  ("This recipe belongs to a different session") instead of a raw error. Ownership enforcement
+  stays 100% server-side (assertOwned untouched).
+  **Changed:** `lib/flow.ts` (owner tags + isOwnedBy; legacy untagged records conservatively
+  foreign), `lib/types.ts` (SessionRecipe.owner), `HomeView` (owner-aware split + accountId prop),
+  `CreateView` (records the creating identity), `IngredientReview` (cross-session state on
+  RECIPE_NOT_FOUND), `app/page.tsx` (accountId wiring; /auth/me id = accountId, verified in
+  AccountService.toAccountRow).
+  **Regression tests:** `RecipeWorkspace.flow.test.tsx` (authenticated paste → workspace → lines
+  appear immediately from the parse response + refresh/edit target the SAME persisted id);
+  HomeView owner-split tests; flow.ts isOwnedBy tests (incl. legacy-untagged conservative case);
+  IngredientReview RECIPE_NOT_FOUND state test; existing guest no-fetch tests preserved (55/55 web).
+  **Live verification:** 8/8 — authenticated paste → persisted-id match (psql) → account-owned row →
+  lines 200 → edit 200 → method METHOD → enqueue-state ready → analyse queued.
+  **Intentional non-changes:** no claim-existing-account endpoint invented (canonical claim exists
+  only at signup), no recipe-list endpoint, no client-side ownership bypass, no OCR/D-18 changes.
+  **Resume point:** verify-local → Git checkpoint → push → CI; then D-18 (Views 1–4) awaiting dispatch.

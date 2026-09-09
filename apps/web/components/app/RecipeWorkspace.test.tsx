@@ -28,7 +28,7 @@ describe('RecipeWorkspace', () => {
   }
 
   it('shows the four sections and the session title', async () => {
-    recordSessionRecipe('r1', 'Meen Kuzhambu');
+    recordSessionRecipe('r1', 'Meen Kuzhambu', { kind: 'user', accountId: 'acc-1' });
     render(<RecipeWorkspace {...props()} />);
     expect(await screen.findByRole('heading', { level: 1, name: 'Meen Kuzhambu' })).toBeInTheDocument();
     expect(screen.getByText('Review: Meen Kuzhambu')).toBeInTheDocument();

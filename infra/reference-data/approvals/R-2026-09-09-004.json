@@ -1,0 +1,7 @@
+{
+  "import_id": "R-2026-09-09-004",
+  "reviewer": "Mohamed Azzim (D-29 dispatch authorization 2026-09-09)",
+  "reviewed_at": "2026-09-09T17:58:31.541Z",
+  "import_file_sha256": "ba3bc540631147cc77e77f19d3efe8424d599707534f423476d259eb7a42f04c",
+  "review_notes": "Reviewed against canonical sources: USDA FoodData Central SR Legacy values fetched 2026-09-09. Fenugreek powder has no distinct USDA food record -> I7-unmapped (listed, excluded from totals). Q5 remains OPEN (labeled working assumption)."
+}

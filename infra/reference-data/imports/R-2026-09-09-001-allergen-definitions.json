@@ -1,0 +1,30 @@
+{
+  "import_id": "R-2026-09-09-001",
+  "title": "Statutory allergen definitions — US big 9 + EU/UK 14, plus the canonical product flags (coconut, fenugreek)",
+  "sources": [
+    "US FALCPA major food allergens (milk, eggs, fish, crustacean shellfish, tree nuts, peanuts, wheat, soybeans, sesame) — FDA",
+    "EU/UK Regulation (EU) No 1169/2011 Annex II 14 allergens (celery, cereals containing gluten, crustaceans, eggs, fish, lupin, milk, molluscs, mustard, peanuts, sesame, soybeans, sulphur dioxide/sulphites, tree nuts)",
+    "Recipe_Systems.md §6 View 8 worked mapping: coconut declared by name, NOT a US major tree-nut allergen (FDA Edition 5, January 2025); fenugreek = legume with possible peanut cross-reactivity, not statutory on either list"
+  ],
+  "sections": {
+    "allergen_definitions": [
+      { "code": "milk", "name": "Milk", "label_pack": "both", "is_statutory": true },
+      { "code": "eggs", "name": "Eggs", "label_pack": "both", "is_statutory": true },
+      { "code": "fish", "name": "Fish", "label_pack": "both", "is_statutory": true },
+      { "code": "crustacean_shellfish", "name": "Crustacean shellfish", "label_pack": "both", "is_statutory": true },
+      { "code": "peanuts", "name": "Peanuts", "label_pack": "both", "is_statutory": true },
+      { "code": "tree_nuts", "name": "Tree nuts (US major tree-nut list; coconut filed separately per product convention)", "label_pack": "both", "is_statutory": true },
+      { "code": "soybeans", "name": "Soybeans", "label_pack": "both", "is_statutory": true },
+      { "code": "sesame", "name": "Sesame", "label_pack": "both", "is_statutory": true },
+      { "code": "wheat", "name": "Wheat (US)", "label_pack": "US", "is_statutory": true },
+      { "code": "celery", "name": "Celery (EU)", "label_pack": "EU", "is_statutory": true },
+      { "code": "cereals_gluten", "name": "Cereals containing gluten (EU)", "label_pack": "EU", "is_statutory": true },
+      { "code": "lupin", "name": "Lupin (EU)", "label_pack": "EU", "is_statutory": true },
+      { "code": "molluscs", "name": "Molluscs (EU)", "label_pack": "EU", "is_statutory": true },
+      { "code": "mustard", "name": "Mustard (EU/UK 14; not a US major 9)", "label_pack": "EU", "is_statutory": true },
+      { "code": "sulphites", "name": "Sulphur dioxide / sulphites (EU)", "label_pack": "EU", "is_statutory": true },
+      { "code": "coconut", "name": "Coconut (declared by name — not a US major tree-nut allergen, FDA Edition 5 January 2025)", "label_pack": "both", "is_statutory": false, "note": "Recipe_Systems.md §6 View 8: coconut is declared by name; still coconut — flag it, never file it as a US major tree nut." },
+      { "code": "fenugreek", "name": "Fenugreek (legume, possible peanut cross-reactivity; not statutory on either list)", "label_pack": "both", "is_statutory": false, "note": "Recipe_Systems.md §6 View 8: fenugreek seed + powder carry a note flag." }
+    ]
+  }
+}

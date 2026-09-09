@@ -2,7 +2,7 @@
   "name": "@recipe-systems/api",
   "version": "0.2.0",
   "private": true,
-  "description": "NestJS API / BFF — the only service browsers call (SCAFFOLD §3). Reconciled: Keycloak OIDC via adapter seam, Prisma via @recipe-systems/database.",
+  "description": "NestJS API / BFF \u2014 the only service browsers call (SCAFFOLD \u00a73). Reconciled: Keycloak OIDC via adapter seam, Prisma via @recipe-systems/database.",
   "scripts": {
     "dev": "npm run build -w @recipe-systems/database && nest start --watch",
     "build": "npm run build -w @recipe-systems/database && nest build",
@@ -11,7 +11,8 @@
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "jest --config jest.config.js",
-    "contracts:generate": "tsx scripts/generate-openapi.ts"
+    "contracts:generate": "tsx scripts/generate-openapi.ts",
+    "reference-data:import": "ts-node -T src/admin/cli/import-cli.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1127.0",

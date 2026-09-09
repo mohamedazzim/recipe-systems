@@ -1,0 +1,7 @@
+{
+  "import_id": "R-2026-09-09-003",
+  "reviewer": "Mohamed Azzim (D-29 dispatch authorization 2026-09-09)",
+  "reviewed_at": "2026-09-09T17:46:17.869Z",
+  "import_file_sha256": "328ca62f45cc1fba6b1912fd949e015e53c56e24321704732bfb51963f740de2",
+  "review_notes": "Reviewed against canonical sources: US/EU statutory allergen lists, FDA Edition 5 coconut guidance, USDA FoodData Central SR Legacy values fetched 2026-09-09. Q5 remains OPEN (labeled working assumption)."
+}

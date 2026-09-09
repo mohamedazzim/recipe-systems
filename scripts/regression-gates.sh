@@ -40,7 +40,7 @@ if [ -z "$hits" ]; then trivial "one-writer dietary_*/nutrition_* (no write refe
 fi
 
 echo "-- one-writer: ingredient_dictionary / ingredient_alias admin-module writer (Q5 working assumption)"
-pat='prisma\.ingredient[._]?(dictionary|alias)[._]?[A-Za-z]*\.(create|upsert|delete|update|updateMany|createMany|deleteMany)|\b(INSERT INTO|UPDATE|DELETE FROM)\s+ingredient_?(dictionary|alias)'
+pat='prisma\.ingredient[._]?([Dd]ictionary|[Aa]lias)[._]?[A-Za-z]*\.(create|upsert|delete|update|updateMany|createMany|deleteMany)|\b(INSERT INTO|UPDATE|DELETE FROM)\s+ingredient_?(dictionary|alias)'
 hits=$(grep -rInE "$pat" "$SCAN/apps" "$SCAN/packages" --include="*.ts" --include="*.tsx" --include="*.sql" \
   --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.next --exclude-dir=generated 2>/dev/null || true)
 outside=$(echo "$hits" | grep -vE "apps/api/(src/)?admin" || true)

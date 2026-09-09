@@ -42,6 +42,22 @@
   real pg-boss connection from the bootstrap test) → `247b26b` → **run
   34353922712 success**.
 
+## 2026-09-09 — D-29 Track R reference data (reviewed import path + live content load)
+
+- **Module:** `apps/api/src/admin/` — sole writer of the six curated reference tables (ADR §2);
+  no public admin HTTP API (canonical docs prescribe none). Reviewed path via CLI
+  (`reference-data:import`): stage/diff (no writes) → human approval record (sha-signed) →
+  effective-dated persist. Forward-only versioning; supersede closes the prior open version;
+  history never mutated; overlap rejected by DB constraints; unreviewed persist impossible.
+- **Content (4 reviewed imports, approval records committed, real sources):** statutory
+  allergen definitions (US 9 + EU/UK 14 + coconut + fenugreek flags), 12 dictionary rows
+  (Q5 working assumption) + 6 aliases, 6 allergen mappings, 12 USDA FDC SR Legacy composition
+  entries with real values fetched 2026-09-09. Fenugreek powder has no distinct USDA record →
+  I7-unmapped (listed, excluded) — no invented values.
+- **Gate fix:** Q5 one-writer pattern was case-blind to camelCase Prisma models; strengthened.
+- **Evidence:** API 160/160, D-29 integration 8/8 (real PG), gates PASS (both reference
+  one-writer gates actively enforcing), verify-local exit 0, CI green.
+
 ## 2026-09-09 — D-18 Views 1–4 + home mode (P3-4)
 
 - **Backend:** read-only `GET /recipes/:recipeId/analysis` (API §5, RS-US-13) — latest current

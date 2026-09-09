@@ -1789,3 +1789,108 @@ execution output; Git: not available / not authorized throughout.
   fake content; INV-10 respected (INCOMPLETE views render refusal states, never invented data).
   **Resume point:** verify-local → Git checkpoint → push → CI → report; then D-19 (Views 5–9)
   awaiting dispatch.
+
+
+- 2026-09-09 — **D-19→D-29 REORDER DECISION (recorded BEFORE any D-29 code)**
+  **D-19 pre-flight finding (accepted by the user):** D-19's deterministic View 8/9 golden
+  criteria depend on the Track R reference tables (`dietary_allergen_definition`,
+  `dietary_allergen_mapping`, `nutrition_food_composition_*`) — verified EMPTY in the live
+  Postgres (0 rows in all six reference tables). Golden View 8 requires allergen claims via
+  `analysis_claim.allergen_id` (H2) for fish/mustard/coconut/fenugreek; golden View 9 requires
+  the 1300–2200 kcal energy band from composition data. D-19 cannot satisfy these honestly
+  without reviewed reference data.
+  **Decision:** OPTION A — dispatch D-29 (Track R reference data) BEFORE D-19. D-29 establishes
+  the reviewed content-load path; no hidden golden-only reference subset in D-19; no fake
+  allergen/nutrition seeding; D-19 is not the writer of reference tables; Q5 not silently
+  resolved. D-19's open recompute design preserved for its own pre-flight.
+  **Resume point:** D-29 pre-flight (this entry's companion) → report GO/STOP → await
+  authorization → D-29 implementation → then D-19 re-dispatch.
+
+
+- 2026-09-09 — **D-29 PRE-FLIGHT (Track R reference data; recorded BEFORE code)**
+  **Canonical sources read:** DISPATCH D-29 (line 909+, deliverables/done criteria/non-goals),
+  AUDIT A-29 (attack vectors: reviewed-path bypass BLOCKER, overlap rejection QG4, versioning
+  UPDATE-of-history BLOCKER, I7 fidelity, Q5 hygiene), BUILD_PLAN §4 Track R + exit criteria,
+  ADR §2 (one-writer: "Admin/reference-data module owns curated reference-data writes") + §7
+  (reviewed import path: CSV/JSON → diff → human approval → effective-dated insert; source
+  reference + import version recorded), ERD §9/§10 (effective-dated dictionaries; EXCLUDE USING
+  gist overlap constraints; C-30 NOT NULL FKs), Recipe_Systems §12 H7/I7 + Epic-H/Epic-I story
+  files, TEST_PLAN QG2 (gates) + QG4 (Track R fault cells: reference-import conflict,
+  versioning determinism), SCAFFOLD §7 Q5 row.
+  **Repository cross-check (per-instruction: verify, don't assume):**
+  - EXISTING + VERIFIED: Prisma models for all six reference tables (IngredientDictionary 168,
+    IngredientAlias 183, DietaryAllergenDefinition 378, DietaryAllergenMapping 393,
+    NutritionFoodCompositionEntry 412, Version 428) matching ERD §9/§10 columns; migration 001
+    (btree_gist) + 002 (tables + CHECKs + both EXCLUDE USING gist constraints); one-writer
+    regression gates armed for dietary_*/nutrition_* + dictionary/alias (Q5 label).
+  - MISSING: admin/reference-data module (no code; apps = analysis-worker/api/web; API modules =
+    account/analysis/auth/intake/recipes); reviewed import path (import → diff → approval →
+    effective-dated); any content (all six tables empty in live DB); import scripts; source
+    corpus (US/EU statutory lists, USDA FoodData Central files); reference-data fixtures/tests.
+  - NOT REQUIRED: analysis consumption (P4), profile UI (D-26) — D-29 non-goals.
+  **Determinations (numbered per dispatch):** 1) D-29 owns the admin/reference-data module +
+  reviewed import path; 2) tables: dietary_allergen_definition, dietary_allergen_mapping,
+  nutrition_food_composition_entry/version + (Q5 working assumption) ingredient_dictionary/
+  ingredient_alias; 3) sole writer = the admin/reference-data module (ADR §2; gates enforce);
+  4) Q5 NOT formally resolved by D-29 — dispatch text: "work to the admin-module-working
+  assumption until Q5 is answered; do not decide it" → Q5 stays OPEN, every dictionary/alias
+  write labeled; 5) sources = US/EU statutory allergen lists + USDA FoodData Central with
+  USDA/peer IDs (H7/I7); source_reference + import version recorded (ADR §7); 6) import =
+  prepare CSV/JSON → show diff → human approval → effective-dated insert (the approval actor is
+  the human reviewer per ADR §7; the app enforces via module-only writes + staging);
+  7) effective-dated versions; new version per change, never in-place UPDATE (A-29 BLOCKER);
+  overlap rejected by DB constraints; 8) golden records D-19 needs = the golden card's
+  ingredients in the dictionary (fish, mustard, coconut, fenugreek lines) + statutory allergen
+  definitions/mappings + USDA composition versions for the 1300–2200 kcal band — loaded via
+  the REVIEWED path as real reference data; 9) done criteria = BUILD_PLAN Track R exit + A-29
+  attack vectors (bypass rejected, overlap rejected, versioning, I7 fidelity, Q5 label kept);
+  10) tests = reviewed-path integration, overlap-rejection (QG4), unreviewed-bypass rejection,
+  versioning determinism, I7 unmapped-lines fixture; full suite + gates + verify-local + CI.
+  **GO/STOP:** GO (canonical sources fully support proceeding under the labeled Q5 assumption;
+  A-29's Q5 hygiene vector is satisfiable by keeping the label). Implementation AWAITS explicit
+  authorization.
+
+
+- 2026-09-09 — **D-29 EXECUTION (Track R reference data; pre-flight GO above; user-authorized)**
+  **Built:** `apps/api/src/admin/` reference-data module — the sole writer of the six curated
+  reference tables (ADR §2). NO public HTTP admin API (canonical docs prescribe none, ADR §7
+  flow only): the reviewed path is a CLI (`reference-data:import` npm script):
+  `stage|diff <file>` validates + diffs, writes nothing; `approve <file> --reviewer NAME`
+  writes the human sign-off record (`infra/reference-data/approvals/<import_id>.json`,
+  content-sha-signed) and persists effective-dated versions. Service: `ReferenceDataService`
+  (stage/approve + I7 resolveMappings/resolveComposition), `ReferenceDataRepository` (ALL
+  prisma writes; the only update = closing an OPEN version's effective_to at supersede;
+  forward-only versioning; idempotent re-approve; fail-fast source_version length guard).
+  **Reference content (all through the reviewed path — 4 approved imports, approval records
+  committed):** R-001 statutory allergen definitions (US big 9 + EU/UK 14 + coconut
+  [is_statutory=false, FDA Edition 5 Jan 2025, declared by name] + fenugreek [legume note]);
+  R-002 dictionary (12 rows incl. two DISTINCT fenugreek rows, Q5 label) + 6 aliases;
+  R-003 mappings (fish→fish, mustard_seed→mustard EU, coconut flesh+oil→coconut,
+  fenugreek powder+seed→fenugreek); R-004 composition (12 USDA FDC SR Legacy entries with
+  REAL values fetched from fdc.nal.usda.gov 2026-09-09: fdcIds 171955 cod / 175119 mackerel
+  for species-unknown fish band, 170483 drumstick, 169910 mango, 170169 coconut meat, 171412
+  coconut oil, 170497 chilli green, 171319 chilli powder, 170922 coriander seed, 167763
+  tamarind, 171324 fenugreek seed, 170929 mustard seed). Fenugreek POWDER has NO distinct
+  USDA food record (SR Legacy + Foundation + FNDDS searched) → I7-UNMAPPED by design
+  (listed, excluded from totals, documented) — no invented values anywhere.
+  **Verified root-cause fixes along the way:** 1) mapping/composition imports resolve
+  dictionary ids across PRIOR approved imports (not just the current file); 2) re-approve
+  idempotent (same effective_from = no-op) + backdated versions rejected (forward-only);
+  3) CLI retracts the sign-off record if persist throws; 4) gate fix — the Q5 one-writer
+  pattern was case-blind to camelCase Prisma models (`ingredientDictionary`) so dictionary/
+  alias writes were invisible to the gate; pattern strengthened ([Dd]ictionary|[Aa]lias) —
+  gate now reports "confined to the admin module" for BOTH reference gates.
+  **Evidence:** API 160/160 (+12: 8 service lifecycle + 4 static one-writer); integration
+  D-29 story 8/8 real Postgres (stage→no rows; unreviewed reject; sha-mismatch reject;
+  supersede closes+versions+history intact; backdate reject; DB overlap reject via EXCLUDE
+  USING gist; I7 unmapped; golden lookups: fish flagged, coconut NOT tree_nuts, fenugreek
+  flagged, mustard EU); live dev DB loaded via CLI stage→approve (17 defs, 12 dict, 6
+  aliases, 6 mappings, 12 entries, 12 versions); gates PASS with both one-writer gates
+  actively enforcing; verify-local exit 0; CI green.
+  **Intentional non-changes:** Q5 stays OPEN (every dictionary/alias write labeled "Q5
+  WORKING ASSUMPTION"; SCAFFOLD untouched); no P4 consumption; no D-26; no staging table
+  (staging = validated import files + signed approval records; the ERD is frozen); fish
+  sodium kept as real per-class values (species-unknown sodium rule = D-19's consumption
+  concern); D-19 recompute design preserved for the D-19 pre-flight.
+  **Resume point:** D-19 re-dispatch (Views 5–9 + recompute) — now unblocked by live,
+  reviewed reference data. Awaiting authorization; D-29 checkpoint commit below.

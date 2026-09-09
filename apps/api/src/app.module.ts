@@ -4,6 +4,7 @@ import { AccountModule } from './modules/account/account.module';
 import { AnalysisModule } from './modules/analysis/analysis.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { IntakeModule } from './modules/intake/intake.module';
+import { ReferenceDataModule } from './admin/reference-data.module';
 import { HealthController } from './health/health.controller';
 
 @Module({
@@ -13,6 +14,7 @@ import { HealthController } from './health/health.controller';
     AuthModule,
     IntakeModule,
     AnalysisModule,
+    ReferenceDataModule,
   ],
   controllers: [HealthController],
 })

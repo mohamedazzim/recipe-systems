@@ -1,0 +1,241 @@
+{
+  "import_id": "R-2026-09-09-004",
+  "title": "Nutrition food composition v1 \u2014 USDA FoodData Central SR Legacy values for the golden card's ingredients (effective-dated, reviewed)",
+  "sources": [
+    "USDA FoodData Central, SR Legacy, retrieved 2026-09-09 via fdc.nal.usda.gov (verified per-food nutrient pages; FDC IDs recorded per entry)",
+    "Fish = species UNKNOWN on the card: TWO SR Legacy entries loaded (cod, Atlantic, raw 171955 = lean class; mackerel, Atlantic, raw 175119 = oily class) so the View 9 energy band spans plausible classes; neither is marked primary. Sodium per class is retained in the food table \u2014 the golden View 9 'sodium Unknown' is the SPECIES-UNKNOWN consumption rule (D-19's I2 assumption handling), not a data falsification.",
+    "Fenugreek POWDER has NO distinct USDA food record (SR Legacy, Foundation, and FNDDS datasets searched 2026-09-09 \u2014 only 'Spices, fenugreek seed' fdcId 171324 exists). Per I7, the powder line is therefore UNMAPPED: excluded from totals and listed, with this documented reason. The two-fenugreeks invariant is untouched (dictionary rows and allergen mappings remain distinct)."
+  ],
+  "sections": {
+    "composition_entries": [
+      {
+        "ingredient_canonical_name": "fish",
+        "external_source": "USDA_FDC_SR_LEGACY",
+        "external_id": "171955",
+        "food_name": "Fish, cod, Atlantic, raw",
+        "is_primary_for_ingredient": false,
+        "versions": [
+          {
+            "energy_kcal_per_100g": "82",
+            "protein_g_per_100g": "17.8",
+            "fat_g_per_100g": "0.67",
+            "carb_g_per_100g": "0",
+            "fiber_g_per_100g": "0",
+            "sodium_mg_per_100g": "54",
+            "source_version": "USDA FoodData Central SR Legacy fdcId 171955 (NDB 15015), retrieved 2026-09-09",
+            "effective_from": "2026-09-01T00:00:00Z"
+          }
+        ]
+      },
+      {
+        "ingredient_canonical_name": "fish",
+        "external_source": "USDA_FDC_SR_LEGACY",
+        "external_id": "175119",
+        "food_name": "Fish, mackerel, Atlantic, raw",
+        "is_primary_for_ingredient": false,
+        "versions": [
+          {
+            "energy_kcal_per_100g": "205",
+            "protein_g_per_100g": "18.6",
+            "fat_g_per_100g": "13.9",
+            "carb_g_per_100g": "0",
+            "fiber_g_per_100g": "0",
+            "sodium_mg_per_100g": "90",
+            "source_version": "USDA FoodData Central SR Legacy fdcId 175119 (NDB 15050), retrieved 2026-09-09",
+            "effective_from": "2026-09-01T00:00:00Z"
+          }
+        ]
+      },
+      {
+        "ingredient_canonical_name": "drumstick",
+        "external_source": "USDA_FDC_SR_LEGACY",
+        "external_id": "170483",
+        "food_name": "Drumstick pods, raw",
+        "is_primary_for_ingredient": true,
+        "versions": [
+          {
+            "energy_kcal_per_100g": "37",
+            "protein_g_per_100g": "2.1",
+            "fat_g_per_100g": "0.2",
+            "carb_g_per_100g": "8.53",
+            "fiber_g_per_100g": "3.2",
+            "sodium_mg_per_100g": "42",
+            "source_version": "USDA FoodData Central SR Legacy fdcId 170483 (NDB 11222), retrieved 2026-09-09",
+            "effective_from": "2026-09-01T00:00:00Z"
+          }
+        ]
+      },
+      {
+        "ingredient_canonical_name": "mango",
+        "external_source": "USDA_FDC_SR_LEGACY",
+        "external_id": "169910",
+        "food_name": "Mangos, raw",
+        "is_primary_for_ingredient": true,
+        "versions": [
+          {
+            "energy_kcal_per_100g": "60",
+            "protein_g_per_100g": "0.82",
+            "fat_g_per_100g": "0.38",
+            "carb_g_per_100g": "15",
+            "fiber_g_per_100g": "1.6",
+            "sodium_mg_per_100g": "1",
+            "source_version": "USDA FoodData Central SR Legacy fdcId 169910 (NDB 09176), retrieved 2026-09-09",
+            "effective_from": "2026-09-01T00:00:00Z"
+          }
+        ]
+      },
+      {
+        "ingredient_canonical_name": "coconut_flesh",
+        "external_source": "USDA_FDC_SR_LEGACY",
+        "external_id": "170169",
+        "food_name": "Nuts, coconut meat, raw",
+        "is_primary_for_ingredient": true,
+        "versions": [
+          {
+            "energy_kcal_per_100g": "354",
+            "protein_g_per_100g": "3.33",
+            "fat_g_per_100g": "33.5",
+            "carb_g_per_100g": "15.2",
+            "fiber_g_per_100g": "9",
+            "sodium_mg_per_100g": "20",
+            "source_version": "USDA FoodData Central SR Legacy fdcId 170169 (NDB 12104), retrieved 2026-09-09",
+            "effective_from": "2026-09-01T00:00:00Z"
+          }
+        ]
+      },
+      {
+        "ingredient_canonical_name": "coconut_oil",
+        "external_source": "USDA_FDC_SR_LEGACY",
+        "external_id": "171412",
+        "food_name": "Oil, coconut",
+        "is_primary_for_ingredient": true,
+        "versions": [
+          {
+            "energy_kcal_per_100g": "892",
+            "protein_g_per_100g": "0",
+            "fat_g_per_100g": "99.1",
+            "carb_g_per_100g": "0",
+            "fiber_g_per_100g": "0",
+            "sodium_mg_per_100g": "0",
+            "source_version": "USDA FoodData Central SR Legacy fdcId 171412 (NDB 04047), retrieved 2026-09-09",
+            "effective_from": "2026-09-01T00:00:00Z"
+          }
+        ]
+      },
+      {
+        "ingredient_canonical_name": "chilli_green",
+        "external_source": "USDA_FDC_SR_LEGACY",
+        "external_id": "170497",
+        "food_name": "Peppers, hot chili, green, raw",
+        "is_primary_for_ingredient": true,
+        "versions": [
+          {
+            "energy_kcal_per_100g": "40",
+            "protein_g_per_100g": "2",
+            "fat_g_per_100g": "0.2",
+            "carb_g_per_100g": "9.46",
+            "fiber_g_per_100g": "1.5",
+            "sodium_mg_per_100g": "7",
+            "source_version": "USDA FoodData Central SR Legacy fdcId 170497 (NDB 11670), retrieved 2026-09-09",
+            "effective_from": "2026-09-01T00:00:00Z"
+          }
+        ]
+      },
+      {
+        "ingredient_canonical_name": "chilli_powder",
+        "external_source": "USDA_FDC_SR_LEGACY",
+        "external_id": "171319",
+        "food_name": "Spices, chili powder",
+        "is_primary_for_ingredient": true,
+        "versions": [
+          {
+            "energy_kcal_per_100g": "282",
+            "protein_g_per_100g": "13.5",
+            "fat_g_per_100g": "14.3",
+            "carb_g_per_100g": "49.7",
+            "fiber_g_per_100g": "34.8",
+            "sodium_mg_per_100g": "2870",
+            "source_version": "USDA FoodData Central SR Legacy fdcId 171319 (NDB 02009), retrieved 2026-09-09",
+            "effective_from": "2026-09-01T00:00:00Z"
+          }
+        ]
+      },
+      {
+        "ingredient_canonical_name": "coriander_powder",
+        "external_source": "USDA_FDC_SR_LEGACY",
+        "external_id": "170922",
+        "food_name": "Spices, coriander seed",
+        "is_primary_for_ingredient": true,
+        "versions": [
+          {
+            "energy_kcal_per_100g": "298",
+            "protein_g_per_100g": "12.4",
+            "fat_g_per_100g": "17.8",
+            "carb_g_per_100g": "55",
+            "fiber_g_per_100g": "41.9",
+            "sodium_mg_per_100g": "35",
+            "source_version": "USDA FDC SR Legacy fdcId 170922 (NDB 02013), fetched 2026-09-09; powder shares the seed entry",
+            "effective_from": "2026-09-01T00:00:00Z"
+          }
+        ]
+      },
+      {
+        "ingredient_canonical_name": "tamarind",
+        "external_source": "USDA_FDC_SR_LEGACY",
+        "external_id": "167763",
+        "food_name": "Tamarinds, raw",
+        "is_primary_for_ingredient": true,
+        "versions": [
+          {
+            "energy_kcal_per_100g": "239",
+            "protein_g_per_100g": "2.8",
+            "fat_g_per_100g": "0.6",
+            "carb_g_per_100g": "62.5",
+            "fiber_g_per_100g": "5.1",
+            "sodium_mg_per_100g": "28",
+            "source_version": "USDA FoodData Central SR Legacy fdcId 167763 (NDB 09322), retrieved 2026-09-09",
+            "effective_from": "2026-09-01T00:00:00Z"
+          }
+        ]
+      },
+      {
+        "ingredient_canonical_name": "fenugreek_seed",
+        "external_source": "USDA_FDC_SR_LEGACY",
+        "external_id": "171324",
+        "food_name": "Spices, fenugreek seed",
+        "is_primary_for_ingredient": true,
+        "versions": [
+          {
+            "energy_kcal_per_100g": "323",
+            "protein_g_per_100g": "23",
+            "fat_g_per_100g": "6.41",
+            "carb_g_per_100g": "58.4",
+            "fiber_g_per_100g": "24.6",
+            "sodium_mg_per_100g": "67",
+            "source_version": "USDA FoodData Central SR Legacy fdcId 171324 (NDB 02019), retrieved 2026-09-09",
+            "effective_from": "2026-09-01T00:00:00Z"
+          }
+        ]
+      },
+      {
+        "ingredient_canonical_name": "mustard_seed",
+        "external_source": "USDA_FDC_SR_LEGACY",
+        "external_id": "170929",
+        "food_name": "Spices, mustard seed, ground",
+        "is_primary_for_ingredient": true,
+        "versions": [
+          {
+            "energy_kcal_per_100g": "508",
+            "protein_g_per_100g": "26.1",
+            "fat_g_per_100g": "36.2",
+            "carb_g_per_100g": "28.1",
+            "fiber_g_per_100g": "12.2",
+            "sodium_mg_per_100g": "13",
+            "source_version": "USDA FoodData Central SR Legacy fdcId 170929 (NDB 02024), retrieved 2026-09-09",
+            "effective_from": "2026-09-01T00:00:00Z"
+          }
+        ]
+      }
+    ]
+  }
+}

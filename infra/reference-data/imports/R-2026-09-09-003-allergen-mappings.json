@@ -1,0 +1,18 @@
+{
+  "import_id": "R-2026-09-09-003",
+  "title": "Allergen mappings v1 — golden card ingredients to statutory/canonical allergens (effective-dated, reviewed)",
+  "sources": [
+    "Recipe_Systems.md §6 View 8 worked mapping: fish Present (US + EU); mustard Present (EU 14); coconut declared by name (not a US major tree nut); fenugreek = note flag (legume, not statutory)",
+    "Golden fixture tests/fixtures/golden_kanyakumari_card.json expected view_8: fish, mustard, coconut, fenugreek"
+  ],
+  "sections": {
+    "allergen_mappings": [
+      { "ingredient_canonical_name": "fish", "allergen_code": "fish", "effective_from": "2026-09-01T00:00:00Z", "source_reference": "US FALCPA major allergen + EU 1169/2011 Annex II; golden card View 8" },
+      { "ingredient_canonical_name": "mustard_seed", "allergen_code": "mustard", "effective_from": "2026-09-01T00:00:00Z", "source_reference": "EU/UK 14 (not a US major 9); golden card View 8 — tadka only, still flag" },
+      { "ingredient_canonical_name": "coconut_flesh", "allergen_code": "coconut", "effective_from": "2026-09-01T00:00:00Z", "source_reference": "Declared by name; not a US major tree-nut allergen (FDA Edition 5, Jan 2025)" },
+      { "ingredient_canonical_name": "coconut_oil", "allergen_code": "coconut", "effective_from": "2026-09-01T00:00:00Z", "source_reference": "Declared by name; not a US major tree-nut allergen (FDA Edition 5, Jan 2025)" },
+      { "ingredient_canonical_name": "fenugreek_powder", "allergen_code": "fenugreek", "effective_from": "2026-09-01T00:00:00Z", "source_reference": "Note flag: legume, possible peanut cross-reactivity; not statutory" },
+      { "ingredient_canonical_name": "fenugreek_seed", "allergen_code": "fenugreek", "effective_from": "2026-09-01T00:00:00Z", "source_reference": "Note flag: legume, possible peanut cross-reactivity; not statutory" }
+    ]
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "import_id": "R-2026-09-09-002",
+  "title": "Ingredient dictionary — the golden Kanyakumari card's ingredients (Q5 WORKING ASSUMPTION: admin module writes ingredient_dictionary pending Q5)",
+  "sources": [
+    "tests/fixtures/golden_kanyakumari_card.json (Deena's Kitchen card, Recipe_Systems §15 acceptance scene) — the card's 11 lines, with the two fenugreek lines kept DISTINCT (powder vs seed: the two-fenugreeks invariant)",
+    "Curated canonical names are product vocabulary, not scientific claims"
+  ],
+  "sections": {
+    "dictionary": [
+      { "canonical_name": "fish", "description": "Fish, species UNKNOWN (golden card line: Fish — 500g)" },
+      { "canonical_name": "drumstick", "description": "Drumstick (moringa pod)" },
+      { "canonical_name": "mango", "description": "Raw mango" },
+      { "canonical_name": "coconut_flesh", "description": "Grated coconut flesh (fresh)" },
+      { "canonical_name": "coconut_oil", "description": "Coconut oil (tempering)" },
+      { "canonical_name": "chilli_green", "description": "Fresh green chilli" },
+      { "canonical_name": "chilli_powder", "description": "Red chilli powder" },
+      { "canonical_name": "coriander_powder", "description": "Coriander powder (ground coriander seed)" },
+      { "canonical_name": "tamarind", "description": "Tamarind pulp (raw)" },
+      { "canonical_name": "fenugreek_powder", "description": "Fenugreek powder (ground methi)" },
+      { "canonical_name": "fenugreek_seed", "description": "Fenugreek seed (whole methi)" },
+      { "canonical_name": "mustard_seed", "description": "Mustard seed (tadka; EU/UK 14 allergen — flagged in View 8 even though the card has no mustard line)" }
+    ],
+    "aliases": [
+      { "ingredient_canonical_name": "fenugreek_powder", "alias_text": "methi powder", "language": "en" },
+      { "ingredient_canonical_name": "fenugreek_seed", "alias_text": "methi", "language": "en" },
+      { "ingredient_canonical_name": "fenugreek_seed", "alias_text": "methi seeds", "language": "en" },
+      { "ingredient_canonical_name": "coconut_flesh", "alias_text": "thengai", "language": "ta" },
+      { "ingredient_canonical_name": "drumstick", "alias_text": "murungakkai", "language": "ta" },
+      { "ingredient_canonical_name": "tamarind", "alias_text": "puli", "language": "ta" }
+    ]
+  }
+}

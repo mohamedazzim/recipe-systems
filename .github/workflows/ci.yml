@@ -46,8 +46,12 @@ jobs:
         working-directory: packages/database
         run: npx prisma generate && npm run build
 
-      - name: 'Schemas build (D-15: consumers import @recipe-systems/schemas via dist)'
+      - name: "Schemas build (D-15: consumers import @recipe-systems/schemas via dist)"
         working-directory: packages/schemas
+        run: npm run build
+
+      - name: "LLM-adapter build (D-15/D-17: api + worker import it via dist)"
+        working-directory: packages/llm-adapter
         run: npm run build
 
       - name: Lint

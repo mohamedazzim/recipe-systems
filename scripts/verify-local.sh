@@ -18,6 +18,9 @@ step "prisma generate + database build (client and dist must exist before typech
 step "schemas build (D-15: consumers import @recipe-systems/schemas via dist)"
 (cd packages/schemas && npm run build)
 
+step "llm-adapter build (D-15/D-17: api + worker import it via dist)"
+(cd packages/llm-adapter && npm run build)
+
 step "lint"
 npm run lint
 

@@ -1631,5 +1631,7 @@ execution output; Git: not available / not authorized throughout.
   **Intentional non-changes:** no OCR/photo path, no guest review/method/analyse bridge (canonical
   auth labels preserved — guests read-only with sign-in CTA), no recipe-list endpoint, no fake
   analysis content, no D-18 view rendering, no readiness client-side calculation.
-  **Resume point:** verify-local → Git checkpoint → push → CI → final report; then D-18
-  (Views 1–4 + home mode) remains the next dispatch, awaiting explicit authorization.
+  **Resume point:** Git checkpoint **`a5530d3`** (a5530d352531f08a4c39862b401d7373719db6da) pushed
+  to main; remote SHA verified; tree clean; CI run **34361814176 success**; stack restored
+  (web/API/Keycloak 200, worker consuming). Next: D-18 (Views 1–4 + home mode) — awaiting
+  explicit dispatch.

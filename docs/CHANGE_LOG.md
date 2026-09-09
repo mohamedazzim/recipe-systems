@@ -61,7 +61,9 @@
   band replace the old guest card assertions); landing contracts untouched.
 - **Evidence:** web 48/48 (82.98%), API 141/141 (+2 controller), integration 72/72, gates PASS,
   typecheck/lint clean, live HTTP flow 13/13 (full demo path incl. two distinct fenugreek lines
-  and real worker completion), verify-local exit 0. Playwright remains environment-blocked.
+  and real worker completion), verify-local exit 0, CI run 34361814176 success. Playwright remains
+  environment-blocked.
+- Commit: `a5530d3` (a5530d352531f08a4c39862b401d7373719db6da).
 - **Deliberate non-changes:** no OCR, no guest review/method bridge (canonical auth labels kept),
   no recipe-list endpoint, no D-18 view rendering, no client-side readiness.
 

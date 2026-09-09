@@ -235,6 +235,11 @@ model AnalysisView {
   analysis Analysis        @relation(fields: [analysisId], references: [id], onDelete: Cascade)
   claims   AnalysisClaim[]
 
+  // D-17 (P3-3): idempotent view upserts (INV-11 / ADR §14) key on this compound
+  // unique — the constraint exists in migration 002 (uq_analysis_view); declared
+  // here so Prisma upsert can use it. Migration 003 re-declares it with
+  // IF NOT EXISTS (no-op on existing databases).
+  @@unique([analysisId, viewNumber], map: "uq_analysis_view")
   @@map("analysis_view")
 }
 

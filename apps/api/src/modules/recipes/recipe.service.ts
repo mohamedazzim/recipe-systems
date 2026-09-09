@@ -124,4 +124,11 @@ export class RecipeService {
     const updated = await this.prisma.recipe.update({ where: { id: recipeId }, data });
     return toMethodState(updated);
   }
+
+  /** D-17 (P3-3): read-only method state — the API §5 422 METHOD_REQUIRED gate
+   *  (list-only analysis) and the job-payload capture both read this. */
+  async getMethodState(actor: Actor, recipeId: string): Promise<MethodState> {
+    const recipe = await this.assertOwned(actor, recipeId);
+    return toMethodState(recipe);
+  }
 }

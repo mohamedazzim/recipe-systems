@@ -31,6 +31,9 @@ module.exports = {
     // D-16: the grounding validator lives in the LLM-adapter package — consume
     // its TS source the same way.
     '^@recipe-systems/llm-adapter$': '<rootDir>/packages/llm-adapter/src/index.ts',
+    // D-17: pg-boss is installed per-workspace (not hoisted) — point the
+    // integration suite at the worker's copy.
+    '^pg-boss$': '<rootDir>/apps/analysis-worker/node_modules/pg-boss/src/index.js',
   },
   collectCoverageFrom: [],
 };

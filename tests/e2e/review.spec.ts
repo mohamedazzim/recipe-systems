@@ -59,6 +59,9 @@ async function pasteGolden(req: any, csrf: string, text = WRAPPED_GOLDEN) {
     headers: { 'x-csrf-token': csrf, 'Content-Type': 'application/json' },
     data: { text },
   });
+  // API doc §3: parse-text → 200 (201 never was the contract — D-13 live-stack check
+  // confirmed 200; this expectation was wrong since D-12 and would have failed on any
+  // machine where Playwright runs).
   expect(res.status()).toBe(200);
   return res.json();
 }

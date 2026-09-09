@@ -18,7 +18,28 @@
 - Verification (which checks re-ran and their result):
 ```
 
-**Rule:** a change that alters any Q1–Q18 row must say so in its entry. The register (SCAFFOLD §7) is the single source of truth for open decisions; this log records the history of how the register changed.
+**Rule:** a change that alters any Q1–Q18 row must say so in its entry. The register (SCAFFOLD §7) is the single source of truth for open decisions; this log records the history of how the register changed. No Q-row changes in D-13.
+
+## 2026-09-09 — D-13 Method attach (P2-4)
+
+- Status: **DONE** (dispatch criteria 1–3 all satisfied; H-13 filled with evidence).
+- Change: new `PATCH /recipes/:recipeId/method` (API §4 / RS-US-09) via new `RecipesController`
+  (recipes module, JwtAuthGuard + CsrfGuard). Modes: `paste` → `method_text` + tag `METHOD`;
+  `inferred` → tag `INFERRED` + `method_inferred_source` (named source REQUIRED — source-less refused
+  400); `none` → all three method columns cleared. Wire response `{method_tag, method_source, list_only}`;
+  `list_only := method_source_tag IS NULL` = the Views 3/7 INCOMPLETE flag P3 will assert. All writes in
+  `RecipeService.attachMethod` (one-writer ADR §2); no line writes (Q4); no schema change; no
+  `analysis_claim` writes (C4 = P3).
+- Tests: unit 128/128 (+5), integration 54/54 (new `story_b4_method_attach.test.ts` 6/6), regression
+  gates PASS, lint/typecheck clean, `verify-local` exit 0. Live-stack HTTP (real OIDC) 10/10 PASS;
+  DB row confirmed. Playwright E2E `method.spec.ts` written (5 specs) — env-blocked as documented.
+- Side fix: `tests/e2e/review.spec.ts` parse-text status 201→200 (D-12 latent expectation; canonical
+  API §3 is 200, confirmed live — never ran on a Playwright-capable machine).
+- Decisions: D-13A..J (HANDOFF §5 2026-09-09 pre-flight); SCAFFOLD register unchanged.
+- Commit(s): `(D-13 commit — filled after push)`
+- Resume point: D-14 (needs_review enqueue gate) awaits explicit dispatch; D-11/Q10 still deferred.
+
+## 2026-09-09 — Git checkpoint + D-12 record (8bd7708, 83e6de0)
 
 ---
 

@@ -20,6 +20,35 @@ export interface IntakeRecipeOptions {
   photoUri?: string | null;
 }
 
+/** D-13 (B4): the method-attach modes the API surface exposes (API doc §4). */
+export type MethodAttachInput =
+  | { mode: 'none' }
+  | { mode: 'paste'; methodText: string }
+  | { mode: 'inferred'; methodText: string; methodSource: string };
+
+/** D-13 (B4): the wire response — `list_only` is the flag P3 asserts for Views 3/7 INCOMPLETE. */
+export interface MethodState {
+  method_tag: 'METHOD' | 'INFERRED' | null;
+  method_source: string | null;
+  list_only: boolean;
+}
+
+/**
+ * D-13D/G (HANDOFF §5): the persisted contract is `method_text` + `method_source_tag`
+ * (CARD/METHOD/INFERRED/UNKNOWN vocabulary) + `method_inferred_source` (required when
+ * INFERRED). D-13 writes METHOD (paste) and INFERRED (accepted family match) only.
+ */
+function toMethodState(recipe: Recipe): MethodState {
+  const tag = recipe.methodSourceTag === 'METHOD' || recipe.methodSourceTag === 'INFERRED'
+    ? recipe.methodSourceTag
+    : null;
+  return {
+    method_tag: tag,
+    method_source: tag === 'INFERRED' ? recipe.methodInferredSource : null,
+    list_only: tag === null,
+  };
+}
+
 @Injectable()
 export class RecipeService {
   constructor(@Inject('PRISMA') private readonly prisma: PrismaClient) {}
@@ -63,5 +92,36 @@ export class RecipeService {
     if (inputCount === 0) {
       await this.prisma.recipe.delete({ where: { id: recipe.id } });
     }
+  }
+
+  /**
+   * D-13 (B4 / RS-US-09): set or attach a method on the corrected object.
+   * - `none`     → clears all three method columns (list-only: Views 3/7 INCOMPLETE flag).
+   * - `paste`    → user-provided method text, tag METHOD (no inferred source).
+   * - `inferred` → accepted matched family method, tag INFERRED + named source (ERD: required).
+   * One-writer rule (ADR §2): this service is the sole writer of the `recipe` table.
+   */
+  async attachMethod(actor: Actor, recipeId: string, input: MethodAttachInput): Promise<MethodState> {
+    await this.assertOwned(actor, recipeId);
+    const data: Prisma.RecipeUncheckedUpdateInput = {};
+    switch (input.mode) {
+      case 'none':
+        data.methodText = null;
+        data.methodSourceTag = null;
+        data.methodInferredSource = null;
+        break;
+      case 'paste':
+        data.methodText = input.methodText;
+        data.methodSourceTag = 'METHOD';
+        data.methodInferredSource = null;
+        break;
+      case 'inferred':
+        data.methodText = input.methodText;
+        data.methodSourceTag = 'INFERRED';
+        data.methodInferredSource = input.methodSource;
+        break;
+    }
+    const updated = await this.prisma.recipe.update({ where: { id: recipeId }, data });
+    return toMethodState(updated);
   }
 }

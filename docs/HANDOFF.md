@@ -491,6 +491,54 @@ execution output; Git: not available / not authorized throughout.
   **EXACT RESUME POINT (pre-implementation):** D-12 implementation proceeds NOW in text scope;
     after D-12, next decisions are D-13 dispatch (authorization required) and D-11/Q10 when OCR
     is re-opened. H-12 recorded IN PROGRESS until the photo-path criteria can pass after D-11.
+- 2026-09-09 — **D-13 PRE-FLIGHT (recorded BEFORE implementation; verdict GO)**: authorized by user.
+  **Starting state:** D-01..D-10 ✅, D-12 text scope 🟡 (checkpoint 8bd7708 + docs 83e6de0 pushed),
+  D-11 ⏸ deferred (Q10 OPEN/BLOCKED), Q4 ✅ (Intake sole writer of `recipe_ingredient_line`), tree clean.
+  **Canonical requirements verified:** DISPATCH D-13 (method attach on corrected object, optional per
+  B4 AC-1; absent → list-only Views 3/7 INCOMPLETE OR accepted matched family method tagged INFERRED
+  with named source; Views 3/7 NOT INCOMPLETE in that case; INFERRED provenance flows to C4 claim
+  machinery), Recipe_Systems §12 B4 + §3.4 (never fabricate), API §4 `PATCH /recipes/:id/method`
+  (RS-US-09; `{method: none|paste|inferred, method_text?, method_source?, accept_inferred?}` →
+  `{method_tag: METHOD|INFERRED|null, method_source: string|null, list_only: boolean}`; Bearer only;
+  guest selection client-side), ERD §5 (`recipe.method_text`, `method_source_tag` CHECK
+  CARD/METHOD/INFERRED/UNKNOWN, `method_inferred_source` required when INFERRED), A-13 (refuse-empty
+  = BLOCKER; source-less INFERRED = MAJOR; tag vocabulary integrity; the unit's flag = the C5
+  station-card precondition), Epic-B B4 AC/TC, HANDOFF H-13 placeholder.
+  **Ownership:** `recipe` table one-writer = RecipeService (ADR §2; stated in its header) — D-13
+  method writes go there; Q4 untouched (no line writes). No unresolved architecture question → GO.
+  **Decisions (D-13A…J):** A) write path = `RecipeService.attachMethod` (single `recipe.update`,
+  assertOwned INV-17 404). B) wire = `{method_tag, method_source, list_only}` derived from persisted
+  state; `list_only := method_source_tag IS NULL` (the INCOMPLETE driver flag P3 will assert; Views
+  3/7 rendering stays P3 — D-13 proves the flag only, A-13 "unit's flag" cross-check recorded).
+  C) `paste` → `method_text` + tag `METHOD`, inferred_source null. D) `inferred` → `method_text` +
+  tag `INFERRED` + `method_inferred_source` = named source (REQUIRED, ERD; source-less → 400).
+  E) `none` → all three method columns cleared → `list_only` true. F) `accept_inferred` accepted but
+  behaviorally redundant with `method:"inferred"` (API doc maps "Accept INFERRED" to that value) —
+  no distinct semantics invented. G) `method_source` only meaningful for INFERRED (sole source
+  column is `method_inferred_source`); paste does not persist a source name. H) route guard =
+  JwtAuthGuard + CsrfGuard (doc: Bearer; guest method = client-side, doc §4). I) no GET-method route
+  (API doc defines only PATCH; the PATCH response is the state read). J) no schema change (columns
+  exist since migration 002), no `analysis_claim` writes (C4 = P3), no D-14 gate, no Views 1–4
+  generation, no OCR (Q10 stays untouched).
+  **STOP conditions:** any need to write `recipe_ingredient_line` (Q4) or `analysis_claim`/P3 tables
+  or to alter schema → STOP and report. Dependencies: D-12 ✅ (recipe + corrected lines exist).
+- 2026-09-09 — **D-13 EXECUTION (post-implementation; H-13 filled)**: implemented per pre-flight —
+  `RecipeService.attachMethod` + `toMethodState`, new `RecipesController` (`PATCH /recipes/:id/method`,
+  JwtAuthGuard+CsrfGuard, zod boundary validation: source-less INFERRED → 400 INVALID_METHOD), recipes
+  module registers the controller. Files: `apps/api/src/modules/recipes/{recipe.service,recipes.controller,
+  recipes.module}.ts` (modified/new), unit tests +5, `tests/integration/story_b4_method_attach.test.ts`
+  (new, 6/6), `tests/e2e/method.spec.ts` (new, 5 specs, env-blocked), `tests/e2e/review.spec.ts`
+  (parse-text 201→200 — D-12 latent expectation bug fixed against canonical API §3, confirmed live).
+  **Failures & recovery:** (1) manual API restart used `KEYCLOAK_CLIENT_ID=recipe-systems-web` (wrong —
+  `scripts/dev.sh` says `recipe-systems-bff`/`dev-bff-client-secret`) → Keycloak "Client not found";
+  restarted with dev.sh values → login OK. (2) live-check script skipped `#HttpOnly_` cookie-jar lines →
+  `recipe_session=undefined` → JWSInvalid 500 (script bug, NOT an API fault — the minted session verifies
+  fine against the dev secret). (3) integration INV-17 assertion matched the wrong exception shape →
+  corrected to `{ response: { code: 'RECIPE_NOT_FOUND' } }`. **Evidence:** unit 128/128, integration
+  54/54, gates PASS, lint/typecheck clean, verify-local exit 0, live-stack 10/10 (guest 401 · paste
+  METHOD · inferred INFERRED+"CDK 1669 / Mrs. Anitha" · none list-only · validation 400s · foreign 404),
+  DB row confirmed (tag INFERRED + named source). Intentional non-changes per pre-flight D-13F..J.
+  **Resume point:** D-14 (needs_review enqueue gate) awaits explicit dispatch; D-11/Q10 still deferred.
 - 2026-09-09 — **GIT CHECKPOINT (owner-authorized push)**: workspace was a GitHub zip extraction
   (no `.git`); initialized git in place (`git init -b main`, `core.autocrlf=false` repo-local to
   avoid CRLF noise), fetched the canonical history, reset HEAD to `origin/main` `93cc8e8`
@@ -887,7 +935,51 @@ execution output; Git: not available / not authorized throughout.
 
 ### H-13 — D-13 Method attach
 
-☐ No entry yet.
+- BASE_SHA / COMMIT_SHA: **BASE `83e6de0` · COMMIT `(filled at D-13 completion commit)`**
+- Date / agent session: 2026-09-09 · D-13 dispatch session (pre-flight GO recorded in HANDOFF §5 BEFORE implementation).
+- Status: **DONE (evidence below)** — all three dispatch done criteria satisfied in text scope.
+- What shipped:
+  1. **Method entry/attach on the corrected object, optional (B4 AC-1)** — `PATCH /recipes/:recipeId/method`
+     (API §4, RS-US-09) via a new `RecipesController` (recipes module; JwtAuthGuard + CsrfGuard — Bearer
+     only; guest method selection stays client-side per API §4). Modes:
+     - `paste` → `method_text` + tag `METHOD` (no inferred source);
+     - `inferred` → `method_text` + tag `INFERRED` + `method_inferred_source` = named source (REQUIRED —
+       source-less INFERRED refused 400 `INVALID_METHOD`, A-13 MAJOR avoided);
+     - `none` → all three method columns cleared → `list_only: true`.
+  2. **Wire shape** `{method_tag: "METHOD"|"INFERRED"|null, method_source: string|null, list_only: boolean}`
+     — derived from persisted state (`list_only := method_source_tag IS NULL`). `accept_inferred` accepted
+     but redundant with `method:"inferred"` (D-13F).
+  3. **No method + accepted matched family method → INFERRED with named source; Views 3/7 NOT INCOMPLETE**
+     — `list_only: false` with tag INFERRED (dispatch criterion 2).
+  4. **No method + list-only → Views 3/7 INCOMPLETE flag** — `list_only: true` (dispatch criterion 3; the
+     rendering assertion stays in P3's view tests per the dispatch note — this unit proves the flag).
+  5. **INFERRED provenance ready for C4** — tag + named source persisted on `recipe`
+     (`method_inferred_source`); `analysis_claim` untouched (C4 = P3).
+- Ownership: all writes in `RecipeService.attachMethod` (one-writer, ADR §2); no
+  `recipe_ingredient_line` writes (Q4 boundary proven by integration test); no schema change.
+- Non-changes (intentional): no GET-method route (D-13I), no identification/matching (P3), no Views 1–4
+  generation, no D-14 gate, no OCR, no `analysis_claim` writes.
+- Evidence:
+  - API unit **128/128** (5 new method tests in `recipe.service.test.ts`);
+  - integration (real Postgres) **54/54** — new `story_b4_method_attach.test.ts` 6/6: paste/inferred/none
+    persistence, fresh-recipe list-only, Q4 boundary (no line writes), INV-17 foreign 404;
+  - regression gates **PASS**; lint + typecheck clean;
+  - `verify-local` exit 0 (D-13 run);
+  - live-stack HTTP verification (Keycloak OIDC → BFF → Postgres) **10/10 PASS**: guest 401, paste 200
+    METHOD, inferred 200 INFERRED + "CDK 1669 / Mrs. Anitha", none 200 list-only, source-less inferred 400,
+    empty paste 400, unknown method 400, foreign actor 404; DB row confirmed `method_source_tag=INFERRED`,
+    `method_inferred_source='CDK 1669 / Mrs. Anitha'`;
+  - Playwright E2E `tests/e2e/method.spec.ts` written (5 specs) but NOT executable on this machine
+    (policy exit 1260 — unchanged environment blocker). Side fix: parse-text status expectation 201→200 in
+    review.spec.ts + method.spec.ts (canonical doc §3 says 200; confirmed live).
+- Failures & recovery (full trace in HANDOFF §5): manual API restart used a wrong Keycloak client env
+  (`recipe-systems-web` instead of `scripts/dev.sh`'s `recipe-systems-bff` → Keycloak "Client not found");
+  live-check script skipped `#HttpOnly_` cookie-jar lines → sent `recipe_session=undefined` → JWSInvalid
+  500 (script bug, not API); integration INV-17 assertion matched the wrong exception shape → corrected to
+  `response.code`.
+- Resume point: D-13 is complete in text scope; photo/OCR interplay for method-from-card is D-11/Q10-
+  gated only if a card-extracted method ever becomes a D-unit requirement. Next dispatchable: **D-14
+  (needs_review enqueue gate) — WAITING for explicit user authorization.**
 
 ### H-14 — D-14 needs_review enqueue gate
 

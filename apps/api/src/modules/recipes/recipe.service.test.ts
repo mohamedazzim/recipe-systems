@@ -4,7 +4,7 @@ import { RecipeService, UNTITLED_RECIPE } from './recipe.service';
 
 function mockPrisma() {
   return {
-    recipe: { findUnique: jest.fn(), create: jest.fn(), delete: jest.fn() },
+    recipe: { findUnique: jest.fn(), create: jest.fn(), delete: jest.fn(), update: jest.fn() },
     recipeInput: { count: jest.fn() },
   };
 }
@@ -90,5 +90,102 @@ describe('RecipeService', () => {
     const svc = new RecipeService(prisma);
     await svc.removeIfIntakeEmpty(userActor, 'r1');
     expect(prisma.recipe.delete).not.toHaveBeenCalled();
+  });
+});
+
+describe('RecipeService — D-13 method attach (B4)', () => {
+  const ownedRecipe = { id: 'r1', accountId: 'acc-1', guestSessionId: null };
+
+  function mockOwned(updateResult: any) {
+    const prisma: any = mockPrisma();
+    prisma.recipe.findUnique.mockResolvedValue(ownedRecipe);
+    prisma.recipe.update.mockResolvedValue(updateResult);
+    return prisma;
+  }
+
+  it('paste persists method_text with tag METHOD and no inferred source (D-13C)', async () => {
+    const prisma = mockOwned({
+      ...ownedRecipe,
+      methodText: 'Dry roast the spices…',
+      methodSourceTag: 'METHOD',
+      methodInferredSource: null,
+    });
+    const svc = new RecipeService(prisma);
+    const state = await svc.attachMethod(userActor, 'r1', {
+      mode: 'paste',
+      methodText: 'Dry roast the spices…',
+    });
+    expect(prisma.recipe.update).toHaveBeenCalledWith({
+      where: { id: 'r1' },
+      data: { methodText: 'Dry roast the spices…', methodSourceTag: 'METHOD', methodInferredSource: null },
+    });
+    expect(state).toEqual({ method_tag: 'METHOD', method_source: null, list_only: false });
+  });
+
+  it('inferred persists tag INFERRED with the named source (D-13D, A-13: never source-less)', async () => {
+    const prisma = mockOwned({
+      ...ownedRecipe,
+      methodText: 'Boil tamarind, temper, simmer…',
+      methodSourceTag: 'INFERRED',
+      methodInferredSource: 'CDK 1669 / Mrs. Anitha',
+    });
+    const svc = new RecipeService(prisma);
+    const state = await svc.attachMethod(userActor, 'r1', {
+      mode: 'inferred',
+      methodText: 'Boil tamarind, temper, simmer…',
+      methodSource: 'CDK 1669 / Mrs. Anitha',
+    });
+    expect(prisma.recipe.update).toHaveBeenCalledWith({
+      where: { id: 'r1' },
+      data: {
+        methodText: 'Boil tamarind, temper, simmer…',
+        methodSourceTag: 'INFERRED',
+        methodInferredSource: 'CDK 1669 / Mrs. Anitha',
+      },
+    });
+    expect(state).toEqual({
+      method_tag: 'INFERRED',
+      method_source: 'CDK 1669 / Mrs. Anitha',
+      list_only: false,
+    });
+  });
+
+  it('none clears all three method columns → list_only true (D-13E; Views 3/7 INCOMPLETE flag)', async () => {
+    const prisma = mockOwned({
+      ...ownedRecipe,
+      methodText: null,
+      methodSourceTag: null,
+      methodInferredSource: null,
+    });
+    const svc = new RecipeService(prisma);
+    const state = await svc.attachMethod(userActor, 'r1', { mode: 'none' });
+    expect(prisma.recipe.update).toHaveBeenCalledWith({
+      where: { id: 'r1' },
+      data: { methodText: null, methodSourceTag: null, methodInferredSource: null },
+    });
+    expect(state).toEqual({ method_tag: null, method_source: null, list_only: true });
+  });
+
+  it('unknown persisted tags (CARD/UNKNOWN) never leak into the wire as method_tag', async () => {
+    const prisma = mockOwned({
+      ...ownedRecipe,
+      methodText: '…',
+      methodSourceTag: 'CARD',
+      methodInferredSource: null,
+    });
+    const svc = new RecipeService(prisma);
+    const state = await svc.attachMethod(userActor, 'r1', { mode: 'none' });
+    expect(state.method_tag).toBeNull();
+    expect(state.list_only).toBe(true);
+  });
+
+  it('404s for a foreign recipe — method state never leaks across accounts (INV-17)', async () => {
+    const prisma: any = mockPrisma();
+    prisma.recipe.findUnique.mockResolvedValue({ id: 'r1', accountId: 'acc-OTHER', guestSessionId: null });
+    const svc = new RecipeService(prisma);
+    await expect(
+      svc.attachMethod(userActor, 'r1', { mode: 'paste', methodText: 'x' }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.recipe.update).not.toHaveBeenCalled();
   });
 });

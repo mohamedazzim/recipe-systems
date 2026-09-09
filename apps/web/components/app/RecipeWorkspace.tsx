@@ -9,6 +9,7 @@ import { ArrowLeft } from '@phosphor-icons/react';
 import { Heading } from '@/components/ui/Typography';
 import { listSessionRecipes } from '@/lib/flow';
 import { IngredientReview } from '@/components/app/IngredientReview';
+import type { WireLine } from '@/lib/types';
 import { MethodSection } from '@/components/app/MethodSection';
 import { ReadinessPanel } from '@/components/app/ReadinessPanel';
 import { AnalysisPanel } from '@/components/app/AnalysisPanel';
@@ -17,9 +18,11 @@ export interface RecipeWorkspaceProps {
   recipeId: string;
   signedIn: boolean;
   onBack: () => void;
+  /** Lines from the parse-text response (guest read-only rendering). */
+  initialLines?: WireLine[] | null;
 }
 
-export function RecipeWorkspace({ recipeId, signedIn, onBack }: RecipeWorkspaceProps) {
+export function RecipeWorkspace({ recipeId, signedIn, onBack, initialLines = null }: RecipeWorkspaceProps) {
   const [analysisId, setAnalysisId] = useState<string | null>(null);
   const [title, setTitle] = useState('Recipe');
 
@@ -48,7 +51,7 @@ export function RecipeWorkspace({ recipeId, signedIn, onBack }: RecipeWorkspaceP
       </p>
 
       <div className="mt-8">
-        <IngredientReview recipeId={recipeId} signedIn={signedIn} title={title} />
+        <IngredientReview recipeId={recipeId} signedIn={signedIn} title={title} initialLines={initialLines} />
       </div>
 
       <MethodSection recipeId={recipeId} signedIn={signedIn} />

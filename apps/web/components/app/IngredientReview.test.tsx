@@ -46,7 +46,7 @@ describe('IngredientReview (D-12 actions)', () => {
   });
 
   function props(overrides: Partial<Parameters<typeof IngredientReview>[0]> = {}) {
-    return { recipeId: 'r1', signedIn: true, title: 'Meen Kuzhambu', ...overrides };
+    return { recipeId: 'r1', signedIn: true, title: 'Meen Kuzhambu', initialLines: null, ...overrides };
   }
 
   it('renders the lines with amounts and keeps the two fenugreek lines distinct', async () => {
@@ -164,11 +164,25 @@ describe('IngredientReview (D-12 actions)', () => {
     expect(await screen.findByText(/changed elsewhere/)).toBeInTheDocument();
   });
 
-  it('guest: read-only rows, no action buttons, honest note', async () => {
-    (globalThis.fetch as jest.Mock).mockResolvedValue(listResponse(LINES));
-    render(<IngredientReview {...props({ signedIn: false })} />);
+  it('guest: renders the parse-text lines read-only and NEVER fetches Bearer-only GET /lines', async () => {
+    render(<IngredientReview {...props({ signedIn: false, initialLines: LINES })} />);
     expect(await screen.findByText('Fenugreek seeds 1 tsp')).toBeInTheDocument();
+    expect(screen.getByText('Fenugreek leaves, a handful')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Edit Fish — 500g' })).not.toBeInTheDocument();
     expect(screen.getByText(/viewing these lines as a guest/i)).toBeInTheDocument();
+    // The guest path must never hit the API (the 401-loop regression).
+    expect((globalThis.fetch as jest.Mock).mock.calls.length).toBe(0);
+  });
+
+  it('failed load shows the error with a retry instead of an endless spinner', async () => {
+    (globalThis.fetch as jest.Mock).mockResolvedValue({
+      ok: false,
+      status: 401,
+      json: async () => ({ error: { code: 'UNAUTHORIZED', message: 'Sign in required' } }),
+    });
+    render(<IngredientReview {...props({ initialLines: null })} />);
+    expect(await screen.findByText('Could not load the ingredient lines')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+    expect(screen.queryByText('Loading ingredients...')).not.toBeInTheDocument();
   });
 });

@@ -9,6 +9,7 @@ import { AppShell, AppView } from '@/components/app/AppShell';
 import { HomeView } from '@/components/app/HomeView';
 import { CreateView } from '@/components/app/CreateView';
 import { RecipeWorkspace } from '@/components/app/RecipeWorkspace';
+import type { WireLine } from '@/lib/types';
 
 type State =
   | { phase: 'loading' }
@@ -121,7 +122,7 @@ export default function Home() {
         <CreateView
           signedIn={state.phase === 'signed-in'}
           onBack={() => setView({ name: 'home' })}
-          onParsed={(recipeId) => setView({ name: 'workspace', recipeId })}
+          onParsed={(recipeId, lines) => setView({ name: 'workspace', recipeId, initialLines: lines })}
         />
       )}
       {view.name === 'workspace' && (
@@ -129,6 +130,7 @@ export default function Home() {
           recipeId={view.recipeId}
           signedIn={state.phase === 'signed-in'}
           onBack={() => setView({ name: 'home' })}
+          initialLines={view.initialLines}
         />
       )}
       {state.phase === 'guest' && guestSessionId && (

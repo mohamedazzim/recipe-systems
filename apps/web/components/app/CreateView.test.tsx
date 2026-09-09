@@ -39,7 +39,7 @@ describe('CreateView (paste intake)', () => {
     expect(url).toContain('/recipes/parse-text');
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body as string)).toEqual({ text: 'Meen Kuzhambu' });
-    expect(p.onParsed).toHaveBeenCalledWith('r42');
+    expect(p.onParsed).toHaveBeenCalledWith('r42', []);
   });
 
   it('shows the backend error message (no generic fallback)', async () => {

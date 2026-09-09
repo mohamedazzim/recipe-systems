@@ -6,12 +6,12 @@
 
 import { SignOut } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/Button';
-import type { User } from '@/lib/types';
+import type { User, WireLine } from '@/lib/types';
 
 export type AppView =
   | { name: 'home' }
   | { name: 'create' }
-  | { name: 'workspace'; recipeId: string };
+  | { name: 'workspace'; recipeId: string; initialLines?: WireLine[] | null };
 
 export interface AppShellProps {
   user: User | null;

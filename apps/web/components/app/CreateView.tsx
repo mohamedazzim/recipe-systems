@@ -12,13 +12,13 @@ import { Field } from '@/components/ui/Field';
 import { Textarea } from '@/components/ui/Input';
 import { Heading, Text } from '@/components/ui/Typography';
 import { api, ApiError } from '@/lib/api';
-import type { ParseTextResponse } from '@/lib/types';
+import type { ParseTextResponse, WireLine } from '@/lib/types';
 import { previewOf, recordSessionRecipe } from '@/lib/flow';
 
 export interface CreateViewProps {
   signedIn: boolean;
   onBack: () => void;
-  onParsed: (recipeId: string) => void;
+  onParsed: (recipeId: string, lines: WireLine[]) => void;
 }
 
 export function CreateView({ signedIn, onBack, onParsed }: CreateViewProps) {
@@ -36,7 +36,7 @@ export function CreateView({ signedIn, onBack, onParsed }: CreateViewProps) {
         body: JSON.stringify({ text }),
       });
       recordSessionRecipe(result.recipe_id, previewOf(text));
-      onParsed(result.recipe_id);
+      onParsed(result.recipe_id, result.recipe.lines);
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);

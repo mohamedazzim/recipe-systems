@@ -27,6 +27,11 @@ export interface IngredientReviewProps {
   signedIn: boolean;
   /** The user-facing recipe label (session preview). */
   title: string;
+  /** Lines already returned by POST /recipes/parse-text (the guest-capable
+   *  path). Guests render these read-only and NEVER fetch GET /lines, which
+   *  is Bearer-only (API doc §3). Signed-in users fetch fresh lines but
+   *  render these immediately as a first paint. */
+  initialLines?: WireLine[] | null;
 }
 
 interface EditorState {
@@ -49,8 +54,8 @@ function emptyEditor(line: WireLine): EditorState {
   };
 }
 
-export function IngredientReview({ recipeId, signedIn, title }: IngredientReviewProps) {
-  const [lines, setLines] = useState<WireLine[] | null>(null);
+export function IngredientReview({ recipeId, signedIn, title, initialLines = null }: IngredientReviewProps) {
+  const [lines, setLines] = useState<WireLine[] | null>(initialLines);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -74,11 +79,21 @@ export function IngredientReview({ recipeId, signedIn, title }: IngredientReview
   }, [recipeId]);
 
   useEffect(() => {
-    setLines(null);
     setEditingId(null);
     setSplittingId(null);
+    if (!signedIn) {
+      // Guests: read-only, render the parse-text lines, never fetch Bearer-only
+      // routes (API §3). No spinner, no dead request.
+      setLines(initialLines ?? []);
+      setError(null);
+      return;
+    }
+    if (initialLines === null) {
+      setLines(null);
+    }
     void refresh();
-  }, [refresh]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recipeId, signedIn]);
 
   const beginEdit = (line: WireLine): void => {
     setEditingId(line.id);
@@ -235,6 +250,26 @@ export function IngredientReview({ recipeId, signedIn, title }: IngredientReview
   };
 
   if (lines === null) {
+    if (error !== null) {
+      // The fetch failed: never spin forever on an error.
+      return (
+        <section aria-labelledby="ingredients-heading">
+          <h2 id="ingredients-heading" className="font-display text-h2 text-ink">
+            Review your ingredients
+          </h2>
+          <div className="mt-4">
+            <Alert tone="error" title="Could not load the ingredient lines">
+              {error}
+            </Alert>
+          </div>
+          <div className="mt-4">
+            <Button size="sm" variant="outline" onClick={() => void refresh()}>
+              Try again
+            </Button>
+          </div>
+        </section>
+      );
+    }
     return (
       <div className="flex items-center gap-3 py-10 text-small text-muted">
         <Spinner size="sm" label="Loading ingredients" />

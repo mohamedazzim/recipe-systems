@@ -15,6 +15,9 @@ npm ci --no-audit --no-fund
 step "prisma generate + database build (client and dist must exist before typecheck/unit)"
 (cd packages/database && npx prisma generate && npm run build)
 
+step "schemas build (D-15: consumers import @recipe-systems/schemas via dist)"
+(cd packages/schemas && npm run build)
+
 step "lint"
 npm run lint
 

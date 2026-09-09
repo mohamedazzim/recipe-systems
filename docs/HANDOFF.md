@@ -652,8 +652,47 @@ execution output; Git: not available / not authorized throughout.
   **STOP conditions:** provider code, Q1/Q9 resolution, analysis_* writes, worker plumbing, schema
   edits, or an invented persistence model → STOP. Dependencies: D-15 ✅ (pipeline + schemas +
   mock). No contradictions found → GO.
+- 2026-09-09 — **D-17 PRE-FLIGHT + REPOSITORY/CI AUDIT (Part A–C; verdict: GO with labeled Q1 assumption)**: user
+  authorized D-17 pre-flight + full repo/CI health audit. **Canonical D-17 contract verified:** DISPATCH D-17
+  (worker = only writer of analysis_*; pg-boss dequeue; INV-11 idempotency; Q13 pilot retry defaults labeled;
+  Q1 → "if Q1 is still open, use the worker/job-payload approach as the labeled working assumption with the
+  ERD v14 seam documented — do not silently decide (BUILD_PLAN §7.2)"; NOTIFY→API→SSE→browser with NOTIFY =
+  signal only, INV-16; crash/duplicate → one current, never two; done criteria incl. "failed jobs never stuck
+  at generating"), A-17 (one-writer BLOCKER via grep; duplicate delivery → one current; NOTIFY loss → reload
+  recovery; Q1/Q13 labeled assumptions — unlabeled policy = MINOR, silent ERD v14 change = BLOCKER),
+  ADR §6/§14 (execution flow, retry lifecycle queued→processing→transient→bounded retry→success/failed;
+  permanent errors must not retry indefinitely; analysis.id = business/job identity; idempotent upserts),
+  Tech Stack §9/§13 (pg-boss; SSE via NOTIFY), BUILD_PLAN P3-3 + §7.2 (Q1 decides by week 5 / P3 finalization),
+  ERD/schema (Analysis, AnalysisView{view_number CHECK 1–9, view_key, status CHECK, payload Json},
+  AnalysisClaim{claim_tag CHECK, source_reference}, is_current partial unique), frozen D-05 contracts,
+  D-14 gate + D-15 pipeline + D-16 choke point (consume, never duplicate). **Q1 verdict: GO-with-labeled-
+  assumption** — DISPATCH D-17 deliverable 2 EXPLICITLY permits the job-payload approach while Q1 is open;
+  Q1 stays OPEN in SCAFFOLD §7; assumption labeled with the register ID in HANDOFF H-17 (A-17 hygiene).
+  **Q9:** worker stays provider-neutral through the D-15 seam; no provider. **Audit findings:** (1) CRITICAL
+  CI-only failure — GitHub Actions run 13 (46fd99f, D-15 push) and run 14 (3eb18a6) FAILED at the typecheck
+  step: D-15 pointed schemas' package main/types at dist/ but neither ci.yml nor verify-local.sh builds
+  schemas before typecheck (local masked it because dist existed). Reproduced locally (TS2307 with
+  schemas/dist absent) → fixed by adding a schemas build step to both ci.yml and verify-local.sh (mirrors
+  the database-build precedent; EOL verified LF). Run 12 (50bd215) and run 11 (6146752) were green — the
+  regression is D-15's. (2) gh CLI absent on this machine → CI state verified via the public GitHub REST API
+  (repo is public). (3) Verified healthy: lockfile/npm ci, migration order (001+002), zero tracked generated
+  artifacts, no secret leaks (only Prisma generated runtime strings — gitignored), scripts LF in index+tree,
+  workspace topological build, verify-local ≈ ci.yml parity, Node 22 both sides. (4) Observation only (no
+  action): packageManager pins npm@11.19.1 while CI's Node 22 ships npm 10 — tolerated (runs 11/12 green).
+  **D-17 implementation plan (recorded before code):** enqueue surface = POST /recipes/:id/analyse (D-14
+  gate → 422 METHOD_REQUIRED when list_only per API §5 → pg-boss send with a pre-generated analysis UUID →
+  200 {analysis_id, status:'queued'} — the API NEVER writes analysis_* (A-17 one-writer); the full envelope
+  shape is the GET /analysis/:id contract once the worker completes); worker (apps/analysis-worker): pg-boss
+  work() on queue 'analysis', creates the analysis row (generating) + NOTIFY, runs each view 1–9 through the
+  D-16 generateGrounded choke point with the configured adapter (Q9 stub = MockLlmAdapter — no provider:
+  jobs fail cleanly, never stuck at generating), persists analysis_view + analysis_claim rows, marks
+  complete + is_current (INV-09), NOTIFYs; duplicate delivery converges by upserting on the predetermined
+  analysis id (INV-11); crash-mid-job recovery = startup reconciliation of stale 'generating' rows; retry =
+  Q13-labeled pilot defaults (pg-boss retryLimit 3 + backoff) recorded in H-17; SSE = GET
+  /analysis/:id/events (NOTIFY-driven, reconnect-reload from Postgres). Non-goals honored: no views
+  content (D-18), no OCR, no provider.
 - 2026-09-09 — **D-16 EXECUTION (post-implementation; H-16 filled)**: implemented per pre-flight —
-  `packages/llm-adapter/src/grounding/{captured,validator,attempts}.ts` (new) + `src/index.ts`
+   `packages/llm-adapter/src/grounding/{captured,validator,attempts}.ts` (new) + `src/index.ts`
   (choke-point chain `generateGrounded` + grounding exports) + `src/grounding/validator.test.ts`
   (new, 37 tests) + `tests/integration/story_d16_golden_grounding.test.ts` (new, 6/6 against the
   REAL golden fixture) + `jest.integration.config.js` (llm-adapter mapper). **Failures & recovery:**

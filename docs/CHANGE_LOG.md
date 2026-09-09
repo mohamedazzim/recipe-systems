@@ -20,6 +20,21 @@
 
 **Rule:** a change that alters any Q1–Q18 row must say so in its entry. The register (SCAFFOLD §7) is the single source of truth for open decisions; this log records the history of how the register changed. No Q-row changes in D-13.
 
+## 2026-09-09 — CI fix: build schemas before typecheck (D-17 pre-flight audit)
+
+- Issue: GitHub Actions runs 13 (46fd99f) and 14 (3eb18a6) FAILED at the typecheck step (TS2307:
+  `@recipe-systems/schemas` unresolvable). Root cause: D-15 pointed the schemas package main/types at
+  `dist/`, but neither ci.yml nor verify-local.sh builds schemas before typecheck — CI typechecks
+  against a missing dist while local development masks it (dist present from earlier builds).
+- Evidence: reproduced locally (`rm -rf packages/schemas/dist` → llm-adapter `tsc --noEmit` →
+  TS2307 ×5); GitHub API run list: run 12 (50bd215) success, run 13 (46fd99f) failure, run 14
+  (3eb18a6) failure.
+- Fix: `ci.yml` + `scripts/verify-local.sh` each gain a "schemas build" step after the database
+  build (mirrors the database-build precedent). EOL verified LF. No runtime/architecture change.
+- Tests proving the fix: clean-dist → build steps → workspace typecheck exit 0; full verify-local
+  re-run exit 0 (see H-17 run evidence). CI re-verification: run for the fix commit (polled).
+- Commit(s): `(CI-fix commit — filled after push)`
+
 ## 2026-09-09 — D-16 Grounding validator (P3-2)
 
 - Status: **DONE** (all three dispatch done criteria satisfied; H-16 filled with evidence).

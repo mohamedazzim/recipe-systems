@@ -1673,3 +1673,36 @@ execution output; Git: not available / not authorized throughout.
   **Intentional non-changes:** no claim-existing-account endpoint invented (canonical claim exists
   only at signup), no recipe-list endpoint, no client-side ownership bypass, no OCR/D-18 changes.
   **Resume point:** verify-local → Git checkpoint → push → CI; then D-18 (Views 1–4) awaiting dispatch.
+
+
+- 2026-09-09 — **BUG FIX: D-12 text/paste review (two reported bugs, root-caused + regression-locked)**
+  **Bug 1 (paste = one giant line).** Evidence: `IntakeService.splitRawLines` split on
+  `\r?\n` only — a single-line semicolon-separated paste ("1 lb ground beef; 1 onion, chopped;
+  ...") became ONE draft line with the whole string. The canonical API doc §3 defines the OUTPUT
+  (structured lines) without prescribing input delimiters; the D-12 boundary is segmentation, NOT
+  semantic parsing. **Fix:** split on `\r?\n|;` (semantic-free; trim + drop empties unchanged).
+  `recipe_input.raw_text` is NEVER touched — recordPaste stores the original string byte-for-byte
+  before segmentation (psql-verified in live acceptance). Amount/unit/sense resolution untouched
+  (stays in later D-12 stages; display_name stays verbatim per clause, including the trailing
+  period of the final clause — byte-faithful segmentation).
+  **Bug 2 (Add line → Delete fails with "Could not remove the line.").** Evidence: the canonical
+  DELETE contract is **204 No Content with NO body** (API doc §3; controller `@HttpCode(204)`,
+  no @Body, no stale-edit token — the row is soft-deleted by id alone). The frontend `api()`
+  helper always ran `res.json()` — parsing the empty 204 body threw a SyntaxError (not an
+  ApiError), so the catch showed the generic error and the list never refreshed (row stayed).
+  **Fix:** `lib/api.ts` returns `undefined` for 204 without parsing; `IngredientReview.removeLine`
+  now sends the canonical body-less DELETE (the dead STALE_EDIT branch removed — delete has no
+  stale-edit semantics) and refreshes from the authoritative list.
+  **Regression tests:** backend unit (splitRawLines semicolon cases incl. the exact reported
+  string, no-clause-combining, mixed newline+semicolon; recordPaste raw-immutability + 8 ordered
+  creates); integration `intake_storage.test.ts` (real Postgres: raw byte-for-byte + 8 ordered
+  rows); web `lib/api.test.ts` (204 → undefined, ApiError passthrough, CSRF header),
+  `IngredientReview` add→delete lifecycle regression (POST 201 → row appears → DELETE 204 with
+  empty body → row gone, NO error banner) + delete-failure surfaces the real API message.
+  **Live acceptance (12/12):** chef pastes the exact string → 8 separate draft lines, ordered;
+  raw_text psql-verified byte-for-byte; add → persisted id → delete 204 → gone with no error;
+  soft-delete row kept with deleted_at set; edit real line 200; delete real line 204; remaining 7
+  lines correct and ordered.
+  **Intentional non-changes:** no amount/unit/sense parsing (D-12 later stages), no OCR/Q10, no
+  D-13/14/15/16/17 changes, recipe_input immutability preserved, Q4 Intake sole line writer.
+  **Resume point:** verify-local → Git checkpoint → push → CI; then D-18 (Views 1–4) awaiting dispatch.

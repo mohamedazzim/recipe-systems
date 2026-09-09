@@ -42,6 +42,22 @@
   real pg-boss connection from the bootstrap test) → `247b26b` → **run
   34353922712 success**.
 
+## 2026-09-09 — Fix: D-12 text/paste review bugs (semicolon segmentation + delete 204)
+
+- **Bug 1:** single-line semicolon-separated pastes became one giant draft line (`splitRawLines`
+  split newlines only). Fixed to split `\r?\n|;` — semantic-free segmentation, order preserved,
+  clauses never combined; `recipe_input.raw_text` stays byte-for-byte (psql-verified); no
+  amount/unit/sense parsing added.
+- **Bug 2:** Add line → Delete showed "Could not remove the line." — the canonical DELETE is
+  204 No Content with no body, but `api()` parsed the empty body as JSON (SyntaxError) and
+  skipped the refresh. Fixed: `api()` resolves undefined on 204; `removeLine` sends the
+  body-less canonical DELETE and refreshes; dead STALE_EDIT branch removed (delete has no
+  stale-edit token).
+- **Tests:** API unit 41/41 (+4 segmentation/immutability), integration 73/73 (+1 real-Postgres
+  semicolon case), web 60/60 (+api 204 helper tests, add→delete lifecycle regression, delete
+  failure surfaces the real message). Live acceptance 12/12 (exact reported flows incl.
+  soft-delete row kept with deleted_at set). verify-local exit 0.
+
 ## 2026-09-09 — Fix: authenticated ingredient retrieval (cross-session 404)
 
 - **Failure:** signed-in chef opened a guest-created recipe from the session list; GET /lines

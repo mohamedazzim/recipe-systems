@@ -132,9 +132,37 @@ describe('D-10 intake: real Postgres + real MinIO', () => {
     expect(rows).toHaveLength(1); // intruder's attempt persisted nothing
   });
 
+ it('regression: semicolon single-line paste → raw byte-for-byte + 8 ordered draft lines', async () => {
+    const text = '1 lb ground beef; 1 onion, chopped; 2 cloves garlic; 1 can (28 oz) crushed tomatoes; 2 tbsp tomato paste; 1 tsp dried oregano; Salt & pepper to taste; Cook 1-2 hours, low heat.';
+    const actor = await newGuestActor();
+    const recipe = await recipes.createForIntake(actor, { rawText: text });
+    createdRecipeIds.push(recipe.id);
+    await intake.recordPaste(actor, recipe.id, text);
+
+    const input = await prisma.recipeInput.findFirst({ where: { recipeId: recipe.id } });
+    expect(input?.rawText).toBe(text);
+
+    const lines = await prisma.recipeIngredientLine.findMany({
+      where: { recipeId: recipe.id, deletedAt: null },
+      orderBy: { lineNo: 'asc' },
+    });
+    expect(lines.map((l) => l.displayName)).toEqual([
+      '1 lb ground beef',
+      '1 onion, chopped',
+      '2 cloves garlic',
+      '1 can (28 oz) crushed tomatoes',
+      '2 tbsp tomato paste',
+      '1 tsp dried oregano',
+      'Salt & pepper to taste',
+      'Cook 1-2 hours, low heat.',
+    ]);
+  });
   it('splitRawLines preserves mixed units and vernacular names verbatim (B1 acceptance)', () => {
     expect(
       splitRawLines('Murungakkai — to taste\r\nChinna vengayam — 1/2 kg\r\nSalt — as required'),
     ).toEqual(['Murungakkai — to taste', 'Chinna vengayam — 1/2 kg', 'Salt — as required']);
   });
 });
+
+
+

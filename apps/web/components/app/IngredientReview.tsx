@@ -167,18 +167,14 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
     setSaving(true);
     setNotice(null);
     try {
+      // Canonical DELETE contract (API doc §3): 204 No Content, NO body — the
+      // backend soft-deletes the row by id with no stale-edit token involved.
       await api(`/recipes/${recipeId}/lines/${line.id}`, {
         method: 'DELETE',
-        body: JSON.stringify({ expected_updated_at: line.updated_at }),
       });
       await refresh();
     } catch (err) {
-      if (err instanceof ApiError && err.code === 'STALE_EDIT') {
-        await refresh();
-        setError('This line changed elsewhere. The list has been reloaded.');
-      } else {
-        setError(err instanceof ApiError ? err.message : 'Could not remove the line.');
-      }
+      setError(err instanceof ApiError ? err.message : 'Could not remove the line.');
     } finally {
       setSaving(false);
     }

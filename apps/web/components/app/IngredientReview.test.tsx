@@ -129,6 +129,56 @@ describe('IngredientReview (D-12 actions)', () => {
     expect(body).toEqual({ merge_with_next: true, expected_updated_at: '2026-09-09T10:00:00.000Z' });
   });
 
+  it('regression: add line → appears → delete → disappears, no error (204 contract)', async () => {
+    const created = line({ id: 'l-new', display_name: 'New ingredient' });
+    const afterAdd = [...LINES, created];
+    const afterDelete = LINES;
+    const mock = globalThis.fetch as jest.Mock;
+
+    mock.mockResolvedValueOnce(listResponse(LINES)); // initial load
+    mock.mockResolvedValueOnce(okResponse(created)); // POST add → 201 created line
+    mock.mockResolvedValueOnce(listResponse(afterAdd)); // refresh after add
+    mock.mockResolvedValueOnce({
+      ok: true,
+      status: 204,
+      json: jest.fn().mockRejectedValue(new SyntaxError('Unexpected end of JSON input')),
+    }); // DELETE → 204, empty body
+    mock.mockResolvedValue(listResponse(afterDelete)); // refresh after delete
+
+    render(<IngredientReview {...props()} />);
+    await screen.findByText('Fish — 500g');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add line' }));
+    expect(await screen.findByText('New ingredient')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Delete New ingredient' }));
+    expect(await screen.findByText('Fish — 500g')).toBeInTheDocument();
+    expect(screen.queryByText('New ingredient')).not.toBeInTheDocument();
+    expect(screen.queryByText('Could not remove the line.')).not.toBeInTheDocument();
+    expect(screen.queryByText('Something needs attention')).not.toBeInTheDocument();
+
+    const delCalls = mock.mock.calls.filter((c) => {
+      const [url, init] = c as [string, RequestInit];
+      return url.includes('/lines/l-new') && init.method === 'DELETE';
+    });
+    expect(delCalls.length).toBe(1);
+    expect((delCalls[0] as [string, RequestInit])[1].body).toBeUndefined();
+  });
+
+  it('delete failure surfaces the real API message', async () => {
+    const mock = globalThis.fetch as jest.Mock;
+    mock.mockResolvedValueOnce(listResponse(LINES));
+    mock.mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      json: async () => ({ error: { code: 'RECIPE_NOT_FOUND', message: 'Recipe not found' } }),
+    });
+    render(<IngredientReview {...props()} />);
+    await screen.findByText('Fish — 500g');
+    await userEvent.click(screen.getByRole('button', { name: 'Delete Fish — 500g' }));
+    expect(await screen.findByText('Recipe not found')).toBeInTheDocument();
+  });
+
   it('clear review sends needs_review false literal only', async () => {
     const flagged = line({ needs_review: true });
     (globalThis.fetch as jest.Mock).mockResolvedValueOnce(listResponse([flagged]));

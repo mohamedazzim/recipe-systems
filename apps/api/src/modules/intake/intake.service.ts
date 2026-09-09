@@ -44,8 +44,15 @@ export interface WireLine {
 }
 
 export function splitRawLines(rawText: string): string[] {
+  // D-12 segmentation: one draft line per newline-delimited raw line OR per
+  // semicolon-delimited clause (single-line pastes like
+  // "1 lb ground beef; 1 onion, chopped; ..." segment into distinct draft
+  // lines). Semantic-free: no amount/unit/sense resolution happens here
+  // (those stay in later D-12 stages), and the raw input itself is NEVER
+  // mutated — recordPaste stores the original text byte-for-byte before
+  // segmentation.
   return rawText
-    .split(/\r?\n/)
+    .split(/\r?\n|;/)
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
 }

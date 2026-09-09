@@ -33,6 +33,11 @@ export async function api<T>(
     headers,
     credentials: 'include',
   });
+  // 204 No Content (the canonical DELETE contract, API doc §3) has no body:
+  // parsing it as JSON throws and turns a successful call into an error.
+  if (res.status === 204) {
+    return undefined as T;
+  }
   if (!res.ok) {
     let code = 'HTTP_ERROR';
     let message = res.statusText;

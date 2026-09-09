@@ -69,6 +69,8 @@ function mockLine(overrides: Record<string, unknown> = {}) {
   };
 }
 
+const SEMICOLON_PASTE = "1 lb ground beef; 1 onion, chopped; 2 cloves garlic; 1 can (28 oz) crushed tomatoes; 2 tbsp tomato paste; 1 tsp dried oregano; Salt & pepper to taste; Cook 1-2 hours, low heat.";
+
 describe('splitRawLines (B1 raw-text handling)', () => {
   it('splits CRLF and LF, trims, and drops empty lines', () => {
     expect(splitRawLines('A\r\n\n  B  \r\n\n')).toEqual(['A', 'B']);
@@ -82,9 +84,58 @@ describe('splitRawLines (B1 raw-text handling)', () => {
       'Chinna vengayam — 10 nos',
     ]);
   });
+
+  it('regression: a single-line semicolon-separated paste segments into distinct draft lines', () => {
+    expect(splitRawLines(SEMICOLON_PASTE)).toEqual([
+      '1 lb ground beef',
+      '1 onion, chopped',
+      '2 cloves garlic',
+      '1 can (28 oz) crushed tomatoes',
+      '2 tbsp tomato paste',
+      '1 tsp dried oregano',
+      'Salt & pepper to taste',
+      'Cook 1-2 hours, low heat.',
+    ]);
+  });
+
+  it('never combines adjacent semicolon-delimited clauses and preserves order', () => {
+    const result = splitRawLines('A; B;;  C ; D');
+    expect(result).toEqual(['A', 'B', 'C', 'D']);
+  });
+
+  it('mixes newlines and semicolons without dropping or merging clauses', () => {
+    expect(splitRawLines('A; B\nC\nD; E\n')).toEqual(['A', 'B', 'C', 'D', 'E']);
+  });
 });
 
 describe('IntakeService — D-10 intake', () => {
+  it('regression: semicolon paste keeps raw_text byte-for-byte and creates one line per clause', async () => {
+    const { prisma, recipes } = mockPrisma();
+    prisma.recipeInput.create.mockResolvedValue({ id: 'in1' });
+    prisma.recipeIngredientLine.create.mockResolvedValue({ id: 'l1' });
+    const svc = new IntakeService(prisma, recipes);
+    await svc.recordPaste(userActor, 'r1', SEMICOLON_PASTE);
+    // raw input NEVER mutated: the stored text is the original string
+    expect(prisma.recipeInput.create).toHaveBeenCalledWith({
+      data: { recipeId: 'r1', inputType: 'paste', rawText: SEMICOLON_PASTE },
+    });
+    // 8 clauses → 8 draft lines, in order
+    expect(prisma.recipeIngredientLine.create).toHaveBeenCalledTimes(8);
+    const names = prisma.recipeIngredientLine.create.mock.calls.map(
+      (c: Array<{ data: { displayName: string } }>) => c[0].data.displayName,
+    );
+    expect(names).toEqual([
+      '1 lb ground beef',
+      '1 onion, chopped',
+      '2 cloves garlic',
+      '1 can (28 oz) crushed tomatoes',
+      '2 tbsp tomato paste',
+      '1 tsp dried oregano',
+      'Salt & pepper to taste',
+      'Cook 1-2 hours, low heat.',
+    ]);
+  });
+
   it('recordPaste persists an immutable raw paste row and one draft line per raw line', async () => {
     const { prisma, recipes } = mockPrisma();
     prisma.recipeInput.create.mockResolvedValue({ id: 'in1' });

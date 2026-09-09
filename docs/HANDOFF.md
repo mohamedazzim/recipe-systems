@@ -491,6 +491,15 @@ execution output; Git: not available / not authorized throughout.
   **EXACT RESUME POINT (pre-implementation):** D-12 implementation proceeds NOW in text scope;
     after D-12, next decisions are D-13 dispatch (authorization required) and D-11/Q10 when OCR
     is re-opened. H-12 recorded IN PROGRESS until the photo-path criteria can pass after D-11.
+- 2026-09-09 — **GIT CHECKPOINT (owner-authorized push)**: workspace was a GitHub zip extraction
+  (no `.git`); initialized git in place (`git init -b main`, `core.autocrlf=false` repo-local to
+  avoid CRLF noise), fetched the canonical history, reset HEAD to `origin/main` `93cc8e8`
+  (identical to the extracted tree — zero drift for untouched files), staged the exact D-12 delta
+  (27 files; .env/node_modules/dist/generated/test-results excluded by .gitignore — no secrets),
+  committed `8bd770884b3cab0422d27ffbe08540bff529cfd3` and pushed to
+  `github.com/mohamedazzim/recipe-systems` main (`93cc8e8..8bd7708`). Remote verified via
+  `git ls-remote`; working tree clean. D-12 remains IN PROGRESS (photo-path criteria still gated
+  on D-11/Q10). Next: D-13 dispatch — WAITING for explicit user authorization.
 - 2026-09-09 — **D-12 EXECUTION COMPLETE (text scope; H-12 filled)**: all six RS-US-08 routes
   live under the Intake writer boundary; stale-edit 409 on updated_at; split/merge with
   direction-aware line_no shifts (real integration bug caught + fixed); corrected-object read
@@ -817,7 +826,7 @@ execution output; Git: not available / not authorized throughout.
 
 ### H-12 — D-12 Parse review
 
-- BASE_SHA / COMMIT_SHA: **none recorded** — Git not available / not authorized.
+- BASE_SHA / COMMIT_SHA: **BASE `93cc8e8` · COMMIT `8bd7708`** (full `8bd770884b3cab0422d27ffbe08540bff529cfd3`) — D-12 checkpoint pushed to `github.com/mohamedazzim/recipe-systems` branch `main` (2026-09-09, owner-authorized; parent verified `93cc8e8`).
 - Date / agent session: 2026-09-09 · D-12 dispatch session (text/paste scope — OCR deferred by
   user directive; decision trace + D-12A…I decisions in HANDOFF §5 2026-09-09, recorded BEFORE code).
 - Status: **IN PROGRESS (text scope shipped)** — the full parse-review editor for text-originated

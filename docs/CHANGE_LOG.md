@@ -47,7 +47,9 @@
   chrome+edge, headed+headless; bundled Chromium download network-blocked); equivalent live-
   stack verification via the real HTTP surface (Keycloak OIDC → session → BFF → Postgres)
   **11/11 PASS**.
-- Commit(s): none (no git operations authorized).
+- Commit(s): **`8bd7708`** (full `8bd770884b3cab0422d27ffbe08540bff529cfd3`) — D-12 checkpoint,
+  pushed to `github.com/mohamedazzim/recipe-systems` main (2026-09-09, owner-authorized;
+  remote verified via `git ls-remote`, working tree clean).
 - Resume point: D-12 photo-path criteria wait for D-11/Q10; next dispatchable unit = D-13
   (method attach, depends on D-12); D-14 needs D-11. A-12 audit pending.
 

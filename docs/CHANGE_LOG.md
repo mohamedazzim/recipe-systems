@@ -35,8 +35,10 @@
   are a MAJOR; a planted violation must fire).
 - Register impact: Q1/Q5/Q9/Q10/Q11 unchanged (OPEN).
 - Verification: gates PASS Â· worker 34/34 Â· API 178/178 Â· web 86/86 Â· integration 94/94 Â·
-  e2e 38/38 Â· lint 0 Â· typecheck 0 Â· verify-local exit 0 Â· CI green.
-- Commit(s): D-21 checkpoint commit recorded below.## 2026-09-10 — Autonomous E2E QA D-01→D-19: 6 defect fixes (QA-FIX-SET-1)
+  e2e 38/38 · lint 0 · typecheck 0 · verify-local exit 0 · **CI success (run `34480999679`)**.
+- Commit(s): `ded60d647d8add6e21961c0f8f3589e46b19cbd1` (D-21 checkpoint).
+
+## 2026-09-10 — Autonomous E2E QA D-01→D-19: 6 defect fixes (QA-FIX-SET-1)
 
 - Author / session: DeepSeek V4 Pro (VS Code), QA dispatch 2026-09-10 (browser E2E + fix policy).
 - What changed (files + substance): the QA run found six defects (full trace in HANDOFF §5,

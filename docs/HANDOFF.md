@@ -683,14 +683,21 @@ execution output; Git: not available / not authorized throughout.
   `signin.spec.ts`/`logout.spec.ts` used the stale seeded password `password` → the reconciled
   realm password `Password@123`; `signup.spec.ts`/`logout.spec.ts` Sign out clicks → `.first()`.
   Full e2e suite now **38/38** (was 34 passed + 4 stale failures; 1 new D-21 spec).
-  **ENV NOTE (recurring, operational):** the start-dev worker window died again mid-session
-  (second occurrence) — an e2e run enqueued while it was down surfaced "Analysis not found"
-  until the worker was restarted (pg-boss kept the job; it completed on restart). Not product
-  code; recommend a start-dev watchdog later.
+  **ENV NOTE (recurring, operational):** the start-dev worker window died mid-session (THIRD
+  occurrence in this day's sessions — also during the QA run and during the D-21 e2e run) —
+  an internal-browser analyse enqueued while it was down surfaced "Analysis not found" until
+  the worker was restarted (pg-boss kept the job; it completed on restart). Pattern: worker
+  windows launched from a VS Code terminal die when that terminal session is cleaned up; a
+  worker started in a persistent agent terminal survives. Not product code; recommend a
+  start-dev watchdog in a later ops pass.
   **VERIFICATION:** gates PASS (all five new hooks green on the real tree) · worker 34/34 ·
   API 178/178 · web 86/86 · integration **94/94** (12 suites + qg2 17) · lint 0 · typecheck 0 ·
   verify-local ALL STEPS PASSED exit 0 · e2e 38/38. Reference data intact 17/12/6/6/12/12.
-  **GIT:** D-21 commit recorded below. Q1/Q5/Q9/Q10/Q11 OPEN.
+  **GIT:** D-21 commit `ded60d6` (full `ded60d647d8add6e21961c0f8f3589e46b19cbd1`) — pushed,
+  tree clean. CI: **success** — run `34480999679` (head `ded60d6`, the D-21 checkpoint).
+  **LIVE INTERNAL-BROWSER RE-VERIFICATION (post-restart, dev stack):** fresh recipe as the
+  seeded chef → analyse → complete → View 8 shows H6 verbatim with NO "safe" on the surface;
+  View 9 shows I6 verbatim + the band dash — identical outcomes to the passing e2e spec.
   **D-20 GO/NO-GO:** see the H-21 entry.
   **DECISION (dispatcher/user 2026-09-09):** OCR work is paused for the day. Q10 stays OPEN
   (prior STOP history preserved above, verbatim). D-11 (OCR adapter + provider), GCV production
@@ -1708,9 +1715,10 @@ execution output; Git: not available / not authorized throughout.
 
 ### H-21 — D-21 Disclaimer sweep
 
-- BASE_SHA / COMMIT_SHA: **BASE `57e8b94` · COMMIT recorded below** (D-21 checkpoint pushed to
+- BASE_SHA / COMMIT_SHA: **BASE `57e8b94` · COMMIT `ded60d6`** (full
+  `ded60d647d8add6e21961c0f8f3589e46b19cbd1`) — D-21 checkpoint pushed to
   `github.com/mohamedazzim/recipe-systems` branch `main`, 2026-09-10; pre-flight GO recorded in
-  HANDOFF §5 BEFORE implementation).
+  HANDOFF §5 BEFORE implementation.
 - Date / agent session: 2026-09-10 · D-21 dispatch (preflight → implement → verify → stop).
 - Status: **DONE** — dispatch deliverables 1–3 + all three done criteria satisfied.
 - What shipped:
@@ -1744,7 +1752,8 @@ execution output; Git: not available / not authorized throughout.
   - Planted point-kcal → schema rejection (contracts test), band-strictness assertions, teeth
     test, and the new static min/max pair gates all catch it (qg2 plant fires).
 - Tests run: worker 34/34 · API 178/178 · web 86/86 · integration 94/94 · gates PASS · lint 0 ·
-  typecheck 0 · verify-local ALL STEPS PASSED exit 0 · e2e 38/38 · CI green on the commit.
+  typecheck 0 · verify-local ALL STEPS PASSED exit 0 · e2e 38/38 · **CI success
+  (run `34480999679`)**.
   Reference data intact 17/12/6/6/12/12. Q1/Q5/Q9/Q10/Q11 OPEN.
 - **D-20 GO/NO-GO (report, per dispatch):** **GO** — D-21 made no product-surface changes; the
   D-19 checkpoint (Views 5–9 + assumption editors + recompute) is unchanged and fully green;

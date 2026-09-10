@@ -1444,7 +1444,8 @@ execution output; Git: not available / not authorized throughout.
   now pass the frozen-schema gate — invalid → INCOMPLETE, never published); F-2 MAJOR
   deferred with recommendation (analysis_claim rows never materialized — provenance in
   payload tags; no wrong data; not a D-19 blocker); F-3 MINOR (recompute convergence relies
-  on FIFO delivery); F-4 MINOR (tooling note). Correction commit recorded in AUDIT_LOG.md.
+  on FIFO delivery); F-4 MINOR (tooling note). Correction commit `d95482a` (full
+  `d95482a4c0e1688eeabb85ed8e9b2cf8416ea02d`).
 - Follow-up: CI run for the checkpoint FAILED on the first push (CI's ephemeral Postgres has EMPTY reference tables; the D-19 story originally depended on the live load). Fixed in `cc69d15` (full SHA appended after the push): the story now self-bootstraps the committed reviewed imports through the real reviewed path in a snapshot/truncate/load/restore window, and `jest.integration.config.js` serializes integration suites (`maxWorkers: 1`) so the D-29/D-19 reference-table windows can never race. verify-local re-run exit 0; CI re-verified green (run id at checkpoint).
 
 ### H-20 — D-20 Chef mode + station card

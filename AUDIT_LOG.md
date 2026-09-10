@@ -104,12 +104,13 @@ criterion with evidence, gate evidence, OPEN DECISION labels (Q1/Q5/Q9/Q10 + ERD
 RS-US-45 async deviation, and the I7 listing representation — complete; no fabrication found.
 
 ### Corrections recorded
-- Commit: `fix(A-19): ...` (schema-gate on deterministic payloads + gate tests) — SHA appended
-  after the push; the original finding (F-1) is preserved above.
+- Commit: `d95482a` (full `d95482a4c0e1688eeabb85ed8e9b2cf8416ea02d`) —
+  `fix(A-19): frozen-schema gate on deterministic payloads + audit verdict`; the original
+  finding (F-1) is preserved above.
 
 ### CI status
-- Runs for the D-19 checkpoint + CI-fix: success. Post-audit correction run: recorded at
-  checkpoint (verified green after the push).
+- Runs for the D-19 checkpoint + CI-fix: success. Post-audit correction run: verified green
+  after the push (run id recorded at checkpoint).
 
 ### Recommendation for D-20 / D-21
 - **Proceed.** D-19 is fit for the next dispatch. Recommended order: **D-21 (disclaimer sweep)

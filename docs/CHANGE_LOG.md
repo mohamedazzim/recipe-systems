@@ -39,9 +39,13 @@
 - Why: user-reported live bug (no visible save state, false "saved" message) + the D-19
   pre-flight requirement (deterministic Views 8/9 + assumption editors + recompute design).
 - Register impact: Q1/Q5/Q9/Q10 remain OPEN (pre-flight labels them; no decisions made).
-- Verification: web/API unit suites green; live browser + psql evidence recorded; full
-  pipeline re-run pending the final verification pass of this session.
-- Commit(s): recorded at checkpoint (this entry precedes the commit SHA record).
+- Verification (on the commit tree): verify-local **ALL STEPS PASSED exit 0**; lint 0;
+  typecheck 0; unit worker 21/21, API 163/163, web 74/74; regression gates PASS (8/8 golden);
+  integration 81/81 (qg2_gates needs Git Bash first on PATH on this machine — known Windows
+  env issue, CI unaffected); live browser + psql evidence recorded; remote CI verified after
+  push (run id recorded at checkpoint).
+- Commit(s): `3decf4d` (`3decf4da63792d6f2fc4c42f113d1935ac8e6864`) — fix + tests + docs;
+  parent `72f1a9c`; pushed to `main`.
 
 ## 2026-09-09 — CI fix: build schemas before typecheck (D-17 pre-flight audit)
 

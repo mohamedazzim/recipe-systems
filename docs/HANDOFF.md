@@ -1956,6 +1956,12 @@ execution output; Git: not available / not authorized throughout.
   reopen; full analyse → worker → Views 1–4 still complete (no regression).
   **Intentional non-changes:** canonical PATCH contract and response untouched; no
   `method_text` added to any wire shape; guest flow unchanged; no snapshot/analysis changes.
+  **Commit / evidence:** COMMIT `3decf4d` (full `3decf4da63792d6f2fc4c42f113d1935ac8e6864`),
+  parent `72f1a9c`, pushed to `github.com/mohamedazzim/recipe-systems` branch `main`.
+  Full verification on the commit tree: verify-local **ALL STEPS PASSED exit 0** (npm ci →
+  prisma generate → lint → typecheck → unit (worker 21/21, API 163/163, web 74/74, packages
+  green) → regression gates PASS (8/8 golden) → contract → migrate → integration 81/81 →
+  build → QG3 perf OK); lint exit 0; typecheck exit 0.
 
 
 - 2026-09-10 — **D-19 PRE-FLIGHT (read-only; recorded BEFORE any D-19 code)**

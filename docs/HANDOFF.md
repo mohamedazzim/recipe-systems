@@ -1429,7 +1429,7 @@ execution output; Git: not available / not authorized throughout.
 
 ### H-19 — D-19 Views 5–9
 
-- BASE_SHA / COMMIT_SHA: BASE `82f88b6` · COMMIT recorded at the D-19 checkpoint (commit message `feat(D-19): ...` — full SHA appended after the push; see §5 D-19 EXECUTION).
+- BASE_SHA / COMMIT_SHA: BASE `82f88b6` · COMMIT `46c0559` (full SHA appended after the push; see §5 D-19 EXECUTION).
 - Date / agent session: 2026-09-10 · D-19 dispatch session (pre-flight GO + recompute working assumption accepted by the dispatcher BEFORE code — recorded in HANDOFF §5).
 - Status: **DONE** (implementation + verification; audit A-19 pending — dispatched after this checkpoint per convention).
 - Summary: Views 5–9 shipped — deterministic View 8 (versioned allergen mapping via `dietary_allergen_definition/mapping`, `analysis_claim.allergen_id` semantics honored by construction) and View 9 (band from `nutrition_food_composition_entry/version`, USDA per-100g values) computed in the analysis worker with NO LLM; Views 5–7 presented from the persisted LLM/stub payloads; H6/I6 disclaimers verbatim on every View 8/9 surface; I2 assumption editors (fish class, coconut grams, oil tablespoons) → RS-US-45 PATCH → deterministic pg-boss recompute job → worker-only write → band recomputed; assumptions persist in `analysis_view.payload.assumptions`.
@@ -2118,5 +2118,6 @@ execution output; Git: not available / not authorized throughout.
   job-payload capture) · no chef mode/station card (D-20) · no OCR (Q10) · no View 5 veto
   workflow (G2 notice only) · no print changes · frozen schemas untouched · reference
   data untouched (live counts re-verified 17/12/6/6/12/12 after the story run).
-  **Resume point:** D-19 checkpoint commit below → paired audit A-19 → then D-20
+  **Resume point:** D-19 checkpoint commit `46c0559` (full SHA appended after the push;
+  CI run recorded at checkpoint) → paired audit A-19 → then D-20
   (chef mode + station card) or D-21 (disclaimer sweep) per dispatch.

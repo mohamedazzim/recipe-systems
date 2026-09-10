@@ -38,7 +38,8 @@
 - Verification: worker 30/30, API 171/171, web 82/82, integration 83/83 (real Postgres +
   live reference data), gates PASS, lint/typecheck 0, verify-local exit 0, CI green;
   live browser recompute verified.
-- Commit(s): recorded at the D-19 checkpoint commit (SHA appended in HANDOFF §5).
+- Commit(s): `46c0559` — D-19 checkpoint (full SHA appended after the push; CI run
+  recorded at checkpoint).
 
 ## 2026-09-10 — Method-save bug fix + D-19 pre-flight (GO with labeled recompute)
 

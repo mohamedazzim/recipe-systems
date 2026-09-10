@@ -42,9 +42,10 @@
 - Why: autonomous black-box QA of D-01…D-19 via the internal browser; fixes per the dispatched
   policy (smallest correct layer + regression coverage); no roadmap units touched.
 - Register impact: Q1/Q5/Q9/Q10/Q11 unchanged (OPEN).
-- Commit(s): QA-FIX-SET-1 commit recorded below (SHA appended after verification).
-- Verification: API 178/178 · web 85/85 · worker 32/32 · lint 0 · typecheck 0 · integration +
-  gates + verify-local exit 0 · CI green · live browser re-verification of every fix.
+- Commit(s): `f02e37a044ad18bb8c7bf6a1d0c88d501c496821` (QA-FIX-SET-1).
+- Verification: API 178/178 · web 86/86 · worker 32/32 · lint 0 · typecheck 0 · integration
+  90/90 · gates PASS · verify-local exit 0 · **CI success (run `34476238511`)** · live browser
+  re-verification of every fix.
 ## 2026-09-10 — A-19 audit: D-19 PASS-WITH-FINDINGS + schema-gate correction
 
 - Author / session: independent A-19 audit session (auditor, not the D-19 builder).

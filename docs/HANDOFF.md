@@ -606,6 +606,14 @@ execution output; Git: not available / not authorized throughout.
   716–1,018 kcal + Sodium Unknown + I6) → View 9 recompute (oily persisted, band honest)
   → reload → reopen → logout → login → reopen (method + analysis + views persist).
   **Git:** single fix commit recorded below (QA-FIX-SET-1).
+
+- 2026-09-10 — **QA FIX SET 1 — RESULT (evidence after the fix commit)**:
+  Fix commit `f02e37a` (full `f02e37a044ad18bb8c7bf6a1d0c88d501c496821`) — pushed, tree clean.
+  Full QA report: `docs/QA_E2E_D01_D19_REPORT.md` (verdict, area table, defect registry).
+  CI: **success** — run `34476238511` (head `f02e37a`, the QA fix commit).
+  Dev stack restarted healthy via start-dev.cmd
+  (API :3001 · worker consuming both queues · web :3000 · containers up) after verification.
+  Reference data re-verified intact 17/12/6/6/12/12. Q1/Q5/Q9/Q10/Q11 OPEN.
   **DECISION (dispatcher/user 2026-09-09):** OCR work is paused for the day. Q10 stays OPEN
   (prior STOP history preserved above, verbatim). D-11 (OCR adapter + provider), GCV production
   integration, real-card benchmarking, and photo-OCR processing are all DEFERRED — not started.

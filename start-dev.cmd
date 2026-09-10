@@ -7,11 +7,12 @@ rem  What it does:
 rem    1. Docker infrastructure (Postgres :5433, MinIO, nginx :8080, Keycloak :8081)
 rem    2. Prisma migrations (packages\database)
 rem    3. NestJS API in its own window (:3001)
-rem    4. Next.js web in its own window (:3000)
-rem    5. Health-checks everything, then opens the app
+rem    4. Analysis worker in its own window (pg-boss queue, ANALYSIS_LLM_STUB=1)
+rem    5. Next.js web in its own window (:3000)
+rem    6. Health-checks everything, then opens the app
 rem
 rem  Test account : chef@recipesystems.test / password
-rem  To stop      : close the two app windows, then
+rem  To stop      : close the app windows, then
 rem                 docker compose --profile core --profile identity -f infra\docker\docker-compose.yml down
 rem =====================================================================
 
@@ -40,9 +41,12 @@ set "WEB_ORIGIN=http://localhost:3000"
 set "CORS_ORIGINS=http://localhost:3000"
 set "PORT=3001"
 set "NEXT_PUBLIC_API_BASE_URL=http://localhost:3001/api/v1"
+rem Q9 is OPEN — the dev worker runs the deterministic stub adapter so the
+rem analysis pipeline (incl. the D-16 grounding gate) is demonstrable end-to-end.
+set "ANALYSIS_LLM_STUB=1"
 
 rem --- 0. Docker daemon must be running -----------------------------------
-echo [0/5] Checking Docker...
+echo [0/6] Checking Docker...
 docker info >nul 2>&1
 if errorlevel 1 (
   echo   ERROR: Docker Desktop is not running. Start it and re-run this script.
@@ -113,8 +117,18 @@ if not errorlevel 1 (
   echo   API window started on port 3001.
 )
 
-rem --- 4. Web --------------------------------------------------------------
-echo [4/5] Web (Next.js)...
+rem --- 4. Analysis worker -----------------------------------------------------
+echo [4/6] Analysis worker (pg-boss queue, dev stub adapter)...
+wmic process where "name='node.exe'" get commandline 2>nul | findstr /I "analysis-worker" | findstr /I "src/main.ts" >nul
+if not errorlevel 1 (
+  echo   Worker already running - skipping.
+) else (
+  start "Recipe Systems - Worker" /D "%~dp0apps\analysis-worker" cmd /k npx ts-node -T src/main.ts
+  echo   Worker window started (consumes queue "analysis").
+)
+
+rem --- 5. Web --------------------------------------------------------------
+echo [5/6] Web (Next.js)...
 netstat -ano | findstr /R /C:":3000 " | findstr /C:"LISTENING" >nul
 if not errorlevel 1 (
   echo   Web already running on :3000 - skipping.
@@ -123,8 +137,8 @@ if not errorlevel 1 (
   echo   Web window started on port 3000.
 )
 
-rem --- 5. Health checks -----------------------------------------------------
-echo [5/5] Waiting for the app to answer...
+rem --- 6. Health checks -----------------------------------------------------
+echo [6/6] Waiting for the app to answer...
 
 set tries=0
 :wait_api
@@ -159,9 +173,13 @@ echo ==========================================================
 echo  Recipe Systems is up
 echo    Web       : http://localhost:3000
 echo    API       : http://localhost:3001/api/v1
+echo    Worker    : consuming queue "analysis" (ANALYSIS_LLM_STUB=1)
 echo    Keycloak  : http://localhost:8081  (realm: recipesystems)
 echo    Postgres  : localhost:5433/recipe
 echo    Sign in   : chef@recipesystems.test / password
+echo    Note      : if the DB volume was reset, re-load reference data
+echo                via the reviewed import path (apps\api):
+echo                  npm run reference-data:import -- approve infra\reference-data\imports\<file>.json --reviewer "your name"
 echo ==========================================================
 echo.
 start "" http://localhost:3000

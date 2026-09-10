@@ -1670,7 +1670,8 @@ execution output; Git: not available / not authorized throughout.
   seam; benchmark/revalidation policy unchanged) · Q1/Q5/Q10/Q11 stay OPEN · OCR disabled ·
   no D-23/D-30 · local `.env` aligned to dev defaults (SESSION_SECURE=false + committed dev
   Keycloak secret) so the dev stack runs from `.env` alone.
-  **COMMIT/CI:** see CHANGE_LOG (SHA + CI run id recorded after the push).
+  **COMMIT/CI:** commit `5bab9f4` (full `5bab9f475b3e4df47568d29d443db5091d720b66`) · CI success
+  (run `34523068980`) — CI passed WITHOUT the DeepSeek key (deterministic mock path).
 
 ### H-10 — D-10 Raw intake rows + photo pipeline
 

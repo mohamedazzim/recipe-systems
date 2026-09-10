@@ -81,7 +81,8 @@
   (deterministic), delete · unit/regression: llm-adapter 101/101, worker 48/48, API 202/202,
   web 104/104, integration 106/106 · gates PASS (8/8) · contract OK · lint 0 · typecheck 0 ·
   verify-local exit 0 · secret sweep: no key in tracked files · CI green without the key.
-- Commit(s): recorded after the push (Q9 checkpoint).
+- Commit(s): `5bab9f475b3e4df47568d29d443db5091d720b66` (Q9 checkpoint) · CI success (run
+  `34523068980`) — CI passed WITHOUT the DeepSeek key (deterministic mock path).
 
 ## 2026-09-10 — D-22 D6: Delete recipe (hard-delete cascade, P5-1 close-out)
 

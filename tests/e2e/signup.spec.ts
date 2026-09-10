@@ -27,7 +27,7 @@ test.describe('A1 Signup', () => {
     const email = uniqueEmail();
     await signupViaKeycloak(page, { email, password: 'EodTest123!' });
     // sign out to return to the anonymous state for the second attempt
-    await page.getByRole('button', { name: 'Sign out' }).click();
+    await page.getByRole('button', { name: 'Sign out' }).first().click();
     await expect(page.getByRole('heading', { name: 'Understand why this recipe works.' })).toBeVisible();
 
     await page.getByRole('button', { name: 'Create account' }).click();

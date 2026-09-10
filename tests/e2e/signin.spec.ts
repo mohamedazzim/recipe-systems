@@ -3,8 +3,9 @@
 import { test, expect } from '@playwright/test';
 import { BFF_URL, loginViaKeycloak } from './helpers/auth';
 
-// Seeded dev identity from infra/keycloak/recipe-systems-realm.json (import-time password).
-const SEEDED_USER = { username: 'chef@recipesystems.test', password: 'password' };
+// Seeded dev identity from infra/keycloak/recipe-systems-realm.json; password set at
+// realm reconcile (start-dev.cmd + SETUP.md use Password@123).
+const SEEDED_USER = { username: 'chef@recipesystems.test', password: 'Password@123' };
 
 test.describe('A1 Signin', () => {
   test('successful signin — credentials accepted, session established, authenticated user returned', async ({ page }) => {

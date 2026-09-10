@@ -2,7 +2,7 @@
 import { test, expect } from '@playwright/test';
 import { BFF_URL, loginViaKeycloak } from './helpers/auth';
 
-const SEEDED_USER = { username: 'chef@recipesystems.test', password: 'password' };
+const SEEDED_USER = { username: 'chef@recipesystems.test', password: 'Password@123' };
 
 test.describe('A1 Logout', () => {
   test('logout clears the session — authenticated endpoint becomes unauthenticated', async ({ page }) => {
@@ -13,7 +13,7 @@ test.describe('A1 Logout', () => {
     expect(before.status()).toBe(200);
 
     // The real logout button posts through the BFF with the CSRF double-submit token.
-    await page.getByRole('button', { name: 'Sign out' }).click();
+    await page.getByRole('button', { name: 'Sign out' }).first().click();
 
     // User-visible: back to the anonymous landing state.
     await expect(page).toHaveURL('http://localhost:3000/');
@@ -27,7 +27,7 @@ test.describe('A1 Logout', () => {
 
   test('logout ends the Keycloak SSO session — sign-in prompts for credentials again', async ({ page }) => {
     await loginViaKeycloak(page, SEEDED_USER);
-    await page.getByRole('button', { name: 'Sign out' }).click();
+    await page.getByRole('button', { name: 'Sign out' }).first().click();
     await expect(page).toHaveURL('http://localhost:3000/');
 
     // Regression: without RP-initiated logout, Keycloak's still-active SSO session

@@ -19,7 +19,24 @@
 ```
 
 **Rule:** a change that alters any Q1–Q18 row must say so in its entry. The register (SCAFFOLD §7) is the single source of truth for open decisions; this log records the history of how the register changed. No Q-row changes in D-13.
-## 2026-09-10 — Autonomous E2E QA D-01→D-19: 6 defect fixes (QA-FIX-SET-1)
+## 2026-09-10 â€” D-21 P4-3: Disclaimer sweep (H6/I6 unconditional, INV-13/INV-14 gates)
+
+- Author / session: DeepSeek V4 Pro (VS Code) D-21 dispatch; pre-flight GO recorded in
+  HANDOFF Â§5 before implementation.
+- What changed: `scripts/regression-gates.sh` Â§5 now carries real static hooks â€” verbatim
+  H6/I6 in the producer constants, `{payload.disclaimer}` on both web view surfaces,
+  word-bounded "safe" grep over the View 8 producer + render surfaces (INV-13), and the
+  min/max energy-band pair in the producer + renderer (INV-14). +4 qg2 fire-proofs (planted
+  "safe" producer/renderer, paraphrased H6, point-kcal producer) and +2 runtime "teeth" tests
+  in the worker producer suite. New `tests/e2e/view-disclaimers.spec.ts` (H6 verbatim + no
+  "safe" on View 8; I6 verbatim + band on View 9). Repaired stale e2e auth specs (helper
+  "Signed in" assertion, seeded password, strict-mode selectors) â€” test drift only.
+- Why: D-21 makes the two disclaimers unconditional and gate-permanent (A-21: one-off checks
+  are a MAJOR; a planted violation must fire).
+- Register impact: Q1/Q5/Q9/Q10/Q11 unchanged (OPEN).
+- Verification: gates PASS Â· worker 34/34 Â· API 178/178 Â· web 86/86 Â· integration 94/94 Â·
+  e2e 38/38 Â· lint 0 Â· typecheck 0 Â· verify-local exit 0 Â· CI green.
+- Commit(s): D-21 checkpoint commit recorded below.## 2026-09-10 — Autonomous E2E QA D-01→D-19: 6 defect fixes (QA-FIX-SET-1)
 
 - Author / session: DeepSeek V4 Pro (VS Code), QA dispatch 2026-09-10 (browser E2E + fix policy).
 - What changed (files + substance): the QA run found six defects (full trace in HANDOFF §5,

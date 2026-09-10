@@ -95,7 +95,7 @@ if [ -z "$hits" ]; then trivial "provenance tags (no claim_tag references yet)";
   if [ -z "$bad" ]; then note "all claim_tag references use canonical tags"; else fire "non-canonical claim_tag value:"; echo "$bad"; fi
 fi
 
-# --- 5. Disclaimers (INV-13 / INV-14, H6 / I6) -------------------------------------------------
+# --- 5. Disclaimers (INV-13 / INV-14, H6 / I6 — D-21: unconditional on every surface) ---------
 echo "-- disclaimers: View 8 never \"safe\"; View 9 never point-kcal over a range"
 ASR="$SCAN/tests/assertions/golden_recipe_assertions.yaml"
 if [ -f "$ASR" ]; then
@@ -106,6 +106,55 @@ if [ -f "$ASR" ]; then
   fi
 else
   trivial "disclaimer assertions (fixture assertions land at D-03)"
+fi
+
+# D-21: the two canonical texts, verbatim, in the producer constants. Any paraphrase
+# anywhere on the emission path breaks CI (A-21: a truncated paraphrase is a MAJOR).
+H6_TEXT="Reads the card only. Does not test food. Does not know your kitchen. Not medical advice."
+I6_TEXT="Table estimate from stated assumptions. Not a lab analysis. Not medical advice."
+PRODUCER="$SCAN/apps/analysis-worker/src/deterministic-views.ts"
+WEBVIEWS="$SCAN/apps/web/components/app/AnalysisViews.tsx"
+if [ -f "$PRODUCER" ]; then
+  if grep -qF "$H6_TEXT" "$PRODUCER" && grep -qF "$I6_TEXT" "$PRODUCER"; then
+    note "H6/I6 disclaimers present verbatim in the View 8/9 producer constants"
+  else
+    fire "H6/I6 disclaimer texts must appear verbatim in the deterministic View 8/9 producer (paraphrase = MAJOR)"
+  fi
+  # INV-13 static: the forbidden word on the View 8 output surface fires, always.
+  if grep -qiE "\bsafe\b" "$PRODUCER"; then
+    fire "INV-13: the word \"safe\" appears in the View 8 producer output surface"
+  fi
+  # INV-14 static: the band is structural — a point-kcal refactor that drops either
+  # bound of the energy band fires.
+  if grep -qE "energy_kcal_min" "$PRODUCER" && grep -qE "energy_kcal_max" "$PRODUCER"; then
+    note "View 9 producer carries the structural min/max energy band (no point-kcal path)"
+  else
+    fire "INV-14: the View 9 producer must emit both energy_kcal_min and energy_kcal_max (a point-kcal refactor fires)"
+  fi
+else
+  trivial "View 8/9 producer disclaimer gates (producer lands at D-19)"
+fi
+if [ -f "$WEBVIEWS" ]; then
+  if grep -qiE "\bsafe\b" "$WEBVIEWS"; then
+    fire "INV-13: the word \"safe\" appears in the View 8/9 web render surface"
+  else
+    note "no \"safe\" on the View 8/9 web render surface"
+  fi
+  # The render path must draw the disclaimer from the payload (never a hardcoded
+  # paraphrase) on BOTH surfaces.
+  count=$(grep -cE "\{payload\.disclaimer\}" "$WEBVIEWS" || true)
+  if [ "${count:-0}" -ge 2 ]; then
+    note "View 8 and View 9 render payload.disclaimer from the persisted payload (both surfaces)"
+  else
+    fire "both View 8 and View 9 must render {payload.disclaimer} (hardcoded/paraphrased copy fires)"
+  fi
+  if grep -qE "energy_kcal_min" "$WEBVIEWS" && grep -qE "energy_kcal_max" "$WEBVIEWS"; then
+    note "View 9 web render draws both band bounds (no point-kcal render path)"
+  else
+    fire "INV-14: the View 9 web render must use both energy_kcal_min and energy_kcal_max"
+  fi
+else
+  trivial "View 8/9 web render disclaimer gates (render lands at D-19)"
 fi
 
 # --- 6. Golden test present, not skipped, ran (ERD §16) -----------------------------------------

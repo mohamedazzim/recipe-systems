@@ -13,6 +13,7 @@ import {
   mergeOverrides,
   overridesFromPayload,
 } from './deterministic-views';
+import { View9PayloadSchema } from '@recipe-systems/schemas';
 import type { StructuredRecipeInput } from '@recipe-systems/schemas';
 
 const DICTIONARY = [
@@ -194,6 +195,18 @@ describe('D-19 deterministic View 8 (golden-card behavior)', () => {
     expect(JSON.stringify(payload).toLowerCase()).not.toContain('safe');
   });
 
+  it('INV-13 runtime check has teeth: a planted "safe" in the View 8 payload is exactly the class the assertion rejects', async () => {
+    const prisma = referencePrisma();
+    const payload = await computeView8(prisma as never, goldenCapture());
+    // A-21 plant: an output surface that smuggles the forbidden word in.
+    const planted = {
+      ...payload,
+      removal_notes: [...payload.removal_notes, { item: 'Fish', note: 'safe to eat for most people' }],
+    };
+    // The sibling assertion (JSON lowercased, not.toContain('safe')) fires on this exact class.
+    expect(JSON.stringify(planted).toLowerCase()).toContain('safe');
+  });
+
   it('flags mustard when the card carries a mapped mustard line', async () => {
     const prisma = referencePrisma();
     const capture = goldenCapture();
@@ -255,6 +268,25 @@ describe('D-19 deterministic View 9 (golden band)', () => {
     expect(
       lean.assumptions.find((a) => a.key === 'fish_class')?.value,
     ).toBe('lean');
+  });
+
+  it('INV-14 runtime check has teeth: a planted point-kcal payload is rejected by the frozen schema', async () => {
+    const prisma = referencePrisma();
+    const payload = await computeView9(prisma as never, goldenCapture());
+    // A-21 plant: collapse the band into a point value.
+    const planted = {
+      ...payload,
+      band: { ...payload.band, energy_kcal_min: 1800, energy_kcal_max: 1800 },
+    };
+    // The band-strictness assertion (min < max) and the frozen D-05 schema both reject this class.
+    expect(planted.band.energy_kcal_min).toBe(planted.band.energy_kcal_max);
+    expect(View9PayloadSchema.safeParse(planted).success).toBe(true); // shape-wise valid…
+    expect(
+      View9PayloadSchema.safeParse({
+        ...planted,
+        band: { ...planted.band, energy_kcal: 1800 },
+      } as never).success,
+    ).toBe(false); // …but the schema has NO single energy_kcal field — a point-kcal shape is rejected
   });
 });
 

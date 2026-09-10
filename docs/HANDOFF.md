@@ -614,6 +614,84 @@ execution output; Git: not available / not authorized throughout.
   Dev stack restarted healthy via start-dev.cmd
   (API :3001 · worker consuming both queues · web :3000 · containers up) after verification.
   Reference data re-verified intact 17/12/6/6/12/12. Q1/Q5/Q9/Q10/Q11 OPEN.
+
+- 2026-09-10 — **D-21 PREFLIGHT (dispatcher authorization: preflight → implement D-21 only; report GO/NO-GO for D-20) — STARTING STATE, recorded before any D-21 code**:
+  **DECISION (dispatcher 2026-09-10):** D-21 = P4-3 disclaimer sweep (H6/I6 unconditional,
+  INV-13 "safe" forbidden, INV-14 no point-kcal — DISPATCH D-21, A-21 attack vectors).
+  **CANONICAL SOURCES READ:** DISPATCH §D-21/A-21 · Recipe_Systems.md §12 H6/I6 (+§3.7) ·
+  Epic-H H6 / Epic-I I6 (exact texts below) · BUILD_PLAN P4-3 · TEST_PLAN · regression-gates.sh ·
+  golden-check.js · schemas view-8/view-9 · worker deterministic-views + web AnalysisViews ·
+  qg2_gates.test.ts fire-proof pattern.
+  **CANONICAL TEXTS (authoritative, dispatch-quoted):** H6 = "Reads the card only. Does not test
+  food. Does not know your kitchen. Not medical advice." · I6 = "Table estimate from stated
+  assumptions. Not a lab analysis. Not medical advice." (both verified identical in the user
+  stories + current producer constants).
+  **ALREADY SATISFIED by D-19/A-19 (verified, no change):** H6_DISCLAIMER/I6_DISCLAIMER exported
+  verbatim from `apps/analysis-worker/src/deterministic-views.ts` and emitted on every View 8/9
+  payload; frozen D-05 schemas REQUIRE `disclaimer` (view-8) and `band.energy_kcal_min/max`
+  (a single `energy_kcal` point is schema-rejected — contracts.test.ts); web AnalysisViews
+  renders `{payload.disclaimer}` on both tabs (never hardcoded paraphrase); worker unit + handler
+  tests assert the exact texts + no-"safe" + band strictness; golden-check.js runs the 8
+  CI-blocking executable invariants incl. `view8_no_safe` and `view9_band`.
+  **EXACT GAPS (this unit's work):**
+  - G-1: regression-gates §5 only meta-checks the YAML markers — a planted "safe" on the View 8
+    output surface (producer/web render) fires NOTHING today. Add a real static INV-13 gate:
+    word-bounded case-insensitive "safe" grep over the View 8 surface sources (producer + web
+    render path), test files excluded, + fire-proof (A-21: plant one, prove it fires).
+  - G-2: no static INV-14 hook. Add a structural band-pair gate: the producer AND the web
+    renderer must reference both `energy_kcal_min`/`energy_kcal_max` (a point-kcal refactor that
+    drops the pair fires) + fire-proof. Runtime side already covered (schema rejection +
+    band-strictness assertions) — add explicit "teeth" tests proving the runtime checks reject
+    planted point payloads.
+  - G-3: no verbatim-text gate. Add a static gate: the two canonical texts must appear verbatim
+    in the producer constants, and the web render path must use `payload.disclaimer` for BOTH
+    View 8 and View 9 (a paraphrase anywhere breaks CI) + fire-proof.
+  - G-4: no e2e assertion for the disclaimers. Add `tests/e2e/view-disclaimers.spec.ts` (golden
+    paste → method → analyse → complete → View 8 tab shows H6 verbatim + no "safe" on the page;
+    View 9 tab shows I6 verbatim + the band dash). VM note: Playwright browser launch is
+    machine-policy-blocked locally (exit 1260, H-13 note) — run attempt recorded honestly; the
+    same assertions are additionally re-verified live through the VS Code internal browser.
+  - G-5: qg2 fire-proofs for all three new static gates (scratch-tree plants, GATES_SCAN_ROOT
+    pattern) + "teeth" unit tests for the INV-13/INV-14 runtime assertions (planted payloads are
+    exactly the class the real assertions reject).
+  **NON-GOALS (D-21):** new views · profile logic (D-26) · print (D-23) · chef mode/station card
+  (D-20) · Q1/Q5/Q9/Q10 untouched. Print surfaces have no renderer yet — "every surface" today =
+  the two web tabs + the persisted payload (recorded honestly; D-23 will re-sweep prints per
+  A-23).
+  **PLAN:** implement G-1..G-5 → run gates/unit/integration/lint/typecheck → verify-local →
+  commit → CI → live e2e-style browser check → HANDOFF H-21 + GO/NO-GO report for D-20. STOP.
+
+- 2026-09-10 — **D-21 EXECUTION (P4-3 disclaimer sweep) — DONE, evidence recorded before commit**:
+  **SHIPPED (files):** `scripts/regression-gates.sh` §5 now carries FIVE real static hooks:
+  (a) INV-13 producer: word-bounded "safe" grep over the View 8 producer surface — fires on any
+  occurrence; (b) INV-13 render: same over the web render surface; (c) H6/I6 verbatim: the two
+  canonical texts must appear exactly in the producer constants; (d) INV-14 producer: both
+  `energy_kcal_min`/`energy_kcal_max` must exist in the producer (a point-kcal refactor fires);
+  (e) render-path: web must render `{payload.disclaimer}` for BOTH views + both band bounds
+  (a hardcoded/paraphrased copy fires). The existing golden-YAML marker check is preserved.
+  `tests/integration/qg2_gates.test.ts` +4 fire-proofs (planted "safe" producer → fires; planted
+  "safe" renderer → fires; paraphrased H6 → fires; point-kcal producer → fires) — **17/17**.
+  `apps/analysis-worker/src/deterministic-views.test.ts` +2 "teeth" tests (planted "safe" payload
+  + planted point-band are exactly the class the existing runtime assertions reject; the frozen
+  D-05 View 9 schema has NO single `energy_kcal` field) — worker **34/34**.
+  `tests/e2e/view-disclaimers.spec.ts` (new): real-stack journey — sign in → golden paste →
+  method → analyse → complete → View 8 tab: H6 verbatim + no `\bsafe\b`; View 9 tab: I6 verbatim
+  + Sodium Unknown + band dash. **PASSES 1/1 (7s)** on the live stack with a real browser.
+  **E2E DRIFT REPAIRS (pre-existing spec failures exposed by the run — test-only, recorded
+  honestly):** `tests/e2e/helpers/auth.ts` still asserted a removed "Signed in" heading → now
+  asserts the real authenticated state (banner Sign out, `.first()` for strict mode);
+  `signin.spec.ts`/`logout.spec.ts` used the stale seeded password `password` → the reconciled
+  realm password `Password@123`; `signup.spec.ts`/`logout.spec.ts` Sign out clicks → `.first()`.
+  Full e2e suite now **38/38** (was 34 passed + 4 stale failures; 1 new D-21 spec).
+  **ENV NOTE (recurring, operational):** the start-dev worker window died again mid-session
+  (second occurrence) — an e2e run enqueued while it was down surfaced "Analysis not found"
+  until the worker was restarted (pg-boss kept the job; it completed on restart). Not product
+  code; recommend a start-dev watchdog later.
+  **VERIFICATION:** gates PASS (all five new hooks green on the real tree) · worker 34/34 ·
+  API 178/178 · web 86/86 · integration **94/94** (12 suites + qg2 17) · lint 0 · typecheck 0 ·
+  verify-local ALL STEPS PASSED exit 0 · e2e 38/38. Reference data intact 17/12/6/6/12/12.
+  **GIT:** D-21 commit recorded below. Q1/Q5/Q9/Q10/Q11 OPEN.
+  **D-20 GO/NO-GO:** see the H-21 entry.
   **DECISION (dispatcher/user 2026-09-09):** OCR work is paused for the day. Q10 stays OPEN
   (prior STOP history preserved above, verbatim). D-11 (OCR adapter + provider), GCV production
   integration, real-card benchmarking, and photo-OCR processing are all DEFERRED — not started.
@@ -1630,7 +1708,51 @@ execution output; Git: not available / not authorized throughout.
 
 ### H-21 — D-21 Disclaimer sweep
 
-☐ No entry yet.
+- BASE_SHA / COMMIT_SHA: **BASE `57e8b94` · COMMIT recorded below** (D-21 checkpoint pushed to
+  `github.com/mohamedazzim/recipe-systems` branch `main`, 2026-09-10; pre-flight GO recorded in
+  HANDOFF §5 BEFORE implementation).
+- Date / agent session: 2026-09-10 · D-21 dispatch (preflight → implement → verify → stop).
+- Status: **DONE** — dispatch deliverables 1–3 + all three done criteria satisfied.
+- What shipped:
+  1. H6 ("Reads the card only. Does not test food. Does not know your kitchen. Not medical
+     advice.") and I6 ("Table estimate from stated assumptions. Not a lab analysis. Not medical
+     advice.") are now unconditional on every View 8/9 surface — enforced, not incidental:
+     `scripts/regression-gates.sh` §5 greps the producer constants for BOTH texts verbatim and
+     requires the web to render `{payload.disclaimer}` for both views (a paraphrase anywhere
+     breaks CI). The texts were already emitted by the D-19 producers and rendered from the
+     payload — D-21 makes the guarantee gate-permanent.
+  2. INV-13 static gates: word-bounded case-insensitive "safe" grep over the View 8 producer
+     surface AND the web render surface — any occurrence (incl. "safe to eat" paraphrases)
+     fires. INV-14 static gates: both `energy_kcal_min`/`energy_kcal_max` must exist in the
+     producer AND the renderer (a point-kcal refactor fires). The frozen D-05 View 9 schema has
+     no single `energy_kcal` field (contracts test rejects the point shape) and the producer
+     band is structurally min/max.
+  3. Fire-proofs: `tests/integration/qg2_gates.test.ts` +4 planted violations (producer "safe",
+     renderer "safe", paraphrased H6, missing band bound) — all fire; suite 17/17. Runtime
+     "teeth" tests in `deterministic-views.test.ts` (+2) prove the existing INV-13/INV-14
+     runtime assertions reject exactly the planted classes; worker 34/34.
+  4. E2E: `tests/e2e/view-disclaimers.spec.ts` — real-stack journey asserting H6 verbatim +
+     no "safe" on the rendered View 8, I6 verbatim + Sodium Unknown + band dash on View 9
+     (PASSES 1/1, ~7s). Full e2e suite **38/38** after repairing stale auth specs (helper
+     "Signed in" assertion, seeded password, strict-mode Sign out selectors — test drift only).
+- Done criteria evidence:
+  - Both texts verbatim on every surface: gate §5 (producer constants + render-path checks)
+    green on the real tree + e2e asserts the rendered texts + worker unit tests assert exact
+    strings (H6/I6_DISCLAIMER equality).
+  - Planted "safe" → static gate fires (qg2 producer + renderer plants) and the runtime
+    assertion has teeth (planted payload is the rejected class).
+  - Planted point-kcal → schema rejection (contracts test), band-strictness assertions, teeth
+    test, and the new static min/max pair gates all catch it (qg2 plant fires).
+- Tests run: worker 34/34 · API 178/178 · web 86/86 · integration 94/94 · gates PASS · lint 0 ·
+  typecheck 0 · verify-local ALL STEPS PASSED exit 0 · e2e 38/38 · CI green on the commit.
+  Reference data intact 17/12/6/6/12/12. Q1/Q5/Q9/Q10/Q11 OPEN.
+- **D-20 GO/NO-GO (report, per dispatch):** **GO** — D-21 made no product-surface changes; the
+  D-19 checkpoint (Views 5–9 + assumption editors + recompute) is unchanged and fully green;
+  D-20 (chef mode + station card) has a clean base. Prereqs noted for D-20's dispatch: station
+  card requires the method state (present) and `analysis_station_card` has no rows today —
+  expected (D-20 writes it); Q1 (snapshot persistence) stays OPEN and D-20 must ride the same
+  Q1-labeled capture assumption as D-17/D-19.
+- Resume point: **D-20 (chef mode + station card) — WAITING for explicit user authorization.**
 
 ### H-22 — D-22 Library save / browse / delete
 

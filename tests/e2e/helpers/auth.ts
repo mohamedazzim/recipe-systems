@@ -28,9 +28,10 @@ export async function loginViaKeycloak(
   await page.getByLabel('Username or email').fill(credentials.username);
   await page.getByLabel('Password', { exact: true }).fill(credentials.password);
   await page.getByRole('button', { name: 'Sign In' }).click();
-  // Successful login lands back on the web app in the authenticated state.
+  // Successful login lands back on the web app in the authenticated state
+  // (banner carries the account email + a Sign out control).
   await expect(page).toHaveURL('http://localhost:3000/');
-  await expect(page.getByRole('heading', { name: 'Signed in' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Sign out' }).first()).toBeVisible();
 }
 
 /** Drives the real Keycloak registration page (the user's actual signup surface). */
@@ -50,5 +51,5 @@ export async function signupViaKeycloak(
   await page.getByRole('button', { name: 'Register' }).click();
   // Registration auto-logs in → BFF callback → authenticated web app.
   await expect(page).toHaveURL('http://localhost:3000/');
-  await expect(page.getByRole('heading', { name: 'Signed in' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Sign out' }).first()).toBeVisible();
 }

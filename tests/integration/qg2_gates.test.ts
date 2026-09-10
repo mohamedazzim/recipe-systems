@@ -133,6 +133,95 @@ describe('QG2 static gates fire on real violations (D-01 criterion)', () => {
     }
   });
 
+  // D-21 fire-proofs: the canonical texts are copied here verbatim so the planted
+  // file fires ONLY the targeted gate.
+  const H6 =
+    'Reads the card only. Does not test food. Does not know your kitchen. Not medical advice.';
+  const I6 =
+    'Table estimate from stated assumptions. Not a lab analysis. Not medical advice.';
+
+  function plantedProducer(extra: string): string {
+    return [
+      `export const H6_DISCLAIMER = '${H6}';`,
+      `export const I6_DISCLAIMER = '${I6}';`,
+      'export const band = { energy_kcal_min: 1300, energy_kcal_max: 2200 };',
+      extra,
+    ].join('\n');
+  }
+
+  it('disclaimers: a planted "safe" on the View 8 producer surface fires (INV-13 static)', () => {
+    const s = makeScratch();
+    try {
+      s.write(
+        'apps/analysis-worker/src/deterministic-views.ts',
+        plantedProducer('export const removalNote = "safe to eat for most people";\n'),
+      );
+      const result = runGates(s.dir);
+      expect(result.exit).toBe(1);
+      expect(result.out).toContain('View 8 producer output surface');
+    } finally {
+      s.cleanup();
+    }
+  });
+
+  it('disclaimers: a paraphrased H6 text fires the verbatim gate', () => {
+    const s = makeScratch();
+    try {
+      s.write(
+        'apps/analysis-worker/src/deterministic-views.ts',
+        [
+          "export const H6_DISCLAIMER = 'Reads the card only. Not medical advice.';",
+          `export const I6_DISCLAIMER = '${I6}';`,
+          'export const band = { energy_kcal_min: 1300, energy_kcal_max: 2200 };',
+        ].join('\n'),
+      );
+      const result = runGates(s.dir);
+      expect(result.exit).toBe(1);
+      expect(result.out).toContain('H6/I6 disclaimer texts must appear verbatim');
+    } finally {
+      s.cleanup();
+    }
+  });
+
+  it('disclaimers: a point-kcal producer (one band bound missing) fires (INV-14 static)', () => {
+    const s = makeScratch();
+    try {
+      s.write(
+        'apps/analysis-worker/src/deterministic-views.ts',
+        [
+          `export const H6_DISCLAIMER = '${H6}';`,
+          `export const I6_DISCLAIMER = '${I6}';`,
+          'export const band = { energy_kcal_max: 2200 };',
+        ].join('\n'),
+      );
+      const result = runGates(s.dir);
+      expect(result.exit).toBe(1);
+      expect(result.out).toContain('INV-14: the View 9 producer');
+    } finally {
+      s.cleanup();
+    }
+  });
+
+  it('disclaimers: a planted "safe" on the View 8/9 web render surface fires (INV-13 static)', () => {
+    const s = makeScratch();
+    try {
+      s.write(
+        'apps/web/components/app/AnalysisViews.tsx',
+        [
+          'export const V8 = <p>{payload.disclaimer}</p>;',
+          'export const V9 = <p>{payload.disclaimer}</p>;',
+          'export const band = `${payload.band.energy_kcal_min}–${payload.band.energy_kcal_max}`;',
+          'export const copy = "It is safe to cook without the fish.";',
+        ].join('\n'),
+      );
+      const result = runGates(s.dir);
+      expect(result.exit).toBe(1);
+      expect(result.out).toContain('web render surface');
+    } finally {
+      s.cleanup();
+    }
+  });
+
   it('golden test presence: a fixture with no referencing test fires', () => {
     const s = makeScratch();
     try {

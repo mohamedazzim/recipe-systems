@@ -19,6 +19,36 @@
 ```
 
 **Rule:** a change that alters any Q1–Q18 row must say so in its entry. The register (SCAFFOLD §7) is the single source of truth for open decisions; this log records the history of how the register changed. No Q-row changes in D-13.
+## 2026-09-10 — D-20 P4-2: Chef mode + station card (deterministic, persisted through the model/API path)
+
+- Author / session: DeepSeek V4 Pro (VS Code) D-20 dispatch; decision trace D-20A..F recorded
+  in HANDOFF §5 before implementation (dispatcher-authorized at the D-21 close-out).
+- What changed: `analysis_station_card` is now populated by the analysis worker as a
+  deterministic assembly of the Q1-labeled capture + the persisted View 3 — mise (capture
+  ingredients verbatim, keyed by line id), sequence (View 3 stages verbatim),
+  control_points (one per stage), do_nots (captured `explicitly_absent`), product_yield_hold
+  null, printable true — never free prose (INV-10; A-20 BLOCKER class). Refusal path
+  (no method steps OR View 3 INCOMPLETE) persists no row. New API route
+  `GET /api/v1/analysis/:analysisId/station-card` (frozen D-05 wire; INV-17 404s; 404
+  `STATION_CARD_NOT_FOUND` for a valid analysis without a card); both analysis assemblies
+  carry `station_card` (nullable). Web: Home↔Chef presentation toggle on the workspace —
+  chef leads with the persisted card (or the honest no-card copy), §7 chef-voice tab headers
+  over the same nine frozen views, closing line "Untasted briefing. Season after.";
+  preference persists via the existing `PATCH /auth/me/preferences` (signed-in; session-local
+  for guests). New integration story `tests/integration/story_d20_station_card.test.ts` and
+  e2e spec `tests/e2e/chef-mode.spec.ts`.
+- Why: C3/C5 + §7/§8 — chef mode is a presentation over the same analysis (one app, not two);
+  the card is persisted through the intended D-20 model/API path with grounding/provenance
+  preserved; incomplete/unknown states stay blank rather than invented.
+- Register impact: Q1/Q5/Q9/Q10/Q11 unchanged (OPEN). No new snapshot persistence invented
+  (Q1 seam unchanged); do_nots empty in the stub world; analysis `mode` stays 'home' for web
+  enqueues (ERD §15.4 presentation semantics — labeled).
+- Verification: gates PASS (8/8 golden) · contract-check OK · worker 44/44 · API 183/183 ·
+  web 93/93 · integration 97/97 · lint 0 · typecheck 0 · verify-local exit 0 · live
+  internal-browser run (chef toggle + card + C3 TC-03 persistence + guest refusal + INV-17)
+  · **CI success (run `34501720779`)**.
+- Commit(s): `748853e442fcf0bf8624f9106974e59a501119ba` (D-20 checkpoint).
+
 ## 2026-09-10 â€” D-21 P4-3: Disclaimer sweep (H6/I6 unconditional, INV-13/INV-14 gates)
 
 - Author / session: DeepSeek V4 Pro (VS Code) D-21 dispatch; pre-flight GO recorded in

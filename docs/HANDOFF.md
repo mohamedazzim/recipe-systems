@@ -2059,7 +2059,7 @@ execution output; Git: not available / not authorized throughout.
 
 ### H-22 — D-22 Library save / browse / delete
 
-- BASE_SHA / COMMIT_SHA: BASE `d505201` · COMMIT `5cf4830` (full `5cf483067c227aae812bb9bb9b002bc1680aabc0`).
+- BASE_SHA / COMMIT_SHA: BASE `d505201` · COMMIT `5cf4830` (D1/D2 checkpoint) · **D6 close-out `28ec1b9`** (full `28ec1b938bfbbd6136092cdbfac0eb4c137ae1c7`).
 - Date / agent session: 2026-09-10 · D-22 dispatch session (pre-flight decision trace D-22A..I recorded in HANDOFF §5 BEFORE code).
 - Status: **DONE — D1 + D2 shipped; D6 (delete) explicitly deferred as the remaining D-22 continuation** (not dispatched in this message; recorded in D-22A).
 - Summary: canonical Save + library shipped. Save (`PUT /recipes/:recipeId/save`, guest-or-jwt) confirms the persisted artifact set (raw input, photo, object, identification, analysis, timestamps — nothing copied or invented) and normalizes the name: default = the identification family (analysis.family column, then the frozen View5PayloadSchema view-5 payload), editable afterwards (D1 AC-1/AC-2). Library (`GET /recipes`, account-only) returns D2 AC-1 rows — name, date, family, cook-log indicator (EXISTS on the live cook_log table) — ordered by the ERD's own `ix_recipe_account_updated`. The web workspace carries a visible Save action (guests included) and the signed-in Home renders the canonical DB library, opening rows with the saved name even after a browser restart. Guests keep the untouched session-local list (D-22I — browser state preserved, never migrated). Resume-save (A1 TC-02): guest save state rides the QA-B2 claim transaction into the account library.
@@ -2068,6 +2068,25 @@ execution output; Git: not available / not authorized throughout.
 - Done-criteria evidence: live internal-browser run on the real stack — chef save (blank name) → "Saved as Coastal Tamil (Kanyakumari) style meen kuzhambu" + artifact summary → library row (name/date/family/"No cook log yet") → reopen with the saved name as the workspace title → reload → library row persists (DB-owned, not browser state) → guest saved a named recipe → real Keycloak registration → callback claim → the new account library contains exactly that saved recipe → guest home still renders the untouched session list + "Other sessions".
 - OPEN DECISION notes: Q1/Q5/Q9/Q10/Q11 unchanged (OPEN) · no schema change (the artifact set IS the existing rows; `updated_at` is the save stamp — ERD has no saved_at) · no LLM/DeepSeek work (dispatcher NON-GOAL honored) · D6 delete deferred (next D-22 continuation point).
 - Deviations: e2e Playwright launches remain machine-policy blocked on the dev VM (H-13) — the identical assertions were executed live through the VS Code internal browser and recorded in §5.
+
+**D-22 D6 close-out (2026-09-10, commit `28ec1b9`) — the canonical D-22 unit is now COMPLETE:**
+- Summary: hard delete per ERD §13 + API doc §5 RS-US-24 (`DELETE /recipes/:recipeId`, Bearer +
+  CSRF, body `{confirm:true}` else 400 `CONFIRM_REQUIRED`, 204). INV-17 404s for missing/foreign/
+  malformed/repeated. DB-level ON DELETE CASCADE proven across all 13 child tables (integration,
+  real Postgres): recipe_input, recipe_ingredient_line, recipe_tag, analysis, analysis_view,
+  analysis_claim, analysis_station_card, shopping_list_generation, shopping_list_item,
+  ingredient_shopping_state, cook_log, cook_log_swap, cook_log_photo — zero orphans. Storage:
+  own-bucket asset keys collected pre-delete; DB delete commits first, then compensating
+  per-object cleanup (`StorageService.tryDeleteObject`) — no distributed transaction invented;
+  residue logged as a structured WARN (ADR §16, retry-safe); real MinIO probe proven in the story
+  (objectExists false after delete). Web: two-step named confirmation (Cancel / Delete recipe),
+  disabled while deleting, safe errors, no optimistic removal, success only after the 204 →
+  home + library refresh + "Recipe deleted." notice. Guests have no delete surface (Bearer-only).
+  Live internal-browser QA: cancel preserves, confirmed delete removes the row, reload keeps it
+  gone, live-DB orphan sweep 0/0/0/0/0/0.
+- Tests at close-out: API 202/202 · web 104/104 · integration 106/106 · gates PASS (8/8) ·
+  contract OK · lint 0 · typecheck 0 · verify-local exit 0 · CI success (run `34514834141`).
+- OPEN DECISION notes: unchanged (Q1/Q5/Q9/Q10/Q11 OPEN) · no D-23/D-30 work (HARD STOP honored).
 
 ### H-23 — D-23 Print list + station card
 

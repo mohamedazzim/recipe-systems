@@ -49,6 +49,32 @@
   · **CI success (run `34501720779`)**.
 - Commit(s): `748853e442fcf0bf8624f9106974e59a501119ba` (D-20 checkpoint).
 
+## 2026-09-10 — D-22 D6: Delete recipe (hard-delete cascade, P5-1 close-out)
+
+- Author / session: DeepSeek V4 Pro (VS Code) D-22 D6 continuation; decision trace D6-1..7
+  recorded in HANDOFF §5 before implementation.
+- What changed: `DELETE /api/v1/recipes/:recipeId` (Bearer + CSRF; body `{confirm:true}` else 400
+  `CONFIRM_REQUIRED`; 204) per the API doc §5 RS-US-24 contract. The service performs the
+  canonical hard DELETE (ERD §13 — no soft-delete field invented): INV-17 ownership first, then
+  own-bucket asset-key collection (recipe/input/cook-log photos), then the row delete whose
+  DB-level ON DELETE CASCADE chain removes all 13 dependent tables (proven in integration),
+  then compensating per-object storage cleanup after commit (`StorageService.tryDeleteObject`,
+  never throws, boolean residue) — DB-first because a dangling URI is worse than a retry-safe
+  orphan (ADR §16); residue is logged, never hidden. Web: two-step named confirmation in a
+  workspace danger zone (signed-in only — the endpoint is Bearer-only), Cancel / Delete recipe,
+  disabled while deleting, safe errors, no optimistic removal; success only after the 204 →
+  home + library refresh + "Recipe deleted." notice.
+- Why: D6 AC-1 (confirm), AC-2 (removes photo, object, analyses, lists, logs), AC-3 (no public
+  residue) — the last D-22 deliverable; the canonical D-22 unit is now complete.
+- Register impact: Q1/Q5/Q9/Q10/Q11 unchanged (OPEN). No DeepSeek. No D-23/D-30 work.
+- Verification: API 202/202 · web 104/104 · integration 106/106 (new `story_d22_delete` 4/4 on
+  real Postgres + real MinIO: cascade proof, confirm contract, INV-17 matrix, object gone) ·
+  e2e `library.spec.ts` delete test added · live internal-browser QA (cancel preserves, confirmed
+  delete removes the row, reload keeps it gone; live-DB orphan sweep 0 across analysis/views/
+  station-cards/cook-logs/lines/inputs) · gates PASS (8/8) · contract-check OK · lint 0 ·
+  typecheck 0 · verify-local exit 0 · **CI success (run `34514834141`)**.
+- Commit(s): `28ec1b938bfbbd6136092cdbfac0eb4c137ae1c7` (D-22 D6 close-out).
+
 ## 2026-09-10 — D-22 P5-1: Save + recipe library (D1/D2, canonical library over the existing rows)
 
 - Author / session: DeepSeek V4 Pro (VS Code) D-22 dispatch; decision trace D-22A..I recorded

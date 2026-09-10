@@ -23,6 +23,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
   Param,
   Patch,
   Req,
@@ -47,6 +48,18 @@ const methodAttachSchema = z.object({
 @Controller('recipes')
 export class RecipesController {
   constructor(private readonly recipes: RecipeService) {}
+
+  /** Read-only method-state hydration (same canonical wire shape as the PATCH
+   *  200). Added so the web workspace can reopen on the persisted method without
+   *  a write-on-mount workaround — a previous build PATCHed method:none on mount
+   *  and destroyed the saved method on every reopen. Delegates to the existing
+   *  D-17 RecipeService.getMethodState; no writer changes. */
+  @Get(':recipeId/method')
+  @UseGuards(JwtAuthGuard)
+  async getMethod(@Req() req: AuthedRequest, @Param('recipeId') recipeId: string) {
+    const actor: Actor = { kind: 'user', user: req.user! };
+    return this.recipes.getMethodState(actor, recipeId);
+  }
 
   /** B4 TC-01/02/03: set or attach a method (None / Paste / Accept INFERRED). */
   @Patch(':recipeId/method')

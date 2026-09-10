@@ -1415,7 +1415,17 @@ execution output; Git: not available / not authorized throughout.
 
 ### H-18 — D-18 Views 1–4 + home mode
 
-☐ No entry yet.
+- BASE_SHA / COMMIT_SHA: **BASE `6b618a2` · COMMIT `8c59a9d`** (full `8c59a9d6ce59e59a429b2a8a62a473e8497ae8e3`) — pushed to `github.com/mohamedazzim/recipe-systems` branch `main` (2026-09-09, owner-authorized).
+- Date / agent session: 2026-09-09 · D-18 dispatch session (pre-flight GO recorded in HANDOFF §5 BEFORE code). Backfilled into this ledger 2026-09-10 from the §5 execution record + CHANGE_LOG (evidence re-verified by direct inspection; no criteria invented).
+- Status: **DONE** (implementation + verification). Formal entry was "No entry yet" until this backfill — evidence always lived in HANDOFF §5 + CHANGE_LOG.
+- Summary: read-only `GET /recipes/:recipeId/analysis` (API §5, RS-US-13, GuestOrJwt) — latest current analysis + view rows, INV-17 404 for missing/foreign, UUID guard; web `AnalysisViews` (identification C1 from the persisted view_5 payload, Tabs over Views 1–4 in home voice, claim tags, View 2 blind-spot visible, View 3 incomplete reason, unavailable/refused states never invented) replacing the "coming next" placeholder; `lib/views.ts` (UNKNOWN blanking, name resolution with visible unresolved ids); workspace lifts lines + method state and reopens on the latest analysis; worker dev stub (Q9-labeled) builds payloads from the captured ingredient ids so the D-16 grounding gate validates the same state.
+- Files changed: `apps/api/src/modules/analysis/analysis.controller.ts` (+test), `apps/web/components/app/{AnalysisViews,AnalysisPanel,IngredientReview,RecipeWorkspace}.tsx` (+tests), `apps/web/lib/views.ts`, `apps/web/jest.config.js`, `apps/analysis-worker/src/adapter.ts` (+test), `docs/CHANGE_LOG.md`, `docs/HANDOFF.md`.
+- Test results: web 69/69 · API 148/148 · worker 21/21 · integration 73/73 · gates PASS · lint/typecheck clean · live HTTP 13/13 · verify-local exit 0. Re-verified 2026-09-10 (post-D-29 tree): API 160/160, worker 21/21, web 69/69, integration 68/68 (+qg2 13/13 with the Git-Bash PATH fix — Windows-only environment issue, CI unaffected).
+- Done-criteria evidence: Views 1–4 + identification render on the golden-style flow (live analyse → views 1–4 COMPLETE with payloads → view_5 identification → views 8/9 INCOMPLETE — honest refusal states, INV-10); golden invariants stay green (gates); grounding failure → view INCOMPLETE never current (D-16 gate exercised by the stub path); failed jobs never stuck at generating (D-17 states).
+- Gate evidence: QG2 regression gates PASS; golden invariant evaluation green; QG1 coverage floors met.
+- OPEN DECISION notes: Q1 (job-payload assumption continued, labeled), Q5, Q9 (stub labeled `stub-no-provider-q9`, dev-only), Q10 untouched.
+- Deviations: identification block renders from the persisted view_5 payload (the only persisted identification source); the envelope's `absent_on_card` has no persisted row → honestly omitted (recorded in the pre-flight, never invented).
+- Audit result: A-18 not yet executed — PENDING.
 
 ### H-19 — D-19 Views 5–9
 
@@ -1459,7 +1469,17 @@ execution output; Git: not available / not authorized throughout.
 
 ### H-29 — D-29 Track R reference data
 
-☐ No entry yet.
+- BASE_SHA / COMMIT_SHA: **BASE `8c59a9d` · COMMIT `aff7c8c`** (full `aff7c8c07b497771c3dd85da6d009079c8f2b908`) — pushed to `github.com/mohamedazzim/recipe-systems` branch `main` (2026-09-10, owner-authorized). CI: **run 34390362800 = success** on this exact SHA (GitHub API-verified).
+- Date / agent session: 2026-09-09/10 · D-29 dispatch session (pre-flight GO recorded in HANDOFF §5 BEFORE code; D-19→D-29 reorder decision recorded and user-accepted). Backfilled into this ledger 2026-09-10 from the §5 execution record + CHANGE_LOG (evidence re-verified by direct inspection + live DB query; no criteria invented).
+- Status: **DONE** (implementation + verification). Formal entry was "No entry yet" until this backfill — evidence always lived in HANDOFF §5 + CHANGE_LOG.
+- Summary: `apps/api/src/admin` reference-data module — sole writer of the six curated reference tables (ADR §2); no public admin HTTP API (canonical docs prescribe none) — reviewed path via CLI `reference-data:import`: stage/diff (writes nothing) → human approval record (content-sha-signed) → effective-dated persist; forward-only versioning; supersede closes the prior open version; history never mutated; overlap rejected by the DB `EXCLUDE USING gist` constraints; unreviewed persist impossible. Content: 4 reviewed imports with committed approval records — statutory allergen definitions (US big 9 + EU/UK 14 + coconut [non-statutory, FDA Edition 5] + fenugreek [legume]), 12 dictionary rows (Q5 label) + 6 aliases, 6 mappings, 12 USDA FDC SR Legacy composition entries (real values fetched 2026-09-09). Fenugreek powder has no distinct USDA record → I7-unmapped (listed, excluded) — no invented values. Gate fix: the Q5 one-writer pattern was case-blind to camelCase Prisma models (`ingredientDictionary`) → strengthened; both reference one-writer gates now actively enforce.
+- Files changed: `apps/api/src/admin/**` (service, repository, module, CLI, import schema, tests), `apps/api/src/app.module.ts`, `apps/api/package.json`, `infra/reference-data/{approvals,imports}/**` (4+4 files), `scripts/regression-gates.sh`, `tests/integration/story_d29_reference_data.test.ts`, `docs/{CHANGE_LOG,HANDOFF}.md`.
+- Test results: API 160/160 (+12) · D-29 integration story 8/8 real Postgres (stage no-rows; unreviewed reject; sha-mismatch reject; supersede closes+versions+history intact; backdate reject; DB overlap reject; I7 unmapped; golden lookups — fish flagged, coconut NOT tree_nuts, fenugreek flagged, mustard EU) · gates PASS with both one-writer gates enforcing · verify-local exit 0 · CI green (run above). Re-verified 2026-09-10: live DB counts 17 defs / 12 dict / 6 aliases / 6 mappings / 12 entries / 12 versions — intact after integration runs (snapshot-restore hygiene).
+- Done-criteria evidence (BUILD_PLAN Track R exit): allergen + nutrition data loaded via the reviewed path with effective-dated versions; overlap attempt rejected (integration proves the EXCLUDE constraint fires); an unreviewed mapping change cannot silently alter View 8/9 (approve() requires the sha-signed approval record; bypass rejected in tests); I7 — mapped lines carry USDA ids, unmapped lines excluded from totals and listed.
+- Gate evidence: QG2 one-writer gates (dietary/nutrition AND dictionary/alias) both actively enforcing, fire-proofed by `qg2_gates.test.ts`.
+- OPEN DECISION notes: Q5 stays OPEN — every dictionary/alias write labeled "Q5 WORKING ASSUMPTION" (working assumption permitted by DISPATCH D-29; not a final decision).
+- Deviations: no staging table (staging = validated import files + signed approval records — the ERD is frozen); fish sodium kept as real per-class values (species-unknown sodium rule deferred to D-19's consumption); D-19 recompute design preserved for the D-19 pre-flight (recorded 2026-09-10, see §5).
+- Audit result: A-29 not yet executed — PENDING.
 
 ### H-30 — D-30 Track S shopping data
 
@@ -1894,3 +1914,106 @@ execution output; Git: not available / not authorized throughout.
   concern); D-19 recompute design preserved for the D-19 pre-flight.
   **Resume point:** D-19 re-dispatch (Views 5–9 + recompute) — now unblocked by live,
   reviewed reference data. Awaiting authorization; D-29 checkpoint commit below.
+
+
+- 2026-09-10 — **METHOD-SAVE BUG FIX (decision trace recorded BEFORE code; user-reported live bug)**
+  **Observed behavior (user report):** authenticated user → workspace → Method → "I will
+  paste it" → enter `Cook for 1–2 hours over low heat.` → click `Save method` → button
+  accepts the click, no visible success state, no confirmation, no useful error, method
+  does not visibly update. The UI also showed "Method saved from your paste." before the
+  user had actually saved.
+  **Reproduction + HTTP evidence (live browser, chef@recipesystems.test, dev stack):**
+  - Happy path: `PATCH /api/v1/recipes/:id/method` body `{method:"paste", method_text, method_source:""}` → 200 `{method_tag:"METHOD",method_source:null,list_only:false}` → status line "Method saved from your paste." — works on first save.
+  - Then **Back → reopen the same recipe**: the workspace silently issued `PATCH method:none`
+    (TWICE — React StrictMode double-mount in dev) on every mount → 200 `{method_tag:null,...}`;
+    Postgres verified AFTER reopen: `method_text` NULL, `method_source_tag` NULL — **the
+    saved method was destroyed from the database by merely reopening the workspace**.
+  **Root cause (3 parts):**
+  1. `MethodSection`'s mount `useEffect` called `attach({method:'none'}, silent)` — a WRITE on
+     mount; every reopen wiped the persisted method (data loss). It existed because no read
+     route for method state exists (API doc §4 defines only PATCH).
+  2. The status line derived solely from the persisted state with no dirty/saving/error
+     distinction → it kept claiming "Method saved from your paste." after mode/text edits
+     (the reported "saved before actually saved") and re-saves produced no visible change.
+  3. The silent mount-write could race a user save (last response wins).
+  **Fix (canonical shape preserved; no data-model redesign):**
+  - API: read-only `GET /recipes/:recipeId/method` (JwtAuthGuard) returning the existing
+    canonical `{method_tag, method_source, list_only}` — delegates to the D-17
+    `RecipeService.getMethodState`; no writer changes; ownership INV-17 inside the service.
+    (Precedent: D-18 added the read-only GET /analysis route for the same hydration need;
+    the API doc defines no GET /method — minimal read surface added for UI hydration.)
+  - Web `MethodSection`: mounts now HYDRATE (GET) and never write; explicit status states —
+    `Method ready to save.` → `Saving method…` → `Method saved.` (with tag/source detail) /
+    `Could not save method — <error>.`; dirty tracking (mode/text/source edits return the
+    status to ready — no false "saved"); stale-hydration guard (a user save that settles
+    before the late hydration response wins); `onChange` lifted on hydration AND save.
+  **Tests:** web MethodSection 10/10 (all 7 required scenarios: paste, inferred+named source,
+  source-less inferred button-disabled, none clears, backend failure visible, method survives
+  reload — asserts NO PATCH on mount, no false "saved" before success); API recipes 16/16
+  (+3 controller tests for the GET route: METHOD state, list-only state, INV-17 404).
+  **Live verification (browser + psql):** reopen issues only GETs (no PATCH); UI shows
+  "Method saved." + "Tag: METHOD — saved from your paste."; psql: method_text retained after
+  reopen; full analyse → worker → Views 1–4 still complete (no regression).
+  **Intentional non-changes:** canonical PATCH contract and response untouched; no
+  `method_text` added to any wire shape; guest flow unchanged; no snapshot/analysis changes.
+
+
+- 2026-09-10 — **D-19 PRE-FLIGHT (read-only; recorded BEFORE any D-19 code)**
+  **Starting state:** D-18 ✅ (Views 1–4 + home), D-29 ✅ (Track R reviewed reference load,
+  live counts verified 2026-09-10: 17 allergen defs / 12 dictionary / 6 aliases / 6 mappings /
+  12 composition entries / 12 versions; CI run 34390362800 success). Views 8/9 are persisted
+  INCOMPLETE by the worker (intentional D-18 non-change). Frozen D-05 schemas for Views 5–9
+  exist (`packages/schemas` v1.0.0, `.strict()`).
+  **D-29 dependency:** SATISFIED. Live effective-dated data present; `ReferenceDataService`
+  exposes `resolveMappings`/`resolveComposition` (I7 read surface) for D-19 consumption.
+  **Recompute design — decision (labeled working assumption; dispatcher must confirm):**
+  - Canonical state: ERD §15.4 leaves "analysis regeneration granularity" OPEN for I2; the I2
+    story says the assumption-editor API is "specified by D-19"; RS-US-45 gives the wire
+    contract `PATCH /analysis/:analysisId/view-9/assumptions` body `{fish_class?:"lean"|"oily",
+    coconut_grams?:number, oil_tbsp?:number}` → 200 recomputed band (Bearer).
+  - Labeled design for D-19 (no new tables/columns; frozen schemas already support it):
+    - **Where assumptions live:** persisted inside `analysis_view.payload.assumptions`
+      (`View9PayloadSchema` already requires `assumptions[{key,value,tag:ASSUMED}]`).
+    - **Transmission:** the canonical RS-US-45 PATCH shape (API/BFF route, Bearer).
+    - **Who writes the recomputed analysis:** the ANALYSIS WORKER only (ADR §2 one-writer).
+      The BFF/API never writes `analysis_*` — it validates the edit and enqueues a
+      deterministic view-9 recompute job (pg-boss, D-17 pattern; idempotent upsert on
+      `uq_analysis_view`). Recomputed payload = band (never a point-kcal, INV-14), sodium
+      `unknown` where required, unmapped lines excluded + listed (I7).
+    - **Recompute is a worker job:** yes — deterministic, NO LLM (Deterministic Views v2 §4;
+      Q9 untouched). Fish-class selection reads the two real USDA entries (species-unknown
+      lean/oily band, D-29's deliberate data shape).
+    - **One-writer preserved:** API adds a queue-enqueue write only; `analysis_*` writes stay
+      worker-exclusive (regression gates + A-19 will re-verify).
+    - **Q1:** REMAINS OPEN — the recompute job's input rides the existing D-17 job-payload
+      working assumption (captured structured recipe); no ERD v14 column invented.
+    - **OPEN to dispatcher:** granularity (ERD §15.4) — whole-view-9 recompute only, and
+      whether assumption edits should also regenerate Views 1–7 (recommend NO — C6 requires
+      explicit re-analysis only). If the dispatcher rejects this label, D-19 must STOP on
+      recompute until ERD §15.4 is decided.
+  **Schema naming reconciliation (Deterministic Views v2 → frozen ERD/schemas; the ERD +
+  D-05 schemas are authoritative):**
+  - `allergen_map` → `dietary_allergen_definition` + `dietary_allergen_mapping`
+    (effective-dated; version column; EXCLUDE overlap; source_reference).
+  - `food_composition_table` → `nutrition_food_composition_entry` (external_source/external_id
+    = USDA fdcId; is_primary_for_ingredient) + `nutrition_food_composition_version`
+    (per-100g values, source_version, effective-dated).
+  - `food_id` → `external_id` (via `external_source`); `canonical_name` →
+    `ingredient_dictionary.canonical_name` (+ `ingredient_alias` — Q5 read-only).
+  - "computed in `analysis/`" → deterministic producers live in the analysis worker path
+    (the sole `analysis_*` writer); NO new API module named `analysis/`.
+  - `region_pack` → `account.label_pack` / `account_restriction_profile.label_pack` (US/EU).
+  - Output JSON examples in the v2 doc are illustrative — the frozen
+    `View8PayloadSchema`/`View9PayloadSchema`/`DeterministicViewInputSchema`/
+    `View9AssumptionsSchema` are the binding payload contracts.
+  **Q states:** Q5 OPEN (D-19 is read-only against dictionary/alias; one-writer gates
+  enforce) · Q9 OPEN (Views 5–7 use the provider-neutral stub in dev — never production
+  claims) · Q10 OPEN (no OCR work) · Q1 OPEN (working assumption labeled above).
+  **GO/STOP:** **GO (pre-flight)** — with the labeled recompute working assumption above and
+  the dispatcher's confirmation of the recompute granularity choice; Views 5–7 have fully
+  canonical specs (Recipe_Systems §6) and Views 8/9 are deterministic per Deterministic
+  Views v2 + frozen schemas; the D-29 dependency is live-verified. STOP condition: if the
+  recompute label is not accepted, D-19 must halt on I2/recompute until ERD §15.4 is decided
+  by a reviewed patch.
+  **Resume point:** dispatcher confirms the recompute label → implement D-19 (Views 5–9 +
+  assumption editors + disclaimers) per DISPATCH D-19; audit A-19 after.

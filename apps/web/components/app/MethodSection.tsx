@@ -4,8 +4,16 @@
 // inferred with a named source (INFERRED), or none. The consequence shown for
 // "no method" is the canonical one: list-only, so Views 3 and 7 will be
 // INCOMPLETE. Guests cannot attach a method (API §4: Bearer only).
+//
+// State semantics (bug-fix 2026-09-10, decision trace in HANDOFF §5):
+//   - Mount HYDRATES via the read-only GET /recipes/:id/method. A previous
+//     build PATCHed method:none on mount and destroyed the saved method on
+//     every reopen — mounts must never write.
+//   - The status line distinguishes ready / saving / saved / failure; the
+//     form never claims "saved" before backend confirmation, and editing the
+//     form after a save returns it to the ready state.
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Field } from '@/components/ui/Field';
@@ -22,6 +30,12 @@ export interface MethodSectionProps {
 
 type Mode = 'none' | 'paste' | 'inferred';
 
+function persistedMode(state: MethodState | null): Mode {
+  if (state?.method_tag === 'METHOD') return 'paste';
+  if (state?.method_tag === 'INFERRED') return 'inferred';
+  return 'none';
+}
+
 export function MethodSection({ recipeId, signedIn, onChange }: MethodSectionProps) {
   const [state, setState] = useState<MethodState | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -29,30 +43,56 @@ export function MethodSection({ recipeId, signedIn, onChange }: MethodSectionPro
   const [mode, setMode] = useState<Mode>('none');
   const [text, setText] = useState('');
   const [source, setSource] = useState('');
+  // true while the form differs from the persisted state — a dirty form never
+  // shows "saved".
+  const [dirty, setDirty] = useState(false);
+  // the last mode the USER saved successfully (null = never saved in this view)
+  const [userSaved, setUserSaved] = useState<Mode | null>(null);
+  // a save completed before the mount-hydration returned: the late (stale)
+  // hydration result must not overwrite the fresher saved state.
+  const savedRef = useRef(false);
 
   useEffect(() => {
-    if (signedIn) {
-      void attach({ method: 'none', method_text: '', method_source: '' }, true);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [recipeId, signedIn]);
-
-  async function attach(body: { method: Mode; method_text: string; method_source: string }, silent = false): Promise<void> {
-    if (!silent) setSaving(true);
-    if (!silent) setError(null);
-    try {
-      const result = await api<MethodState>(`/recipes/${recipeId}/method`, {
-        method: 'PATCH',
-        body: JSON.stringify(body),
+    if (!signedIn) return;
+    savedRef.current = false;
+    setUserSaved(null);
+    // Read-only hydration — mounts never write (method-survives-reload).
+    api<MethodState>(`/recipes/${recipeId}/method`)
+      .then((loaded) => {
+        if (savedRef.current) return; // a user save already settled — keep it
+        setState(loaded);
+        setMode(persistedMode(loaded));
+        setDirty(false);
+        onChange?.(loaded);
+      })
+      .catch(() => {
+        // Read failure: leave the form ready-to-save; explicit saves still work
+        // and surface their own errors.
       });
-      setState(result);
-      onChange?.(result);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not save the method.');
-    } finally {
-      if (!silent) setSaving(false);
-    }
-  }
+  }, [recipeId, signedIn, onChange]);
+
+  const attach = useCallback(
+    async (body: { method: Mode; method_text: string; method_source: string }): Promise<void> => {
+      setSaving(true);
+      setError(null);
+      try {
+        const result = await api<MethodState>(`/recipes/${recipeId}/method`, {
+          method: 'PATCH',
+          body: JSON.stringify(body),
+        });
+        savedRef.current = true;
+        setState(result);
+        setDirty(false);
+        setUserSaved(body.method);
+        onChange?.(result);
+      } catch (err) {
+        setError(err instanceof ApiError ? err.message : 'Could not save the method.');
+      } finally {
+        setSaving(false);
+      }
+    },
+    [recipeId, onChange],
+  );
 
   const submit = (): void => {
     if (mode === 'paste') {
@@ -62,6 +102,12 @@ export function MethodSection({ recipeId, signedIn, onChange }: MethodSectionPro
     } else {
       void attach({ method: 'none', method_text: '', method_source: '' });
     }
+  };
+
+  const selectMode = (value: Mode): void => {
+    setMode(value);
+    setError(null);
+    setDirty(value !== persistedMode(state));
   };
 
   return (
@@ -76,10 +122,24 @@ export function MethodSection({ recipeId, signedIn, onChange }: MethodSectionPro
 
       {state && (
         <p className="mt-4 text-small text-body" aria-live="polite">
-          {state.method_tag === null && 'Method not provided.'}
-          {state.method_tag === 'METHOD' && 'Method saved from your paste.'}
+          {saving
+            ? 'Saving method…'
+            : error
+              ? `Could not save method — ${error}.`
+              : dirty || (state.method_tag === null && userSaved === null)
+                ? 'Method ready to save.'
+                : 'Method saved.'}
+        </p>
+      )}
+      {state && !dirty && !saving && !error && (
+        <p className="mt-1 text-small text-muted">
+          {state.method_tag === 'METHOD' && 'Tag: METHOD — saved from your paste.'}
           {state.method_tag === 'INFERRED' &&
-            `Inferred from: ${state.method_source ?? 'a named source'}.`}
+            `Tag: INFERRED — source: ${state.method_source ?? 'a named source'}.`}
+          {state.method_tag === null &&
+            (userSaved === 'none'
+              ? 'Method cleared. List-only: Views 3 and 7 will be incomplete.'
+              : 'List-only: Views 3 and 7 will be incomplete.')}
         </p>
       )}
 
@@ -120,7 +180,7 @@ export function MethodSection({ recipeId, signedIn, onChange }: MethodSectionPro
                     name="method-mode"
                     value={value}
                     checked={mode === value}
-                    onChange={() => setMode(value)}
+                    onChange={() => selectMode(value)}
                     className="sr-only"
                   />
                   {label}
@@ -134,7 +194,11 @@ export function MethodSection({ recipeId, signedIn, onChange }: MethodSectionPro
               <Textarea
                 id="method-text"
                 value={text}
-                onChange={(e) => setText(e.target.value)}
+                onChange={(e) => {
+                  setText(e.target.value);
+                  setDirty(true);
+                  setError(null);
+                }}
                 rows={5}
                 placeholder="Boil tamarind water; temper; add fish; simmer."
               />
@@ -147,7 +211,11 @@ export function MethodSection({ recipeId, signedIn, onChange }: MethodSectionPro
                 <Textarea
                   id="method-text"
                   value={text}
-                  onChange={(e) => setText(e.target.value)}
+                  onChange={(e) => {
+                    setText(e.target.value);
+                    setDirty(true);
+                    setError(null);
+                  }}
                   rows={5}
                   placeholder="The method as recorded on the card."
                 />
@@ -156,7 +224,11 @@ export function MethodSection({ recipeId, signedIn, onChange }: MethodSectionPro
                 <Input
                   id="method-source"
                   value={source}
-                  onChange={(e) => setSource(e.target.value)}
+                  onChange={(e) => {
+                    setSource(e.target.value);
+                    setDirty(true);
+                    setError(null);
+                  }}
                   placeholder="CDK 1669 / Mrs. Anitha"
                 />
               </Field>

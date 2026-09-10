@@ -5,6 +5,7 @@ import { MethodSection } from '@/components/app/MethodSection';
 describe('MethodSection (D-13 modes)', () => {
   beforeEach(() => {
     (globalThis as unknown as { fetch: unknown }).fetch = jest.fn();
+    // default: mount hydration (read-only GET) reports no saved method
     (globalThis.fetch as jest.Mock).mockResolvedValue({
       ok: true,
       status: 200,
@@ -20,13 +21,37 @@ describe('MethodSection (D-13 modes)', () => {
     return { recipeId: 'r1', signedIn: true, ...overrides };
   }
 
+  /** all requests whose URL contains the method route */
+  function methodCalls() {
+    return (globalThis.fetch as jest.Mock).mock.calls.filter((c) => {
+      const [url] = c as [string, RequestInit];
+      return String(url).includes('/r1/method');
+    });
+  }
+
+  function lastMethodCall() {
+    const calls = methodCalls();
+    return calls[calls.length - 1] as [string, RequestInit];
+  }
+
   it('reports the canonical no-method consequence (list-only)', async () => {
     render(<MethodSection {...props()} />);
-    expect(await screen.findByText('Method not provided.')).toBeInTheDocument();
-    expect(screen.getByText(/Views 3 and 7 will be incomplete/)).toBeInTheDocument();
+    expect(await screen.findByText('Method ready to save.')).toBeInTheDocument();
+    expect(screen.getByText('List-only: Views 3 and 7 will be incomplete.')).toBeInTheDocument();
   });
 
-  it('paste mode saves method_text as METHOD', async () => {
+  it('never claims saved before a save succeeds (no false "saved" message)', async () => {
+    render(<MethodSection {...props()} />);
+    await screen.findByText('Method ready to save.');
+    expect(screen.queryByText('Method saved.')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('radio', { name: 'I will paste it' }));
+    await userEvent.type(screen.getByLabelText('Method text'), 'Boil; temper; simmer.');
+    // still un-saved: form is ready, not saved
+    expect(screen.getByText('Method ready to save.')).toBeInTheDocument();
+    expect(screen.queryByText('Method saved.')).not.toBeInTheDocument();
+  });
+
+  it('paste mode saves method_text as METHOD and shows the saved state', async () => {
     render(<MethodSection {...props()} />);
     await userEvent.click(screen.getByRole('radio', { name: 'I will paste it' }));
     await userEvent.type(screen.getByLabelText('Method text'), 'Boil; temper; simmer.');
@@ -36,17 +61,17 @@ describe('MethodSection (D-13 modes)', () => {
       json: async () => ({ method_tag: 'METHOD', method_source: null, list_only: false }),
     });
     await userEvent.click(screen.getByRole('button', { name: 'Save method' }));
-    const calls = (globalThis.fetch as jest.Mock).mock.calls.filter((c) => {
-      const [url] = c as [string, RequestInit];
-      return url.includes('/r1/method');
-    });
-    const call = calls[calls.length - 1];
-    expect(JSON.parse((call as [string, RequestInit])[1].body as string)).toEqual({
+    const [url, init] = lastMethodCall();
+    expect(url).toContain('/r1/method');
+    expect(init.method).toBe('PATCH');
+    expect(JSON.parse(init.body as string)).toEqual({
       method: 'paste',
       method_text: 'Boil; temper; simmer.',
       method_source: '',
     });
-    expect(await screen.findByText('Method saved from your paste.')).toBeInTheDocument();
+    expect(await screen.findByText('Method saved.')).toBeInTheDocument();
+    expect(screen.getByText('Tag: METHOD — saved from your paste.')).toBeInTheDocument();
+    expect(screen.queryByText('Could not save method')).not.toBeInTheDocument();
   });
 
   it('inferred requires BOTH text and a named source (button disabled otherwise)', async () => {
@@ -66,18 +91,106 @@ describe('MethodSection (D-13 modes)', () => {
       }),
     });
     await userEvent.click(screen.getByRole('button', { name: 'Save method' }));
-    expect(await screen.findByText('Inferred from: CDK 1669 / Mrs. Anitha.')).toBeInTheDocument();
+    const [url, init] = lastMethodCall();
+    expect(url).toContain('/r1/method');
+    expect(JSON.parse(init.body as string)).toEqual({
+      method: 'inferred',
+      method_text: 'Simmer in tamarind water.',
+      method_source: 'CDK 1669 / Mrs. Anitha',
+    });
+    expect(await screen.findByText('Method saved.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Tag: INFERRED — source: CDK 1669 / Mrs. Anitha.'),
+    ).toBeInTheDocument();
   });
 
-  it('none clears the method', async () => {
+  it('none clears the method → list-only state after success', async () => {
     render(<MethodSection {...props()} />);
     await userEvent.click(screen.getByRole('radio', { name: 'No method' }));
     await userEvent.click(screen.getByRole('button', { name: 'Save method' }));
-    const call = (globalThis.fetch as jest.Mock).mock.calls.find((c) => {
-      const [url] = c as [string, RequestInit];
-      return url.includes('/r1/method');
+    const [url, init] = lastMethodCall();
+    expect(url).toContain('/r1/method');
+    expect(JSON.parse(init.body as string).method).toBe('none');
+    expect(await screen.findByText('Method saved.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Method cleared. List-only: Views 3 and 7 will be incomplete.'),
+    ).toBeInTheDocument();
+  });
+
+  it('shows "Saving method…" while the request is in flight, then the saved state', async () => {
+    let resolvePatch!: (value: unknown) => void;
+    (globalThis.fetch as jest.Mock).mockImplementation((_url: string, init?: RequestInit) => {
+      if ((init?.method ?? 'GET') === 'PATCH') {
+        // the save stays in flight until the test resolves it
+        return new Promise((resolve) => {
+          resolvePatch = resolve;
+        });
+      }
+      // hydration (read-only GET) resolves immediately
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({ method_tag: null, method_source: null, list_only: true }),
+      });
     });
-    expect(JSON.parse((call as [string, RequestInit])[1].body as string).method).toBe('none');
+    render(<MethodSection {...props()} />);
+    await screen.findByText('Method ready to save.');
+    await userEvent.click(screen.getByRole('radio', { name: 'I will paste it' }));
+    await userEvent.type(screen.getByLabelText('Method text'), 'Cook for 1–2 hours over low heat.');
+    await userEvent.click(screen.getByRole('button', { name: 'Save method' }));
+    expect(await screen.findByText('Saving method…')).toBeInTheDocument();
+    resolvePatch({
+      ok: true,
+      status: 200,
+      json: async () => ({ method_tag: 'METHOD', method_source: null, list_only: false }),
+    });
+    expect(await screen.findByText('Method saved.')).toBeInTheDocument();
+  });
+
+  it('backend failure is visible: status line carries the real error', async () => {
+    render(<MethodSection {...props()} />);
+    await userEvent.click(screen.getByRole('radio', { name: 'I will paste it' }));
+    await userEvent.type(screen.getByLabelText('Method text'), 'Simmer.');
+    (globalThis.fetch as jest.Mock).mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: { code: 'INTERNAL', message: 'boom' } }),
+    });
+    await userEvent.click(screen.getByRole('button', { name: 'Save method' }));
+    expect(await screen.findByText('Could not save method — boom.')).toBeInTheDocument();
+    expect(screen.getByText('boom')).toBeInTheDocument(); // the error Alert
+  });
+
+  it('method survives workspace reload: mount only reads, never PATCHes none', async () => {
+    // hydration reports a previously saved paste method
+    (globalThis.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ method_tag: 'METHOD', method_source: null, list_only: false }),
+    });
+    render(<MethodSection {...props()} />);
+    expect(await screen.findByText('Method saved.')).toBeInTheDocument();
+    expect(screen.getByText('Tag: METHOD — saved from your paste.')).toBeInTheDocument();
+    // regression: the old mount-effect PATCHed method:none and wiped the DB row
+    const writes = methodCalls().filter((c) => (c[1] as RequestInit).method === 'PATCH');
+    expect(writes).toHaveLength(0);
+  });
+
+  it('editing the form after a save returns the status to ready (no stale "saved")', async () => {
+    render(<MethodSection {...props()} />);
+    await userEvent.click(screen.getByRole('radio', { name: 'I will paste it' }));
+    await userEvent.type(screen.getByLabelText('Method text'), 'Boil; simmer.');
+    (globalThis.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ method_tag: 'METHOD', method_source: null, list_only: false }),
+    });
+    await userEvent.click(screen.getByRole('button', { name: 'Save method' }));
+    expect(await screen.findByText('Method saved.')).toBeInTheDocument();
+    // switching the mode invalidates the saved claim
+    await userEvent.click(screen.getByRole('radio', { name: 'Accepted from a source' }));
+    expect(await screen.findByText('Method ready to save.')).toBeInTheDocument();
+    expect(screen.queryByText('Method saved.')).not.toBeInTheDocument();
   });
 
   it('guest: no form, honest note', async () => {

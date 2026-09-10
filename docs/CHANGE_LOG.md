@@ -20,6 +20,29 @@
 
 **Rule:** a change that alters any Q1–Q18 row must say so in its entry. The register (SCAFFOLD §7) is the single source of truth for open decisions; this log records the history of how the register changed. No Q-row changes in D-13.
 
+## 2026-09-10 — Method-save bug fix + D-19 pre-flight (GO with labeled recompute)
+
+- Author / session: DeepSeek V4 Pro (VS Code) takeover session; dispatcher-authorized.
+- What changed:
+  - **Bug fix:** `apps/api/src/modules/recipes/recipes.controller.ts` gains a read-only
+    `GET /recipes/:recipeId/method` (JwtAuthGuard, canonical `{method_tag, method_source,
+    list_only}` via the existing D-17 `RecipeService.getMethodState`); `apps/web/components/
+    app/MethodSection.tsx` mounts now hydrate (GET) and never write — the previous mount
+    effect PATCHed `method:none` and **destroyed the saved method on every workspace reopen**
+    (live-verified in Postgres). Status line now distinguishes `Method ready to save.` /
+    `Saving method…` / `Method saved.` / `Could not save method — <error>.` with dirty
+    tracking (no false "saved" claims) and a stale-hydration guard. Tests: web
+    MethodSection 10/10 (all 7 required scenarios incl. survives-reload and no-PATCH-on-mount),
+    API recipes 16/16 (+3 GET-route controller tests). Canonical PATCH contract untouched.
+  - **Docs only:** backfilled formal H-18 and H-29 ledger entries (evidence always existed
+    in HANDOFF §5 + CHANGE_LOG); D-19 pre-flight recorded in HANDOFF §5.
+- Why: user-reported live bug (no visible save state, false "saved" message) + the D-19
+  pre-flight requirement (deterministic Views 8/9 + assumption editors + recompute design).
+- Register impact: Q1/Q5/Q9/Q10 remain OPEN (pre-flight labels them; no decisions made).
+- Verification: web/API unit suites green; live browser + psql evidence recorded; full
+  pipeline re-run pending the final verification pass of this session.
+- Commit(s): recorded at checkpoint (this entry precedes the commit SHA record).
+
 ## 2026-09-09 — CI fix: build schemas before typecheck (D-17 pre-flight audit)
 
 - Issue: GitHub Actions runs 13 (46fd99f) and 14 (3eb18a6) FAILED at the typecheck step (TS2307:

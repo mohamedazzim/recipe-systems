@@ -285,6 +285,23 @@ describe('toWireLine (API §3 wire shape + D-12B)', () => {
     expect(wire.confirmed_sense).toBeNull();
     expect(wire.display_name).toBe('Murungakkai — to taste');
   });
+
+  it('carries needs_review on the wire (QA-B6: the D-14 Clear-review surface depends on it)', () => {
+    expect(
+      toWireLine({
+        id: 'l3',
+        displayName: 'Water — 2 cups',
+        amount: null,
+        amountText: null,
+        unit: null,
+        groupName: null,
+        confirmedSense: null,
+        includeOnList: true,
+        needsReview: true,
+        updatedAt: new Date('2026-09-09T10:00:00.000Z'),
+      } as any).needs_review,
+    ).toBe(true);
+  });
 });
 
 describe('IntakeService — D-12 parse review (text scope)', () => {

@@ -65,6 +65,7 @@ describe('AuthController', () => {
       csrf: 'csrf',
       redirectTo: '/home',
       email: 'x@test.dev',
+      accountId: 'a1',
     });
     const res = mockRes();
     const ctrl = new AuthController(auth);
@@ -76,6 +77,51 @@ describe('AuthController', () => {
       expect.objectContaining({ httpOnly: false }),
     );
     expect(res.redirect).toHaveBeenCalledWith(302, 'http://localhost:3000/home');
+  });
+
+  it('callback claims a pending guest session, clears its cookie, and marks the redirect (QA-B2)', async () => {
+    const auth: any = mockAuthService();
+    auth.completeLogin.mockResolvedValue({
+      session: 'sess',
+      csrf: 'csrf',
+      redirectTo: '/',
+      email: 'x@test.dev',
+      accountId: 'a1',
+    });
+    auth.claimGuestSession.mockResolvedValue({ claimed: 'new' });
+    const res = mockRes();
+    const ctrl = new AuthController(auth);
+    await ctrl.callback(
+      'code',
+      'st',
+      { cookies: { recipe_oauth_state: 'sc', recipe_guest_session: 'g1' } } as never,
+      res as never,
+    );
+    expect(auth.claimGuestSession).toHaveBeenCalledWith('a1', 'g1');
+    expect(res.clearCookie).toHaveBeenCalledWith('recipe_guest_session', { path: '/' });
+    expect(res.redirect).toHaveBeenCalledWith(302, 'http://localhost:3000/?claimed=1');
+  });
+
+  it('callback never fails login when the guest claim fails (QA-B2)', async () => {
+    const auth: any = mockAuthService();
+    auth.completeLogin.mockResolvedValue({
+      session: 'sess',
+      csrf: 'csrf',
+      redirectTo: '/',
+      email: 'x@test.dev',
+      accountId: 'a1',
+    });
+    auth.claimGuestSession.mockRejectedValue(new Error('guest session expired'));
+    const res = mockRes();
+    const ctrl = new AuthController(auth);
+    await ctrl.callback(
+      'code',
+      'st',
+      { cookies: { recipe_oauth_state: 'sc', recipe_guest_session: 'gone' } } as never,
+      res as never,
+    );
+    expect(res.redirect).toHaveBeenCalledWith(302, 'http://localhost:3000/');
+    expect(res.clearCookie).toHaveBeenCalledWith('recipe_guest_session', { path: '/' });
   });
 
   it('callback redirects to the web app with an auth_error on login failure (invalid credentials / IdP error)', async () => {
@@ -162,16 +208,27 @@ describe('AuthController', () => {
 
   it('guest/session creates the session and sets both cookies', async () => {
     const auth: any = mockAuthService();
-    auth.createGuestSession.mockResolvedValue({ guestSessionId: 'g1', csrf: 'csrf' });
+    auth.createGuestSession.mockResolvedValue({ guestSessionId: 'g1', csrf: 'csrf', reused: false });
     const res = mockRes();
     const ctrl = new AuthController(auth);
-    await ctrl.guestSession(res as never);
+    await ctrl.guestSession({ cookies: {} } as never, res as never);
+    expect(auth.createGuestSession).toHaveBeenCalledWith(null);
     expect(res.cookie).toHaveBeenCalledWith(
       'recipe_guest_session',
       'g1',
       expect.objectContaining({ httpOnly: true }),
     );
     expect(res.json).toHaveBeenCalledWith({ ok: true, guest_session_id: 'g1' });
+  });
+
+  it('guest/session reuses the existing cookie session (QA-B1)', async () => {
+    const auth: any = mockAuthService();
+    auth.createGuestSession.mockResolvedValue({ guestSessionId: 'g0', csrf: 'csrf', reused: true });
+    const res = mockRes();
+    const ctrl = new AuthController(auth);
+    await ctrl.guestSession({ cookies: { recipe_guest_session: 'g0' } } as never, res as never);
+    expect(auth.createGuestSession).toHaveBeenCalledWith('g0');
+    expect(res.json).toHaveBeenCalledWith({ ok: true, guest_session_id: 'g0' });
   });
 
   it('guest/claim rejects when no guest cookie exists', async () => {

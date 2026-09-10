@@ -39,7 +39,7 @@ describe('HomeView', () => {
     const row = screen.getByRole('button', { name: /Meen Kuzhambu/ });
     expect(row).toBeInTheDocument();
     await userEvent.click(row);
-    expect(p.onOpenRecipe).toHaveBeenCalledWith('r1');
+    expect(p.onOpenRecipe).toHaveBeenCalledWith('r1', null);
   });
 
   it('guest: shows the secondary claim band, dismissible, never blocking the create action', async () => {

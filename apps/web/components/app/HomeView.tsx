@@ -9,15 +9,18 @@ import { ArrowRight, CookingPot } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Heading, Text } from '@/components/ui/Typography';
-import { isOwnedBy, listSessionRecipes } from '@/lib/flow';
+import { isOwnedBy, listSessionRecipes, sessionRecipeLines } from '@/lib/flow';
 import { GuestNotice } from '@/components/app/GuestNotice';
+import type { WireLine } from '@/lib/types';
 
 export interface HomeViewProps {
   signedIn: boolean;
   /** The current identity's owner tag (null = guest). */
   accountId: string | null;
   onCreate: () => void;
-  onOpenRecipe: (recipeId: string) => void;
+  /** QA-B1 fix: guest-owned records carry their parse-response lines so a
+   *  read-only reopen renders them (guests can't fetch Bearer-only routes). */
+  onOpenRecipe: (recipeId: string, initialLines?: WireLine[] | null) => void;
   onSignUp: () => void;
   onSignOut: () => void;
 }
@@ -86,7 +89,12 @@ export function HomeView({
               <li key={recipe.recipe_id}>
                 <button
                   type="button"
-                  onClick={() => onOpenRecipe(recipe.recipe_id)}
+                  onClick={() =>
+                    onOpenRecipe(
+                      recipe.recipe_id,
+                      recipe.owner === 'guest' ? sessionRecipeLines(recipe.recipe_id) : null,
+                    )
+                  }
                   className="group flex w-full items-center justify-between gap-4 rounded-sm px-4 py-4 text-left focus-visible:outline-2 focus-visible:outline-offset--2 focus-visible:outline-gold sm:px-5"
                 >
                   <span className="min-w-0">

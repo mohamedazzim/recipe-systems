@@ -63,6 +63,7 @@ export class AuthService {
     csrf: string;
     redirectTo: string;
     email: string;
+    accountId: string;
   }> {
     const oauthState = await verifyOAuthState(stateCookie);
     if (oauthState.state !== state) {
@@ -83,6 +84,7 @@ export class AuthService {
       csrf: newCsrfToken(),
       redirectTo: oauthState.redirectTo,
       email: account.email,
+      accountId: account.id,
     };
   }
 
@@ -112,13 +114,32 @@ export class AuthService {
     });
   }
 
-  async createGuestSession(): Promise<{ guestSessionId: string; csrf: string }> {
+  /**
+   * A2 guest session creation — REUSE-first (QA-B1 fix): the browser already holds a
+   * valid `recipe_guest_session` cookie within its TTL, so this visitor must keep the
+   * SAME session (their recipes stay reachable). A fresh row is minted only when the
+   * cookie is absent, unknown, expired, or already claimed. A reused session gets a
+   * fresh CSRF token; its expiry is untouched (TTL = Q11 pilot default).
+   */
+  async createGuestSession(existingGuestSessionId: string | null): Promise<{
+    guestSessionId: string;
+    csrf: string;
+    reused: boolean;
+  }> {
+    if (existingGuestSessionId) {
+      const existing = await this.prisma.guestSession.findUnique({
+        where: { id: existingGuestSessionId },
+      });
+      if (existing && !existing.claimedAt && existing.expiresAt.getTime() > Date.now()) {
+        return { guestSessionId: existing.id, csrf: newCsrfToken(), reused: true };
+      }
+    }
     const guest = await this.prisma.guestSession.create({
       data: {
         expiresAt: new Date(Date.now() + defaultGuestTtl() * 1000),
       },
     });
-    return { guestSessionId: guest.id, csrf: newCsrfToken() };
+    return { guestSessionId: guest.id, csrf: newCsrfToken(), reused: false };
   }
 
   getRegistrationUrl(): string {

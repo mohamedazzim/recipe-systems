@@ -18,7 +18,7 @@ const guestActor: Actor = { kind: 'guest', guestSessionId: 'gs-1', expiresAt: ne
 describe('RecipeService', () => {
   it('creates an account-owned recipe with a placeholder title (D-10: no title input on intake)', async () => {
     const prisma: any = mockPrisma();
-    prisma.recipe.create.mockResolvedValue({ id: 'r1' });
+    prisma.recipe.create.mockResolvedValue({ id: '11111111-1111-4111-8111-111111111111' });
     const svc = new RecipeService(prisma);
     await svc.createForIntake(userActor, { rawText: 'Fish — 500g' });
     expect(prisma.recipe.create).toHaveBeenCalledWith({
@@ -33,7 +33,7 @@ describe('RecipeService', () => {
 
   it('creates a guest-owned recipe (XOR: no accountId set)', async () => {
     const prisma: any = mockPrisma();
-    prisma.recipe.create.mockResolvedValue({ id: 'r1' });
+    prisma.recipe.create.mockResolvedValue({ id: '11111111-1111-4111-8111-111111111111' });
     const svc = new RecipeService(prisma);
     await svc.createForIntake(guestActor, { photoUri: 's3://recipe-assets/recipes/a.jpg' });
     expect(prisma.recipe.create).toHaveBeenCalledWith({
@@ -48,16 +48,16 @@ describe('RecipeService', () => {
 
   it('assertOwned passes for the owning account', async () => {
     const prisma: any = mockPrisma();
-    prisma.recipe.findUnique.mockResolvedValue({ id: 'r1', accountId: 'acc-1', guestSessionId: null });
+    prisma.recipe.findUnique.mockResolvedValue({ id: '11111111-1111-4111-8111-111111111111', accountId: 'acc-1', guestSessionId: null });
     const svc = new RecipeService(prisma);
-    await expect(svc.assertOwned(userActor, 'r1')).resolves.toMatchObject({ id: 'r1' });
+    await expect(svc.assertOwned(userActor, '11111111-1111-4111-8111-111111111111')).resolves.toMatchObject({ id: '11111111-1111-4111-8111-111111111111' });
   });
 
   it('assertOwned 404s for a foreign recipe (no existence leak, INV-17)', async () => {
     const prisma: any = mockPrisma();
-    prisma.recipe.findUnique.mockResolvedValue({ id: 'r1', accountId: 'acc-OTHER', guestSessionId: null });
+    prisma.recipe.findUnique.mockResolvedValue({ id: '11111111-1111-4111-8111-111111111111', accountId: 'acc-OTHER', guestSessionId: null });
     const svc = new RecipeService(prisma);
-    await expect(svc.assertOwned(userActor, 'r1')).rejects.toBeInstanceOf(NotFoundException);
+    await expect(svc.assertOwned(userActor, '11111111-1111-4111-8111-111111111111')).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('assertOwned 404s for a missing recipe', async () => {
@@ -67,34 +67,41 @@ describe('RecipeService', () => {
     await expect(svc.assertOwned(userActor, 'nope')).rejects.toBeInstanceOf(NotFoundException);
   });
 
+  it('assertOwned 404s for a malformed (non-UUID) id BEFORE Prisma (QA-B4)', async () => {
+    const prisma: any = mockPrisma();
+    const svc = new RecipeService(prisma);
+    await expect(svc.assertOwned(userActor, 'not-a-uuid')).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.recipe.findUnique).not.toHaveBeenCalled();
+  });
+
   it('assertOwned 404s when a guest asks for an account-owned recipe', async () => {
     const prisma: any = mockPrisma();
-    prisma.recipe.findUnique.mockResolvedValue({ id: 'r1', accountId: 'acc-1', guestSessionId: null });
+    prisma.recipe.findUnique.mockResolvedValue({ id: '11111111-1111-4111-8111-111111111111', accountId: 'acc-1', guestSessionId: null });
     const svc = new RecipeService(prisma);
-    await expect(svc.assertOwned(guestActor, 'r1')).rejects.toBeInstanceOf(NotFoundException);
+    await expect(svc.assertOwned(guestActor, '11111111-1111-4111-8111-111111111111')).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('removeIfIntakeEmpty deletes only recipes with zero intake rows (D-10K compensation)', async () => {
     const prisma: any = mockPrisma();
-    prisma.recipe.findUnique.mockResolvedValue({ id: 'r1', accountId: 'acc-1', guestSessionId: null });
+    prisma.recipe.findUnique.mockResolvedValue({ id: '11111111-1111-4111-8111-111111111111', accountId: 'acc-1', guestSessionId: null });
     prisma.recipeInput.count.mockResolvedValue(0);
     const svc = new RecipeService(prisma);
-    await svc.removeIfIntakeEmpty(userActor, 'r1');
-    expect(prisma.recipe.delete).toHaveBeenCalledWith({ where: { id: 'r1' } });
+    await svc.removeIfIntakeEmpty(userActor, '11111111-1111-4111-8111-111111111111');
+    expect(prisma.recipe.delete).toHaveBeenCalledWith({ where: { id: '11111111-1111-4111-8111-111111111111' } });
   });
 
   it('removeIfIntakeEmpty keeps the recipe once any intake row attached', async () => {
     const prisma: any = mockPrisma();
-    prisma.recipe.findUnique.mockResolvedValue({ id: 'r1', accountId: 'acc-1', guestSessionId: null });
+    prisma.recipe.findUnique.mockResolvedValue({ id: '11111111-1111-4111-8111-111111111111', accountId: 'acc-1', guestSessionId: null });
     prisma.recipeInput.count.mockResolvedValue(1);
     const svc = new RecipeService(prisma);
-    await svc.removeIfIntakeEmpty(userActor, 'r1');
+    await svc.removeIfIntakeEmpty(userActor, '11111111-1111-4111-8111-111111111111');
     expect(prisma.recipe.delete).not.toHaveBeenCalled();
   });
 });
 
 describe('RecipeService — D-13 method attach (B4)', () => {
-  const ownedRecipe = { id: 'r1', accountId: 'acc-1', guestSessionId: null };
+  const ownedRecipe = { id: '11111111-1111-4111-8111-111111111111', accountId: 'acc-1', guestSessionId: null };
 
   function mockOwned(updateResult: any) {
     const prisma: any = mockPrisma();
@@ -111,12 +118,12 @@ describe('RecipeService — D-13 method attach (B4)', () => {
       methodInferredSource: null,
     });
     const svc = new RecipeService(prisma);
-    const state = await svc.attachMethod(userActor, 'r1', {
+    const state = await svc.attachMethod(userActor, '11111111-1111-4111-8111-111111111111', {
       mode: 'paste',
       methodText: 'Dry roast the spices…',
     });
     expect(prisma.recipe.update).toHaveBeenCalledWith({
-      where: { id: 'r1' },
+      where: { id: '11111111-1111-4111-8111-111111111111' },
       data: { methodText: 'Dry roast the spices…', methodSourceTag: 'METHOD', methodInferredSource: null },
     });
     expect(state).toEqual({ method_tag: 'METHOD', method_source: null, list_only: false });
@@ -130,13 +137,13 @@ describe('RecipeService — D-13 method attach (B4)', () => {
       methodInferredSource: 'CDK 1669 / Mrs. Anitha',
     });
     const svc = new RecipeService(prisma);
-    const state = await svc.attachMethod(userActor, 'r1', {
+    const state = await svc.attachMethod(userActor, '11111111-1111-4111-8111-111111111111', {
       mode: 'inferred',
       methodText: 'Boil tamarind, temper, simmer…',
       methodSource: 'CDK 1669 / Mrs. Anitha',
     });
     expect(prisma.recipe.update).toHaveBeenCalledWith({
-      where: { id: 'r1' },
+      where: { id: '11111111-1111-4111-8111-111111111111' },
       data: {
         methodText: 'Boil tamarind, temper, simmer…',
         methodSourceTag: 'INFERRED',
@@ -158,9 +165,9 @@ describe('RecipeService — D-13 method attach (B4)', () => {
       methodInferredSource: null,
     });
     const svc = new RecipeService(prisma);
-    const state = await svc.attachMethod(userActor, 'r1', { mode: 'none' });
+    const state = await svc.attachMethod(userActor, '11111111-1111-4111-8111-111111111111', { mode: 'none' });
     expect(prisma.recipe.update).toHaveBeenCalledWith({
-      where: { id: 'r1' },
+      where: { id: '11111111-1111-4111-8111-111111111111' },
       data: { methodText: null, methodSourceTag: null, methodInferredSource: null },
     });
     expect(state).toEqual({ method_tag: null, method_source: null, list_only: true });
@@ -174,17 +181,17 @@ describe('RecipeService — D-13 method attach (B4)', () => {
       methodInferredSource: null,
     });
     const svc = new RecipeService(prisma);
-    const state = await svc.attachMethod(userActor, 'r1', { mode: 'none' });
+    const state = await svc.attachMethod(userActor, '11111111-1111-4111-8111-111111111111', { mode: 'none' });
     expect(state.method_tag).toBeNull();
     expect(state.list_only).toBe(true);
   });
 
   it('404s for a foreign recipe — method state never leaks across accounts (INV-17)', async () => {
     const prisma: any = mockPrisma();
-    prisma.recipe.findUnique.mockResolvedValue({ id: 'r1', accountId: 'acc-OTHER', guestSessionId: null });
+    prisma.recipe.findUnique.mockResolvedValue({ id: '11111111-1111-4111-8111-111111111111', accountId: 'acc-OTHER', guestSessionId: null });
     const svc = new RecipeService(prisma);
     await expect(
-      svc.attachMethod(userActor, 'r1', { mode: 'paste', methodText: 'x' }),
+      svc.attachMethod(userActor, '11111111-1111-4111-8111-111111111111', { mode: 'paste', methodText: 'x' }),
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(prisma.recipe.update).not.toHaveBeenCalled();
   });

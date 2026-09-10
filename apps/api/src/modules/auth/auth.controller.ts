@@ -83,8 +83,28 @@ export class AuthController {
         maxAge: this.auth.sessionTtlSeconds() * 1000, // Express maxAge is milliseconds
       });
       res.clearCookie(OAUTH_STATE_COOKIE, { path: '/' });
+      // QA-B2 fix (A2 AC-2): claim the pending guest session on ANY successful
+      // sign-in/sign-up — the recipes move onto the account inside one transaction.
+      // Best-effort and non-fatal: an expired/foreign/absent guest cookie must never
+      // break the login itself.
+      const guestToken = (req.cookies as Record<string, string>)?.[GUEST_COOKIE];
+      let claimed = false;
+      if (guestToken) {
+        try {
+          await this.auth.claimGuestSession(result.accountId, guestToken);
+          claimed = true;
+        } catch {
+          // no guest session, expired, or claimed elsewhere — nothing to move
+        }
+        res.clearCookie(GUEST_COOKIE, { path: '/' });
+      }
       const target = result.redirectTo.startsWith('/') ? result.redirectTo : '/';
-      return res.redirect(302, `${this.webOrigin()}${target}`);
+      // The web re-tags its local session records when this marker is present
+      // (claimed guest recipes must move to "This session", never "Other sessions").
+      const claimedTarget = claimed
+        ? `${target}${target.includes('?') ? '&' : '?'}claimed=1`
+        : target;
+      return res.redirect(302, `${this.webOrigin()}${claimedTarget}`);
     } catch (err) {
       // Failed logins (invalid credentials, expired code, IdP errors) must land on a
       // user-facing state in the app — never a raw JSON error page.
@@ -151,10 +171,13 @@ export class AuthController {
     });
   }
 
-  /** A2: create a guest session (unguessable UUID, TTL — SCAFFOLD §3; D-08). */
+  /** A2: create or REUSE a guest session (unguessable UUID, TTL — SCAFFOLD §3; D-08).
+   *  QA-B1 fix: an existing valid cookie keeps its session — repeated dashboard
+   *  entries must not orphan the guest's recipes behind a fresh row. */
   @Post('guest/session')
-  async guestSession(@Res() res: Response) {
-    const { guestSessionId, csrf } = await this.auth.createGuestSession();
+  async guestSession(@Req() req: Request, @Res() res: Response) {
+    const existing = (req.cookies as Record<string, string>)?.[GUEST_COOKIE] ?? null;
+    const { guestSessionId, csrf } = await this.auth.createGuestSession(existing);
     res.cookie(GUEST_COOKIE, guestSessionId, {
       httpOnly: true,
       secure: this.auth.cookieOptions(0).secure,

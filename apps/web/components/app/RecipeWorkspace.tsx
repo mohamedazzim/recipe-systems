@@ -36,6 +36,11 @@ export function RecipeWorkspace({ recipeId, signedIn, onBack, initialLines = nul
     setAnalysisId(null);
     setLines(initialLines ?? []);
     setMethodState(null);
+    if (!signedIn) {
+      // Guests never fetch Bearer-only routes (API §3): no analysis fetch, no
+      // console-noise 404 — the panel renders the guest copy instead.
+      return;
+    }
     // Reopen the workspace on the latest persisted analysis (API §5, read-only).
     let cancelled = false;
     api<AnalysisState>(`/recipes/${recipeId}/analysis`)
@@ -51,7 +56,7 @@ export function RecipeWorkspace({ recipeId, signedIn, onBack, initialLines = nul
     return () => {
       cancelled = true;
     };
-  }, [recipeId, initialLines]);
+  }, [recipeId, initialLines, signedIn]);
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -83,7 +88,7 @@ export function RecipeWorkspace({ recipeId, signedIn, onBack, initialLines = nul
 
       <MethodSection recipeId={recipeId} signedIn={signedIn} onChange={setMethodState} />
 
-      <ReadinessPanel recipeId={recipeId} signedIn={signedIn} onAnalysed={setAnalysisId} />
+      <ReadinessPanel recipeId={recipeId} signedIn={signedIn} lines={lines} onAnalysed={setAnalysisId} />
 
       <AnalysisPanel analysisId={analysisId} recipeId={recipeId} lines={lines} methodState={methodState} signedIn={signedIn} />
     </div>

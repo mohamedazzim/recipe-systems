@@ -40,6 +40,9 @@ export interface WireLine {
   is_header: boolean;
   include_on_list: boolean;
   confirmed_sense: string | null;
+  /** D-14C surface (QA-B6 fix): the web renders the Review-required badge and the
+   *  canonical Clear-review action off this flag — it must ride the wire. */
+  needs_review: boolean;
   updated_at: string;
 }
 
@@ -69,6 +72,7 @@ export function toWireLine(line: RecipeIngredientLine): WireLine {
     is_header: false, // headers never appear in the corrected object (D-12C)
     include_on_list: line.includeOnList,
     confirmed_sense: line.confirmedSense,
+    needs_review: line.needsReview,
     updated_at: line.updatedAt.toISOString(),
   };
 }

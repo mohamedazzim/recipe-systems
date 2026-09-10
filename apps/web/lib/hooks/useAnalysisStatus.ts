@@ -65,9 +65,11 @@ export function useAnalysisStatus(analysisId: string | null): AnalysisStatusValu
 
     // SSE: a signal, never durable state (INV-16). Snapshot replay arrives
     // first, then live status events; the poll above stays the source of truth.
+    // QA-B3 fix: cross-origin EventSource must opt into credentials — without
+    // `withCredentials` the browser sends no cookies and the BFF 403s the connect.
     try {
       const url = `${API_BASE_URL}/analysis/${analysisId}/events`;
-      const es = new EventSource(url);
+      const es = new EventSource(url, { withCredentials: true });
       eventSource = es;
       const onEvent = (ev: Event): void => {
         if (stopped) return;

@@ -12,7 +12,7 @@ describe('ReadinessPanel (D-14 + D-17 launch)', () => {
   });
 
   function props(overrides: Partial<Parameters<typeof ReadinessPanel>[0]> = {}) {
-    return { recipeId: 'r1', signedIn: true, onAnalysed: jest.fn(), ...overrides };
+    return { recipeId: 'r1', signedIn: true, lines: [], onAnalysed: jest.fn(), ...overrides };
   }
 
   it('ready state: enables the Analyse action', async () => {
@@ -93,5 +93,43 @@ describe('ReadinessPanel (D-14 + D-17 launch)', () => {
     expect(await screen.findByText(/Analysis needs an account/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Analyse recipe' })).not.toBeInTheDocument();
     expect((globalThis.fetch as jest.Mock).mock.calls.length).toBe(0);
+  });
+
+  it('re-fetches readiness when the lines change (QA-B7: Clear review unblocks without reload)', async () => {
+    (globalThis.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ can_enqueue: true, blockers: [] }),
+    });
+    const p = props();
+    const { rerender } = render(<ReadinessPanel {...p} />);
+    await screen.findByText(/Ready to analyse/);
+    const callsBefore = (globalThis.fetch as jest.Mock).mock.calls.length;
+
+    rerender(
+      <ReadinessPanel
+        {...p}
+        lines={[
+          {
+            id: 'l1',
+            line_no: 1,
+            display_name: 'Salt',
+            amount: null,
+            unit: null,
+            quantity: null,
+            category: null,
+            confirmed_sense: null,
+            include_on_list: true,
+            is_header: false,
+            needs_review: false,
+            ocr_confidence: null,
+            source_tag: 'CARD',
+            updated_at: new Date().toISOString(),
+          },
+        ]}
+      />,
+    );
+    await screen.findByText(/Ready to analyse/);
+    expect((globalThis.fetch as jest.Mock).mock.calls.length).toBeGreaterThan(callsBefore);
   });
 });

@@ -99,4 +99,29 @@ describe('useAnalysisStatus (poll + SSE, real states only)', () => {
     expect(screen.getByTestId('status').textContent).toBe('none');
     expect((globalThis.fetch as jest.Mock).mock.calls.length).toBe(0);
   });
+
+  it('opens the EventSource with credentials (QA-B3: cross-origin cookies)', async () => {
+    respondWith('generating');
+    const EsMock = jest.fn(function (this: unknown, url: string, options?: unknown) {
+      (this as unknown as { url: string; options: unknown }).url = url;
+      (this as unknown as { options: unknown }).options = options;
+    }) as unknown as typeof EventSource;
+    const close = jest.fn();
+    const addEventListener = jest.fn();
+    (EsMock as unknown as { prototype: Partial<EventSource> }).prototype.close = close as never;
+    (EsMock as unknown as { prototype: Partial<EventSource> }).prototype.addEventListener = addEventListener as never;
+    (globalThis as unknown as { EventSource: unknown }).EventSource = EsMock;
+
+    render(<Probe analysisId="a-123" />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(EsMock).toHaveBeenCalledWith(
+      expect.stringContaining('/analysis/a-123/events'),
+      { withCredentials: true },
+    );
+    expect(addEventListener).toHaveBeenCalledWith('status', expect.any(Function));
+    expect(addEventListener).toHaveBeenCalledWith('snapshot', expect.any(Function));
+  });
 });

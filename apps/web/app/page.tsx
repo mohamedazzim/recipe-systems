@@ -9,6 +9,7 @@ import { AppShell, AppView } from '@/components/app/AppShell';
 import { HomeView } from '@/components/app/HomeView';
 import { CreateView } from '@/components/app/CreateView';
 import { RecipeWorkspace } from '@/components/app/RecipeWorkspace';
+import { claimSessionRecords } from '@/lib/flow';
 import type { WireLine } from '@/lib/types';
 
 type State =
@@ -33,7 +34,18 @@ export default function Home() {
   useEffect(() => {
     let cancelled = false;
     api<User>('/auth/me')
-      .then((user) => !cancelled && setState({ phase: 'signed-in', user }))
+      .then((user) => {
+        if (cancelled) return;
+        // QA-B2 fix: the BFF callback appends ?claimed=1 after a successful
+        // guest-session claim — re-tag this browser's guest records so the
+        // claimed recipes appear under "This session", not "Other sessions".
+        if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('claimed')) {
+          claimSessionRecords(user.id);
+          const clean = window.location.pathname + window.location.hash;
+          window.history.replaceState(null, '', clean);
+        }
+        setState({ phase: 'signed-in', user });
+      })
       .catch(() => !cancelled && setState({ phase: 'anonymous' }));
     return () => {
       cancelled = true;
@@ -114,7 +126,9 @@ export default function Home() {
           signedIn={state.phase === 'signed-in'}
           accountId={user?.id ?? null}
           onCreate={() => setView({ name: 'create' })}
-          onOpenRecipe={(recipeId) => setView({ name: 'workspace', recipeId })}
+          onOpenRecipe={(recipeId, lines) =>
+            setView({ name: 'workspace', recipeId, initialLines: lines ?? null })
+          }
           onSignUp={startSignup}
           onSignOut={() => void signOut()}
         />

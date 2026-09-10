@@ -168,12 +168,51 @@ describe('AuthService', () => {
     const prisma: any = mockPrisma();
     prisma.guestSession.create.mockResolvedValue({ id: 'g2' });
     const svc = new AuthService(mockIdentity() as any, prisma, mockAccounts() as any);
-    const result = await svc.createGuestSession();
+    const result = await svc.createGuestSession(null);
     expect(result.guestSessionId).toBe('g2');
+    expect(result.reused).toBe(false);
     expect(result.csrf).toBeTruthy();
     expect(prisma.guestSession.create).toHaveBeenCalledWith({
       data: { expiresAt: expect.any(Date) },
     });
+  });
+
+  it('createGuestSession REUSES a valid unclaimed unexpired cookie session (QA-B1)', async () => {
+    const prisma: any = mockPrisma();
+    prisma.guestSession.findUnique.mockResolvedValue({
+      id: 'g1',
+      claimedAt: null,
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+    const svc = new AuthService(mockIdentity() as any, prisma, mockAccounts() as any);
+    const result = await svc.createGuestSession('g1');
+    expect(result.guestSessionId).toBe('g1');
+    expect(result.reused).toBe(true);
+    expect(result.csrf).toBeTruthy();
+    expect(prisma.guestSession.create).not.toHaveBeenCalled();
+  });
+
+  it('createGuestSession mints a fresh session when the cookie is claimed, expired, or unknown (QA-B1)', async () => {
+    const prisma: any = mockPrisma();
+    prisma.guestSession.create.mockResolvedValue({ id: 'fresh' });
+    const svc = new AuthService(mockIdentity() as any, prisma, mockAccounts() as any);
+
+    prisma.guestSession.findUnique.mockResolvedValue({
+      id: 'g1',
+      claimedAt: new Date(),
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+    await expect(svc.createGuestSession('g1')).resolves.toMatchObject({ guestSessionId: 'fresh' });
+
+    prisma.guestSession.findUnique.mockResolvedValue({
+      id: 'g1',
+      claimedAt: null,
+      expiresAt: new Date(Date.now() - 60_000),
+    });
+    await expect(svc.createGuestSession('g1')).resolves.toMatchObject({ guestSessionId: 'fresh' });
+
+    prisma.guestSession.findUnique.mockResolvedValue(null);
+    await expect(svc.createGuestSession('g1')).resolves.toMatchObject({ guestSessionId: 'fresh' });
   });
 
   it('exposes IdP URLs for password reset', () => {

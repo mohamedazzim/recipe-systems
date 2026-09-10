@@ -11,6 +11,9 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, PrismaClient, Recipe } from '@recipe-systems/database';
 import type { Actor } from '../../common/guards/guest-or-jwt.guard';
 
+const UUID_RE =
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+
 // D-10 decision: intake endpoints accept no title (API doc §3 has no title input).
 // `title` is NOT NULL on `recipe`; placeholder until a later unit makes it editable.
 export const UNTITLED_RECIPE = 'Untitled recipe';
@@ -68,8 +71,13 @@ export class RecipeService {
     return this.prisma.recipe.create({ data });
   }
 
-  /** INV-17: the actor must own the recipe. 404 for missing AND foreign rows. */
+  /** INV-17: the actor must own the recipe. 404 for missing AND foreign rows.
+   *  QA-B4 fix: non-UUID ids are format-guarded BEFORE Prisma — a malformed id
+   *  is a clean 404 (same as missing), never a Prisma P2023 → 500. */
   async assertOwned(actor: Actor, recipeId: string): Promise<Recipe> {
+    if (!UUID_RE.test(recipeId)) {
+      throw new NotFoundException({ code: 'RECIPE_NOT_FOUND', message: 'Recipe not found' });
+    }
     const recipe = await this.prisma.recipe.findUnique({ where: { id: recipeId } });
     if (!recipe) {
       throw new NotFoundException({ code: 'RECIPE_NOT_FOUND', message: 'Recipe not found' });

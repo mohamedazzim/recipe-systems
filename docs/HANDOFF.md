@@ -437,7 +437,175 @@ A story is DONE only when its entry's done-criteria lines cover every acceptance
 Tasks outside the D-unit numbering are recorded here (no H-number invented). All evidence is real
 execution output; Git: not available / not authorized throughout.
 
-- 2026-09-09 — **OCR DEFERRED + D-12 text-scope decision trace — STARTING STATE (user directive, recorded before any code)**:
+- 2026-09-10 — **AUTONOMOUS E2E QA D-01→D-19 (dispatcher directive, QA-only) — STARTING STATE**:
+  **DISPATCH:** black-box/full-stack QA of everything implemented through D-19, via the VS Code
+  internal browser for ALL user interaction; terminal/API/DB only to verify backend state
+  afterward. NO new features (no D-20/D-21/Q1/Q5/Q9/Q10). Fix confirmed defects only, smallest
+  correct layer + regression coverage, then full verification + CI.
+  **ENVIRONMENT BASELINE (recorded before any interaction):** web :3000 200 OK · API :3001
+  health `{"status":"ok","service":"api"}` · Keycloak :8081 realm `recipesystems` OK · Postgres
+  :5433 healthy · MinIO :9000 healthy (container up) · pg-boss queue live (56 jobs/121 archived).
+  Git HEAD `df1dda0902507732868a3cfe953e247716c49974`, working tree clean, origin/main in sync.
+  Reference data counts intact: allergen_defs 17 · dictionary 12 · aliases 6 · mappings 6 ·
+  comp_entries 12 · comp_versions 12.
+  **ENV NOTE (not a product defect):** the analysis-worker process was DOWN at baseline (the
+  `RS_WORKER_WINDOW` cmd window present earlier was gone; no ts-node worker process). Restarted
+  it with the start-dev env (`DATABASE_URL`, `ANALYSIS_LLM_STUB=1`) — it now consumes BOTH
+  queues (`analysis` + `view9-recompute`). Root cause of the death not established (window/process
+  loss between sessions; the worker emits no crash log). Operational follow-up noted, no code change.
+
+- 2026-09-10 — **QA FINDING QA-B1 (P1 MAJOR) — guest session churn: every dashboard entry mints a new `guest_session` row** (recorded before any fix):
+  **REPRO (VS Code internal browser, dev stack):** landing → "Analyze a recipe" → paste Test A
+  (7 lines, session `beec17bd`, recipe `2b2e885d`) → reload at `/` → "Checking your session" →
+  landing → "Analyze a recipe" again → dashboard now says "Guest session `4ee62155`"; one more
+  cycle → `894d5d3c`, `0d41cca4` (4 rows in ~4 min; psql confirms each row owns nothing but the
+  first). Network capture: every entry fires `POST /api/v1/auth/guest/session` which ALWAYS
+  creates a row + overwrites the httpOnly `recipe_guest_session` cookie (no reuse check).
+  **IMPACT:** a returning guest's recipes become unopenable — opening the listed recipe fires
+  `GET /recipes/:id/analysis` → 404 ×2 (strict-mode double effect) and the review section shows
+  "No ingredient lines · 0 lines" although psql shows the 7 lines persist. A2's "one guest
+  session" spine + 24h TTL are meaningless as shipped. No data loss in DB (rows persist).
+  **ROOT CAUSE:** `AuthService.createGuestSession` mints unconditionally; the controller never
+  inspects the existing cookie; the web `startGuest` POSTs on every entry (it cannot read the
+  httpOnly cookie itself).
+  **FIX (planned, smallest layer):** API reuses an existing valid/unclaimed/unexpired cookie
+  session (fresh CSRF, identical wire shape); web stores parsed lines in the session store and
+  re-renders them for guests on reopen + honest fallback copy; skip the Bearer-only analysis
+  fetch for guests (API §3: guests never fetch Bearer routes). Regression tests for all three.
+  **VERIFICATION:** after fix — re-run the guest revisit cycle; unit suites; verify-local; CI.
+  **DISPOSITION:** FIXED — see commit recorded below (QA-B1-FIX entry).
+
+- 2026-09-10 — **QA FINDING QA-B2 (P1 MAJOR) — "Create account and claim" never claims (AC-2 broken end-to-end)** (recorded before any fix):
+  **REPRO (internal browser):** guest dashboard → "Create account and claim" → Keycloak
+  registration (qauserb@example.test) → BFF callback → signed-in home. The just-pasted guest
+  recipe ("1 lb ground beef", `2b2e885d`, guest session `beec17bd`) appears under **"Other
+  sessions — cannot be opened here"**; "This session" is empty. psql: NO `guest_session` row is
+  claimed (all `claimed_at` NULL, incl. the session active at signup `0d41cca4`); the recipe
+  still has `guest_session_id=beec17bd`, `account_id=NULL`. The account row was created fine.
+  **ROOT CAUSE:** `POST /auth/guest/claim` exists (JwtAuthGuard+CsrfGuard, unit-tested) but
+  NOTHING invokes it — no web call site, and the BFF `GET /auth/callback` never claims. H-08
+  already flags this as PENDING ("post-signup claim handoff not end-to-end exercised"); the UI
+  copy ("claimed automatically") promises behavior that does not happen. Compounded by QA-B1:
+  the claim cookie at signup time (`0d41cca4`) held no recipes anyway.
+  **FIX (planned, smallest layer):** claim server-side in `GET /auth/callback` after a
+  successful login when a valid `recipe_guest_session` cookie exists (non-fatal on already-
+  claimed/expired; clear the guest cookie after claim). Covers signup AND sign-in; idempotent.
+  **VERIFICATION:** full guest→signup→claim cycle in the browser + psql (recipe XOR move);
+  unit tests; verify-local; CI.
+  **DISPOSITION:** FIXED — see commit recorded below (QA-B2-FIX entry).
+
+- 2026-09-10 — **QA FINDING QA-B3 (P2 MODERATE) — SSE event stream 403s on every connect (dead in the web app)** (recorded before any fix):
+  **REPRO (internal browser):** signed-in as `qauserb`, analyse the golden recipe →
+  network capture shows `GET /api/v1/analysis/d8ede1b9-…/events` → **403**; console logs
+  "Failed to load resource: 403". The analysis still completes and the UI stays correct —
+  the 2s poll (INV-16 reload-from-Postgres) is the durable source, so no wrong data.
+  **ROOT CAUSE:** `useAnalysisStatus` opens `new EventSource(url)` WITHOUT
+  `{ withCredentials: true }`; the web (:3000) and API (:3001) are cross-origin, so
+  EventSource sends NO cookies → `GuestOrJwtGuard` finds no identity → 403. The BFF CORS
+  (`origin`, `credentials:true`) and the fetch helper (`credentials:'include'`) are correct —
+  only the EventSource call is missing the flag. D-17's shipped SSE integration is therefore
+  non-functional in the browser (silent fallback to polling).
+  **FIX (planned, smallest layer):** `new EventSource(url, { withCredentials: true })` in
+  `useAnalysisStatus`; regression test asserting the EventSource is constructed with
+  credentials.
+  **VERIFICATION:** re-run analyse with network capture (expect 200 text/event-stream +
+  snapshot event); unit suites; verify-local; CI.
+  **DISPOSITION:** FIXED — see commit recorded below (QA-B3-FIX entry).
+
+- 2026-09-10 — **QA FINDING QA-B4 (P2 MODERATE) — malformed (non-UUID) recipe ids → 500 INTERNAL_ERROR on the recipe-domain routes** (recorded before any fix):
+  **REPRO (internal browser fetch as signed-in `qauserb`):** `GET /recipes/not-a-uuid/lines`
+  → **500** `INTERNAL_ERROR`; `GET /recipes/not-a-uuid/method` → **500**. Contrast: the
+  analysis routes have the format guard (`GET /analysis/not-a-uuid` → clean 404) and the
+  canonical INV-17 semantics is "404 for missing AND foreign" — a malformed id must be a
+  clean 404, never a Prisma P2023 → 500. Valid foreign ids behave correctly (404 everywhere:
+  lines/method/analysis/views/analyse/assumptions all verified 404; own lines 200).
+  **ROOT CAUSE:** `RecipeService.assertOwned` passes the raw id to `prisma.recipe.findUnique`
+  without a UUID format check (analysis routes format-guard BEFORE Prisma). All recipe +
+  intake read/write routes funnel through `assertOwned`, so one guard fixes the whole domain.
+  **FIX (planned, smallest layer):** UUID format guard at the top of `RecipeService.assertOwned`
+  → `NotFoundException(RECIPE_NOT_FOUND)` for non-UUID ids; unit test for the guard.
+  **VERIFICATION:** re-run the malformed-id battery (expect 404 everywhere); unit suites;
+  verify-local; CI.
+  **DISPOSITION:** FIXED — see commit recorded below (QA-B4-FIX entry).
+
+- 2026-09-10 — **QA FINDING QA-B6 (P1 MAJOR) — `needs_review` missing from the wire line shape: the D-14 blocker can never be resolved in the UI** (recorded before any fix):
+  **REPRO (internal browser + psql):** flagged line 2 of the QA recipe
+  (`recipe_ingredient_line.needs_review = true` directly in Postgres — the OCR path that sets
+  it is Q10-deferred, so this is the canonical fixture method) → workspace shows "Review
+  required · 1 line need your attention" and Analyse is disabled with "Blocked by the lines
+  above." — CORRECT. But the flagged line shows NO "Review required" badge and NO "Clear
+  review" action in the review list, so the user can never confirm and unblock. The blocked
+  recipe is permanently un-analysable from the UI.
+  **ROOT CAUSE:** wire-contract mismatch — the API `WireLine` interface + `toWireLine` omit
+  `needs_review`, while the web `WireLine` type includes it and `IngredientReview` renders the
+  badge + "Clear review" (PATCH `{needs_review:false}`, D-14C) off it. The UI code and unit
+  tests exist and pass against mocked lines WITH the field, but the live API never sends it →
+  the surface is dead in the browser. IntakeService.updateLine already implements the only
+  canonical clearing path — the wire shape just starves it.
+  **FIX (planned, smallest layer):** add `needs_review: line.needsReview` to `toWireLine` and
+  the `WireLine` interface; API unit test asserting the field in the wire shape; web
+  integration coverage (existing `clear review` tests already cover the button).
+  **VERIFICATION:** re-flag a line in the browser (badge + Clear review visible) → click Clear
+  review → blocker clears → Analyse enabled; unit suites; verify-local; CI.
+  **DISPOSITION:** FIXED — see commit recorded below (QA-B6-FIX entry).
+
+- 2026-09-10 — **QA FINDING QA-B5 (P3 MINOR, no code change) — readiness copy says "Ready to
+  analyse" while the enqueue 422s until a method (or explicit none) is saved**:
+  Evidence: no-method recipe → `enqueue-state` = `{can_enqueue:true, blockers:[]}` → Analyse
+  button enabled → POST 422 `METHOD_REQUIRED` → UI alert "Analysis did not start — Add a
+  method first." The failure surface is visible and correct (matches the A-19 A7 canonical
+  422), so this is copy/polish, not a defect against canonical behavior. Noted for a future
+  D-14 polish pass (a METHOD hint in the readiness surface). No code change in this QA run.
+
+- 2026-09-10 — **QA FINDING QA-B7 (P2 MODERATE) — readiness panel never re-fetches: stale
+  blockers after review changes** (recorded before any fix):
+  **REPRO (internal browser + psql):** recipe with line 2 flagged → readiness shows "Review
+  required · 1 line" + disabled Analyse. Clear the flag in the DB (the future Clear-review
+  path), then change the method state in the UI — the panel STILL shows "Review required" and
+  Analyse stays disabled (only a full page reload re-syncs it). `ReadinessPanel` fetches
+  `enqueue-state` only on `[recipeId, signedIn]` — no re-fetch when lines or method change.
+  Combined with QA-B6, the canonical Clear-review→Analyse flow cannot complete without a reload.
+  **ROOT CAUSE:** missing refresh wiring — `IngredientReview` already re-fetches lines after
+  every mutation and reports them upward (`onLinesLoaded`), but `ReadinessPanel` never receives
+  them.
+  **FIX (planned, smallest layer):** pass `lines` into `ReadinessPanel` and re-fetch
+  `enqueue-state` when the lines array identity changes (still the canonical endpoint — no
+  client-side readiness calculation). RecipeWorkspace already holds the lines state.
+  **VERIFICATION:** flag→clear cycle in the browser WITHOUT reload (badge clears → blocker row
+  disappears → Analyse enables); unit suites; verify-local; CI.
+  **DISPOSITION:** FIXED — see commit recorded below (QA-B7-FIX entry).
+
+- 2026-09-10 — **QA FIX SET 1 — QA-B1/B2/B3/B4/B6/B7 CORRECTED (smallest-layer fixes, dispatched QA policy)**:
+  **Changes (all trace-recorded above):**
+  - API `POST /auth/guest/session` REUSES a valid unclaimed unexpired cookie session
+    (QA-B1); the callback now claims the pending guest session server-side after ANY
+    successful login and redirects with `?claimed=1` when a claim succeeded (QA-B2).
+  - Web stores the parse-response lines for guest-created records, re-renders them on
+    read-only reopen, shows honest copy when unavailable, and skips the Bearer-only
+    analysis fetch for guests (QA-B1); re-tags guest records to the account on the
+    `claimed=1` marker so claimed recipes land under "This session" (QA-B2).
+  - `useAnalysisStatus` opens the EventSource with `{ withCredentials: true }` (QA-B3).
+  - `RecipeService.assertOwned` format-guards non-UUID ids → clean 404 (QA-B4).
+  - `toWireLine`/`WireLine` now carry `needs_review` (QA-B6); `ReadinessPanel` re-fetches
+    `enqueue-state` when the lines change (QA-B7).
+  **Regression tests added:** API auth.service reuse matrix (+3), auth.controller reuse +
+  claim-marker + non-fatal-claim (+3), recipe.service malformed-id guard (+1), intake
+  wire needs_review (+1) → API **178/178** (was 171). Web flow store-lines + claim re-tag
+  (+2), ReadinessPanel re-fetch (+1), SSE credentials (+1), HomeView signature → web
+  **85/85** (was 82). Worker 32/32 unchanged. lint 0 · typecheck 0.
+  **Live browser re-verification (post-fix, internal browser):** guest session id STABLE
+  across reload/re-entry (`f6ee2744` both times); guest reopen renders the stored lines
+  ("Okra — 200g / Onion — 1 / Turmeric — 1/2 tsp", 3 lines); signup+claim for `qauserc`
+  moved all 10 session recipes (psql: `still_guest=0`, session `claimed=t`) and the
+  `claimed=1` re-tag put them under "This session" (qauserb's account recipes correctly
+  stayed under "Other sessions"); SSE `/events` now **200** (was 403); malformed-UUID
+  battery 404 everywhere (was 500); flagged line renders the Review-required badge +
+  Clear review → click unblocks readiness WITHOUT a reload (Analyse re-enabled). Golden
+  regression journey (qauserc, golden card): paste → review → method → analyse →
+  Views 1–9 (V8 flags Fish/Coconut/Fenugreek + print line + H6, no "safe"; V9 band
+  716–1,018 kcal + Sodium Unknown + I6) → View 9 recompute (oily persisted, band honest)
+  → reload → reopen → logout → login → reopen (method + analysis + views persist).
+  **Git:** single fix commit recorded below (QA-FIX-SET-1).
   **DECISION (dispatcher/user 2026-09-09):** OCR work is paused for the day. Q10 stays OPEN
   (prior STOP history preserved above, verbatim). D-11 (OCR adapter + provider), GCV production
   integration, real-card benchmarking, and photo-OCR processing are all DEFERRED — not started.

@@ -19,7 +19,32 @@
 ```
 
 **Rule:** a change that alters any Q1–Q18 row must say so in its entry. The register (SCAFFOLD §7) is the single source of truth for open decisions; this log records the history of how the register changed. No Q-row changes in D-13.
+## 2026-09-10 — Autonomous E2E QA D-01→D-19: 6 defect fixes (QA-FIX-SET-1)
 
+- Author / session: DeepSeek V4 Pro (VS Code), QA dispatch 2026-09-10 (browser E2E + fix policy).
+- What changed (files + substance): the QA run found six defects (full trace in HANDOFF §5,
+  QA-B1..B7; QA-B5 documented as P3/no-code):
+  - `apps/api/src/modules/auth/{auth.service,auth.controller}.ts` — guest sessions now REUSE
+    the valid cookie session (no row-per-visit churn); the OIDC callback claims the pending
+    guest session after any successful login and redirects with `?claimed=1`.
+  - `apps/api/src/modules/recipes/recipe.service.ts` — `assertOwned` format-guards non-UUID
+    ids → clean 404 (was Prisma P2023 → 500).
+  - `apps/api/src/modules/intake/intake.service.ts` — `WireLine`/`toWireLine` carry
+    `needs_review` (the D-14 Clear-review surface was dead without it).
+  - `apps/web/lib/flow.ts` + `CreateView/HomeView/page/RecipeWorkspace/IngredientReview` —
+    guest-created records keep their parse lines for read-only reopens; guest workspaces stop
+    fetching Bearer-only routes; the `claimed=1` marker re-tags guest records to the account.
+  - `apps/web/lib/hooks/useAnalysisStatus.ts` — EventSource opens with `{ withCredentials:
+    true }` (SSE was 403ing on every connect).
+  - `apps/web/components/app/ReadinessPanel.tsx` — re-fetches `enqueue-state` when the lines
+    change (Clear review now unblocks without a reload).
+  - Regression tests added across the affected suites (API +7, web +3 + updated fixtures).
+- Why: autonomous black-box QA of D-01…D-19 via the internal browser; fixes per the dispatched
+  policy (smallest correct layer + regression coverage); no roadmap units touched.
+- Register impact: Q1/Q5/Q9/Q10/Q11 unchanged (OPEN).
+- Commit(s): QA-FIX-SET-1 commit recorded below (SHA appended after verification).
+- Verification: API 178/178 · web 85/85 · worker 32/32 · lint 0 · typecheck 0 · integration +
+  gates + verify-local exit 0 · CI green · live browser re-verification of every fix.
 ## 2026-09-10 — A-19 audit: D-19 PASS-WITH-FINDINGS + schema-gate correction
 
 - Author / session: independent A-19 audit session (auditor, not the D-19 builder).

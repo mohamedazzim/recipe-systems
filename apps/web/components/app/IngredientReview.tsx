@@ -511,7 +511,14 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
 
       {lines.length === 0 && (
         <div className="mt-5 rounded-lg border border-border bg-surface px-5 py-8 text-center">
-          <p className="text-small text-muted">No ingredient lines.</p>
+          {!signedIn && initialLines === null ? (
+            <p className="text-small text-muted">
+              The parsed lines for this recipe aren&apos;t available in this session. Sign in to
+              review and edit them — the recipe is kept on your account.
+            </p>
+          ) : (
+            <p className="text-small text-muted">No ingredient lines.</p>
+          )}
           {signedIn && (
             <div className="mt-4">
               <Button size="sm" variant="outline" onClick={() => void addLine()}>

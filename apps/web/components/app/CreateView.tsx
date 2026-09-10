@@ -38,7 +38,8 @@ export function CreateView({ signedIn, accountId, onBack, onParsed }: CreateView
         body: JSON.stringify({ text }),
       });
       recordSessionRecipe(result.recipe_id, previewOf(text),
-        signedIn && accountId ? { kind: 'user', accountId } : { kind: 'guest' });
+        signedIn && accountId ? { kind: 'user', accountId } : { kind: 'guest' },
+        result.recipe.lines);
       onParsed(result.recipe_id, result.recipe.lines);
     } catch (err) {
       if (err instanceof ApiError) {

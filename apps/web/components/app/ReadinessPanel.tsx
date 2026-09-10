@@ -12,15 +12,18 @@ import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { api, ApiError } from '@/lib/api';
-import type { AnalyseAck, EnqueueState } from '@/lib/types';
+import type { AnalyseAck, EnqueueState, WireLine } from '@/lib/types';
 
 export interface ReadinessPanelProps {
   recipeId: string;
   signedIn: boolean;
+  /** QA-B7 fix: the current lines — any review change re-fetches the canonical
+   *  enqueue-state (the endpoint stays the single source of readiness). */
+  lines: WireLine[];
   onAnalysed: (analysisId: string) => void;
 }
 
-export function ReadinessPanel({ recipeId, signedIn, onAnalysed }: ReadinessPanelProps) {
+export function ReadinessPanel({ recipeId, signedIn, lines, onAnalysed }: ReadinessPanelProps) {
   const [state, setState] = useState<EnqueueState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -39,7 +42,7 @@ export function ReadinessPanel({ recipeId, signedIn, onAnalysed }: ReadinessPane
     return () => {
       cancelled = true;
     };
-  }, [recipeId, signedIn]);
+  }, [recipeId, signedIn, lines]);
 
   const analyse = async (): Promise<void> => {
     setSubmitting(true);

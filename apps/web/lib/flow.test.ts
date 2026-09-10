@@ -1,6 +1,24 @@
 // Session recipe store: localStorage-backed, labeled "this session" data.
 
-import { isOwnedBy, listSessionRecipes, previewOf, recordSessionRecipe } from '@/lib/flow';
+import { claimSessionRecords, isOwnedBy, listSessionRecipes, previewOf, recordSessionRecipe, sessionRecipeLines } from '@/lib/flow';
+import type { WireLine } from '@/lib/types';
+
+const sampleLine: WireLine = {
+  id: 'l1',
+  line_no: 1,
+  display_name: 'Fish — 500g',
+  amount: null,
+  unit: null,
+  quantity: null,
+  category: null,
+  confirmed_sense: null,
+  include_on_list: true,
+  is_header: false,
+  needs_review: false,
+  ocr_confidence: null,
+  source_tag: 'CARD',
+  updated_at: '2026-09-10T00:00:00.000Z',
+};
 
 describe('session recipe store', () => {
   beforeEach(() => {
@@ -55,5 +73,31 @@ describe('session recipe store', () => {
   it('previewOf takes the first non-empty trimmed line', () => {
     expect(previewOf('\n  Meen Kuzhambu  \nFish 500g\n')).toBe('Meen Kuzhambu');
     expect(previewOf('')).toBe('Untitled paste');
+  });
+
+  it('keeps the parse lines for guest-created recipes only (QA-B1 reopen)', () => {
+    recordSessionRecipe('rg', 'Guest paste', { kind: 'guest' }, [sampleLine]);
+    recordSessionRecipe('ru', 'User paste', { kind: 'user', accountId: 'acc-1' }, [sampleLine]);
+    expect(sessionRecipeLines('rg')).toEqual([sampleLine]);
+    expect(sessionRecipeLines('ru')).toBeNull();
+    expect(sessionRecipeLines('missing')).toBeNull();
+    const stored = listSessionRecipes();
+    expect(stored.find((r) => r.recipe_id === 'rg')?.lines).toEqual([sampleLine]);
+    expect(stored.find((r) => r.recipe_id === 'ru')?.lines).toBeUndefined();
+  });
+
+  it('claimSessionRecords re-tags guest records to the account (QA-B2 UI move)', () => {
+    recordSessionRecipe('rg1', 'Guest A', { kind: 'guest' }, [sampleLine]);
+    recordSessionRecipe('rg2', 'Guest B', { kind: 'guest' });
+    recordSessionRecipe('ru1', 'User A', { kind: 'user', accountId: 'acc-1' });
+    expect(claimSessionRecords('acc-9')).toBe(2);
+    const list = listSessionRecipes();
+    expect(list.find((r) => r.recipe_id === 'rg1')?.owner).toBe('user:acc-9');
+    expect(list.find((r) => r.recipe_id === 'rg2')?.owner).toBe('user:acc-9');
+    expect(list.find((r) => r.recipe_id === 'ru1')?.owner).toBe('user:acc-1');
+    // the stored lines survive the re-tag
+    expect(list.find((r) => r.recipe_id === 'rg1')?.lines).toEqual([sampleLine]);
+    // idempotent once nothing is guest-tagged
+    expect(claimSessionRecords('acc-9')).toBe(0);
   });
 });

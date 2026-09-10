@@ -82,4 +82,6 @@ export interface SessionRecipe {
   preview: string;
   /** 'user:<accountId>' or 'guest'; absent on legacy records. */
   owner?: string;
+  /** Guest-created records keep the parse response (QA-B1 fix) for read-only reopens. */
+  lines?: WireLine[];
 }

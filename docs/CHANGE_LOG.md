@@ -19,6 +19,44 @@
 ```
 
 **Rule:** a change that alters any Q1–Q18 row must say so in its entry. The register (SCAFFOLD §7) is the single source of truth for open decisions; this log records the history of how the register changed. No Q-row changes in D-13.
+## 2026-09-11 — Live black-box QA (real DeepSeek): 3 latency-regime regression fixes
+
+- Author / session: DeepSeek V4 Pro (VS Code) live QA dispatch (QA-ONLY, fix confirmed
+  regressions). Full 16-phase black-box run against the real DeepSeek provider in the VS Code
+  internal browser.
+- What changed (fixes ONLY — confirmed by repro before change):
+  1. **Sliding BFF session renewal** (`apps/api/src/modules/auth/session.ts`,
+     `auth.service.ts`, `apps/api/src/common/guards/jwt-auth.guard.ts`): the session JWT now
+     lives for an absolute ceiling (`SESSION_ABSOLUTE_TTL_SECONDS`, default 8 h) while the
+     cookie maxAge stays the 15-minute idle window; `JwtAuthGuard` re-issues the session +
+     CSRF cookies on every authenticated request. Before: the cookie was minted once at
+     login with a fixed 900 s maxAge — a real-LLM analysis (~17 min) outlived the session,
+     the app 403'd mid-analysis ("Could not load the analysis status / Forbidden resource")
+     and silently logged the user out.
+  2. **Worker job-expiry ceiling + per-view resume** (`apps/analysis-worker/src/main.ts`,
+     `analysis-job.handler.ts`): pg-boss `expireInSeconds` raised from the 15-minute default
+     to 4 h for analysis jobs, and the handler now SKIPS views already COMPLETE on a
+     redelivered job (INV-11 extended to per-view granularity). Before: the first real pass
+     (~17 min) exceeded pg-boss's 15-minute expiry, the job was redelivered WHILE RUNNING,
+     and a second full DeepSeek pass started — duplicate provider spend and two passes
+     racing over the same views.
+  3. **View-9 queue registration at boot** (`apps/analysis-worker/src/main.ts`): the
+     `boss.work(VIEW9_RECOMPUTE_QUEUE)` call was nested INSIDE the analysis work callback,
+     so the recompute queue was only consumed after an analysis job happened to arrive — a
+     lone RS-US-45 recompute job sat unclaimed indefinitely.
+  All three carry unit regression tests (`jwt-auth.guard.test.ts` new; `guards.test.ts`,
+  `main.test.ts`, `analysis-job.handler.test.ts` extended).
+- Why: the live run is the first sustained multi-minute session against the real provider;
+  every failure surfaced here is latency-regime-specific (stub/mock runs complete in seconds
+  and never triggered them).
+- Register impact: Q1/Q5/Q10/Q11/Q13 unchanged. Q9 remains RESOLVED.
+- Verification: repro → classify → fix → regression tests → full suites → live re-verification
+  (second real DeepSeek pass under the fixed worker) · API 207/207 · worker 49/49 ·
+  gates/contract/verify-local re-run at close-out · live: session survives 20+ min with
+  sliding renewal, recompute applies within seconds, second pass completes with zero
+  redelivery.
+- Commit(s): see close-out commit (uncommitted at entry time).
+
 ## 2026-09-10 — D-20 P4-2: Chef mode + station card (deterministic, persisted through the model/API path)
 
 - Author / session: DeepSeek V4 Pro (VS Code) D-20 dispatch; decision trace D-20A..F recorded

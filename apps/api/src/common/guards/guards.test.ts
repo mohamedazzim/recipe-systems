@@ -5,8 +5,9 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 import { signSession } from '../../modules/auth/session';
 
 function ctx(req: Record<string, unknown>): ExecutionContext {
+  const res = { cookie: jest.fn() };
   return {
-    switchToHttp: () => ({ getRequest: () => req }),
+    switchToHttp: () => ({ getRequest: () => req, getResponse: () => res }),
   } as unknown as ExecutionContext;
 }
 
@@ -30,6 +31,18 @@ describe('JwtAuthGuard', () => {
     const req: Record<string, unknown> = { cookies: { recipe_session: token } };
     await expect(guard.canActivate(ctx(req))).resolves.toBe(true);
     expect((req.user as { accountId: string }).accountId).toBe('a1');
+  });
+
+  it('slides the session cookie on an authenticated request (real-LLM latency regression)', async () => {
+    const token = await signSession({ accountId: 'a1', email: 'x@test.dev', sub: 's1' });
+    const req: Record<string, unknown> = { cookies: { recipe_session: token } };
+    const res = { cookie: jest.fn() };
+    await expect(
+      guard.canActivate({
+        switchToHttp: () => ({ getRequest: () => req, getResponse: () => res }),
+      } as unknown as ExecutionContext),
+    ).resolves.toBe(true);
+    expect(res.cookie).toHaveBeenCalledWith('recipe_session', token, expect.any(Object));
   });
 });
 

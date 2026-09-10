@@ -38,6 +38,16 @@ export function defaultSessionTtl(): number {
   return Number(process.env.SESSION_TTL_SECONDS ?? 900);
 }
 
+/**
+ * Absolute ceiling for a signed-in BFF session (the JWT `exp`). The browser cookie
+ * slides on authenticated activity (see JwtAuthGuard), so an actively-used session
+ * never dies mid-analysis — but even with constant activity it cannot outlive this
+ * ceiling. Idle timeout remains `SESSION_TTL_SECONDS`.
+ */
+export function defaultSessionAbsoluteTtl(): number {
+  return Number(process.env.SESSION_ABSOLUTE_TTL_SECONDS ?? 28800);
+}
+
 export function defaultGuestTtl(): number {
   // Q11 (guest TTL) is OPEN — labeled pilot default, HANDOFF-documented (D-08).
   return Number(process.env.GUEST_TTL_SECONDS ?? 86400);

@@ -100,6 +100,18 @@ export class AnalysisJobHandler {
 
     try {
       for (const view of LLM_VIEWS) {
+        // Real-LLM-latency regression: a redelivered job (pg-boss expiry while a
+        // pass was still running) must RESUME, not regenerate — a COMPLETE view
+        // row is kept as-is (INV-11 extension to per-view granularity). This
+        // prevents duplicate provider spend and two passes racing over the same
+        // views.
+        const done = await this.prisma.analysisView.findUnique({
+          where: { analysisId_viewNumber: { analysisId: data.analysis_id, viewNumber: view } },
+        });
+        if (done?.status === 'COMPLETE') {
+          console.log(`analysis ${data.analysis_id} view ${view} already COMPLETE — skip (redelivery)`);
+          continue;
+        }
         const started = Date.now();
         const first = await generateGrounded(
           this.adapter,

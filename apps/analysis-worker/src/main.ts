@@ -37,6 +37,12 @@ const RETRY_LIMIT = 3;
 const RETRY_DELAY = 2; // seconds, exponential backoff on
 // Startup sweep: generating rows older than this are crash remnants.
 const STALE_GENERATING_MS = 15 * 60 * 1000;
+// Job-expiry ceiling (real-LLM latency regression): pg-boss defaults to 15 min
+// per job, but one DeepSeek pass over views 1–7 took ~16 min in QA — the job
+// expired WHILE RUNNING and was redelivered, doubling provider spend and
+// interleaving two passes. 4h covers the worst realistic pass (7 views ×
+// timeout + in-adapter retries); crash cleanup is the startup sweep, not expiry.
+const ANALYSIS_JOB_EXPIRE_SECONDS = 4 * 60 * 60;
 
 async function createNotifier(databaseUrl: string) {
   const client = new Client({ connectionString: databaseUrl });
@@ -62,6 +68,7 @@ export async function main(): Promise<void> {
     retryLimit: RETRY_LIMIT,
     retryDelay: RETRY_DELAY,
     retryBackoff: true,
+    expireInSeconds: ANALYSIS_JOB_EXPIRE_SECONDS,
   });
   const notify = await createNotifier(DATABASE_URL);
   const adapter = resolveAdapter(process.env);
@@ -96,8 +103,12 @@ export async function main(): Promise<void> {
       console.log(`analysis-worker: job ${job.id ?? 'unknown'} for analysis ${job.data.analysis_id}`);
       await handler.handle(job.data);
     }
+  });
 
   // D-19: the View 9 recompute queue — same batch delivery contract.
+  // Regression fix (real-LLM latency): this registration was previously nested
+  // INSIDE the analysis work callback, so the queue was only consumed after an
+  // analysis job happened to arrive — a lone recompute job stayed unclaimed.
   await boss.work(VIEW9_RECOMPUTE_QUEUE, async (jobs: unknown) => {
     const batch = (Array.isArray(jobs) ? jobs : [jobs]) as Array<{
       id?: string;
@@ -108,7 +119,6 @@ export async function main(): Promise<void> {
       console.log(`analysis-worker: view9-recompute job ${job.id ?? 'unknown'} for analysis ${job.data.analysis_id}`);
       await handler.handleView9Recompute(job.data);
     }
-  });
   });
 
   const shutdown = async (): Promise<void> => {

@@ -16,6 +16,7 @@ import { IDENTITY_PROVIDER } from './identity/identity.module';
 import { IdentityProvider } from './identity/identity-provider.interface';
 import {
   defaultGuestTtl,
+  defaultSessionAbsoluteTtl,
   defaultSessionTtl,
   GUEST_COOKIE,
   newCsrfToken,
@@ -71,14 +72,20 @@ export class AuthService {
     }
     const claims = await this.identity.handleCallback(code, state, oauthState.nonce);
     const account = await this.accounts.upsertForSignIn({ email: claims.email });
-    const session = await signSession({
-      accountId: account.id,
-      email: account.email,
-      sub: claims.sub,
-      // Retained for RP-initiated logout: lets Keycloak skip the logout
-      // confirmation screen (OIDC id_token_hint). Re-validated by the IdP.
-      idTokenHint: claims.idTokenHint,
-    });
+    // The JWT itself lives for the ABSOLUTE ceiling; the cookie it rides in slides on
+    // authenticated activity (JwtAuthGuard renews maxAge per request). Fixed 15-minute
+    // sessions died mid-analysis under real-LLM latency (DeepSeek ~2–6 min/view).
+    const session = await signSession(
+      {
+        accountId: account.id,
+        email: account.email,
+        sub: claims.sub,
+        // Retained for RP-initiated logout: lets Keycloak skip the logout
+        // confirmation screen (OIDC id_token_hint). Re-validated by the IdP.
+        idTokenHint: claims.idTokenHint,
+      },
+      defaultSessionAbsoluteTtl(),
+    );
     return {
       session,
       csrf: newCsrfToken(),

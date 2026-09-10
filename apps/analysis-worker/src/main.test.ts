@@ -57,12 +57,21 @@ describe('analysis-worker bootstrap wiring (mocked — no network)', () => {
     await expect(main()).resolves.toBeUndefined();
 
     expect(MockBossCtor).toHaveBeenCalledWith(
-      expect.objectContaining({ connectionString: expect.any(String) }),
+      expect.objectContaining({
+        connectionString: expect.any(String),
+        // Real-LLM-latency regression: a DeepSeek pass can exceed pg-boss's
+        // 15-minute default expiry — the analysis queue must live much longer.
+        expireInSeconds: 4 * 60 * 60,
+      }),
     );
     expect(mockBossInstance.start).toHaveBeenCalled();
     expect(mockBossInstance.createQueue).toHaveBeenCalledWith('analysis');
     expect(mockSweep).toHaveBeenCalled();
     expect(mockBossInstance.work).toHaveBeenCalledWith('analysis', expect.any(Function));
+    // Regression: the View 9 queue must be registered AT BOOT, not lazily inside
+    // the analysis handler — a lone recompute job must never sit unclaimed.
+    expect(mockBossInstance.work).toHaveBeenCalledWith('view9-recompute', expect.any(Function));
+    expect(mockHandle).not.toHaveBeenCalled(); // registrations only — no delivery yet
   });
 
   it('the work callback iterates pg-boss batches and hands each payload to the handler', async () => {

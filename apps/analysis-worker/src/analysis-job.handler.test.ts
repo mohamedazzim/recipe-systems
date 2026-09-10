@@ -185,6 +185,25 @@ describe('D-17 analysis job handler (A-17 contract)', () => {
     expect(prisma.analysisView.upsert).toHaveBeenCalledTimes(9);
   });
 
+  it('real-LLM-latency regression: a redelivered job RESUMES — COMPLETE views are skipped, never regenerated', async () => {
+    const prisma = mockPrisma();
+    prisma.analysis.findUnique.mockResolvedValue({ id: 'a', status: 'generating' });
+    prisma.analysisView.findUnique.mockResolvedValue({ status: 'COMPLETE' });
+    const adapter = stubAdapter();
+    const generateSpy = jest.spyOn(adapter, 'generate');
+    const { handler, notify } = makeHandler(prisma, adapter);
+
+    await handler.handle(jobData());
+
+    expect(generateSpy).not.toHaveBeenCalled();
+    // Only the deterministic Views 8/9 are re-upserted; Views 1–7 are kept as-is.
+    expect(prisma.analysisView.upsert).toHaveBeenCalledTimes(2);
+    expect(prisma.analysis.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: 'complete', isCurrent: true } }),
+    );
+    expect(notify).toHaveBeenCalledWith(expect.objectContaining({ status: 'complete' }));
+  });
+
   it('provider-pending (Q9 OPEN) fails cleanly: status failed, job completes without retry', async () => {
     const prisma = mockPrisma();
     const pending = { generate: jest.fn().mockRejectedValue(new ProviderPendingError()) };

@@ -49,6 +49,40 @@
   · **CI success (run `34501720779`)**.
 - Commit(s): `748853e442fcf0bf8624f9106974e59a501119ba` (D-20 checkpoint).
 
+## 2026-09-11 — Q9: Real DeepSeek LLM integration behind the existing adapter seam
+
+- Author / session: DeepSeek V4 Pro (VS Code) Q9 dispatch; decision trace Q9-1..8 recorded in
+  HANDOFF §5 before implementation (credentials verified first: key present in the git-ignored
+  `.env`, never printed; ONE connectivity call — `GET /models` → 200; account models
+  [deepseek-flash, deepseek-v4-pro]; configured `deepseek-v4-pro` VALID; base URL reachable).
+- What changed: `packages/llm-adapter/src/deepseek-adapter.ts` (new) — server-side DeepSeek behind
+  the existing `LlmAdapter` interface (env-only key; OpenAI-compatible chat completions via global
+  fetch; JSON extraction before the domain; prompt = the canonical D-15 pair + the captured
+  structured_recipe only; non-secret `providerName`/`modelVersion`/`describe()`). Typed errors:
+  `LlmPermanentProviderError` (401/403/400 → worker fails with NO retry, ADR §14) vs transient
+  (429/5xx/timeout/malformed → bounded in-adapter retries then the existing pg-boss Q13 path).
+  Worker: `resolveAdapter` selects deepseek on `LLM_PROVIDER=deepseek` (ANALYSIS_LLM_STUB=1 still
+  forces the deterministic stub; CI never sets the provider and never needs the key); boot
+  provider/model log + per-view telemetry (no secrets); `model_version` stamped from the adapter
+  (`deepseek:deepseek-v4-pro`). Views 8/9 remain deterministic (never sent to the provider).
+  `scripts/verify-deepseek.js` (new) = the designated live harness (env-gated, never auto-run).
+  `.env.example` updated (Q9-resolved template, placeholder key).
+- Why: Q9 (the real provider) without touching the architecture — mock for CI/tests, DeepSeek for
+  dev; schema/grounding/regenerate-once/one-writer all remain mandatory (proven against real
+  output).
+- Register impact: **Q9 RESOLVED (SCAFFOLD §7 updated with evidence).** Q1/Q5/Q10/Q11 unchanged
+  (OPEN). OCR disabled. No D-23/D-30 work.
+- Verification: credential/model verification (above) · real-call harness: v1/v3/v6/v7 accepted
+  (59.4/178.5/36.1/5.7 s), v2/v4 timeout (transient path), v5 REJECTED by grounding (the
+  "garlic is explicitly_absent" plant — D-16 holds against the real model) · live full-stack
+  browser journey: analysis complete with model_version deepseek:deepseek-v4-pro, views 1/3/4/5/6/7
+  COMPLETE (real provider), view 2 INCOMPLETE (regenerate-once refusal), 8/9 deterministic, chef
+  mode + station card, save with the real family default, library/reopen, view-9 recompute
+  (deterministic), delete · unit/regression: llm-adapter 101/101, worker 48/48, API 202/202,
+  web 104/104, integration 106/106 · gates PASS (8/8) · contract OK · lint 0 · typecheck 0 ·
+  verify-local exit 0 · secret sweep: no key in tracked files · CI green without the key.
+- Commit(s): recorded after the push (Q9 checkpoint).
+
 ## 2026-09-10 — D-22 D6: Delete recipe (hard-delete cascade, P5-1 close-out)
 
 - Author / session: DeepSeek V4 Pro (VS Code) D-22 D6 continuation; decision trace D6-1..7

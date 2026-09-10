@@ -36,7 +36,7 @@ jest.mock('./analysis-job.handler', () => ({
   ANALYSIS_EVENTS_CHANNEL: 'recipe_analysis_events',
 }));
 
-const mockAdapter = { generate: jest.fn() };
+const mockAdapter = { providerName: 'mock', generate: jest.fn() };
 jest.mock('./adapter', () => ({ resolveAdapter: jest.fn().mockReturnValue(mockAdapter) }));
 
 import { main } from './main';

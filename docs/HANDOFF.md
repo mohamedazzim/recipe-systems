@@ -1557,6 +1557,121 @@ execution output; Git: not available / not authorized throughout.
   Q1/Q5/Q9/Q10/Q11 stay OPEN · no DeepSeek · no D-23/D-30 (HARD STOP).
   **COMMIT/CI:** see the H-22 ledger entry (SHA + CI run id recorded after the push).
 
+- 2026-09-11 — **Q9 PREFLIGHT (dispatcher authorization: implement Q9 — real DeepSeek LLM integration) — STARTING STATE, recorded before any Q9 code**:
+  **DECISION (dispatcher 2026-09-11):** Q9 = the real LLM provider behind the existing LlmAdapter
+  seam. Q1/Q5/Q10/Q11 stay OPEN; OCR disabled; D-23/D-30 out of scope.
+  **CANONICAL SOURCES READ:** Tech Stack §10 (provider-neutral seam, vendor responses normalized
+  before the domain) · ADR §19 + §14 (no indefinite retry of permanent config failures) · SCAFFOLD
+  §7 Q9 (OPEN — benchmark wks 1–4) · D-15 prompts/validate (D-05 frozen schemas mandatory) · D-16
+  grounding (single choke point) · D-17 worker (sole analysis writer; regenerate-once; pg-boss
+  Q13-labeled retry 3/backoff) · D-18..D-22 implementations · packages/llm-adapter (MockLlmAdapter,
+  promptsForRequest/buildViewPrompt, parseViewOutput, generateGrounded) · DISPATCH Q9 · TEST_PLAN §4
+  (mocked providers in CI) · HANDOFF H-15..H-22 · CHANGE_LOG.
+  **CREDENTIAL VERIFICATION (executed BEFORE any code, all secrets redacted):**
+  - The dev `.env` (git-ignored — `.gitignore:16` verified) carries an LLM section:
+    LLM_PROVIDER=deepseek, DEEPSEEK_API_KEY (present, 35 chars, NOT a placeholder; value never
+    printed, never committed), DEEPSEEK_MODEL=deepseek-v4-pro, DEEPSEEK_BASE_URL=
+    https://api.deepseek.com, DEEPSEEK_TIMEOUT_MS=60000, DEEPSEEK_MAX_RETRIES=2, ANALYSIS_LLM_STUB=0.
+  - ONE minimal server-side connectivity test only: `GET https://api.deepseek.com/models` → HTTP
+    200; account model ids = [deepseek-flash, deepseek-v4-pro] — the configured model identifier
+    is VALID for the account/API; the base URL is reachable. Authorization header never logged.
+  **Q9 DESIGN DECISIONS (labeled, recorded here BEFORE code):**
+  - Q9-1: NEW `DeepSeekLlmAdapter` in packages/llm-adapter implements the existing `LlmAdapter`
+    interface — no new abstraction; worker/provider wiring stays inside `resolveAdapter`.
+  - Q9-2: Provider selection (observable, no secrets): `LLM_PROVIDER=deepseek` → DeepSeek;
+    `ANALYSIS_LLM_STUB=1` still FORCES the deterministic stub (explicit determinism wins);
+    otherwise the existing PendingAdapter (CI/tests never set LLM_PROVIDER → mock/stub path
+    unchanged; CI never requires the key).
+  - Q9-3: Prompt/context policy — the adapter composes ONLY the canonical D-15 pair
+    (systemPromptFor + buildViewPrompt) plus the captured structured_recipe JSON as the user
+    message tail ("the ONLY source of truth"). No other DB data is injected; PROMPT_VERSION
+    unchanged; no prompt logic duplicated. Views 8/9 are NEVER sent to DeepSeek (buildViewPrompt
+    refuses deterministic views; the D-19 producers are untouched).
+  - Q9-4: HTTP — OpenAI-compatible `POST {base}/chat/completions` via global fetch (no vendor
+    SDK); JSON extraction from the message content (code-fence tolerant) happens in the adapter so
+    parseViewOutput receives parsed JSON; the frozen D-05 schema gate and the D-16 grounding gate
+    stay downstream and mandatory.
+  - Q9-5: Error mapping (canonical, recorded): 401/403/400 → `LlmPermanentProviderError` (new,
+    exported from llm-adapter) — the handler treats it exactly like ProviderPendingError (failed,
+    NO retry, ADR §14). 429/5xx → bounded in-adapter retries (DEEPSEEK_MAX_RETRIES, default 2,
+    short backoff) then a transient error → the EXISTING pg-boss Q13-labeled retry path (limit 3,
+    backoff) is unchanged. Network/timeout/malformed output → transient. Worker retry semantics
+    are NOT modified.
+  - Q9-6: Observability without secrets — the adapter exposes `providerName` + a non-secret
+    `describe()` ('deepseek:deepseek-v4-pro'); the worker boots logs the selected adapter and the
+    handler logs per-view attempts (latency, parse ok, grounding ok, regenerate). No headers, no
+    keys, no environment dumps.
+  - Q9-7: Real-call evidence — a designated live harness `scripts/verify-deepseek.js` (requires
+    the env; never auto-run; CI-safe) drives the golden capture through the REAL pipeline
+    (generate → parse → D-05 schema → D-16 grounding → publish decision) for Views 1–7 and prints
+    status/latency/validation outcomes — never secrets. Unit tests use mocked fetch ONLY.
+  - Q9-8: SCAFFOLD Q9 status changes ONLY after the real evidence is recorded (end of this
+    session), never erased before.
+  **PLAN:** llm-adapter (DeepSeekLlmAdapter + errors + providerName/describe + mocked-HTTP unit
+  tests) → worker (resolveAdapter branch + boot/per-view telemetry + LlmPermanentProviderError
+  handling + selection tests) → live harness script + ONE controlled real run (golden fixture,
+  all 7 views, validation table) → full stack with LLM_PROVIDER=deepseek + internal-browser E2E +
+  real-output quality inspection (no invented ingredients/method/garlic/ginger; Views 8/9
+  deterministic) → full regression (mock path) + gates/lint/typecheck/verify-local → commit (no
+  secrets) + CI (no key required) → HANDOFF/CHANGE_LOG/SCAFFOLD Q9 → HARD STOP.
+
+- 2026-09-11 — **Q9 EXECUTION — DONE, evidence recorded before commit**:
+  **IMPLEMENTED per Q9-1..8 (decision trace above, honored verbatim):**
+  - `packages/llm-adapter/src/deepseek-adapter.ts` (new): `DeepSeekLlmAdapter` behind the EXISTING
+    `LlmAdapter` seam — env-only key (`DEEPSEEK_API_KEY`, never logged/committed/returned),
+    OpenAI-compatible `POST {base}/chat/completions` via global fetch (no vendor SDK), JSON
+    extraction (code-fence tolerant) before the domain, prompt = the canonical D-15 pair +
+    `STRUCTURED RECIPE OBJECT` (captured state only; no other DB data), `describe()`/`providerName`/
+    `modelVersion` (non-secret provenance), typed errors: `LlmPermanentProviderError`
+    (401/403/400, no retry) vs `LlmTransientProviderError` (429/5xx/timeout/malformed — bounded
+    in-adapter retries, then the worker's existing pg-boss path). Views 8/9 never reach it
+    (buildViewPrompt refuses deterministic views).
+  - worker: `resolveAdapter` gains `LLM_PROVIDER=deepseek` (stub still forced by
+    ANALYSIS_LLM_STUB=1; default pending — CI/tests never select the real provider and never need
+    the key); boot log prints provider + model (no secrets); per-view attempt telemetry
+    (provider/latency/parse/grounding); the handler treats `LlmPermanentProviderError` exactly like
+    ProviderPendingError (failed, NO retry — ADR §14). `model_version` now stamped from the adapter
+    (`deepseek:deepseek-v4-pro`) instead of the stub label. Worker retry semantics unchanged.
+  - `scripts/verify-deepseek.js` (new): the designated live harness (env-gated, never auto-run,
+    CI-safe) — golden capture → generate → parse → D-05 → D-16 → publish decision.
+  - `.env.example`: Q9-resolved template (placeholder key; CI/mock note).
+  **CREDENTIAL/MODEL EVIDENCE (all secrets redacted):** `.env` git-ignored (`.gitignore:16`); key
+  present (35 chars, non-placeholder, never printed); ONE connectivity call: `GET /models` → 200,
+  account models [deepseek-flash, deepseek-v4-pro] → configured model VALID; base URL reachable.
+  **REAL-CALL EVIDENCE (controlled golden fixture, home mode):** harness run #1 — v1 COMPLETE
+  (59.4s), v2 timeout (transient), v3 COMPLETE (178.5s), v4 timeout, v5 REJECTED by grounding
+  (violations: "garlic" is explicitly_absent — referenced in a payload, refused), v6 COMPLETE
+  (36.1s), v7 COMPLETE (5.7s) → 4/7 accepted; invalid/rejected output never published. Run #2
+  (view 5, 240s timeout): parse ok, grounding violations(2) — the garlic absent-channel plant —
+  REJECTED: the D-16 gate holds against the REAL model.
+  **LIVE APPLICATION EVIDENCE (internal browser, full stack with LLM_PROVIDER=deepseek):** chef
+  sign-in → golden paste → method → analyse → worker ran DeepSeek per-view (logs: v1 55.7s ok/ok,
+  v2 violations→regenerate→parse-invalid→INCOMPLETE, v3 98.8s ok, v4 66.4s ok, v5 71.5s ok, v6
+  103.1s ok, v7 36.3s ok) → analysis complete with `model_version = deepseek:deepseek-v4-pro`
+  (DB-proven) and the UI "Model" field showing the real pin → views 1,3,4,5,6,7 COMPLETE (real
+  provider), view 2 INCOMPLETE (honest refusal), views 8/9 COMPLETE (deterministic D-19 —
+  band 716–1,018 kcal, sodium Unknown) → Chef mode renders the station card + chef tabs with real
+  identification ("South Indian coconut-tamarind fish curry … Kerala-leaning [INFERRED]") → Save
+  (blank) applied the REAL family default → library row → reopen → View 9 assumption edit (fish
+  class → lean) → deterministic view9-recompute job processed (no LLM) with `fish_class: lean`
+  persisted → delete → recipe gone, "Recipe deleted." notice.
+  **QUALITY CHECK (real output):** no invented ingredient ids (grounding would reject); no
+  garlic/ginger presence claims (the one garlic mention was REJECTED and never published); method
+  steps grounded (view 3 tag METHOD); no "safe" wording; frozen contract held (parse ok on all
+  published views); Views 8/9 untouched by the provider.
+  **FAILURE PATHS TESTED (unit, mocked HTTP):** 401/403/400 permanent no-retry; 429/5xx bounded
+  retries then transient; timeout transient; network-type transient; missing key permanent before
+  any network call; malformed/non-JSON output transient; no-secret-in-body assertion.
+  **REGRESSION (mock path — CI posture):** llm-adapter 101/101 · worker 48/48 · API 202/202 ·
+  web 104/104 · integration 106/106 · gates PASS (8/8 golden) · contract OK · lint 0 · typecheck 0
+  · verify-local ALL STEPS PASSED. Secret sweep: no key in tracked files (only env references +
+  fake test keys); `git diff --check` clean; CI needs no key (mock path).
+  **DECISIONS CARRIED:** Q9 = RESOLVED for the development provider (DeepSeek via the existing
+  seam; benchmark/revalidation policy unchanged) · Q1/Q5/Q10/Q11 stay OPEN · OCR disabled ·
+  no D-23/D-30 · local `.env` aligned to dev defaults (SESSION_SECURE=false + committed dev
+  Keycloak secret) so the dev stack runs from `.env` alone.
+  **COMMIT/CI:** see CHANGE_LOG (SHA + CI run id recorded after the push).
+
 ### H-10 — D-10 Raw intake rows + photo pipeline
 
 - BASE_SHA / COMMIT_SHA: **BASE `871ec48` (Initial commit) · COMMIT `432b601`** — pushed to

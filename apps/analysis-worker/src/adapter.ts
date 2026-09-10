@@ -7,17 +7,22 @@
 // - default → ProviderPendingError: jobs fail cleanly as `failed` (never stuck
 //   at `generating`) until Q9 lands a real provider adapter.
 
-import { LlmAdapter, LlmGenerateRequest } from '@recipe-systems/llm-adapter';
+import {
+  DeepSeekLlmAdapter,
+  LlmAdapter,
+  LlmGenerateRequest,
+} from '@recipe-systems/llm-adapter';
 import type { StructuredRecipeInput } from '@recipe-systems/schemas';
 
 export class ProviderPendingError extends Error {
   constructor() {
-    super('no LLM provider configured — Q9 OPEN (benchmark wks 1–4; adapter stub only)');
+    super('no LLM provider configured (LLM_PROVIDER not set; Q9 now resolved via deepseek)');
     this.name = 'ProviderPendingError';
   }
 }
 
 class PendingAdapter implements LlmAdapter {
+  readonly providerName = 'pending';
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async generate(_request: LlmGenerateRequest): Promise<unknown> {
     throw new ProviderPendingError();
@@ -28,6 +33,7 @@ class PendingAdapter implements LlmAdapter {
  *  D-16 grounding choke point still decides COMPLETE vs INCOMPLETE for every
  *  view. Never production — Q9 stays OPEN. */
 class StubAdapter implements LlmAdapter {
+  readonly providerName = 'stub';
   async generate(request: LlmGenerateRequest): Promise<unknown> {
     const snapshot = request.recipe_snapshot as StructuredRecipeInput;
     const ids = snapshot.structured_recipe.ingredients.map((i) => i.id);
@@ -125,8 +131,22 @@ class StubAdapter implements LlmAdapter {
 }
 
 export function resolveAdapter(env: Record<string, string | undefined>): LlmAdapter {
+  // Explicit determinism wins (dev demos + CI): the stub builds payloads from
+  // the captured ids so the D-16 grounding gate still decides every view.
   if (env.ANALYSIS_LLM_STUB === '1') {
     return new StubAdapter();
+  }
+  // Q9 (2026-09-11): the real provider behind the same LlmAdapter seam.
+  // Credentials stay server-side (DeepSeekLlmAdapter reads env directly);
+  // CI never sets LLM_PROVIDER and never requires the key.
+  if (env.LLM_PROVIDER === 'deepseek') {
+    return new DeepSeekLlmAdapter({
+      apiKey: env.DEEPSEEK_API_KEY,
+      model: env.DEEPSEEK_MODEL,
+      baseUrl: env.DEEPSEEK_BASE_URL,
+      timeoutMs: env.DEEPSEEK_TIMEOUT_MS ? Number(env.DEEPSEEK_TIMEOUT_MS) : undefined,
+      maxRetries: env.DEEPSEEK_MAX_RETRIES ? Number(env.DEEPSEEK_MAX_RETRIES) : undefined,
+    });
   }
   return new PendingAdapter();
 }

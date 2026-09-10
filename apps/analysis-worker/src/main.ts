@@ -64,7 +64,15 @@ export async function main(): Promise<void> {
     retryBackoff: true,
   });
   const notify = await createNotifier(DATABASE_URL);
-  const handler = new AnalysisJobHandler(prisma, resolveAdapter(process.env), notify);
+  const adapter = resolveAdapter(process.env);
+  const handler = new AnalysisJobHandler(prisma, adapter, notify);
+  // Q9-6: observable provider selection, never secrets.
+  const describable = adapter as unknown as { describe?: () => string };
+  const describe =
+    typeof describable.describe === 'function'
+      ? describable.describe.call(adapter)
+      : adapter.providerName;
+  console.log(`analysis-worker: LLM adapter = ${adapter.providerName} (${describe})`);
 
   // Crash-mid-job reconciliation BEFORE consuming new work (P3 exit).
   const swept = await handler.sweepStaleGenerating(STALE_GENERATING_MS);

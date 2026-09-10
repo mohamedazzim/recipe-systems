@@ -5,7 +5,7 @@
 // for pg-boss retry; the startup sweep reaps crash remnants; NOTIFY is sent on
 // every transition (INV-16: signal only).
 
-import { MockLlmAdapter } from '@recipe-systems/llm-adapter';
+import { LlmPermanentProviderError, MockLlmAdapter } from '@recipe-systems/llm-adapter';
 import { ProviderPendingError } from './adapter';
 import { AnalysisJobData, AnalysisJobHandler, MODEL_VERSION_LABEL } from './analysis-job.handler';
 import * as deterministicViews from './deterministic-views';
@@ -196,6 +196,23 @@ describe('D-17 analysis job handler (A-17 contract)', () => {
     );
     expect(notify).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed' }));
     expect(prisma.analysisView.upsert).not.toHaveBeenCalled();
+  });
+
+  it('Q9: a permanent DeepSeek provider error (401/403/400) fails cleanly with NO retry (ADR §14)', async () => {
+    const prisma = mockPrisma();
+    const deepseek401 = {
+      providerName: 'deepseek',
+      generate: jest
+        .fn()
+        .mockRejectedValue(new LlmPermanentProviderError('DeepSeek rejected the request (HTTP 401)')),
+    };
+    const { handler, notify } = makeHandler(prisma, deepseek401 as never);
+
+    await expect(handler.handle(jobData())).resolves.toBeUndefined(); // no throw = no retry
+    expect(prisma.analysis.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: 'failed' } }),
+    );
+    expect(notify).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed' }));
   });
 
   it('transient failure: marks failed (never stuck at generating) AND throws for pg-boss retry', async () => {

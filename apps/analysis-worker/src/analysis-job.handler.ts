@@ -21,7 +21,7 @@ import {
   View8PayloadSchema,
   View9PayloadSchema,
 } from '@recipe-systems/schemas';
-import { generateGrounded, LlmAdapter } from '@recipe-systems/llm-adapter';
+import { generateGrounded, LlmAdapter, LlmPermanentProviderError } from '@recipe-systems/llm-adapter';
 import { ProviderPendingError } from './adapter';
 import {
   computeView8,
@@ -73,6 +73,7 @@ export class AnalysisJobHandler {
   ) {}
 
   async handle(data: AnalysisJobData): Promise<void> {
+    const modelVersion = this.adapter.modelVersion ?? MODEL_VERSION_LABEL;
     const existing = await this.prisma.analysis.findUnique({
       where: { id: data.analysis_id },
     });
@@ -91,7 +92,7 @@ export class AnalysisJobHandler {
         status: 'generating',
         isCurrent: false,
         promptVersion: data.prompt_version,
-        modelVersion: MODEL_VERSION_LABEL,
+        modelVersion,
       },
       update: { status: 'generating' },
     });
@@ -99,6 +100,7 @@ export class AnalysisJobHandler {
 
     try {
       for (const view of LLM_VIEWS) {
+        const started = Date.now();
         const first = await generateGrounded(
           this.adapter,
           {
@@ -106,9 +108,14 @@ export class AnalysisJobHandler {
             mode: data.mode,
             recipe_snapshot: data.captured,
             prompt_version: data.prompt_version,
-            model_version: MODEL_VERSION_LABEL,
+            model_version: modelVersion,
           },
           data.captured,
+        );
+        console.log(
+          `analysis ${data.analysis_id} view ${view} attempt 1 [${this.adapter.providerName}]: ` +
+            `${Date.now() - started}ms parse=${first.parse.ok ? 'ok' : 'invalid'} ` +
+            `grounding=${first.grounding ? (first.grounding.ok ? 'ok' : 'violations:' + first.grounding.violations.length) : 'n/a'}`,
         );
 
         if (!first.parse.ok) {
@@ -117,6 +124,7 @@ export class AnalysisJobHandler {
 
         if (first.grounding && !first.grounding.ok) {
           // D-16 regenerate-once (A-16): second attempt, then INCOMPLETE.
+          const secondStarted = Date.now();
           const second = await generateGrounded(
             this.adapter,
             {
@@ -124,9 +132,14 @@ export class AnalysisJobHandler {
               mode: data.mode,
               recipe_snapshot: data.captured,
               prompt_version: data.prompt_version,
-              model_version: MODEL_VERSION_LABEL,
+              model_version: modelVersion,
             },
             data.captured,
+          );
+          console.log(
+            `analysis ${data.analysis_id} view ${view} attempt 2 [${this.adapter.providerName}]: ` +
+              `${Date.now() - secondStarted}ms parse=${second.parse.ok ? 'ok' : 'invalid'} ` +
+              `grounding=${second.grounding ? (second.grounding.ok ? 'ok' : 'violations:' + second.grounding.violations.length) : 'n/a'}`,
           );
           if (!second.parse.ok || (second.grounding && !second.grounding.ok)) {
             // INV-08 refusal representation: the view row is INCOMPLETE; the
@@ -167,7 +180,10 @@ export class AnalysisJobHandler {
       await this.finalize(data.analysis_id, data.recipe_id);
       await this.notify({ analysis_id: data.analysis_id, status: 'complete' });
     } catch (err) {
-      if (err instanceof ProviderPendingError) {
+      if (
+        err instanceof ProviderPendingError ||
+        err instanceof LlmPermanentProviderError
+      ) {
         // Permanent configuration error: failed, no retry (ADR §14).
         await this.markFailed(data.analysis_id);
         await this.notify({ analysis_id: data.analysis_id, status: 'failed' });

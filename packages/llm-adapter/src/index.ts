@@ -30,6 +30,10 @@ export interface LlmGenerateRequest {
 /** The provider-neutral interface. Implementations normalize vendor responses
  *  to plain JSON before returning — validation happens in parseViewOutput. */
 export interface LlmAdapter {
+  /** Non-secret telemetry identity (Q9-6) — provider label, never a key. */
+  readonly providerName: string;
+  /** Optional provenance pin stamped into analysis rows (e.g. deepseek:model). */
+  readonly modelVersion?: string;
   generate(request: LlmGenerateRequest): Promise<unknown>;
 }
 
@@ -51,6 +55,7 @@ export function promptsForRequest(
  * reproducibility MAJOR contract — proven in mock-adapter.test.ts).
  */
 export class MockLlmAdapter implements LlmAdapter {
+  readonly providerName = 'mock';
   private readonly fixtures: Map<string, unknown>;
 
   constructor(fixtures: Array<{ view: ViewNumber; mode: AnalysisMode; output: unknown }> = []) {
@@ -141,3 +146,6 @@ export type { Claim } from '@recipe-systems/schemas';
 
 export const LLM_ADAPTER_SEAM =
   'provider-neutral (Tech Stack §10; Q9 OPEN — benchmark wks 1–4; no provider pinned in-repo)';
+
+export { DeepSeekLlmAdapter, extractJson, LlmPermanentProviderError, LlmTransientProviderError } from './deepseek-adapter';
+export type { DeepSeekConfig } from './deepseek-adapter';

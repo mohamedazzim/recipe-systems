@@ -33,11 +33,32 @@ function req(view: number) {
   };
 }
 
-describe('worker adapter resolution (Q9 OPEN)', () => {
+describe('worker adapter resolution (Q9 RESOLVED — deepseek branch)', () => {
   it('default (no env): pending adapter throws the labeled ProviderPendingError', async () => {
     const adapter = resolveAdapter({});
     await expect(adapter.generate(req(1))).rejects.toBeInstanceOf(ProviderPendingError);
-    await expect(adapter.generate(req(1))).rejects.toThrow(/Q9 OPEN/);
+    await expect(adapter.generate(req(1))).rejects.toThrow(/LLM_PROVIDER/);
+  });
+
+  it('Q9-2: LLM_PROVIDER=deepseek selects the real provider (observable, no secrets)', () => {
+    const adapter = resolveAdapter({
+      LLM_PROVIDER: 'deepseek',
+      DEEPSEEK_API_KEY: 'sk-test-not-real',
+      DEEPSEEK_MODEL: 'deepseek-v4-pro',
+      DEEPSEEK_BASE_URL: 'https://api.deepseek.com',
+    });
+    expect(adapter.providerName).toBe('deepseek');
+    expect(adapter.modelVersion).toBe('deepseek:deepseek-v4-pro');
+  });
+
+  it('Q9-2: ANALYSIS_LLM_STUB=1 always forces the deterministic stub (explicit determinism wins)', () => {
+    const adapter = resolveAdapter({ ANALYSIS_LLM_STUB: '1', LLM_PROVIDER: 'deepseek' });
+    expect(adapter.providerName).toBe('stub');
+  });
+
+  it('Q9-2: unknown LLM_PROVIDER stays on the pending adapter (no silent fallback to a real provider)', () => {
+    const adapter = resolveAdapter({ LLM_PROVIDER: 'something-else' });
+    expect(adapter.providerName).toBe('pending');
   });
 
   const stub = resolveAdapter({ ANALYSIS_LLM_STUB: '1' });

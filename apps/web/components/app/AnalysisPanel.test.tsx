@@ -20,6 +20,7 @@ function props(overrides: Partial<Parameters<typeof AnalysisPanel>[0]> = {}) {
     recipeId: 'r1',
     lines: [],
     methodState: null,
+    signedIn: true,
     ...overrides,
   };
 }

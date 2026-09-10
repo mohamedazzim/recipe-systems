@@ -17,6 +17,7 @@ import {
   Inject,
   NotFoundException,
   Param,
+  Patch,
   Post,
   Req,
   Res,
@@ -25,12 +26,24 @@ import {
 import { z } from 'zod';
 import { Response } from 'express';
 import { PrismaClient } from '@recipe-systems/database';
-import { ActorRequest, GuestOrJwtGuard } from '../../common/guards/guest-or-jwt.guard';
+import { ActorRequest, GuestOrJwtGuard, Actor } from '../../common/guards/guest-or-jwt.guard';
+import { AuthedRequest, JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CsrfGuard } from '../../common/guards/csrf.guard';
 import { AnalysisService } from './analysis.service';
 import { AnalysisEventsService } from './analysis-events.service';
 
 const analyseSchema = z.object({ mode: z.enum(['home', 'chef']) }).strict();
+// D-19 (P4-1): RS-US-45 assumption-edit body. At least one field is required.
+const view9AssumptionsSchema = z
+  .object({
+    fish_class: z.enum(['lean', 'oily']).optional(),
+    coconut_grams: z.number().positive().max(5000).optional(),
+    oil_tbsp: z.number().positive().max(100).optional(),
+  })
+  .strict()
+  .refine((value) => Object.keys(value).length > 0, {
+    message: 'at least one assumption (fish_class, coconut_grams, oil_tbsp) is required',
+  });
 const UUID_RE =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
@@ -65,6 +78,34 @@ export class AnalysisController {
     }
     const actor = this.actorOf(req);
     return this.analysis.enqueue(actor, recipeId, parsed.data.mode);
+  }
+
+  /**
+   * D-19 (P4-1) RS-US-45: edit View 9 assumptions (fish class, coconut grams,
+   * oil tablespoons) → deterministic recompute of the band. Auth: Bearer.
+   * The API enqueues ONLY — the worker recomputes and persists (one-writer).
+   */
+  @Patch('analysis/:analysisId/view-9/assumptions')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard, CsrfGuard)
+  async patchView9Assumptions(
+    @Req() req: AuthedRequest,
+    @Param('analysisId') analysisId: string,
+    @Body() body: unknown,
+  ) {
+    if (!UUID_RE.test(analysisId)) {
+      throw new NotFoundException({ code: 'ANALYSIS_NOT_FOUND', message: 'Analysis not found' });
+    }
+    const parsed = view9AssumptionsSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException({
+        code: 'INVALID_ASSUMPTIONS',
+        message:
+          'body must be { fish_class?: "lean"|"oily", coconut_grams?: number, oil_tbsp?: number } with at least one field',
+      });
+    }
+    const actor: Actor = { kind: 'user', user: req.user! };
+    return this.analysis.recomputeView9(actor, analysisId, parsed.data);
   }
 
   /** Read-only status + views of one analysis (INV-17: 404 for missing AND foreign). */

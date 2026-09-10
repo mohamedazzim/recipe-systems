@@ -5,7 +5,12 @@
 import * as pgBossNs from 'pg-boss';
 import { Client } from 'pg';
 import { prisma } from '@recipe-systems/database';
-import { AnalysisJobData, ANALYSIS_EVENTS_CHANNEL, AnalysisJobHandler } from './analysis-job.handler';
+import {
+  AnalysisJobData,
+  ANALYSIS_EVENTS_CHANNEL,
+  AnalysisJobHandler,
+  View9RecomputeJobData,
+} from './analysis-job.handler';
 import { resolveAdapter } from './adapter';
 
 // pg-boss v10 is CJS with `module.exports = PgBoss` (class directly). The worker
@@ -25,6 +30,8 @@ const PgBoss = ((pgBossNs as unknown as { default?: BossCtor }).default ??
 
 const DATABASE_URL = process.env.DATABASE_URL ?? '';
 const QUEUE_NAME = 'analysis';
+// D-19 (P4-1): the RS-US-45 assumption-edit recompute queue (View 9 only).
+export const VIEW9_RECOMPUTE_QUEUE = 'view9-recompute';
 // Q13-labeled pilot defaults (SCAFFOLD §7 Q13 OPEN; revalidated at P7).
 const RETRY_LIMIT = 3;
 const RETRY_DELAY = 2; // seconds, exponential backoff on
@@ -67,7 +74,8 @@ export async function main(): Promise<void> {
 
   await boss.start();
   await boss.createQueue(QUEUE_NAME);
-  console.log('analysis-worker: consuming queue "analysis"');
+  await boss.createQueue(VIEW9_RECOMPUTE_QUEUE);
+  console.log('analysis-worker: consuming queue "analysis" + "view9-recompute"');
 
   // pg-boss v10.4+ delivers a BATCH (array) to the work handler.
   await boss.work(QUEUE_NAME, async (jobs: unknown) => {
@@ -80,6 +88,19 @@ export async function main(): Promise<void> {
       console.log(`analysis-worker: job ${job.id ?? 'unknown'} for analysis ${job.data.analysis_id}`);
       await handler.handle(job.data);
     }
+
+  // D-19: the View 9 recompute queue — same batch delivery contract.
+  await boss.work(VIEW9_RECOMPUTE_QUEUE, async (jobs: unknown) => {
+    const batch = (Array.isArray(jobs) ? jobs : [jobs]) as Array<{
+      id?: string;
+      data?: View9RecomputeJobData;
+    }>;
+    for (const job of batch) {
+      if (!job || !job.data) continue;
+      console.log(`analysis-worker: view9-recompute job ${job.id ?? 'unknown'} for analysis ${job.data.analysis_id}`);
+      await handler.handleView9Recompute(job.data);
+    }
+  });
   });
 
   const shutdown = async (): Promise<void> => {

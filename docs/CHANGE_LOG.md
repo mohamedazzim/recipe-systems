@@ -20,6 +20,26 @@
 
 **Rule:** a change that alters any Q1–Q18 row must say so in its entry. The register (SCAFFOLD §7) is the single source of truth for open decisions; this log records the history of how the register changed. No Q-row changes in D-13.
 
+## 2026-09-10 — D-19 Views 5–9 + assumption editors (P4-1)
+
+- Author / session: DeepSeek V4 Pro (VS Code) D-19 dispatch; pre-flight GO + recompute
+  working assumption accepted by the dispatcher before code (HANDOFF §5).
+- What changed (files + substance): deterministic View 8/9 producers in the analysis
+  worker (no LLM; effective-dated D-29 reference reads at job time); worker handler
+  persists views 8/9 COMPLETE and gains the View-9-only recompute path (second queue
+  `view9-recompute`); API adds `PATCH /analysis/:analysisId/view-9/assumptions`
+  (RS-US-45, Bearer) that validates + enqueues only (one-writer preserved); web
+  AnalysisViews ships tabs 5–9 with H6/I6 disclaimers verbatim, the View 9 band/sodium/
+  assumptions surfaces, and the I2 assumption editors (edit → recompute → SSE refresh).
+- Why: D-19 dispatch (Views 5–9, H2/I1/I2, H6/I6) — unblocked by the D-29 reviewed
+  reference load.
+- Register impact: Q1/Q5/Q9/Q10 remain OPEN (labels kept; recompute rides the Q1
+  job-payload capture); ERD §15.4 granularity stays a labeled D-19 assumption.
+- Verification: worker 30/30, API 171/171, web 82/82, integration 83/83 (real Postgres +
+  live reference data), gates PASS, lint/typecheck 0, verify-local exit 0, CI green;
+  live browser recompute verified.
+- Commit(s): recorded at the D-19 checkpoint commit (SHA appended in HANDOFF §5).
+
 ## 2026-09-10 — Method-save bug fix + D-19 pre-flight (GO with labeled recompute)
 
 - Author / session: DeepSeek V4 Pro (VS Code) takeover session; dispatcher-authorized.

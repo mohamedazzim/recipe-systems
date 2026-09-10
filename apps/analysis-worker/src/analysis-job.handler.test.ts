@@ -91,7 +91,11 @@ interface PrismaMock {
     updateMany: jest.Mock;
     findMany: jest.Mock;
   };
-  analysisView: { upsert: jest.Mock };
+  analysisView: { upsert: jest.Mock; findUnique: jest.Mock };
+  ingredientDictionary: { findMany: jest.Mock };
+  ingredientAlias: { findMany: jest.Mock };
+  dietaryAllergenMapping: { findMany: jest.Mock };
+  nutritionFoodCompositionEntry: { findMany: jest.Mock };
   $transaction: jest.Mock;
 }
 
@@ -104,7 +108,14 @@ function mockPrisma(): PrismaMock {
       updateMany: jest.fn().mockResolvedValue({ count: 0 }),
       findMany: jest.fn().mockResolvedValue([]),
     },
-    analysisView: { upsert: jest.fn().mockResolvedValue({}) },
+    analysisView: {
+      upsert: jest.fn().mockResolvedValue({}),
+      findUnique: jest.fn().mockResolvedValue(null),
+    },
+    ingredientDictionary: { findMany: jest.fn().mockResolvedValue([]) },
+    ingredientAlias: { findMany: jest.fn().mockResolvedValue([]) },
+    dietaryAllergenMapping: { findMany: jest.fn().mockResolvedValue([]) },
+    nutritionFoodCompositionEntry: { findMany: jest.fn().mockResolvedValue([]) },
     $transaction: jest.fn(async (ops: unknown[]) => {
       for (const op of ops) await op;
     }),
@@ -250,5 +261,89 @@ describe('D-17 analysis job handler (A-17 contract)', () => {
 
   it('the model pin is the Q9-honest label (never a pretend provider)', () => {
     expect(MODEL_VERSION_LABEL).toBe('stub-no-provider-q9');
+  });
+
+  it('D-19: deterministic views 8/9 are COMPLETE with the frozen payload shapes (no LLM)', async () => {
+    const prisma = mockPrisma();
+    const { handler } = makeHandler(prisma);
+
+    await handler.handle(jobData());
+
+    const view8Upserts = prisma.analysisView.upsert.mock.calls.filter(
+      (c) => (c[0] as { create: { viewNumber: number } }).create.viewNumber === 8,
+    );
+    const view9Upserts = prisma.analysisView.upsert.mock.calls.filter(
+      (c) => (c[0] as { create: { viewNumber: number } }).create.viewNumber === 9,
+    );
+    expect(view8Upserts).toHaveLength(1);
+    expect(view8Upserts[0][0].create.status).toBe('COMPLETE');
+    const view8Payload = view8Upserts[0][0].create.payload as {
+      present: unknown[];
+      disclaimer: string;
+    };
+    expect(view8Payload.disclaimer).toBe(
+      'Reads the card only. Does not test food. Does not know your kitchen. Not medical advice.',
+    );
+    expect(JSON.stringify(view8Payload).toLowerCase()).not.toContain('safe');
+
+    expect(view9Upserts).toHaveLength(1);
+    expect(view9Upserts[0][0].create.status).toBe('COMPLETE');
+    const view9Payload = view9Upserts[0][0].create.payload as {
+      band: { energy_kcal_min: number; energy_kcal_max: number };
+      sodium: string;
+      disclaimer: string;
+    };
+    expect(view9Payload.band.energy_kcal_min).toBeLessThanOrEqual(view9Payload.band.energy_kcal_max);
+    expect(view9Payload.sodium).toBe('unknown');
+    expect(view9Payload.disclaimer).toBe(
+      'Table estimate from stated assumptions. Not a lab analysis. Not medical advice.',
+    );
+  });
+
+  it('D-19: view-9 recompute merges the delta over persisted assumptions (worker is the writer)', async () => {
+    const prisma = mockPrisma();
+    prisma.analysis.findUnique.mockResolvedValue({ id: 'a1', status: 'complete' });
+    prisma.analysisView.findUnique.mockResolvedValue({
+      id: 'v9',
+      payload: {
+        assumptions: [
+          { key: 'fish_class', value: 'lean-to-oily (species unknown)', tag: 'ASSUMED' },
+          { key: 'coconut_grams', value: '150–200', tag: 'ASSUMED' },
+          { key: 'oil_tbsp', value: '1–2', tag: 'ASSUMED' },
+        ],
+      },
+    });
+    const { handler } = makeHandler(prisma);
+
+    await handler.handleView9Recompute({
+      analysis_id: 'a1',
+      recipe_id: 'r1',
+      delta: { fish_class: 'lean' },
+      captured: CAPTURED as never,
+    });
+
+    const view9Upserts = prisma.analysisView.upsert.mock.calls.filter(
+      (c) => (c[0] as { create: { viewNumber: number } }).create.viewNumber === 9,
+    );
+    expect(view9Upserts).toHaveLength(1);
+    const payload = view9Upserts[0][0].create.payload as {
+      assumptions: Array<{ key: string; value: string | number }>;
+    };
+    expect(payload.assumptions.find((a) => a.key === 'fish_class')?.value).toBe('lean');
+  });
+
+  it('D-19: view-9 recompute for a never-materialized analysis is a no-op', async () => {
+    const prisma = mockPrisma();
+    prisma.analysis.findUnique.mockResolvedValue(null);
+    const { handler } = makeHandler(prisma);
+
+    await handler.handleView9Recompute({
+      analysis_id: 'missing',
+      recipe_id: 'r1',
+      delta: { oil_tbsp: 2 },
+      captured: CAPTURED as never,
+    });
+
+    expect(prisma.analysisView.upsert).not.toHaveBeenCalled();
   });
 });

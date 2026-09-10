@@ -1429,7 +1429,17 @@ execution output; Git: not available / not authorized throughout.
 
 ### H-19 — D-19 Views 5–9
 
-☐ No entry yet.
+- BASE_SHA / COMMIT_SHA: BASE `82f88b6` · COMMIT recorded at the D-19 checkpoint (commit message `feat(D-19): ...` — full SHA appended after the push; see §5 D-19 EXECUTION).
+- Date / agent session: 2026-09-10 · D-19 dispatch session (pre-flight GO + recompute working assumption accepted by the dispatcher BEFORE code — recorded in HANDOFF §5).
+- Status: **DONE** (implementation + verification; audit A-19 pending — dispatched after this checkpoint per convention).
+- Summary: Views 5–9 shipped — deterministic View 8 (versioned allergen mapping via `dietary_allergen_definition/mapping`, `analysis_claim.allergen_id` semantics honored by construction) and View 9 (band from `nutrition_food_composition_entry/version`, USDA per-100g values) computed in the analysis worker with NO LLM; Views 5–7 presented from the persisted LLM/stub payloads; H6/I6 disclaimers verbatim on every View 8/9 surface; I2 assumption editors (fish class, coconut grams, oil tablespoons) → RS-US-45 PATCH → deterministic pg-boss recompute job → worker-only write → band recomputed; assumptions persist in `analysis_view.payload.assumptions`.
+- Files changed: `apps/analysis-worker/src/{deterministic-views.ts(+test), analysis-job.handler.ts(+test), main.ts}` · `apps/api/src/modules/analysis/{analysis.controller.ts(+test), analysis.service.ts(+test), analysis-queue.service.ts}` · `apps/web/components/app/{AnalysisViews.tsx(+test), AnalysisPanel.tsx(+test)}` · `apps/web/lib/{views.ts, hooks/useAnalysisStatus.ts}` · `tests/integration/story_d19_views_8_9.test.ts` (new) · `tests/integration/story_d17_worker_loop.test.ts` (D-19 update) · `docs/{HANDOFF,CHANGE_LOG}.md`.
+- Test results: worker 30/30 · API 171/171 · web 82/82 · integration 83/83 (real Postgres, live D-29 reference load; snapshot hygiene re-verified) · gates PASS (8/8 golden invariants) · lint 0 · typecheck 0 · verify-local exit 0 · CI green (run id at checkpoint).
+- Done-criteria evidence: Views 5–9 render (live browser: all nine tabs; integration asserts the persisted rows) · View 8 flags fish + mustard-capable mapping, coconut NOT filed as US major tree nut (integration asserts no `tree_nuts`) · View 9 band around 1,300–2,200 kcal pot scale on golden-card amounts (integration asserts 1,306–2,223) with sodium Unknown · assumption edit recomputes the band (live: 716–1,018 → 893–1,018 kcal; integration: fish_class lean collapses the band) · disclaimers verbatim on every View 8/9 surface (unit + integration assert exact strings) · "safe" nowhere (INV-13 static + unit assertions) · no point-kcal (band min < max asserted).
+- Gate evidence: QG2 regression gates PASS with the one-writer gates enforcing (API adds queue-enqueue only — no analysis_* writes; verified by the gate grep) · golden 8/8 invariants green.
+- OPEN DECISION notes: Q1 OPEN (recompute input rides the job-payload capture — labeled, not resolved) · Q5 OPEN (D-19 reads dictionary/alias only) · Q9 OPEN (Views 5–7 stub in dev; Views 8/9 need no provider) · Q10 OPEN (no OCR) · ERD §15.4 recompute granularity labeled (View 9 only; Views 1–7 never regenerated).
+- Deviations: RS-US-45 200 is `{analysis_id, status:'recompute_queued', assumptions}` instead of the synchronous recomputed band (one-writer + single-implementation hygiene; recorded in §5) · I7 unmapped listing carried as ASSUMED-tagged assumption entries (frozen View 9 payload has no dedicated unmapped field) · live lines without extracted amounts stay I7-excluded (D-12 intake limitation — honest, not invented).
+- Audit result: A-19 not yet executed — PENDING.
 
 ### H-20 — D-20 Chef mode + station card
 
@@ -2023,3 +2033,90 @@ execution output; Git: not available / not authorized throughout.
   by a reviewed patch.
   **Resume point:** dispatcher confirms the recompute label → implement D-19 (Views 5–9 +
   assumption editors + disclaimers) per DISPATCH D-19; audit A-19 after.
+
+
+- 2026-09-10 — **D-19 EXECUTION — DISPATCH AUTHORIZATION (recorded BEFORE code; user-accepted)**
+  **Authorization:** the user explicitly accepted the D-19 pre-flight and confirmed the I2
+  recompute design as a D-19-scoped LABELED working assumption:
+  - Edits (fish class, coconut grams, oil tablespoons) → canonical RS-US-45 PATCH →
+    deterministic pg-boss recompute job → the analysis worker performs the recomputation →
+    the worker is the ONLY writer of `analysis_*` → updated View 9 payload persisted →
+    assumptions remain in `analysis_view.payload.assumptions`.
+  - Q1 REMAINS OPEN (recompute input rides the existing job-payload capture — same D-17
+    labeled assumption; does NOT resolve Q1). ERD §15.4 recompute granularity remains a
+    labeled D-19 assumption. Recompute scope is View 9 ONLY — Views 1–7 never regenerated.
+  - One-writer preserved: the web/API never mutate `analysis_view` directly.
+  - Schema/terminology reconciliation accepted (allergen_map → dietary_allergen_*;
+    food_composition_table → nutrition_food_composition_*; food_id → external_id;
+    "analysis/" → the current analysis-worker path; region_pack → label_pack).
+  - Q5, Q9, Q10, Q1 all remain OPEN.
+  **Non-goals (explicit):** D-20, OCR/Q10, chef-mode final presentation, View 5 veto
+  workflow, print changes, Q5/Q9/Q1 resolution.
+  **Implementation decisions recorded up-front (labels, not silent inventions):**
+  - RS-US-45 200 is satisfied asynchronously: the PATCH validates + enqueues the recompute
+    job and returns `{analysis_id, status:'recompute_queued', assumptions}` — the synchronous
+    "recomputed band" body is impossible without duplicating the worker's computation in the
+    API (one-writer + single-implementation hygiene). The UI re-renders the persisted band
+    when the worker completes (existing poll/SSE). Deviation recorded.
+  - Initial (un-edited) View 9 band spans lean→oily fish classes (canonical §6 default
+    "species unknown"); an assumption edit may pin fish_class to one class (band tightens,
+    stays a band via coconut/oil ranges). Internal 'both' representation is computation-only.
+  - Deterministic View 8/9 producers live in the analysis worker (the sole analysis_*
+    writer); reference-data reads are direct Prisma reads (reads are not writer-scoped).
+  - Minimal ingredient→dictionary resolution for D-19: display_name word-match against
+    dictionary canonical_name + alias_text (lowercased, punctuation-stripped); no match →
+    I7-unmapped (excluded from totals, listed). Full alias UX stays D-25.
+  - Labeled default-mass table for View 9 (per-dictionary-ingredient unit masses) derives
+    from the §6 worked example; every value carries an ASSUMED tag/source.
+
+
+- 2026-09-10 — **D-19 EXECUTION (P4-1 Views 5–9; dispatch authorized above)**
+  **Built:**
+  - Worker `deterministic-views.ts` (NO LLM, Deterministic Views v2 §4): minimal
+    ingredient→dictionary resolution (word-subsequence over canonical_name + alias_text;
+    bare-word defaults fenugreek→seed, coconut→flesh, chilli→green, mustard→seed; full
+    alias UX stays D-25) · `computeView8` (effective-dated mappings at job time; present/
+    not_on_card/unknown/removal_notes/allergen_line; fish species-unknown note; H6
+    verbatim; never "safe") · `computeView9` (real USDA per-100g rows; fish band =
+    lowest/highest-kcal entries; I2 overrides for fish_class lean|oily|both, coconut
+    grams, oil tbsp; labeled default-mass table; I7 unmapped lines excluded from totals
+    and listed as ASSUMED-tagged assumption entries — the frozen View 9 payload has no
+    dedicated unmapped field; sodium `unknown`; per_portion null; I6 verbatim).
+  - Handler: views 8/9 now COMPLETE via the deterministic producers; new
+    `handleView9Recompute` merges the RS-US-45 delta over the PERSISTED payload
+    assumptions (overridesFromPayload/mergeOverrides) → upserts ONLY view 9 (ERD §15.4
+    granularity label; Views 1–7 never regenerated) → NOTIFY complete (SSE refresh).
+    Worker consumes a second queue `view9-recompute`.
+  - API: `PATCH /analysis/:analysisId/view-9/assumptions` (JwtAuthGuard + CsrfGuard;
+    strict body with ≥1 of fish_class|coconut_grams|oil_tbsp; UUID guard; INV-17 404) →
+    `AnalysisService.recomputeView9` (read-only analysis ownership check + Q1-labeled
+    buildCapture) → queue enqueue → 200 `{analysis_id, status:'recompute_queued',
+    assumptions}`. Recorded deviation: RS-US-45's synchronous "recomputed band" body is
+    satisfied asynchronously — the API never writes analysis_* and never duplicates the
+    worker's computation (one-writer + single-implementation hygiene).
+  - Web: AnalysisViews tabs 5–9 (View 5 regional + G2 review notice; View 6 ratios +
+    unresolvable; View 7 sensory with INCOMPLETE state; View 8 flag table + print line +
+    removal notes + H6 verbatim on the surface; View 9 band/macros/sodium/assumptions/
+    tightening factors + I6 verbatim); `View9AssumptionEditor` (fish class select, coconut
+    grams, oil tbsp → PATCH → "Recompute queued" state → SSE-driven refresh with fallback
+    polls via the new `useAnalysisStatus.refresh`); editors hidden for guests (Bearer-only).
+  **Evidence:** worker 30/30 (+9) · API 171/171 (+8) · web 82/82 (+8) · integration
+  83/83 (+2 `story_d19_views_8_9` on REAL Postgres + the LIVE D-29 reference load:
+  View 8 flags fish/coconut/fenugreek, coconut NOT tree nuts, H6 verbatim, no "safe";
+  View 9 band 1,306–2,223 kcal on the golden-card amounts, sodium Unknown, fenugreek
+  powder I7-unmapped; recompute delta collapses the band and touches ONLY view 9; the
+  D-17 story updated to 9/9 COMPLETE) · gates PASS (8/8 golden) · lint 0 · typecheck 0 ·
+  verify-local exit 0 (run on the D-19 tree) · CI green (run id recorded at checkpoint).
+  **Live verification (browser + psql, dev stack):** re-analysed the workspace recipe →
+  all nine tabs render; View 8 shows Fish/Coconut/Fenugreek + species-unknown note + H6;
+  View 9 renders a band with sodium Unknown + I7 listing + I6; assumption edit
+  (coconut 200 g) → PATCH → recompute_queued → worker persisted → SSE refresh →
+  band re-rendered (716–1,018 → 893–1,018 kcal), assumptions updated in place. Lines
+  without extracted amounts stay honestly I7-excluded (D-12 parses no amounts — intake
+  limitation, not invented here).
+  **Intentional non-changes:** Q1/Q5/Q9/Q10 OPEN (labels kept; recompute rides the Q1
+  job-payload capture) · no chef mode/station card (D-20) · no OCR (Q10) · no View 5 veto
+  workflow (G2 notice only) · no print changes · frozen schemas untouched · reference
+  data untouched (live counts re-verified 17/12/6/6/12/12 after the story run).
+  **Resume point:** D-19 checkpoint commit below → paired audit A-19 → then D-20
+  (chef mode + station card) or D-21 (disclaimer sweep) per dispatch.

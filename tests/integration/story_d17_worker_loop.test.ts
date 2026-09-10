@@ -161,8 +161,9 @@ describe('D-17 analysis worker loop — real Postgres + pg-boss', () => {
 
     const views = await prisma.analysisView.findMany({ where: { analysisId: analysis!.id } });
     expect(views).toHaveLength(9);
-    expect(views.filter((v) => v.status === 'COMPLETE')).toHaveLength(7);
-    expect(views.filter((v) => v.status === 'INCOMPLETE' && [8, 9].includes(v.viewNumber))).toHaveLength(2);
+    // D-19: all nine views COMPLETE — views 8/9 are the deterministic producers
+    // (no LLM), which replaced the D-18-era INCOMPLETE refusal rows.
+    expect(views.filter((v) => v.status === 'COMPLETE')).toHaveLength(9);
 
     // INV-11: duplicate delivery converges — the completed-status early-return
     // means the payload is never read; no second analysis row, same single current.

@@ -85,7 +85,7 @@ export function RecipeWorkspace({ recipeId, signedIn, onBack, initialLines = nul
 
       <ReadinessPanel recipeId={recipeId} signedIn={signedIn} onAnalysed={setAnalysisId} />
 
-      <AnalysisPanel analysisId={analysisId} recipeId={recipeId} lines={lines} methodState={methodState} />
+      <AnalysisPanel analysisId={analysisId} recipeId={recipeId} lines={lines} methodState={methodState} signedIn={signedIn} />
     </div>
   );
 }

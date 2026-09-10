@@ -16,7 +16,7 @@ const userActor: Actor = {
 function mocks(overrides: {
   lines?: unknown[];
   method?: { list_only: boolean };
-  queue?: { enqueue: jest.Mock };
+  queue?: { enqueue: jest.Mock; enqueueView9Recompute?: jest.Mock };
 } = {}) {
   const recipes = {
     assertOwned: jest.fn().mockResolvedValue({ id: 'r1', methodText: null }),
@@ -26,9 +26,20 @@ function mocks(overrides: {
     getEnqueueState: jest.fn().mockResolvedValue({ can_enqueue: true, blockers: [] }),
     listDraftLines: jest.fn().mockResolvedValue(overrides.lines ?? []),
   };
-  const queue = overrides.queue ?? { enqueue: jest.fn().mockResolvedValue('a-uuid') };
-  const svc = new AnalysisService(recipes as never, intake as never, queue as never);
-  return { svc, recipes, intake, queue };
+  const queue = overrides.queue ?? {
+    enqueue: jest.fn().mockResolvedValue('a-uuid'),
+    enqueueView9Recompute: jest.fn().mockResolvedValue(undefined),
+  };
+  const prisma = {
+    analysis: { findUnique: jest.fn().mockResolvedValue(null) },
+  };
+  const svc = new AnalysisService(
+    recipes as never,
+    intake as never,
+    queue as never,
+    prisma as never,
+  );
+  return { svc, recipes, intake, queue, prisma };
 }
 
 describe('D-17 analysis enqueue (API side)', () => {
@@ -100,7 +111,12 @@ describe('D-17 analysis enqueue (API side)', () => {
     });
     const queue = { enqueue: jest.fn().mockResolvedValue('a2') };
     // rebuild service with the updated recipes mock
-    const svc2 = new AnalysisService(recipes as never, mocks().intake as never, queue as never);
+    const svc2 = new AnalysisService(
+      recipes as never,
+      mocks().intake as never,
+      queue as never,
+      {} as never,
+    );
     await svc2.enqueue(userActor, 'r1', 'chef');
     const payload = queue.enqueue.mock.calls[0][0];
     expect(payload.captured.structured_recipe.method_steps).toEqual([
@@ -110,6 +126,68 @@ describe('D-17 analysis enqueue (API side)', () => {
       name: 'CDK 1669 / Mrs. Anitha',
       type: null,
       matched: true,
+    });
+  });
+});
+
+describe('D-19 view-9 recompute (RS-US-45, API side)', () => {
+  it('queues the deterministic recompute job with the current capture (never writes analysis_*)', async () => {
+    const { svc, queue, prisma } = mocks({
+      lines: [{ id: 'line-1', displayName: 'Fish — 500g', amountText: '500g', amount: { toString: () => '500' }, unit: 'g', confirmedSense: null, groupName: 'fish_meat', includeOnList: true }],
+    });
+    prisma.analysis.findUnique.mockResolvedValue({
+      id: 'a1',
+      recipeId: 'r1',
+      recipe: { accountId: 'acc-1', guestSessionId: null },
+    });
+
+    const result = await svc.recomputeView9(userActor, 'a1', { fish_class: 'lean' });
+
+    expect(result).toEqual({ analysis_id: 'a1', status: 'recompute_queued', assumptions: { fish_class: 'lean' } });
+    const enqueueView9Recompute = queue.enqueueView9Recompute as jest.Mock;
+    const payload = enqueueView9Recompute.mock.calls[0][0];
+    expect(payload.analysis_id).toBe('a1');
+    expect(payload.recipe_id).toBe('r1');
+    expect(payload.delta).toEqual({ fish_class: 'lean' });
+    expect(payload.captured.structured_recipe.ingredients).toHaveLength(1);
+    // one-writer: no analysis_* writes anywhere on this path
+    expect(prisma.analysis.findUnique).toHaveBeenCalledTimes(1);
+  });
+
+  it('INV-17: missing analysis → 404 ANALYSIS_NOT_FOUND', async () => {
+    const { svc, prisma } = mocks();
+    prisma.analysis.findUnique.mockResolvedValue(null);
+    await expect(svc.recomputeView9(userActor, 'a-missing', { oil_tbsp: 2 })).rejects.toMatchObject({
+      response: { code: 'ANALYSIS_NOT_FOUND' },
+    });
+  });
+
+  it('INV-17: a foreign analysis 404s and never enqueues', async () => {
+    const { svc, queue, prisma } = mocks();
+    prisma.analysis.findUnique.mockResolvedValue({
+      id: 'a1',
+      recipeId: 'r1',
+      recipe: { accountId: 'someone-else', guestSessionId: null },
+    });
+    await expect(svc.recomputeView9(userActor, 'a1', { coconut_grams: 180 })).rejects.toMatchObject({
+      response: { code: 'ANALYSIS_NOT_FOUND' },
+    });
+    expect(queue.enqueueView9Recompute as jest.Mock).not.toHaveBeenCalled();
+  });
+
+  it('queue unavailable → 409 ENQUEUE_UNAVAILABLE', async () => {
+    const queue = {
+      enqueue: jest.fn(),
+      enqueueView9Recompute: jest.fn().mockRejectedValue(new QueueUnavailableError()),
+    };
+    const { svc, prisma } = mocks({ queue });
+    prisma.analysis.findUnique.mockResolvedValue({
+      id: 'a1',
+      recipeId: 'r1',
+      recipe: { accountId: 'acc-1', guestSessionId: null },
+    });
+    await expect(svc.recomputeView9(userActor, 'a1', { oil_tbsp: 2 })).rejects.toMatchObject({
+      response: { code: 'ENQUEUE_UNAVAILABLE' },
     });
   });
 });

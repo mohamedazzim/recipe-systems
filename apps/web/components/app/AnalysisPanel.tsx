@@ -20,6 +20,8 @@ export interface AnalysisPanelProps {
   lines: WireLine[];
   /** D-13 method wire state for the inferred-source display. */
   methodState: MethodState | null;
+  /** Bearer-only assumption editors (RS-US-45): hidden for guests. */
+  signedIn: boolean;
 }
 
 const STATUS_COPY: Record<string, { label: string; live: boolean }> = {
@@ -29,8 +31,8 @@ const STATUS_COPY: Record<string, { label: string; live: boolean }> = {
   failed: { label: 'The analysis run failed.', live: false },
 };
 
-export function AnalysisPanel({ analysisId, recipeId, lines, methodState }: AnalysisPanelProps) {
-  const { analysis, error } = useAnalysisStatus(analysisId);
+export function AnalysisPanel({ analysisId, recipeId, lines, methodState, signedIn }: AnalysisPanelProps) {
+  const { analysis, error, refresh } = useAnalysisStatus(analysisId);
 
   if (!analysisId) {
     return null;
@@ -96,7 +98,13 @@ export function AnalysisPanel({ analysisId, recipeId, lines, methodState }: Anal
 
             {analysis.status === 'complete' && (
               <div className="mt-5 border-t border-border pt-4">
-                <AnalysisViews analysis={analysis} lines={lines} methodState={methodState} />
+                <AnalysisViews
+                  analysis={analysis}
+                  lines={lines}
+                  methodState={methodState}
+                  signedIn={signedIn}
+                  onRefresh={refresh}
+                />
               </div>
             )}
           </div>

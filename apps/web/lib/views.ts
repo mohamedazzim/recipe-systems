@@ -2,7 +2,17 @@
 // in home mode. No content is invented here — only the canonical presentation
 // rules (Recipe_Systems §7 home-mode column; frozen D-05 payload contracts).
 
-import type { View1Payload, View2Payload, View3Payload, View4Payload, View5Payload } from '@recipe-systems/schemas';
+import type {
+  View1Payload,
+  View2Payload,
+  View3Payload,
+  View4Payload,
+  View5Payload,
+  View6Payload,
+  View7Payload,
+  View8Payload,
+  View9Payload,
+} from '@recipe-systems/schemas';
 import type { WireLine } from '@/lib/types';
 
 /** Home mode: UNKNOWN fields stay blank (Recipe_Systems §7 "Required blanks"). */
@@ -65,6 +75,45 @@ export function view4Payload(view: unknown): View4Payload | null {
 export function view5Payload(view: unknown): View5Payload | null {
   return isRecord(view) && typeof view.family === 'string' && 'needs_review' in view
     ? (view as View5Payload)
+    : null;
+}
+
+export function view6Payload(view: unknown): View6Payload | null {
+  return isRecord(view) && Array.isArray(view.ratios) && Array.isArray(view.unresolvable)
+    ? (view as View6Payload)
+    : null;
+}
+
+export function view7Payload(view: unknown): View7Payload | null {
+  return isRecord(view) && 'status' in view && Array.isArray((view as View7Payload).memorable_elements)
+    ? (view as View7Payload)
+    : null;
+}
+
+export function view8Payload(view: unknown): View8Payload | null {
+  return (
+    isRecord(view) &&
+    Array.isArray(view.present) &&
+    Array.isArray(view.not_on_card) &&
+    Array.isArray(view.unknown) &&
+    Array.isArray(view.removal_notes) &&
+    typeof view.disclaimer === 'string' &&
+    isRecord(view.allergen_line)
+  )
+    ? (view as View8Payload)
+    : null;
+}
+
+export function view9Payload(view: unknown): View9Payload | null {
+  return (
+    isRecord(view) &&
+    isRecord(view.band) &&
+    typeof view.band.energy_kcal_min === 'number' &&
+    typeof view.band.energy_kcal_max === 'number' &&
+    view.sodium === 'unknown' &&
+    Array.isArray(view.assumptions)
+  )
+    ? (view as View9Payload)
     : null;
 }
 

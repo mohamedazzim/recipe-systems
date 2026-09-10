@@ -12,6 +12,9 @@ export interface AnalysisStatusValue {
   /** Terminal status reached (complete or failed) or null while still running. */
   terminal: AnalysisStatus | null;
   error: string | null;
+  /** Manual refresh (D-19: the View 9 assumption editor re-reads after the
+   *  worker's recompute signal — the same GET /analysis/:id read). */
+  refresh: () => Promise<void>;
 }
 
 const POLL_MS = 2000;
@@ -20,6 +23,8 @@ export function useAnalysisStatus(analysisId: string | null): AnalysisStatusValu
   const [analysis, setAnalysis] = useState<AnalysisState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const closedRef = useRef(false);
+
+  const refreshRef = useRef<() => Promise<void>>(async () => undefined);
 
   useEffect(() => {
     if (!analysisId) return;
@@ -45,6 +50,9 @@ export function useAnalysisStatus(analysisId: string | null): AnalysisStatusValu
         setError(err instanceof Error ? err.message : 'Could not load the analysis.');
         return false;
       }
+    };
+    refreshRef.current = async () => {
+      await refresh();
     };
 
     const poll = async (): Promise<void> => {
@@ -91,7 +99,7 @@ export function useAnalysisStatus(analysisId: string | null): AnalysisStatusValu
       ? analysis.status
       : null;
 
-  return { analysis, terminal, error };
+  return { analysis, terminal, error, refresh: refreshRef.current };
 }
 
 /** The session cookie name the BFF sets (readable, non-httpOnly). */

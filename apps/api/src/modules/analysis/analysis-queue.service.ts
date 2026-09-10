@@ -32,6 +32,9 @@ const PgBoss = ((pgBossNs as unknown as { default?: BossCtor }).default ??
   pgBossNs) as unknown as BossCtor;
 
 export const ANALYSIS_QUEUE = 'analysis';
+// D-19 (P4-1): the RS-US-45 assumption-edit recompute queue (View 9 only;
+// consumed by the worker — the API never writes analysis_*).
+export const VIEW9_RECOMPUTE_QUEUE = 'view9-recompute';
 export const ANALYSIS_EVENTS_CHANNEL = 'recipe_analysis_events';
 
 export interface AnalysisJobPayload {
@@ -42,6 +45,18 @@ export interface AnalysisJobPayload {
   /** Q1-labeled working assumption: the captured structured-recipe state rides
    *  the job payload (DISPATCH D-17 deliverable 2; BUILD_PLAN §7.2 — the formal
    *  snapshot decision is still OPEN and due by week 5). */
+  captured: StructuredRecipeInput;
+}
+
+/** D-19 (P4-1): RS-US-45 assumption edit — recompute View 9 only. */
+export interface View9RecomputePayload {
+  analysis_id: string;
+  recipe_id: string;
+  delta: {
+    fish_class?: 'lean' | 'oily';
+    coconut_grams?: number;
+    oil_tbsp?: number;
+  };
   captured: StructuredRecipeInput;
 }
 
@@ -66,6 +81,7 @@ export class AnalysisQueueService implements OnModuleInit, OnModuleDestroy {
       });
       await this.boss.start();
       await this.boss.createQueue(ANALYSIS_QUEUE);
+      await this.boss.createQueue(VIEW9_RECOMPUTE_QUEUE);
       this.started = true;
       this.logger.log('analysis queue ready');
     } catch (err) {
@@ -83,6 +99,15 @@ export class AnalysisQueueService implements OnModuleInit, OnModuleDestroy {
     const analysis_id = randomUUID();
     await this.boss.send(ANALYSIS_QUEUE, { ...payload, analysis_id } satisfies AnalysisJobPayload);
     return analysis_id;
+  }
+
+  /** D-19 (P4-1): enqueue the View 9 recompute (RS-US-45). The API never writes
+   *  analysis_* — the worker consumes this queue and persists the payload. */
+  async enqueueView9Recompute(payload: View9RecomputePayload): Promise<void> {
+    if (!this.started || !this.boss) {
+      throw new QueueUnavailableError();
+    }
+    await this.boss.send(VIEW9_RECOMPUTE_QUEUE, payload);
   }
 
   async onModuleDestroy(): Promise<void> {

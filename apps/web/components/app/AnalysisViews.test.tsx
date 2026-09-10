@@ -47,10 +47,10 @@ describe('AnalysisViews (D-18 home mode, persisted payloads only)', () => {
         methodState={{ method_tag: 'INFERRED', method_source: 'CDK 1669 / Mrs. Anitha', list_only: false }}
       />,
     );
-    expect(screen.getByText('Coastal Tamil meen kuzhambu')).toBeInTheDocument();
-    expect(screen.getByText('Raw-ground coconut paste, triple sour')).toBeInTheDocument();
-    expect(screen.getByText('Kerala kudampuli meen curry')).toBeInTheDocument();
-    expect(screen.getByText(/kudampuli replaces tamarind/)).toBeInTheDocument();
+    expect(screen.getAllByText('Coastal Tamil meen kuzhambu').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Raw-ground coconut paste, triple sour').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Kerala kudampuli meen curry').length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/kudampuli replaces tamarind/).length).toBeGreaterThan(0);
     expect(screen.getByText('Inferred from CDK 1669 / Mrs. Anitha')).toBeInTheDocument();
   });
 
@@ -192,5 +192,229 @@ describe('AnalysisViews (D-18 home mode, persisted payloads only)', () => {
     );
     await userEvent.click(screen.getByRole('tab', { name: '1 · Why it works' }));
     expect(screen.getByText('Ingredient gone-lin')).toBeInTheDocument();
+  });
+});
+
+describe('AnalysisViews (D-19 Views 5–9)', () => {
+  const H6 = 'Reads the card only. Does not test food. Does not know your kitchen. Not medical advice.';
+  const I6 = 'Table estimate from stated assumptions. Not a lab analysis. Not medical advice.';
+
+  it('View 5: regional comparison with the G2 review notice', async () => {
+    render(
+      <AnalysisViews
+        analysis={analysis([
+          view(5, 'COMPLETE', {
+            family: 'Coastal Tamil (Kanyakumari) style meen kuzhambu',
+            architecture: 'Raw-ground coconut paste, triple sour',
+            confidence: 'high',
+            not_this: [{ variant: 'Kerala meen curry', key_difference: 'Kudampuli instead of tamarind/mango' }],
+            needs_review: true,
+            tag: 'INFERRED',
+          }),
+        ])}
+        lines={LINES}
+        methodState={null}
+      />,
+    );
+    await userEvent.click(screen.getByRole('tab', { name: '5 · Regional' }));
+    expect(screen.getAllByText(/Kudampuli instead of tamarind/).length).toBeGreaterThan(0);
+    expect(screen.getByText('Regional note pending review')).toBeInTheDocument();
+  });
+
+  it('View 6: ratios + unresolvable entries with tags', async () => {
+    render(
+      <AnalysisViews
+        analysis={analysis([
+          view(6, 'COMPLETE', {
+            ratios: [{ components: 'chilli powder : coriander', ratio: '2 tsp : 1 tsp', structural: true, tag: 'CARD' }],
+            unresolvable: [{ components: 'salt : liquid', reason: 'salt quantity is null', tag: 'UNKNOWN' }],
+          }),
+        ])}
+        lines={LINES}
+        methodState={null}
+      />,
+    );
+    await userEvent.click(screen.getByRole('tab', { name: '6 · Ratios' }));
+    expect(screen.getByText('chilli powder : coriander: 2 tsp : 1 tsp')).toBeInTheDocument();
+    expect(screen.getByText(/salt : liquid/)).toBeInTheDocument();
+  });
+
+  it('View 7: sensory elements; INCOMPLETE when no process exists', async () => {
+    const { rerender } = render(
+      <AnalysisViews
+        analysis={analysis([
+          view(7, 'COMPLETE', {
+            status: 'COMPLETE',
+            memorable_elements: [{ element: 'The finish repeats the main ingredient', grounded_in: 'Process stage finish aroma, per View 3', tag: 'INFERRED' }],
+          }),
+        ])}
+        lines={LINES}
+        methodState={null}
+      />,
+    );
+    await userEvent.click(screen.getByRole('tab', { name: '7 · Sensory' }));
+    expect(screen.getByText('The finish repeats the main ingredient')).toBeInTheDocument();
+    rerender(
+      <AnalysisViews
+        analysis={analysis([view(7, 'INCOMPLETE', { status: 'INCOMPLETE', memorable_elements: [] })])}
+        lines={LINES}
+        methodState={null}
+      />,
+    );
+    expect(screen.getByText('Sensory notes unavailable')).toBeInTheDocument();
+  });
+
+  it('View 8: flags present allergens, never "safe", H6 disclaimer verbatim', async () => {
+    render(
+      <AnalysisViews
+        analysis={analysis([
+          view(8, 'COMPLETE', {
+            present: ['Fish', 'Mustard', 'Coconut', 'Fenugreek'],
+            not_on_card: ['garlic', 'ginger'],
+            unknown: [],
+            removal_notes: [{ item: 'Mustard', note: 'Removing it changes the tadka; the dish is still a kuzhambu.' }],
+            disclaimer: H6,
+            allergen_line: { contains: ['Fish', 'Mustard', 'Coconut', 'Fenugreek'], notes: ['Fish species unknown.'], unknown: [] },
+          }),
+        ])}
+        lines={LINES}
+        methodState={null}
+      />,
+    );
+    await userEvent.click(screen.getByRole('tab', { name: '8 · Dietary' }));
+    expect(screen.getAllByText('Fish, Mustard, Coconut, Fenugreek').length).toBeGreaterThan(0);
+    expect(screen.getByText(/Fish species unknown/)).toBeInTheDocument();
+    expect(screen.getByText(H6)).toBeInTheDocument();
+    expect(screen.getByText('Present')).toBeInTheDocument();
+    // INV-13: the word "safe" appears nowhere on the View 8 surface
+    expect(screen.queryByText(/safe/i)).not.toBeInTheDocument();
+  });
+
+  it('View 9: band + sodium Unknown + assumptions + I6 disclaimer verbatim', async () => {
+    render(
+      <AnalysisViews
+        analysis={analysis([
+          view(9, 'COMPLETE', {
+            band: {
+              energy_kcal_min: 1306,
+              energy_kcal_max: 2223,
+              protein_g: { min: 100, max: 110 },
+              fat_g: { min: 60, max: 80 },
+              carb_g: { min: 30, max: 40 },
+              fibre_g: { min: 5, max: 8 },
+            },
+            sodium: 'unknown',
+            assumptions: [
+              { key: 'fish_class', value: 'lean-to-oily (species unknown)', tag: 'ASSUMED' },
+              { key: 'coconut_grams', value: '150–200', tag: 'ASSUMED' },
+              { key: 'oil_tbsp', value: '1–2', tag: 'ASSUMED' },
+              { key: 'unmapped_ingredient', value: 'Fenugreek Powder — 1/2 Tsp', tag: 'ASSUMED' },
+            ],
+            per_portion: null,
+            tightening_factors: ['Name the fish species', 'Weigh the coconut'],
+            disclaimer: I6,
+          }),
+        ])}
+        lines={LINES}
+        methodState={null}
+        signedIn
+      />,
+    );
+    await userEvent.click(screen.getByRole('tab', { name: '9 · Nutrition' }));
+    expect(screen.getByText('1,306–2,223 kcal')).toBeInTheDocument();
+    expect(screen.getByText('Sodium: Unknown')).toBeInTheDocument();
+    expect(screen.getByText(I6)).toBeInTheDocument();
+    // I7: the unmapped line is listed
+    expect(screen.getByText('Fenugreek Powder — 1/2 Tsp')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Recompute band' })).toBeInTheDocument();
+  });
+
+  it('View 9 guest: editors hidden, honest note (Bearer-only RS-US-45)', async () => {
+    render(
+      <AnalysisViews
+        analysis={analysis([
+          view(9, 'COMPLETE', {
+            band: { energy_kcal_min: 1300, energy_kcal_max: 2200, protein_g: { min: 1, max: 2 }, fat_g: { min: 1, max: 2 }, carb_g: { min: 1, max: 2 }, fibre_g: { min: 1, max: 2 } },
+            sodium: 'unknown',
+            assumptions: [],
+            per_portion: null,
+            tightening_factors: [],
+            disclaimer: I6,
+          }),
+        ])}
+        lines={LINES}
+        methodState={null}
+        signedIn={false}
+      />,
+    );
+    await userEvent.click(screen.getByRole('tab', { name: '9 · Nutrition' }));
+    expect(screen.queryByRole('button', { name: 'Recompute band' })).not.toBeInTheDocument();
+    expect(screen.getByText(/Editing assumptions needs an account/)).toBeInTheDocument();
+  });
+
+  it('View 9 recompute: PATCH with the edited assumptions, queued state, no false band', async () => {
+    (globalThis as unknown as { fetch: unknown }).fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ analysis_id: 'a-1', status: 'recompute_queued', assumptions: { fish_class: 'lean' } }),
+    });
+    const onRefresh = jest.fn().mockResolvedValue(undefined);
+    render(
+      <AnalysisViews
+        analysis={analysis([
+          view(9, 'COMPLETE', {
+            band: { energy_kcal_min: 1300, energy_kcal_max: 2200, protein_g: { min: 1, max: 2 }, fat_g: { min: 1, max: 2 }, carb_g: { min: 1, max: 2 }, fibre_g: { min: 1, max: 2 } },
+            sodium: 'unknown',
+            assumptions: [{ key: 'fish_class', value: 'lean-to-oily (species unknown)', tag: 'ASSUMED' }],
+            per_portion: null,
+            tightening_factors: [],
+            disclaimer: I6,
+          }),
+        ])}
+        lines={LINES}
+        methodState={null}
+        signedIn
+        onRefresh={onRefresh}
+      />,
+    );
+    await userEvent.click(screen.getByRole('tab', { name: '9 · Nutrition' }));
+    await userEvent.selectOptions(screen.getByLabelText('Fish class'), 'lean');
+    await userEvent.click(screen.getByRole('button', { name: 'Recompute band' }));
+    expect(await screen.findByText(/Recompute queued — the band updates in a moment/)).toBeInTheDocument();
+    const patch = (globalThis.fetch as jest.Mock).mock.calls.find(
+      (c) => (c[1] as RequestInit).method === 'PATCH',
+    );
+    expect(patch).toBeDefined();
+    expect(patch[0]).toContain('/analysis/a-1/view-9/assumptions');
+    expect(JSON.parse((patch[1] as RequestInit).body as string)).toEqual({ fish_class: 'lean' });
+  });
+
+  it('View 9 recompute failure: the real error is visible', async () => {
+    (globalThis as unknown as { fetch: unknown }).fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: { code: 'INTERNAL', message: 'boom' } }),
+    });
+    render(
+      <AnalysisViews
+        analysis={analysis([
+          view(9, 'COMPLETE', {
+            band: { energy_kcal_min: 1300, energy_kcal_max: 2200, protein_g: { min: 1, max: 2 }, fat_g: { min: 1, max: 2 }, carb_g: { min: 1, max: 2 }, fibre_g: { min: 1, max: 2 } },
+            sodium: 'unknown',
+            assumptions: [],
+            per_portion: null,
+            tightening_factors: [],
+            disclaimer: I6,
+          }),
+        ])}
+        lines={LINES}
+        methodState={null}
+        signedIn
+      />,
+    );
+    await userEvent.click(screen.getByRole('tab', { name: '9 · Nutrition' }));
+    await userEvent.type(screen.getByLabelText('Coconut (grams)'), '180');
+    await userEvent.click(screen.getByRole('button', { name: 'Recompute band' }));
+    expect(await screen.findByText('boom')).toBeInTheDocument();
   });
 });

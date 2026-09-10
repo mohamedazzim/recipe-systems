@@ -73,3 +73,65 @@ describe('AnalysisController.latestAnalysis (D-18 read route)', () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 });
+
+describe('AnalysisController.patchView9Assumptions (D-19 RS-US-45)', () => {
+  const analysis = { recomputeView9: jest.fn() };
+  const controller = new AnalysisController(analysis as never, {} as never, {} as never);
+
+  const user = { accountId: 'acc-1', email: 'c@t.dev', sub: 's' };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('valid body → recompute_queued response (Bearer-only route)', async () => {
+    analysis.recomputeView9.mockResolvedValue({
+      analysis_id: 'a-1',
+      status: 'recompute_queued',
+      assumptions: { fish_class: 'lean' },
+    });
+    const result = await controller.patchView9Assumptions(
+      { user } as never,
+      'aaaaaaaa-0000-4000-8000-000000000001',
+      { fish_class: 'lean' },
+    );
+    expect(result).toEqual({
+      analysis_id: 'a-1',
+      status: 'recompute_queued',
+      assumptions: { fish_class: 'lean' },
+    });
+    expect(analysis.recomputeView9).toHaveBeenCalledWith(
+      { kind: 'user', user },
+      'aaaaaaaa-0000-4000-8000-000000000001',
+      { fish_class: 'lean' },
+    );
+  });
+
+  it('empty body → 400 INVALID_ASSUMPTIONS', async () => {
+    await expect(
+      controller.patchView9Assumptions(
+        { user } as never,
+        'aaaaaaaa-0000-4000-8000-000000000001',
+        {},
+      ),
+    ).rejects.toMatchObject({ response: { code: 'INVALID_ASSUMPTIONS' } });
+    expect(analysis.recomputeView9).not.toHaveBeenCalled();
+  });
+
+  it('unknown field → 400 INVALID_ASSUMPTIONS (strict body)', async () => {
+    await expect(
+      controller.patchView9Assumptions(
+        { user } as never,
+        'aaaaaaaa-0000-4000-8000-000000000001',
+        { fish_class: 'lean', garlic: true },
+      ),
+    ).rejects.toMatchObject({ response: { code: 'INVALID_ASSUMPTIONS' } });
+  });
+
+  it('non-UUID analysis id → 404 ANALYSIS_NOT_FOUND before any service call', async () => {
+    await expect(
+      controller.patchView9Assumptions({ user } as never, 'not-a-uuid', { oil_tbsp: 2 }),
+    ).rejects.toMatchObject({ response: { code: 'ANALYSIS_NOT_FOUND' } });
+    expect(analysis.recomputeView9).not.toHaveBeenCalled();
+  });
+});

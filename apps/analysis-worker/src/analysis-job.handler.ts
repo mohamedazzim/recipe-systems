@@ -18,6 +18,14 @@ import { Prisma, PrismaClient } from '@recipe-systems/database';
 import { StructuredRecipeInput } from '@recipe-systems/schemas';
 import { generateGrounded, LlmAdapter } from '@recipe-systems/llm-adapter';
 import { ProviderPendingError } from './adapter';
+import {
+  computeView8,
+  computeView9,
+  DEFAULT_OVERRIDES,
+  mergeOverrides,
+  overridesFromPayload,
+  View9AssumptionDelta,
+} from './deterministic-views';
 
 /** Q9-honest model pin: no provider exists yet — the label is recorded, never a
  *  pretend provider (A-17 hygiene: labeled assumptions only). */
@@ -38,6 +46,16 @@ export interface AnalysisJobData {
 export type AnalysisStatus = 'generating' | 'complete' | 'failed';
 
 export type NotifyFn = (payload: { analysis_id: string; status: AnalysisStatus }) => Promise<void>;
+
+/** D-19 (P4-1): the RS-US-45 assumption-edit recompute job (View 9 only). */
+export interface View9RecomputeJobData {
+  analysis_id: string;
+  recipe_id: string;
+  delta: View9AssumptionDelta;
+  /** Q1-labeled working assumption: the captured state rides the job payload
+   *  (same assumption as AnalysisJobData). */
+  captured: StructuredRecipeInput;
+}
 
 const LLM_VIEWS = [1, 2, 3, 4, 5, 6, 7] as const;
 
@@ -117,10 +135,12 @@ export class AnalysisJobHandler {
         await this.upsertView(data.analysis_id, view, 'COMPLETE', first.parse.data);
       }
 
-      // Deterministic views 8/9: computed by D-18 — until then the refusal form
-      // (INCOMPLETE) is the honest persisted state, never fabricated content.
-      await this.upsertView(data.analysis_id, 8, 'INCOMPLETE', {});
-      await this.upsertView(data.analysis_id, 9, 'INCOMPLETE', {});
+      // Deterministic views 8/9 (D-19): computed here from the captured state +
+      // the D-29 reviewed reference tables — NO LLM (Deterministic Views v2 §4).
+      const view8Payload = await computeView8(this.prisma, data.captured);
+      await this.upsertView(data.analysis_id, 8, 'COMPLETE', view8Payload);
+      const view9Payload = await computeView9(this.prisma, data.captured);
+      await this.upsertView(data.analysis_id, 9, 'COMPLETE', view9Payload);
 
       await this.finalize(data.analysis_id, data.recipe_id);
       await this.notify({ analysis_id: data.analysis_id, status: 'complete' });
@@ -137,6 +157,33 @@ export class AnalysisJobHandler {
       await this.notify({ analysis_id: data.analysis_id, status: 'failed' });
       throw err;
     }
+  }
+
+  /**
+   * D-19 (P4-1) I2 recompute: the RS-US-45 assumption edit. Deterministic,
+   * View 9 ONLY (ERD §15.4 granularity — labeled D-19 assumption; Views 1–7 are
+   * never regenerated). The API enqueues this job; the worker is still the ONLY
+   * writer of analysis_* (one-writer preserved). The updated assumptions persist
+   * in analysis_view.payload.assumptions (frozen View9PayloadSchema).
+   */
+  async handleView9Recompute(data: View9RecomputeJobData): Promise<void> {
+    const analysis = await this.prisma.analysis.findUnique({
+      where: { id: data.analysis_id },
+    });
+    if (!analysis) return; // never materialized — nothing to recompute
+
+    const existing = await this.prisma.analysisView.findUnique({
+      where: {
+        analysisId_viewNumber: { analysisId: data.analysis_id, viewNumber: 9 },
+      },
+    });
+    const current = existing ? overridesFromPayload(existing.payload) : DEFAULT_OVERRIDES;
+    const merged = mergeOverrides(current, data.delta);
+    const payload = await computeView9(this.prisma, data.captured, merged);
+    await this.upsertView(data.analysis_id, 9, 'COMPLETE', payload);
+    // Signal-only (INV-16): the status is still 'complete' — the SSE listener
+    // refreshes the persisted payload.
+    await this.notify({ analysis_id: data.analysis_id, status: 'complete' });
   }
 
   /** Idempotent view upsert on uq_analysis_view (INV-11). */

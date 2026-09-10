@@ -9,15 +9,25 @@
 
 import {
   ConflictException,
+  Inject,
   Injectable,
+  NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { StructuredRecipeInput } from '@recipe-systems/schemas';
+import { PrismaClient } from '@recipe-systems/database';
 import { PROMPT_VERSION } from '@recipe-systems/llm-adapter';
 import type { Actor } from '../../common/guards/guest-or-jwt.guard';
 import { IntakeService } from '../intake/intake.service';
 import { RecipeService } from '../recipes/recipe.service';
 import { AnalysisQueueService, QueueUnavailableError } from './analysis-queue.service';
+
+/** D-19 (P4-1): the RS-US-45 assumption-edit body (View 9 recompute). */
+export interface View9AssumptionDelta {
+  fish_class?: 'lean' | 'oily';
+  coconut_grams?: number;
+  oil_tbsp?: number;
+}
 
 @Injectable()
 export class AnalysisService {
@@ -25,6 +35,7 @@ export class AnalysisService {
     private readonly recipes: RecipeService,
     private readonly intake: IntakeService,
     private readonly queue: AnalysisQueueService,
+    @Inject('PRISMA') private readonly prisma: PrismaClient,
   ) {}
 
   /**
@@ -124,5 +135,59 @@ export class AnalysisService {
       }
       throw err;
     }
+  }
+
+  /**
+   * D-19 (P4-1) I2: assumption edit → View 9 recompute (RS-US-45). The API
+   * validates + enqueues ONLY — the analysis worker performs the recomputation
+   * and remains the sole writer of analysis_* (one-writer preserved; the web/API
+   * never mutate analysis_view directly). The synchronous 200 of RS-US-45 is
+   * satisfied as `recompute_queued` (recorded deviation in HANDOFF §5): the band
+   * is persisted by the worker and the UI re-renders on the SSE refresh.
+   */
+  async recomputeView9(
+    actor: Actor,
+    analysisId: string,
+    delta: View9AssumptionDelta,
+  ): Promise<{
+    analysis_id: string;
+    status: 'recompute_queued';
+    assumptions: View9AssumptionDelta;
+  }> {
+    const analysis = await this.prisma.analysis.findUnique({
+      where: { id: analysisId },
+      include: { recipe: true },
+    });
+    if (!analysis) {
+      throw new NotFoundException({ code: 'ANALYSIS_NOT_FOUND', message: 'Analysis not found' });
+    }
+    const owns =
+      actor.kind === 'user'
+        ? analysis.recipe.accountId === actor.user.accountId
+        : analysis.recipe.guestSessionId === actor.guestSessionId;
+    if (!owns) {
+      throw new NotFoundException({ code: 'ANALYSIS_NOT_FOUND', message: 'Analysis not found' });
+    }
+
+    // Q1-labeled working assumption (same as D-17): the recompute input rides
+    // the job payload, built from the CURRENT rows.
+    const captured = await this.buildCapture(actor, analysis.recipeId);
+    try {
+      await this.queue.enqueueView9Recompute({
+        analysis_id: analysis.id,
+        recipe_id: analysis.recipeId,
+        delta,
+        captured,
+      });
+    } catch (err) {
+      if (err instanceof QueueUnavailableError) {
+        throw new ConflictException({
+          code: 'ENQUEUE_UNAVAILABLE',
+          message: 'Analysis queue is unavailable — try again later',
+        });
+      }
+      throw err;
+    }
+    return { analysis_id: analysis.id, status: 'recompute_queued', assumptions: delta };
   }
 }

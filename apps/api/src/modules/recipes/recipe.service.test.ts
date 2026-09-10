@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { Logger, NotFoundException } from '@nestjs/common';
 import type { Actor } from '../../common/guards/guest-or-jwt.guard';
 import { RecipeService, UNTITLED_RECIPE } from './recipe.service';
 
@@ -12,11 +12,12 @@ function mockPrisma() {
       delete: jest.fn(),
       update: jest.fn(),
     },
-    recipeInput: { count: jest.fn() },
+    recipeInput: { count: jest.fn(), findMany: jest.fn() },
     analysis: { findFirst: jest.fn() },
     analysisView: { findUnique: jest.fn() },
     recipeIngredientLine: { count: jest.fn() },
-    cookLog: { count: jest.fn() },
+    cookLog: { count: jest.fn(), findMany: jest.fn() },
+    cookLogPhoto: { findMany: jest.fn() },
   };
 }
 
@@ -345,5 +346,95 @@ describe('RecipeService — D-22 save + library (D1/D2)', () => {
     const svc = new RecipeService(prisma);
     expect(await svc.listLibrary(guestActor)).toEqual([]);
     expect(prisma.recipe.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('RecipeService — D-22 D6 delete (RS-US-24)', () => {
+  const RECIPE_ID = '11111111-1111-4111-8111-111111111111';
+  const PREFIX = 's3://recipe-assets/';
+
+  function mockDelete(overrides: { owned?: boolean; recipe?: unknown } = {}) {
+    const prisma: any = mockPrisma();
+    prisma.recipe.findUnique.mockResolvedValue(
+      overrides.owned === false
+        ? { id: RECIPE_ID, accountId: 'acc-OTHER', guestSessionId: null }
+        : {
+            id: RECIPE_ID,
+            accountId: 'acc-1',
+            guestSessionId: null,
+            title: 'My curry',
+            rawText: null,
+            photoUri: `${PREFIX}recipes/main.jpg`,
+          },
+    );
+    prisma.recipe.delete.mockResolvedValue({});
+    prisma.recipe.findUniqueOrThrow.mockResolvedValue({ photoUri: `${PREFIX}recipes/main.jpg` });
+    prisma.recipeInput.findMany.mockResolvedValue([
+      { photoUri: `${PREFIX}recipes/raw-a.jpg` },
+      { photoUri: null },
+      { photoUri: 's3://other-bucket/not-ours.jpg' },
+    ]);
+    prisma.cookLog.findMany.mockResolvedValue([{ id: 'log-1' }]);
+    prisma.cookLogPhoto.findMany.mockResolvedValue([{ photoUri: `${PREFIX}logs/plate.jpg` }]);
+    return prisma;
+  }
+
+  function fakeStorage(tryDeleteResult: boolean | ((key: string) => boolean) = true) {
+    return {
+      bucket: 'recipe-assets',
+      tryDeleteObject: jest.fn((key: string) =>
+        Promise.resolve(typeof tryDeleteResult === 'function' ? tryDeleteResult(key) : tryDeleteResult),
+      ),
+    };
+  }
+
+  it('owned delete removes the row and cleans only our own asset keys (DB first, storage compensating)', async () => {
+    const prisma = mockDelete();
+    const storage = fakeStorage();
+    const svc = new RecipeService(prisma, storage as never);
+    await svc.deleteRecipe(userActor, RECIPE_ID);
+    expect(prisma.recipe.delete).toHaveBeenCalledWith({ where: { id: RECIPE_ID } });
+    expect(storage.tryDeleteObject).toHaveBeenCalledTimes(3);
+    expect(storage.tryDeleteObject.mock.calls.map((c) => c[0])).toEqual([
+      'recipes/main.jpg',
+      'recipes/raw-a.jpg',
+      'logs/plate.jpg',
+    ]);
+  });
+
+  it('INV-17: foreign owner gets 404 and nothing is deleted', async () => {
+    const prisma = mockDelete({ owned: false });
+    const svc = new RecipeService(prisma, fakeStorage() as never);
+    await expect(svc.deleteRecipe(userActor, RECIPE_ID)).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.recipe.delete).not.toHaveBeenCalled();
+  });
+
+  it('malformed and missing ids are clean 404s BEFORE Prisma (QA-B4 posture)', async () => {
+    const prisma = mockDelete();
+    const svc = new RecipeService(prisma, fakeStorage() as never);
+    await expect(svc.deleteRecipe(userActor, 'not-a-uuid')).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.recipe.findUnique).not.toHaveBeenCalled();
+    prisma.recipe.findUnique.mockResolvedValue(null);
+    await expect(svc.deleteRecipe(userActor, RECIPE_ID)).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.recipe.delete).not.toHaveBeenCalled();
+  });
+
+  it('storage residue is observable (warn) and never fails the delete (ADR §16, D6-4)', async () => {
+    const prisma = mockDelete();
+    const storage = fakeStorage((key) => key !== 'recipes/raw-a.jpg'); // one failure
+    const warnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    const svc = new RecipeService(prisma, storage as never);
+    await expect(svc.deleteRecipe(userActor, RECIPE_ID)).resolves.toBeUndefined();
+    expect(prisma.recipe.delete).toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('residue'));
+    warnSpy.mockRestore();
+  });
+
+  it('without storage wiring the DB delete still runs (unit-test posture; no keys collected)', async () => {
+    const prisma = mockDelete();
+    const svc = new RecipeService(prisma);
+    await svc.deleteRecipe(userActor, RECIPE_ID);
+    expect(prisma.recipe.delete).toHaveBeenCalled();
+    expect(prisma.cookLogPhoto.findMany).not.toHaveBeenCalled();
   });
 });

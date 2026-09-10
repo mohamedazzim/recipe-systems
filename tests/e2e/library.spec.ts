@@ -119,4 +119,33 @@ test.describe('D-22 library save / browse / open — live rendered surfaces', ()
     await row.click();
     await expect(page.getByRole('heading', { level: 1, name: savedName })).toBeVisible();
   });
+
+  test('D6: delete requires confirmation; after the confirmed delete the library drops the row and reload keeps it gone', async ({
+    page,
+  }) => {
+    const name = `D22 delete me ${Date.now()}`;
+    await loginViaKeycloak(page, SEEDED_CHEF);
+    await pasteAndAnalyse(page);
+    await page.getByLabel('Recipe name').fill(name);
+    await page.getByRole('button', { name: 'Save recipe' }).click();
+    await expect(page.getByText(/Saved as/)).toBeVisible();
+
+    // Cancel path: the destructive step can be backed out of; the recipe remains.
+    await page.getByRole('button', { name: 'Delete recipe' }).click();
+    await expect(page.getByText(/permanently removed/i)).toBeVisible();
+    await page.getByRole('button', { name: 'Cancel' }).click();
+    await expect(page.getByText(/Saved as/)).toBeVisible();
+
+    // Confirm path: two explicit steps → backend 204 → home + notice.
+    await page.getByRole('button', { name: 'Delete recipe' }).click();
+    await page.getByRole('button', { name: 'Delete recipe' }).click();
+    await expect(page.getByText('Recipe deleted.')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Your library' })).toBeVisible();
+    await expect(page.getByRole('button', { name: new RegExp(name) })).toHaveCount(0);
+
+    // Browser restart: the delete was DB-owned — the row never returns.
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Your library' })).toBeVisible();
+    await expect(page.getByRole('button', { name: new RegExp(name) })).toHaveCount(0);
+  });
 });

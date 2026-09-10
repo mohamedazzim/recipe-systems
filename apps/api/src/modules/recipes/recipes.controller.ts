@@ -23,7 +23,10 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Patch,
   Put,
@@ -52,6 +55,10 @@ const saveSchema = z
   .object({ title: z.string().min(1).max(255).optional() })
   .strict();
 
+// D-22 (D6 / RS-US-24): deletion REQUIRES an explicit confirmation in the body —
+// the canonical anti-foot-gun contract (API doc §5: `{ "confirm": true }`).
+const deleteSchema = z.object({ confirm: z.literal(true) }).strict();
+
 @Controller('recipes')
 export class RecipesController {
   constructor(private readonly recipes: RecipeService) {}
@@ -68,6 +75,31 @@ export class RecipesController {
     const actor: Actor = { kind: 'user', user: req.user! };
     const recipes = await this.recipes.listLibrary(actor);
     return { recipes };
+  }
+
+  /**
+   * D-22 (D6 / RS-US-24): hard-delete a recipe (cascade: images, analyses,
+   * lists, logs, tags). Bearer-only per the API doc §5 contract; body
+   * `{confirm: true}` is mandatory (AC-1). 204 No Content. INV-17: 404 for
+   * missing AND foreign AND malformed ids; a repeated delete is the same 404.
+   */
+  @Delete(':recipeId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(JwtAuthGuard, CsrfGuard)
+  async deleteRecipe(
+    @Req() req: AuthedRequest,
+    @Param('recipeId') recipeId: string,
+    @Body() body: unknown,
+  ): Promise<void> {
+    const parsed = deleteSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException({
+        code: 'CONFIRM_REQUIRED',
+        message: 'Recipe deletion requires the confirmation body { confirm: true }',
+      });
+    }
+    const actor: Actor = { kind: 'user', user: req.user! };
+    await this.recipes.deleteRecipe(actor, recipeId);
   }
 
   /**

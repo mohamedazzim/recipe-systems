@@ -1462,6 +1462,101 @@ execution output; Git: not available / not authorized throughout.
   no LLM/DeepSeek work (dispatcher NON-GOAL honored).
   **COMMIT/CI:** see the H-22 ledger entry (SHA + CI run id recorded after the push).
 
+- 2026-09-10 — **D-22 D6 PREFLIGHT (dispatcher authorization: implement ONLY the remaining D-22 D6 delete scope) — STARTING STATE, recorded before any D6 code**:
+  **DECISION (dispatcher 2026-09-10):** D6 = hard-delete lifecycle for a saved recipe, the last
+  D-22 deliverable. No D-23/D-30, no DeepSeek, no Q1/Q5/Q9/Q10/Q11 resolution.
+  **CANONICAL SOURCES READ:** USER_STORIES Epic D D6 (AC-1 confirm; AC-2 removes photo, object,
+  analyses, lists, logs; AC-3 no public residue; TC-01/02/03) · Recipe_Systems.md §12 D6 ·
+  **API doc §5 `DELETE /recipes/:recipeId` (RS-US-24): Auth Bearer, body `{confirm: true}`, 204 No
+  Content, "cascade: images, analyses, lists, logs, tags"** · ERD §5 recipe (`deleted_at` =
+  "Archive/hide only; D6 is a hard DELETE") + §13 lifecycle + §12 indexes · migration 002 FK audit
+  (ALL recipe children ON DELETE CASCADE: recipe_input, recipe_ingredient_line, recipe_tag, analysis,
+  shopping_list_generation, ingredient_shopping_state, cook_log; analysis → analysis_view →
+  analysis_claim + analysis_station_card; cook_log → swap/photo; shopping generation → items;
+  `fk_analysis_snapshot_same_recipe` NO ACTION is safe — every analysis of the recipe cascades in
+  the same statement) · ADR §3 (URIs only in Postgres, objects in S3/MinIO) + §16 ("Private uploaded
+  objects must not remain indefinitely after their owning data is deleted"; "Cleanup operations must
+  be safe to retry") · BUILD_PLAN P5-1 · DISPATCH D-22 DONE CRITERIA (delete cascade proven; no
+  residue) · TEST_PLAN P5 row (delete cascade) · current D-22 D1/D2 implementation + StorageService
+  (uploadImage/deleteObject best-effort/objectExists; URI form s3://<bucket>/recipes/<uuid>.<ext>).
+  **D6 DESIGN DECISIONS (labeled, recorded here BEFORE code):**
+  - D6-1: HARD DELETE exactly per the ERD — `prisma.recipe.delete` and the DB-level FK cascades do
+    the work. No new soft-delete field; `deleted_at` keeps its "archive/hide only" meaning.
+  - D6-2: Confirmation at BOTH canonical layers: the API body REQUIRES `{confirm: true}` (RS-US-24;
+    anything else → 400 `CONFIRM_REQUIRED`) and the UI shows a two-step inline confirm (Cancel /
+    "Delete recipe") stating the recipe name, the destructiveness, and what is removed.
+  - D6-3: `DELETE /api/v1/recipes/:recipeId` — **JwtAuthGuard + CsrfGuard (Bearer-only per
+    RS-US-24)**. Guests have NO delete surface (canonical): a guest recipe becomes deletable after
+    claim. INV-17: 404 for missing AND foreign AND malformed UUID (before Prisma); repeated delete →
+    the same canonical 404 (no existence leak, no duplicate-deletion state).
+  - D6-4: Storage cleanup order (recorded rationale): (1) collect asset keys BEFORE the delete from
+    recipe.photo_uri + recipe_input.photo_uri + cook_log_photo.photo_uri (only keys under our own
+    `s3://<bucket>/` prefix — never arbitrary keys); (2) run the DB delete (FK cascades, atomic);
+    (3) AFTER commit, best-effort per-object delete (compensating cleanup). No distributed
+    transaction is invented (ADR: cleanup must be safe to retry; an orphaned object is recoverable,
+    a dangling URI is not — hence DB-first). Storage failures are NOT hidden: the service logs a
+    structured WARN with the failed keys (observable residue), and the canonical 204 response is
+    preserved (RS-US-24 fixes the response; the receipt cannot ride a 204 — recorded).
+  - D6-5: StorageService gains `tryDeleteObject(key): Promise<boolean>` (never throws; false =
+    residue) — the existing best-effort `deleteObject` (QG4 rollback path) is unchanged.
+  - D6-6: Web UX — a danger-zone "Delete recipe" section in the workspace (signed-in only):
+    destructive copy → Cancel / Delete recipe; disabled + "Deleting…" while in flight; failure
+    shows the safe error and preserves the recipe (no optimistic removal); success calls
+    `onDeleted(recipeId)` → the page navigates home, re-fetches the library, and shows a
+    "Recipe deleted." notice. Library rows refresh from the DB (the deleted recipe never returns;
+    reload-safe). Opening a deleted recipe URL afterwards hits the canonical 404s (safe copy, no
+    resurrection).
+  - D6-7: One-writer + existing behavior untouched: RecipeService remains the sole recipe writer;
+    DB-level cascade deletes are FK semantics, not service writes (same posture as the C-28
+    trigger). The D-20 station-card logic and the D-22 save/library behavior are not altered.
+  **PLAN:** API (StorageService.tryDeleteObject; RecipeService.deleteRecipe + collectAssetKeys;
+  controller DELETE + CONFIRM_REQUIRED; unit tests) → web (workspace delete section + onDeleted +
+  Home notice; tests) → integration story_d22_delete (real Postgres: cascade proof across all
+  child tables, station-card/analysis orphans zero, cross-account 404, confirm-required 400,
+  repeated 404, real MinIO upload→delete→objectExists false; storage-down tolerated in CI) → e2e
+  library.spec delete test → gates/lint/typecheck/verify-local → commit/CI → H-22 update +
+  CHANGE_LOG → HARD STOP (no D-23/D-30).
+
+- 2026-09-10 — **D-22 D6 EXECUTION — DONE, evidence recorded before commit**:
+  **IMPLEMENTED per D6-1..7 (decision trace above, honored verbatim):**
+  - API: `DELETE /api/v1/recipes/:recipeId` (JwtAuthGuard + CsrfGuard; body `{confirm:true}`
+    strict else 400 CONFIRM_REQUIRED; 204). `RecipeService.deleteRecipe`: assertOwned (INV-17 404
+    missing/foreign/malformed) → collect asset keys (recipe.photo_uri + recipe_input.photo_uri +
+    cook_log_photo.photo_uri, own s3://bucket/ prefix only, two-step id joins) → `recipe.delete`
+    (DB-level ON DELETE CASCADE chain removes every child per migration 002) → compensating
+    per-object `tryDeleteObject` after commit; failed keys logged as a structured WARN (observable
+    residue, retry-safe — ADR §16). `StorageService.tryDeleteObject(key): boolean` added (never
+    throws); the QG4 best-effort `deleteObject` unchanged. One-writer preserved (RecipeService sole
+    recipe writer; cascades are FK semantics).
+  - web: workspace danger-zone Delete section (signed-in only — the endpoint is Bearer-only per
+    RS-US-24): initial "Delete recipe" → destructive confirmation naming the recipe ("Its photo,
+    object, analyses, lists and logs are permanently removed. This cannot be undone.") → Cancel /
+    Delete recipe; disabled + "Deleting…" while in flight; failure shows the safe error and keeps
+    the recipe (no optimistic removal); success calls `onDeleted` ONLY after the 204 → page
+    navigates home, refreshes the library, and shows a "Recipe deleted." success notice. Guests
+    never see the delete surface.
+  **EVIDENCE (this session):**
+  - unit: API 202/202 (recipes suite 40/40 incl. 6 new D6 service tests + 3 controller tests;
+    storage suite +2) · web 104/104 (workspace delete suite 4 + home notice 1) · integration
+    106/106 incl. NEW `tests/integration/story_d22_delete.test.ts` (4/4 real Postgres + real MinIO:
+    cascade proof across recipe_input, recipe_ingredient_line, recipe_tag, analysis,
+    analysis_view, analysis_claim, analysis_station_card, shopping_list_generation, shopping_list_item,
+    ingredient_shopping_state, cook_log, cook_log_swap, cook_log_photo — every count 0 after delete,
+    unrelated recipe untouched; CONFIRM_REQUIRED 400 + recipe survives; foreign/malformed/missing/
+    repeated → canonical 404s; real MinIO upload → delete → objectExists false).
+  - gates: QG2 regression gates PASS (8/8 golden) · contract-check OK · lint 0 · typecheck 0 ·
+    verify-local ALL STEPS PASSED (exit 0) · git diff --check clean.
+  - LIVE stack (internal browser, real Keycloak chef): created → analysed → saved "D6 QA delete
+    me …" → Delete → confirmation names the recipe + "permanently removed" + "cannot be undone" →
+    Cancel preserved the recipe → Delete → Delete (two explicit steps) → home with
+    "Recipe deleted." notice, library row gone immediately → reload → row still absent → live-DB
+    orphan sweep: orphanAnalysis/Views/Cards/CookLogs/Lines/Inputs = 0/0/0/0/0/0.
+  - D-10→D-22 regression: full cumulative suites green (above); the D-20 station-card logic and
+    D-22 save/library behavior untouched (only the delete surface added).
+  **DECISIONS CARRIED:** D6 = the last D-22 deliverable — the canonical D-22 unit is now complete.
+  Q1/Q5/Q9/Q10/Q11 stay OPEN · no DeepSeek · no D-23/D-30 (HARD STOP).
+  **COMMIT/CI:** see the H-22 ledger entry (SHA + CI run id recorded after the push).
+
 ### H-10 — D-10 Raw intake rows + photo pipeline
 
 - BASE_SHA / COMMIT_SHA: **BASE `871ec48` (Initial commit) · COMMIT `432b601`** — pushed to

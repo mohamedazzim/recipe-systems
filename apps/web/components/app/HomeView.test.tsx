@@ -140,4 +140,9 @@ describe('HomeView — D-22 library (D2)', () => {
     expect(screen.queryByText('This session')).not.toBeInTheDocument();
     expect(screen.queryByText('Browser-only paste')).not.toBeInTheDocument();
   });
+
+  it('D6: renders the post-delete confirmation notice', () => {
+    render(<HomeView {...props({ library: [], notice: 'Recipe deleted.' })} />);
+    expect(screen.getByText('Recipe deleted.')).toBeInTheDocument();
+  });
 });

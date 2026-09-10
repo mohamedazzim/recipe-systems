@@ -21,6 +21,9 @@ export interface RecipeWorkspaceProps {
   recipeId: string;
   signedIn: boolean;
   onBack: () => void;
+  /** D-22 (D6): the backend confirmed the delete — the page navigates home and
+   *  refreshes the library. Never called before the 204. */
+  onDeleted?: () => void;
   /** Lines from the parse-text response (guest read-only rendering). */
   initialLines?: WireLine[] | null;
   /** D-22: the saved DB name passed from a library row — the authoritative
@@ -34,6 +37,7 @@ export function RecipeWorkspace({
   recipeId,
   signedIn,
   onBack,
+  onDeleted,
   initialLines = null,
   initialTitle,
   preferredMode = 'home',
@@ -74,6 +78,33 @@ export function RecipeWorkspace({
       setSaveError(err instanceof ApiError ? err.message : 'Could not save the recipe.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  /**
+   * D-22 (D6 / RS-US-24): two-step confirmation (AC-1) — destructive copy,
+   * explicit Cancel / Delete recipe buttons, no optimistic removal, disabled
+   * while in flight. Signed-in only (the delete endpoint is Bearer-only).
+   */
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const deleteRecipe = async (): Promise<void> => {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await api<undefined>(`/recipes/${recipeId}`, {
+        method: 'DELETE',
+        body: JSON.stringify({ confirm: true }),
+      });
+      // The backend confirmed (204). Only now does the UI leave the recipe.
+      onDeleted?.();
+    } catch (err) {
+      setDeleteError(err instanceof ApiError ? err.message : 'Could not delete the recipe.');
+      setConfirmingDelete(false); // back to the safe initial state; the recipe remains
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -177,6 +208,46 @@ export function RecipeWorkspace({
           </div>
         )}
       </section>
+
+      {signedIn && (
+        <section aria-labelledby="delete-heading" className="mt-6 rounded-lg border border-negative/40 bg-negative/8 p-5">
+        <h2 id="delete-heading" className="text-small font-semibold text-negative">
+          Delete recipe
+        </h2>
+        {!confirmingDelete ? (
+          <>
+            <p className="mt-1 text-caption text-muted">
+              Permanently removes this recipe and everything saved with it. This cannot be undone.
+            </p>
+            <div className="mt-3">
+              <Button variant="danger" onClick={() => setConfirmingDelete(true)} disabled={deleting}>
+                Delete recipe
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="mt-2 text-small text-body">
+              Delete <span className="font-semibold">{title}</span>? Its photo, object, analyses,
+              lists and logs are permanently removed. This cannot be undone.
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Button
+                variant="danger"
+                onClick={() => void deleteRecipe()}
+                disabled={deleting}
+              >
+                {deleting ? 'Deleting…' : 'Delete recipe'}
+              </Button>
+              <Button variant="outline" onClick={() => setConfirmingDelete(false)} disabled={deleting}>
+                Cancel
+              </Button>
+            </div>
+          </>
+        )}
+        {deleteError && <p className="mt-2 text-caption text-negative">{deleteError}</p>}
+        </section>
+      )}
 
       <div className="mt-8">
         <IngredientReview

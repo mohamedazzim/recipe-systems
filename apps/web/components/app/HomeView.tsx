@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { ArrowRight, CookingPot } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Alert } from '@/components/ui/Alert';
 import { Heading, Text } from '@/components/ui/Typography';
 import { isOwnedBy, listSessionRecipes, sessionRecipeLines } from '@/lib/flow';
 import { GuestNotice } from '@/components/app/GuestNotice';
@@ -22,6 +23,8 @@ export interface HomeViewProps {
    * never browser state). null while loading. Guests never receive one.
    */
   library: LibraryRecipe[] | null;
+  /** D-22 (D6): transient confirmation shown after a confirmed delete. */
+  notice?: string | null;
   onCreate: () => void;
   /** QA-B1 fix: guest-owned records carry their parse-response lines so a
    *  read-only reopen renders them (guests can't fetch Bearer-only routes).
@@ -36,6 +39,7 @@ export function HomeView({
   signedIn,
   accountId,
   library,
+  notice,
   onCreate,
   onOpenRecipe,
   onSignUp,
@@ -49,6 +53,12 @@ export function HomeView({
 
   return (
     <div>
+      {notice && (
+        <div className="mb-8">
+          <Alert tone="success" title={notice} />
+        </div>
+      )}
+
       {!signedIn && !guestNoticeDismissed && (
         <div className="mb-8">
           <GuestNotice onSignUp={onSignUp} onDismiss={() => setGuestNoticeDismissed(true)} />

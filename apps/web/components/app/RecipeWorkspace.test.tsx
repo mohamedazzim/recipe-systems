@@ -86,6 +86,8 @@ describe('RecipeWorkspace — D-22 Save (D1)', () => {
   beforeEach(() => {
     window.localStorage.clear();
     apiMock.mockReset();
+    // Mount fetches the latest analysis — reject it as a 404 by default.
+    apiMock.mockRejectedValue(new ApiError(404, 'ANALYSIS_NOT_FOUND', 'Analysis not found'));
   });
 
   function props(overrides: Partial<Parameters<typeof RecipeWorkspace>[0]> = {}) {
@@ -133,5 +135,44 @@ describe('RecipeWorkspace — D-22 Save (D1)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save recipe' }));
     expect(await screen.findByText('Recipe not found')).toBeInTheDocument();
     expect(screen.queryByText(/Saved as/)).not.toBeInTheDocument();
+  });
+
+  it('D6: delete needs an explicit second step — Cancel returns without calling the API', async () => {
+    render(<RecipeWorkspace {...props()} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Delete recipe' }));
+    expect(screen.getByText(/permanently removed/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByText(/permanently removed/i)).not.toBeInTheDocument();
+    expect(apiMock).not.toHaveBeenCalledWith('/recipes/r1', expect.objectContaining({ method: 'DELETE' }));
+  });
+
+  it('D6: confirmed delete sends {confirm:true}, waits for the 204, then calls onDeleted', async () => {
+    apiMock.mockResolvedValue(undefined); // the 204 path
+    const p = props({ onDeleted: jest.fn() });
+    render(<RecipeWorkspace {...p} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Delete recipe' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Delete recipe' })); // the confirmation button
+    expect(apiMock).toHaveBeenCalledWith('/recipes/r1', {
+      method: 'DELETE',
+      body: JSON.stringify({ confirm: true }),
+    });
+    expect(p.onDeleted).toHaveBeenCalled();
+  });
+
+  it('D6: a failed delete keeps the recipe and surfaces the error (no optimistic removal)', async () => {
+    apiMock.mockRejectedValue(new ApiError(503, 'HTTP_ERROR', 'Service unavailable'));
+    const p = props({ onDeleted: jest.fn() });
+    render(<RecipeWorkspace {...p} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Delete recipe' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Delete recipe' }));
+    expect(await screen.findByText('Service unavailable')).toBeInTheDocument();
+    expect(p.onDeleted).not.toHaveBeenCalled();
+    // the recipe remains: the save surface is still rendered
+    expect(screen.getByRole('button', { name: 'Save recipe' })).toBeInTheDocument();
+  });
+
+  it('D6: guests never see the delete surface (Bearer-only per RS-US-24)', () => {
+    render(<RecipeWorkspace {...props({ signedIn: false })} />);
+    expect(screen.queryByRole('button', { name: 'Delete recipe' })).not.toBeInTheDocument();
   });
 });

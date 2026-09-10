@@ -30,6 +30,8 @@ export default function Home() {
   const [guestSessionId, setGuestSessionId] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(readAuthError());
   const [view, setView] = useState<AppView>({ name: 'home' });
+  /** D-22 (D6): transient confirmation after a confirmed recipe delete. */
+  const [homeNotice, setHomeNotice] = useState<string | null>(null);
   /** D-22 (D2): the canonical account library (persisted DB rows, never
    *  browser state). null = not loaded / no account (guests keep their
    *  session-local surface). */
@@ -138,6 +140,7 @@ export default function Home() {
           signedIn={state.phase === 'signed-in'}
           accountId={user?.id ?? null}
           library={user ? library : null}
+          notice={homeNotice}
           onCreate={() => setView({ name: 'create' })}
           onOpenRecipe={(recipeId, lines, title) =>
             setView({ name: 'workspace', recipeId, initialLines: lines ?? null, initialTitle: title })
@@ -159,6 +162,11 @@ export default function Home() {
           recipeId={view.recipeId}
           signedIn={state.phase === 'signed-in'}
           initialTitle={view.initialTitle}
+          onDeleted={() => {
+            setView({ name: 'home' });
+            setHomeNotice('Recipe deleted.');
+            loadLibrary();
+          }}
           onBack={() => {
             setView({ name: 'home' });
             loadLibrary(); // the saved title/family shows on the library rows

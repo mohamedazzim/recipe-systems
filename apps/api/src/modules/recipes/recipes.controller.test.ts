@@ -136,3 +136,44 @@ describe('RecipesController — D-22 save + library (D1/D2)', () => {
     });
   });
 });
+
+describe('RecipesController — D-22 D6 delete (RS-US-24)', () => {
+  const recipes = { deleteRecipe: jest.fn() };
+  const controller = new RecipesController(recipes as unknown as RecipeService);
+  const userReq = { user: { accountId: 'acc-1', email: 'c@t.dev', sub: 's' } } as never;
+
+  beforeEach(() => {
+    recipes.deleteRecipe.mockClear();
+  });
+
+  it('DELETE with { confirm: true } delegates the canonical hard delete (204)', async () => {
+    recipes.deleteRecipe.mockResolvedValue(undefined);
+    await controller.deleteRecipe(userReq, 'r1', { confirm: true });
+    expect(recipes.deleteRecipe).toHaveBeenCalledWith(
+      { kind: 'user', user: { accountId: 'acc-1', email: 'c@t.dev', sub: 's' } },
+      'r1',
+    );
+  });
+
+  it('DELETE without confirm / with confirm:false / extra fields → 400 CONFIRM_REQUIRED, nothing deleted', async () => {
+    await expect(controller.deleteRecipe(userReq, 'r1', {})).rejects.toMatchObject({
+      response: { code: 'CONFIRM_REQUIRED' },
+    });
+    await expect(controller.deleteRecipe(userReq, 'r1', { confirm: false })).rejects.toMatchObject({
+      response: { code: 'CONFIRM_REQUIRED' },
+    });
+    await expect(
+      controller.deleteRecipe(userReq, 'r1', { confirm: true, bogus: 1 }),
+    ).rejects.toMatchObject({ response: { code: 'CONFIRM_REQUIRED' } });
+    expect(recipes.deleteRecipe).not.toHaveBeenCalled();
+  });
+
+  it('ownership stays inside the service — a foreign delete surfaces the canonical 404', async () => {
+    recipes.deleteRecipe.mockRejectedValue({
+      response: { code: 'RECIPE_NOT_FOUND', message: 'Recipe not found' },
+    });
+    await expect(controller.deleteRecipe(userReq, 'foreign', { confirm: true })).rejects.toMatchObject({
+      response: { code: 'RECIPE_NOT_FOUND' },
+    });
+  });
+});

@@ -97,4 +97,15 @@ describe('StorageService', () => {
     send.mockRejectedValueOnce(new Error('404'));
     await expect(svc.objectExists('recipes/x.jpg')).resolves.toBe(false);
   });
+
+  it('D6: tryDeleteObject reports observable outcome — true on delete, false on residue', async () => {
+    const { send } = mockSend();
+    send.mockResolvedValueOnce({});
+    const svc = new StorageService();
+    await expect(svc.tryDeleteObject('recipes/x.jpg')).resolves.toBe(true);
+    expect(send.mock.calls[0][0].name).toBe('DeleteObject');
+
+    send.mockRejectedValueOnce(new Error('down'));
+    await expect(svc.tryDeleteObject('recipes/y.jpg')).resolves.toBe(false);
+  });
 });

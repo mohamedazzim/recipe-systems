@@ -7,10 +7,11 @@
 // owner (chk_recipe_owner_xor); `assertOwned` answers 404 for both missing and foreign
 // recipes so recipe existence never leaks across accounts/guest sessions (INV-17).
 
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
 import { Prisma, PrismaClient, Recipe } from '@recipe-systems/database';
 import { View5PayloadSchema } from '@recipe-systems/schemas';
 import type { Actor } from '../../common/guards/guest-or-jwt.guard';
+import { StorageService } from '../intake/storage.service';
 
 const UUID_RE =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
@@ -79,7 +80,14 @@ function toMethodState(recipe: Recipe): MethodState {
 
 @Injectable()
 export class RecipeService {
-  constructor(@Inject('PRISMA') private readonly prisma: PrismaClient) {}
+  private readonly logger = new Logger(RecipeService.name);
+
+  constructor(
+    @Inject('PRISMA') private readonly prisma: PrismaClient,
+    /** D-22 (D6): compensating object cleanup after a hard delete. Optional so
+     *  service-level call sites/tests construct without storage wiring. */
+    @Optional() private readonly storage?: StorageService,
+  ) {}
 
   /** Create the recipe row that an intake event will attach to (ADR §4 step 2). */
   async createForIntake(actor: Actor, opts: IntakeRecipeOptions = {}): Promise<Recipe> {
@@ -242,6 +250,79 @@ export class RecipeService {
         timestamps: true,
       },
     };
+  }
+
+  /**
+   * D-22 (D6): the canonical hard DELETE (ERD §13 — `deleted_at` is archive/hide
+   * only; D6 is a real row removal). Every dependent row disappears through the
+   * DB-level ON DELETE CASCADE foreign keys (proven in the D6 integration story):
+   * recipe_input, recipe_ingredient_line, recipe_tag, analysis → analysis_view →
+   * analysis_claim + analysis_station_card, shopping_list_generation(+items),
+   * ingredient_shopping_state, cook_log(+swaps/photos). INV-17: 404 for missing
+   * AND foreign AND malformed ids (assertOwned); a repeated delete is the same
+   * canonical 404 — no existence leak, no duplicate-deletion state.
+   *
+   * Storage (ADR §3/§16): asset keys are collected BEFORE the delete; the DB
+   * delete commits first, then per-object deletion runs as compensating,
+   * retry-safe cleanup (an orphaned object is recoverable, a dangling URI is
+   * not — hence DB-first; no distributed transaction invented). Residue is
+   * never hidden: failed keys are logged as a structured warning.
+   */
+  async deleteRecipe(actor: Actor, recipeId: string): Promise<void> {
+    await this.assertOwned(actor, recipeId);
+    const keys = await this.collectAssetKeys(recipeId);
+    await this.prisma.recipe.delete({ where: { id: recipeId } });
+    if (this.storage) {
+      const failed: string[] = [];
+      for (const key of keys) {
+        const ok = await this.storage.tryDeleteObject(key);
+        if (!ok) failed.push(key);
+      }
+      if (failed.length > 0) {
+        // Observable residue (ADR §16): retry-safe orphans, never silent.
+        this.logger.warn(
+          `recipe ${recipeId} deleted; storage cleanup residue remains (retry-safe): ${failed.join(', ')}`,
+        );
+      }
+    }
+  }
+
+  /** Asset keys owned by the recipe subtree — recipe photo, raw-input photos,
+   *  cook-log photos. Only keys under our own s3://<bucket>/ prefix are ever
+   *  returned (never arbitrary keys). */
+  private async collectAssetKeys(recipeId: string): Promise<string[]> {
+    if (!this.storage) return [];
+    const prefix = `s3://${this.storage.bucket}/`;
+    const [recipe, inputs, logs] = await Promise.all([
+      this.prisma.recipe.findUniqueOrThrow({
+        where: { id: recipeId },
+        select: { photoUri: true },
+      }),
+      this.prisma.recipeInput.findMany({
+        where: { recipeId },
+        select: { photoUri: true },
+      }),
+      this.prisma.cookLog.findMany({
+        where: { recipeId },
+        select: { id: true },
+      }),
+    ]);
+    const logIds = logs.map((l) => l.id);
+    const cookPhotos =
+      logIds.length === 0
+        ? []
+        : await this.prisma.cookLogPhoto.findMany({
+            where: { cookLogId: { in: logIds } },
+            select: { photoUri: true },
+          });
+    const uris = [
+      recipe.photoUri,
+      ...inputs.map((i) => i.photoUri),
+      ...cookPhotos.map((p) => p.photoUri),
+    ].filter((uri): uri is string => typeof uri === 'string' && uri.length > 0);
+    return uris
+      .filter((uri) => uri.startsWith(prefix))
+      .map((uri) => uri.slice(prefix.length));
   }
 
   /**

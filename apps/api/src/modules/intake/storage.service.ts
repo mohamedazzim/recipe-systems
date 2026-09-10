@@ -99,6 +99,20 @@ export class StorageService {
     }
   }
 
+  /**
+   * D-22 (D6): observable deletion for the recipe-delete compensating cleanup
+   * (ADR §16 — residue must not be hidden). Never throws; `false` = the object
+   * could not be confirmed deleted and remains as recoverable residue.
+   */
+  async tryDeleteObject(key: string): Promise<boolean> {
+    try {
+      await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   /** Existence probe (QG4 evidence + integration tests): does the URI's object exist? */
   async objectExists(key: string): Promise<boolean> {
     try {

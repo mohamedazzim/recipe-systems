@@ -49,6 +49,38 @@
   · **CI success (run `34501720779`)**.
 - Commit(s): `748853e442fcf0bf8624f9106974e59a501119ba` (D-20 checkpoint).
 
+## 2026-09-10 — D-22 P5-1: Save + recipe library (D1/D2, canonical library over the existing rows)
+
+- Author / session: DeepSeek V4 Pro (VS Code) D-22 dispatch; decision trace D-22A..I recorded
+  in HANDOFF §5 before implementation (the audit that preceded it confirmed D1/D2 as canonical
+  Must stories — Recipe_Systems.md §12).
+- What changed: `PUT /api/v1/recipes/:recipeId/save` (guest-or-jwt + CSRF) — the save action
+  confirms the persisted artifact set (raw input, photo, object, identification, analysis,
+  timestamps — nothing copied or invented) and normalizes the name: default = the identification
+  family (`analysis.family` column, then the frozen View 5 payload), editable afterwards
+  (D1 AC-1/AC-2). `GET /api/v1/recipes` (account-only) returns the canonical D2 AC-1 library
+  rows — name, date, family, cook-log indicator — ordered by the ERD's own
+  `ix_recipe_account_updated` index. Web: visible Save action + editable name on the workspace
+  (guests included); the signed-in Home renders the DB library and opens rows with the saved
+  name even after a browser restart; guests keep the untouched session-local list (browser
+  state preserved, never migrated — D-22I). Resume-save (A1 TC-02): guest save state rides the
+  existing QA-B2 claim transaction into the account library. INV-17 ownership enforcement
+  untouched and re-proven. No schema change (the artifact set IS the existing rows;
+  `updated_at` is the save stamp).
+- Why: D1/D2 are canonical Must stories; the library is account/DB-owned ("recipes survive
+  closing the browser", A1), never browser state. D6 (delete) remains deferred — the
+  dispatcher scoped this session to D1+D2.
+- Register impact: Q1/Q5/Q9/Q10/Q11 unchanged (OPEN). No LLM/DeepSeek work (dispatcher
+  NON-GOAL).
+- Verification: API 193/193 · web 98/98 · integration 102/102 (new
+  `story_d22_save_library` 5/5 on real Postgres: family-default save + artifacts, editable
+  title, AC-1 rows + cook indicator, cross-account denial, guest save → real claim → resume
+  in the account library) · e2e `library.spec.ts` added (Playwright still machine-blocked
+  locally — live internal-browser run executed the same assertions) · gates PASS (8/8) ·
+  contract-check OK · lint 0 · typecheck 0 · verify-local exit 0 ·
+  **CI success (run `34509853030`)**.
+- Commit(s): `5cf483067c227aae812bb9bb9b002bc1680aabc0` (D-22 checkpoint).
+
 ## 2026-09-10 â€” D-21 P4-3: Disclaimer sweep (H6/I6 unconditional, INV-13/INV-14 gates)
 
 - Author / session: DeepSeek V4 Pro (VS Code) D-21 dispatch; pre-flight GO recorded in

@@ -1420,6 +1420,48 @@ execution output; Git: not available / not authorized throughout.
   reload persistence, reopen, guest resume-save) → gates/lint/typecheck/verify-local → commit/CI → H-22 +
   CHANGE_LOG → HARD STOP (D6 delete remains the next D-22 continuation point).
 
+- 2026-09-10 — **D-22 EXECUTION (D1 save + D2 browse/open; dispatcher scope per the message above) — recorded at close-out**:
+  **IMPLEMENTED per D-22A..I (decision trace above, honored verbatim):**
+  - API: `RecipeService.saveRecipe` (family via `analysis.family` column then the frozen
+    View5PayloadSchema view-5 payload; title default rules: explicit → family-on-placeholder →
+    existing title → 'Untitled recipe'; artifact-set presence returned, nothing copied) +
+    `identificationFamily` + `listLibrary` (account rows, updated_at DESC per the ERD index,
+    has_cook_log = EXISTS on the live cook_log table). `PUT /recipes/:recipeId/save`
+    (GuestOrJwt+Csrf, strict zod {title≤255}) and `GET /recipes` (JwtAuthGuard only — the library
+    is account-owned). One-writer preserved (RecipeService sole `recipe` writer; analysis/cook reads
+    are read-only).
+  - web: workspace Save section (editable "Recipe name" + "Save recipe" button + "Saved as …" +
+    honest artifact summary; guests may save) · signed-in Home renders "Your library" from
+    GET /recipes (name, date, family, cook indicator) and opens rows carrying the saved DB name into
+    the workspace title (works even after a browser restart — no session record) · guests keep the
+    untouched session-local list and "Other sessions" (D-22I: no localStorage data deleted/migrated).
+  - resume-save (A1 TC-02): guest save → the existing QA-B2 callback claim moves the row (title +
+    updated_at + artifacts) onto the account → the new account library shows the saved recipe. No new
+    state invented — the H-07 seam is closed by construction.
+  **EVIDENCE (this session):**
+  - unit: API 193/193 (recipes suite 27/27 incl. 8 new save/library tests) · web 98/98 (HomeView
+    library + workspace Save suites) · integration 102/102 incl. NEW `tests/integration/
+    story_d22_save_library.test.ts` (5/5 real Postgres: family-default save + artifact set; explicit
+    title + blank-keeps; library AC-1 rows + cook indicator via a real cook_log row; cross-account
+    library empty + save 404 (INV-17); guest save → REAL AuthService claim → named recipe in the new
+    account library with XOR intact) · e2e `tests/e2e/library.spec.ts` (signed-in save/library/reload
+    + guest resume-save; Playwright launches remain machine-policy blocked here — H-13 — the live
+    internal-browser run below executed the same assertions).
+  - gates: QG2 regression gates PASS (8/8 golden) · contract-check OK (zero drift) · lint 0 ·
+    typecheck 0 · verify-local ALL STEPS PASSED (exit 0).
+  - LIVE stack (internal browser, real Keycloak): chef save with blank name → "Saved as Coastal Tamil
+    (Kanyakumari) style meen kuzhambu" with artifact summary (raw ✓ photo — object ✓ identification ✓
+    analysis ✓ timestamps ✓) → library row (name, date, family, "No cook log yet") → reopen with the
+    saved name as the workspace h1 → reload → library row persists (DB-owned) → guest saved
+    "D22 guest fish curry …" → real Keycloak registration → callback claim → the new account's library
+    contains exactly that saved recipe (resume-save) → guest home still renders the untouched session
+    list + "Other sessions" (browser state preserved).
+  **DECISIONS CARRIED:** D6 (delete) is the explicitly deferred remainder of the canonical D-22 unit
+  (not dispatched in this message) — next continuation point · no schema change (ERD has no saved_at;
+  the artifact set IS the existing rows; updated_at is the save stamp) · Q1/Q5/Q9/Q10/Q11 stay OPEN ·
+  no LLM/DeepSeek work (dispatcher NON-GOAL honored).
+  **COMMIT/CI:** see the H-22 ledger entry (SHA + CI run id recorded after the push).
+
 ### H-10 — D-10 Raw intake rows + photo pipeline
 
 - BASE_SHA / COMMIT_SHA: **BASE `871ec48` (Initial commit) · COMMIT `432b601`** — pushed to
@@ -1922,7 +1964,15 @@ execution output; Git: not available / not authorized throughout.
 
 ### H-22 — D-22 Library save / browse / delete
 
-☐ No entry yet.
+- BASE_SHA / COMMIT_SHA: BASE `d505201` · COMMIT `5cf4830` (full `5cf483067c227aae812bb9bb9b002bc1680aabc0`).
+- Date / agent session: 2026-09-10 · D-22 dispatch session (pre-flight decision trace D-22A..I recorded in HANDOFF §5 BEFORE code).
+- Status: **DONE — D1 + D2 shipped; D6 (delete) explicitly deferred as the remaining D-22 continuation** (not dispatched in this message; recorded in D-22A).
+- Summary: canonical Save + library shipped. Save (`PUT /recipes/:recipeId/save`, guest-or-jwt) confirms the persisted artifact set (raw input, photo, object, identification, analysis, timestamps — nothing copied or invented) and normalizes the name: default = the identification family (analysis.family column, then the frozen View5PayloadSchema view-5 payload), editable afterwards (D1 AC-1/AC-2). Library (`GET /recipes`, account-only) returns D2 AC-1 rows — name, date, family, cook-log indicator (EXISTS on the live cook_log table) — ordered by the ERD's own `ix_recipe_account_updated`. The web workspace carries a visible Save action (guests included) and the signed-in Home renders the canonical DB library, opening rows with the saved name even after a browser restart. Guests keep the untouched session-local list (D-22I — browser state preserved, never migrated). Resume-save (A1 TC-02): guest save state rides the QA-B2 claim transaction into the account library.
+- Files changed: `apps/api/src/modules/recipes/{recipe.service.ts(+test), recipes.controller.ts(+test)}` · `apps/web/{app/page.tsx, components/app/{HomeView.tsx(+test), RecipeWorkspace.tsx(+test), AppShell.tsx}, lib/types.ts}` · `tests/integration/story_d22_save_library.test.ts` (new) · `tests/e2e/library.spec.ts` (new) · `docs/{HANDOFF,CHANGE_LOG}.md`.
+- Test results: API 193/193 · web 98/98 · integration 102/102 (real Postgres; new D-22 story 5/5: family-default save + artifact set; explicit title + blank-keeps; library AC-1 rows + cook indicator; cross-account library empty + save 404 INV-17; guest save → real claim → named recipe in the new account library, XOR intact) · gates PASS (8/8 golden) · contract-check OK (zero drift) · lint 0 · typecheck 0 · verify-local ALL STEPS PASSED (exit 0) · **CI success (run `34509853030`)**.
+- Done-criteria evidence: live internal-browser run on the real stack — chef save (blank name) → "Saved as Coastal Tamil (Kanyakumari) style meen kuzhambu" + artifact summary → library row (name/date/family/"No cook log yet") → reopen with the saved name as the workspace title → reload → library row persists (DB-owned, not browser state) → guest saved a named recipe → real Keycloak registration → callback claim → the new account library contains exactly that saved recipe → guest home still renders the untouched session list + "Other sessions".
+- OPEN DECISION notes: Q1/Q5/Q9/Q10/Q11 unchanged (OPEN) · no schema change (the artifact set IS the existing rows; `updated_at` is the save stamp — ERD has no saved_at) · no LLM/DeepSeek work (dispatcher NON-GOAL honored) · D6 delete deferred (next D-22 continuation point).
+- Deviations: e2e Playwright launches remain machine-policy blocked on the dev VM (H-13) — the identical assertions were executed live through the VS Code internal browser and recorded in §5.
 
 ### H-23 — D-23 Print list + station card
 

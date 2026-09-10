@@ -108,7 +108,7 @@ popd
 echo   Migrations applied.
 
 rem --- 3. API ---------------------------------------------------------------
-echo [3/5] API (NestJS)...
+echo [3/6] API (NestJS)...
 netstat -ano | findstr /R /C:":3001 " | findstr /C:"LISTENING" >nul
 if not errorlevel 1 (
   echo   API already running on :3001 - skipping.
@@ -119,13 +119,25 @@ if not errorlevel 1 (
 
 rem --- 4. Analysis worker -----------------------------------------------------
 echo [4/6] Analysis worker (pg-boss queue, dev stub adapter)...
-wmic process where "name='node.exe'" get commandline 2>nul | findstr /I "analysis-worker" | findstr /I "src/main.ts" >nul
-if not errorlevel 1 (
-  echo   Worker already running - skipping.
-) else (
-  start "Recipe Systems - Worker" /D "%~dp0apps\analysis-worker" cmd /k npx ts-node -T src/main.ts
-  echo   Worker window started (consumes queue "analysis").
+call :worker_is_up && goto worker_ok
+rem stale worker processes (dead consumers that never shut down cleanly) are
+rem swept so a fresh window can start
+powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { $_.CommandLine -match 'ts-node' -and $_.CommandLine -match 'src.main' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >nul 2>&1
+start "Recipe Systems - Worker" /D "%~dp0apps\analysis-worker" cmd /k "set RS_WORKER_WINDOW=1 && npx ts-node -T src/main.ts"
+echo   Worker window started (consumes queue "analysis").
+set tries=0
+:wait_worker
+call :worker_is_up && goto worker_ok
+set /a tries+=1
+if !tries! GEQ 30 (
+  echo   ERROR: the worker did not come up. Check the Worker window.
+  pause
+  exit /b 1
 )
+ping -n 3 127.0.0.1 >nul
+goto wait_worker
+:worker_ok
+echo   Worker consuming.
 
 rem --- 5. Web --------------------------------------------------------------
 echo [5/6] Web (Next.js)...
@@ -133,9 +145,17 @@ netstat -ano | findstr /R /C:":3000 " | findstr /C:"LISTENING" >nul
 if not errorlevel 1 (
   echo   Web already running on :3000 - skipping.
 ) else (
-  start "Recipe Systems - Web" /D "%~dp0apps\web" cmd /k npx next dev -p 3000
-  echo   Web window started on port 3000.
+  goto start_web
 )
+goto web_started
+
+:start_web
+rem a previous Next.js dev server that died mid-compile can hold the SWC
+rem binary lock ("operation rejected") — sweep stale next processes first
+powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { $_.CommandLine -match 'next' -and $_.CommandLine -notmatch 'nest' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >nul 2>&1
+start "Recipe Systems - Web" /D "%~dp0apps\web" cmd /k npx next dev -p 3000
+echo   Web window started on port 3000.
+:web_started
 
 rem --- 6. Health checks -----------------------------------------------------
 echo [6/6] Waiting for the app to answer...
@@ -159,12 +179,23 @@ set tries=0
 curl -s http://localhost:3000/ >nul 2>&1 && goto web_ok
 set /a tries+=1
 if !tries! GEQ 60 (
-  echo   ERROR: web did not answer on :3000. Check the web window.
-  pause
-  exit /b 1
+  rem the skip-if-running branch above can race a dying dev server — sweep
+  rem stale next processes (SWC binary lock pitfall) and start a fresh window
+  if defined web_retried goto web_fail
+  set web_retried=1
+  powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { $_.CommandLine -match 'next' -and $_.CommandLine -notmatch 'nest' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >nul 2>&1
+  start "Recipe Systems - Web" /D "%~dp0apps\web" cmd /k npx next dev -p 3000
+  echo   Web window restarted after a stale-server race.
+  set tries=0
+  goto wait_web
 )
 ping -n 4 127.0.0.1 >nul
 goto wait_web
+:web_fail
+echo   ERROR: web did not answer on :3000. Check the Web window
+echo          (a stale Next.js process may still hold the SWC lock).
+pause
+exit /b 1
 :web_ok
 echo   Web OK.
 
@@ -184,3 +215,11 @@ echo ==========================================================
 echo.
 start "" http://localhost:3000
 endlocal
+exit /b 0
+
+rem --- helper: is the analysis worker consuming? ----------------------------
+rem The worker window carries the RS_WORKER_WINDOW marker in its cmd command
+rem line (its node children are not distinguishable by command line alone).
+:worker_is_up
+powershell -NoProfile -Command "exit (Get-CimInstance Win32_Process -Filter \"Name='cmd.exe'\" | Where-Object { $_.CommandLine -match 'RS_WORKER_WINDOW' } | Measure-Object | Select-Object -ExpandProperty Count)"
+exit /b %errorlevel%

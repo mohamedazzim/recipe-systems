@@ -20,6 +20,21 @@
 
 **Rule:** a change that alters any Q1–Q18 row must say so in its entry. The register (SCAFFOLD §7) is the single source of truth for open decisions; this log records the history of how the register changed. No Q-row changes in D-13.
 
+## 2026-09-10 — A-19 audit: D-19 PASS-WITH-FINDINGS + schema-gate correction
+
+- Author / session: independent A-19 audit session (auditor, not the D-19 builder).
+- What changed: `AUDIT_LOG.md` created (A-19 verdict block); `apps/analysis-worker/src/
+  analysis-job.handler.ts` corrected — deterministic View 8/9 payloads now pass the frozen
+  schema gate before upsert (invalid → INCOMPLETE on the main path; throw on recompute);
+  +2 unit tests proving the gate fires; adversarial audit suite
+  `tests/integration/audit_a19_views_8_9.test.ts` (7 attacks incl. BLOCKER-class
+  effective-dating fidelity) added.
+- Why: A-19 paired audit of the D-19 checkpoint (findings F-1..F-4 in AUDIT_LOG.md).
+- Register impact: Q1/Q5/Q9/Q10 unchanged (OPEN).
+- Verification: worker 32/32, API 171/171, web 82/82, integration 90/90, gates PASS,
+  lint/typecheck 0, verify-local exit 0, CI green.
+- Commit(s): recorded at the audit checkpoint commit (SHA appended in AUDIT_LOG.md).
+
 ## 2026-09-10 — D-19 Views 5–9 + assumption editors (P4-1)
 
 - Author / session: DeepSeek V4 Pro (VS Code) D-19 dispatch; pre-flight GO + recompute

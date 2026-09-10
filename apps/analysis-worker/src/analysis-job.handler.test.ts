@@ -8,6 +8,7 @@
 import { MockLlmAdapter } from '@recipe-systems/llm-adapter';
 import { ProviderPendingError } from './adapter';
 import { AnalysisJobData, AnalysisJobHandler, MODEL_VERSION_LABEL } from './analysis-job.handler';
+import * as deterministicViews from './deterministic-views';
 
 const CAPTURED = {
   structured_recipe: {
@@ -343,6 +344,51 @@ describe('D-17 analysis job handler (A-17 contract)', () => {
       delta: { oil_tbsp: 2 },
       captured: CAPTURED as never,
     });
+
+    expect(prisma.analysisView.upsert).not.toHaveBeenCalled();
+  });
+
+  it('A-19 gate: an invalid deterministic payload is never published (view 8 → INCOMPLETE)', async () => {
+    const prisma = mockPrisma();
+    const { handler } = makeHandler(prisma);
+    const spy = jest
+      .spyOn(deterministicViews, 'computeView8')
+      .mockResolvedValue({ present: 'not-an-array' } as never);
+
+    await handler.handle(jobData());
+    spy.mockRestore();
+
+    const view8Upserts = prisma.analysisView.upsert.mock.calls.filter(
+      (c) => (c[0] as { create: { viewNumber: number } }).create.viewNumber === 8,
+    );
+    expect(view8Upserts[view8Upserts.length - 1][0].create.status).toBe('INCOMPLETE');
+    expect(view8Upserts[view8Upserts.length - 1][0].create.payload).toEqual({});
+    // the invalid payload was never persisted
+    const persisted = view8Upserts.map((c) => (c[0] as { create: { payload: unknown } }).create.payload);
+    expect(persisted).not.toContain(expect.objectContaining({ present: 'not-an-array' }));
+  });
+
+  it('A-19 gate: an invalid recompute payload throws and never overwrites the persisted view 9', async () => {
+    const prisma = mockPrisma();
+    prisma.analysis.findUnique.mockResolvedValue({ id: 'a1', status: 'complete' });
+    prisma.analysisView.findUnique.mockResolvedValue({
+      id: 'v9',
+      payload: { assumptions: [] },
+    });
+    const { handler } = makeHandler(prisma);
+    const spy = jest
+      .spyOn(deterministicViews, 'computeView9')
+      .mockResolvedValue({ band: 'not-a-band' } as never);
+
+    await expect(
+      handler.handleView9Recompute({
+        analysis_id: 'a1',
+        recipe_id: 'r1',
+        delta: { fish_class: 'lean' },
+        captured: CAPTURED as never,
+      }),
+    ).rejects.toThrow('frozen schema');
+    spy.mockRestore();
 
     expect(prisma.analysisView.upsert).not.toHaveBeenCalled();
   });

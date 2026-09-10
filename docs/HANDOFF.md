@@ -1439,7 +1439,12 @@ execution output; Git: not available / not authorized throughout.
 - Gate evidence: QG2 regression gates PASS with the one-writer gates enforcing (API adds queue-enqueue only — no analysis_* writes; verified by the gate grep) · golden 8/8 invariants green.
 - OPEN DECISION notes: Q1 OPEN (recompute input rides the job-payload capture — labeled, not resolved) · Q5 OPEN (D-19 reads dictionary/alias only) · Q9 OPEN (Views 5–7 stub in dev; Views 8/9 need no provider) · Q10 OPEN (no OCR) · ERD §15.4 recompute granularity labeled (View 9 only; Views 1–7 never regenerated).
 - Deviations: RS-US-45 200 is `{analysis_id, status:'recompute_queued', assumptions}` instead of the synchronous recomputed band (one-writer + single-implementation hygiene; recorded in §5) · I7 unmapped listing carried as ASSUMED-tagged assumption entries (frozen View 9 payload has no dedicated unmapped field) · live lines without extracted amounts stay I7-excluded (D-12 intake limitation — honest, not invented).
-- Audit result: A-19 not yet executed — PENDING.
+- Audit result: **A-19 = PASS-WITH-FINDINGS** (2026-09-10, independent audit session; full
+  block in `AUDIT_LOG.md`). F-1 MAJOR corrected during the audit (deterministic payloads
+  now pass the frozen-schema gate — invalid → INCOMPLETE, never published); F-2 MAJOR
+  deferred with recommendation (analysis_claim rows never materialized — provenance in
+  payload tags; no wrong data; not a D-19 blocker); F-3 MINOR (recompute convergence relies
+  on FIFO delivery); F-4 MINOR (tooling note). Correction commit recorded in AUDIT_LOG.md.
 - Follow-up: CI run for the checkpoint FAILED on the first push (CI's ephemeral Postgres has EMPTY reference tables; the D-19 story originally depended on the live load). Fixed in `cc69d15` (full SHA appended after the push): the story now self-bootstraps the committed reviewed imports through the real reviewed path in a snapshot/truncate/load/restore window, and `jest.integration.config.js` serializes integration suites (`maxWorkers: 1`) so the D-29/D-19 reference-table windows can never race. verify-local re-run exit 0; CI re-verified green (run id at checkpoint).
 
 ### H-20 — D-20 Chef mode + station card
@@ -2120,5 +2125,6 @@ execution output; Git: not available / not authorized throughout.
   workflow (G2 notice only) · no print changes · frozen schemas untouched · reference
   data untouched (live counts re-verified 17/12/6/6/12/12 after the story run).
   **Resume point:** D-19 checkpoint commit `46c0559` (full `46c0559fa7ac7668671b7f60776b9c49d93c72da`;
-  CI run recorded at checkpoint) → paired audit A-19 → then D-20
+  CI run recorded at checkpoint) → paired audit A-19 (executed 2026-09-10 — PASS-WITH-FINDINGS,
+  see AUDIT_LOG.md; correction commit recorded there) → then D-20
   (chef mode + station card) or D-21 (disclaimer sweep) per dispatch.

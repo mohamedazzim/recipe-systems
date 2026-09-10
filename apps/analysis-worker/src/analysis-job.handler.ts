@@ -15,7 +15,11 @@
 // swept at startup.
 
 import { Prisma, PrismaClient } from '@recipe-systems/database';
-import { StructuredRecipeInput } from '@recipe-systems/schemas';
+import {
+  StructuredRecipeInput,
+  View8PayloadSchema,
+  View9PayloadSchema,
+} from '@recipe-systems/schemas';
 import { generateGrounded, LlmAdapter } from '@recipe-systems/llm-adapter';
 import { ProviderPendingError } from './adapter';
 import {
@@ -137,10 +141,21 @@ export class AnalysisJobHandler {
 
       // Deterministic views 8/9 (D-19): computed here from the captured state +
       // the D-29 reviewed reference tables — NO LLM (Deterministic Views v2 §4).
+      // A-19 correction: the deterministic payloads pass the SAME frozen-schema
+      // gate as the LLM path (INV-08 refusal semantics — an invalid payload is
+      // never published; the view row goes INCOMPLETE instead).
       const view8Payload = await computeView8(this.prisma, data.captured);
-      await this.upsertView(data.analysis_id, 8, 'COMPLETE', view8Payload);
+      if (!View8PayloadSchema.safeParse(view8Payload).success) {
+        await this.upsertView(data.analysis_id, 8, 'INCOMPLETE', {});
+      } else {
+        await this.upsertView(data.analysis_id, 8, 'COMPLETE', view8Payload);
+      }
       const view9Payload = await computeView9(this.prisma, data.captured);
-      await this.upsertView(data.analysis_id, 9, 'COMPLETE', view9Payload);
+      if (!View9PayloadSchema.safeParse(view9Payload).success) {
+        await this.upsertView(data.analysis_id, 9, 'INCOMPLETE', {});
+      } else {
+        await this.upsertView(data.analysis_id, 9, 'COMPLETE', view9Payload);
+      }
 
       await this.finalize(data.analysis_id, data.recipe_id);
       await this.notify({ analysis_id: data.analysis_id, status: 'complete' });
@@ -180,6 +195,12 @@ export class AnalysisJobHandler {
     const current = existing ? overridesFromPayload(existing.payload) : DEFAULT_OVERRIDES;
     const merged = mergeOverrides(current, data.delta);
     const payload = await computeView9(this.prisma, data.captured, merged);
+    // A-19 correction: never overwrite a valid persisted payload with an
+    // invalid one — a producer bug throws (pg-boss retries per the Q13-labeled
+    // defaults) and the existing payload stays intact.
+    if (!View9PayloadSchema.safeParse(payload).success) {
+      throw new Error('deterministic view 9 recompute failed the frozen schema (A-19 gate)');
+    }
     await this.upsertView(data.analysis_id, 9, 'COMPLETE', payload);
     // Signal-only (INV-16): the status is still 'complete' — the SSE listener
     // refreshes the persisted payload.

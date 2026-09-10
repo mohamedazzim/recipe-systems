@@ -60,6 +60,66 @@ export class AnalysisController {
     return req.actor!;
   }
 
+  /** D-20 (P4-2): the frozen station-card wire shape (D-05 StationCardSchema). */
+  private stationCardWire(card: {
+    id: string;
+    analysisId: string;
+    mise: unknown;
+    sequence: unknown;
+    doNots: unknown;
+    controlPoints: unknown;
+    productYieldHold: unknown;
+    printable: boolean;
+  }) {
+    return {
+      station_card_id: card.id,
+      analysis_id: card.analysisId,
+      mise: card.mise,
+      sequence: card.sequence,
+      do_nots: card.doNots,
+      control_points: card.controlPoints,
+      product_yield_hold: card.productYieldHold ?? null,
+      printable: card.printable,
+    };
+  }
+
+  /**
+   * D-20 (P4-2): the persisted station card for one analysis (API §5).
+   * INV-17: 404 for missing AND foreign. A valid analysis WITHOUT a card (the
+   * worker's refusal path — no method / View 3 INCOMPLETE) is
+   * 404 STATION_CARD_NOT_FOUND — the card was never generated, never fabricated.
+   */
+  @Get('analysis/:analysisId/station-card')
+  @UseGuards(GuestOrJwtGuard)
+  async getStationCard(@Req() req: ActorRequest, @Param('analysisId') analysisId: string) {
+    if (!UUID_RE.test(analysisId)) {
+      throw new NotFoundException({ code: 'ANALYSIS_NOT_FOUND', message: 'Analysis not found' });
+    }
+    const actor = this.actorOf(req);
+    const analysis = await this.prisma.analysis.findUnique({
+      where: { id: analysisId },
+      include: { recipe: true },
+    });
+    if (!analysis) {
+      throw new NotFoundException({ code: 'ANALYSIS_NOT_FOUND', message: 'Analysis not found' });
+    }
+    const owns =
+      actor.kind === 'user'
+        ? analysis.recipe.accountId === actor.user.accountId
+        : analysis.recipe.guestSessionId === actor.guestSessionId;
+    if (!owns) {
+      throw new NotFoundException({ code: 'ANALYSIS_NOT_FOUND', message: 'Analysis not found' });
+    }
+    const card = await this.prisma.analysisStationCard.findUnique({ where: { analysisId } });
+    if (!card) {
+      throw new NotFoundException({
+        code: 'STATION_CARD_NOT_FOUND',
+        message: 'No station card for this analysis (no method was attached or the process is incomplete)',
+      });
+    }
+    return this.stationCardWire(card);
+  }
+
   /** RS-US-13: enqueue the full nine-view analysis. Auth: Bearer or guest. */
   @Post('recipes/:recipeId/analyse')
   @HttpCode(200) // the enqueue ACK is not a resource creation — the analysis row is the worker's (A-17)
@@ -136,6 +196,7 @@ export class AnalysisController {
       where: { analysisId },
       orderBy: { viewNumber: 'asc' },
     });
+    const card = await this.prisma.analysisStationCard.findUnique({ where: { analysisId } });
     return {
       analysis_id: analysis.id,
       status: analysis.status,
@@ -150,6 +211,7 @@ export class AnalysisController {
         status: v.status,
         payload: v.payload,
       })),
+      station_card: card ? this.stationCardWire(card) : null,
     };
   }
 
@@ -185,6 +247,9 @@ export class AnalysisController {
       where: { analysisId: analysis.id },
       orderBy: { viewNumber: 'asc' },
     });
+    const card = await this.prisma.analysisStationCard.findUnique({
+      where: { analysisId: analysis.id },
+    });
     return {
       analysis_id: analysis.id,
       status: analysis.status,
@@ -199,6 +264,7 @@ export class AnalysisController {
         status: v.status,
         payload: v.payload,
       })),
+      station_card: card ? this.stationCardWire(card) : null,
     };
   }
 

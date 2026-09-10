@@ -17,6 +17,7 @@
 import { Prisma, PrismaClient } from '@recipe-systems/database';
 import {
   StructuredRecipeInput,
+  View3PayloadSchema,
   View8PayloadSchema,
   View9PayloadSchema,
 } from '@recipe-systems/schemas';
@@ -30,6 +31,7 @@ import {
   overridesFromPayload,
   View9AssumptionDelta,
 } from './deterministic-views';
+import { buildStationCard } from './station-card';
 
 /** Q9-honest model pin: no provider exists yet — the label is recorded, never a
  *  pretend provider (A-17 hygiene: labeled assumptions only). */
@@ -157,6 +159,11 @@ export class AnalysisJobHandler {
         await this.upsertView(data.analysis_id, 9, 'COMPLETE', view9Payload);
       }
 
+      // D-20 (P4-2): the station card — deterministic, derived from the capture
+      // + the persisted View 3 row (INV-10). No method/View 3 INCOMPLETE → no
+      // card (the refusal path). Idempotent upsert on the unique analysis_id.
+      await this.upsertStationCard(data.analysis_id, data.captured);
+
       await this.finalize(data.analysis_id, data.recipe_id);
       await this.notify({ analysis_id: data.analysis_id, status: 'complete' });
     } catch (err) {
@@ -224,6 +231,47 @@ export class AnalysisJobHandler {
         payload: payload as Prisma.InputJsonValue,
       },
       update: { status, payload: payload as Prisma.InputJsonValue },
+    });
+  }
+
+  /**
+   * D-20 (P4-2): persist the station card when its precondition holds (method
+   * present + View 3 COMPLETE). The card is assembled from the capture + the
+   * persisted View 3 — never free prose (INV-10). No card → no row (the
+   * refusal path; a pre-existing card from an earlier delivery is left intact
+   * only for completed analyses, which converge via INV-11).
+   */
+  private async upsertStationCard(
+    analysisId: string,
+    captured: StructuredRecipeInput,
+  ): Promise<void> {
+    const view3Row = await this.prisma.analysisView.findUnique({
+      where: { analysisId_viewNumber: { analysisId, viewNumber: 3 } },
+    });
+    const parsedView3 = view3Row ? View3PayloadSchema.safeParse(view3Row.payload) : null;
+    const card = buildStationCard(captured, parsedView3?.success ? parsedView3.data : null);
+    if (!card) {
+      return;
+    }
+    await this.prisma.analysisStationCard.upsert({
+      where: { analysisId },
+      create: {
+        analysisId,
+        mise: card.mise as unknown as Prisma.InputJsonValue,
+        sequence: card.sequence as unknown as Prisma.InputJsonValue,
+        doNots: card.do_nots as unknown as Prisma.InputJsonValue,
+        controlPoints: card.control_points as unknown as Prisma.InputJsonValue,
+        productYieldHold: Prisma.JsonNull,
+        printable: true,
+      },
+      update: {
+        mise: card.mise as unknown as Prisma.InputJsonValue,
+        sequence: card.sequence as unknown as Prisma.InputJsonValue,
+        doNots: card.do_nots as unknown as Prisma.InputJsonValue,
+        controlPoints: card.control_points as unknown as Prisma.InputJsonValue,
+        productYieldHold: Prisma.JsonNull,
+        printable: true,
+      },
     });
   }
 

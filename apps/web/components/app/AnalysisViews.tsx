@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/Button';
 import { Field } from '@/components/ui/Field';
 import { Input } from '@/components/ui/Input';
 import { api, ApiError } from '@/lib/api';
+import { StationCard, NoStationCard } from '@/components/app/StationCard';
 import {
   displayDuration,
   identificationFrom,
@@ -42,7 +43,23 @@ export interface AnalysisViewsProps {
   signedIn?: boolean;
   /** Manual re-read of the analysis (D-19 recompute). */
   onRefresh?: () => Promise<void>;
+  /** D-20 (C3): home explains, chef briefs — same nine views, different framing. */
+  mode?: 'home' | 'chef';
 }
+
+/** §7 Home-vs-chef framing per view (table column mapping; content transformation
+ *  awaits the real LLM — Q9 OPEN; headers only, nothing invented). */
+const CHEF_TAB_LABELS: Record<string, string> = {
+  'view-1': '1 · Job + failure if omitted',
+  'view-2': '2 · Diagnostic',
+  'view-3': '3 · Sequence, heat, cue',
+  'view-4': '4 · Structural / modular',
+  'view-5': '5 · Neighbour swaps',
+  'view-6': '6 · Working ratios',
+  'view-7': '7 · Texture + hold',
+  'view-8': '8 · Allergen brief',
+  'view-9': '9 · Assumption log',
+};
 
 export function AnalysisViews({
   analysis,
@@ -50,6 +67,7 @@ export function AnalysisViews({
   methodState,
   signedIn = false,
   onRefresh = async () => undefined,
+  mode = 'home',
 }: AnalysisViewsProps) {
   const [activeView, setActiveView] = useState('view-1');
   const byNumber = new Map(analysis.views.map((v) => [v.view_number, v]));
@@ -77,7 +95,10 @@ export function AnalysisViews({
       label: '9 · Nutrition',
       content: renderView9(view(9), analysis.analysis_id, signedIn, onRefresh),
     },
-  ];
+  ].map((t) => ({
+    ...t,
+    label: mode === 'chef' ? (CHEF_TAB_LABELS[t.id] ?? t.label) : t.label,
+  }));
 
   return (
     <section aria-labelledby="result-heading" className="mt-4">
@@ -119,6 +140,15 @@ export function AnalysisViews({
       )}
 
       <div className="mt-6">
+        {mode === 'chef' && (
+          <div className="mb-6">
+            {analysis.station_card ? (
+              <StationCard card={analysis.station_card} />
+            ) : (
+              <NoStationCard />
+            )}
+          </div>
+        )}
         <Tabs
           tabs={tabs.map((t) => ({ id: t.id, label: t.label }))}
           active={activeView}

@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AnalysisViews } from '@/components/app/AnalysisViews';
-import type { AnalysisState, WireLine } from '@/lib/types';
+import type { AnalysisState, StationCard, WireLine } from '@/lib/types';
 
 const LINES: WireLine[] = [
   {
@@ -416,5 +416,49 @@ describe('AnalysisViews (D-19 Views 5–9)', () => {
     await userEvent.type(screen.getByLabelText('Coconut (grams)'), '180');
     await userEvent.click(screen.getByRole('button', { name: 'Recompute band' }));
     expect(await screen.findByText('boom')).toBeInTheDocument();
+  });
+});
+
+describe('AnalysisViews (D-20 chef mode · station card leads, §7 headers)', () => {
+  const CARD: StationCard = {
+    station_card_id: 'sc-1',
+    analysis_id: 'a-1',
+    mise: { l1: { display_name: 'Fish 500g', amount: '500g', tag: 'CARD' } },
+    sequence: [{ stage_name: 'Load', action: 'Boil', cue: 'Opaque', duration: 'UNKNOWN', tag: 'METHOD' }],
+    do_nots: [],
+    control_points: [{ stage_name: 'Load', cue: 'Opaque', tag: 'METHOD' }],
+    product_yield_hold: null,
+    printable: true,
+  };
+
+  it('chef mode leads with the persisted station card', () => {
+    render(
+      <AnalysisViews
+        analysis={{ ...analysis([]), station_card: CARD }}
+        lines={LINES}
+        methodState={null}
+        mode="chef"
+      />,
+    );
+    expect(screen.getByRole('heading', { name: 'Station card' })).toBeInTheDocument();
+    expect(screen.getByText('Untasted briefing. Season after.')).toBeInTheDocument();
+  });
+
+  it('chef mode without a card shows the honest refusal surface', () => {
+    render(
+      <AnalysisViews analysis={{ ...analysis([]), station_card: null }} lines={LINES} methodState={null} mode="chef" />,
+    );
+    expect(screen.getByText(/No station card for this analysis/)).toBeInTheDocument();
+  });
+
+  it('chef tabs carry the §7 chef-voice labels; home tabs keep the home labels', () => {
+    const a = analysis([]);
+    const { rerender } = render(<AnalysisViews analysis={a} lines={LINES} methodState={null} mode="home" />);
+    expect(screen.getByRole('tab', { name: '3 · Process' })).toBeInTheDocument();
+    rerender(<AnalysisViews analysis={a} lines={LINES} methodState={null} mode="chef" />);
+    expect(screen.getByRole('tab', { name: '3 · Sequence, heat, cue' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '8 · Allergen brief' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: '9 · Assumption log' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: '3 · Process' })).not.toBeInTheDocument();
   });
 });

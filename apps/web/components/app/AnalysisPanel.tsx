@@ -22,6 +22,8 @@ export interface AnalysisPanelProps {
   methodState: MethodState | null;
   /** Bearer-only assumption editors (RS-US-45): hidden for guests. */
   signedIn: boolean;
+  /** D-20 (C3): home explains, chef briefs (station card leads). */
+  mode?: 'home' | 'chef';
 }
 
 const STATUS_COPY: Record<string, { label: string; live: boolean }> = {
@@ -31,7 +33,7 @@ const STATUS_COPY: Record<string, { label: string; live: boolean }> = {
   failed: { label: 'The analysis run failed.', live: false },
 };
 
-export function AnalysisPanel({ analysisId, recipeId, lines, methodState, signedIn }: AnalysisPanelProps) {
+export function AnalysisPanel({ analysisId, recipeId, lines, methodState, signedIn, mode = 'home' }: AnalysisPanelProps) {
   const { analysis, error, refresh } = useAnalysisStatus(analysisId);
 
   if (!analysisId) {
@@ -104,6 +106,7 @@ export function AnalysisPanel({ analysisId, recipeId, lines, methodState, signed
                   methodState={methodState}
                   signedIn={signedIn}
                   onRefresh={refresh}
+                  mode={mode}
                 />
               </div>
             )}

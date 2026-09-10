@@ -93,6 +93,7 @@ interface PrismaMock {
     findMany: jest.Mock;
   };
   analysisView: { upsert: jest.Mock; findUnique: jest.Mock };
+  analysisStationCard: { upsert: jest.Mock };
   ingredientDictionary: { findMany: jest.Mock };
   ingredientAlias: { findMany: jest.Mock };
   dietaryAllergenMapping: { findMany: jest.Mock };
@@ -113,6 +114,7 @@ function mockPrisma(): PrismaMock {
       upsert: jest.fn().mockResolvedValue({}),
       findUnique: jest.fn().mockResolvedValue(null),
     },
+    analysisStationCard: { upsert: jest.fn().mockResolvedValue({}) },
     ingredientDictionary: { findMany: jest.fn().mockResolvedValue([]) },
     ingredientAlias: { findMany: jest.fn().mockResolvedValue([]) },
     dietaryAllergenMapping: { findMany: jest.fn().mockResolvedValue([]) },
@@ -262,6 +264,52 @@ describe('D-17 analysis job handler (A-17 contract)', () => {
 
   it('the model pin is the Q9-honest label (never a pretend provider)', () => {
     expect(MODEL_VERSION_LABEL).toBe('stub-no-provider-q9');
+  });
+
+  it('D-20: the station card is persisted when a method exists and View 3 is COMPLETE', async () => {
+    const prisma = mockPrisma();
+    prisma.analysisView.findUnique.mockResolvedValue({
+      viewNumber: 3,
+      status: 'COMPLETE',
+      payload: {
+        status: 'COMPLETE',
+        stages: [
+          {
+            stage_name: 'Load and heat',
+            action: 'Add fish, drumstick, chilli; cover; boil then reduce to medium',
+            cue: 'Fish opaque and just flaking',
+            duration: 'About 5-6 minutes after boil',
+            tag: 'METHOD',
+          },
+        ],
+        incomplete_reason: null,
+      },
+    });
+    const { handler } = makeHandler(prisma);
+
+    await handler.handle(jobData());
+
+    expect(prisma.analysisStationCard.upsert).toHaveBeenCalledTimes(1);
+    const card = prisma.analysisStationCard.upsert.mock.calls[0][0] as {
+      create: { mise: Record<string, unknown>; sequence: unknown[]; doNots: unknown[]; controlPoints: unknown[] };
+    };
+    expect(card.create.mise).toHaveProperty('fish_500g');
+    expect(card.create.sequence).toHaveLength(1);
+    expect(card.create.doNots).toEqual([
+      { item: 'garlic', tag: 'ABSENT', note: 'Confirmed absent at review — do not add.' },
+    ]);
+    expect(card.create.controlPoints).toEqual([
+      { stage_name: 'Load and heat', cue: 'Fish opaque and just flaking', tag: 'METHOD' },
+    ]);
+  });
+
+  it('D-20: NO card when View 3 is missing (the refusal path)', async () => {
+    const prisma = mockPrisma();
+    const { handler } = makeHandler(prisma);
+
+    await handler.handle(jobData());
+
+    expect(prisma.analysisStationCard.upsert).not.toHaveBeenCalled();
   });
 
   it('D-19: deterministic views 8/9 are COMPLETE with the frozen payload shapes (no LLM)', async () => {

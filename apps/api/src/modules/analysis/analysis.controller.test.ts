@@ -10,6 +10,7 @@ describe('AnalysisController.latestAnalysis (D-18 read route)', () => {
     recipe: { findUnique: jest.fn() },
     analysis: { findFirst: jest.fn() },
     analysisView: { findMany: jest.fn() },
+    analysisStationCard: { findUnique: jest.fn().mockResolvedValue(null) },
   };
   const controller = new AnalysisController(
     {} as never,
@@ -71,6 +72,120 @@ describe('AnalysisController.latestAnalysis (D-18 read route)', () => {
     await expect(
       controller.latestAnalysis({ actor } as never, 'aaaaaaaa-0000-4000-8000-000000000003'),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('D-20: includes the station card in the assembly when persisted (frozen wire shape)', async () => {
+    prisma.recipe.findUnique.mockResolvedValue({ id: 'r1', accountId: 'acc-1', guestSessionId: null });
+    prisma.analysis.findFirst.mockResolvedValue({
+      id: 'a-1',
+      status: 'complete',
+      mode: 'home',
+      isCurrent: true,
+      promptVersion: 'v2',
+      modelVersion: 'stub-no-provider-q9',
+      createdAt: new Date('2026-09-09T10:00:00Z'),
+    });
+    prisma.analysisView.findMany.mockResolvedValue([]);
+    prisma.analysisStationCard.findUnique.mockResolvedValue({
+      id: 'sc-1',
+      analysisId: 'a-1',
+      mise: { fish_500g: { display_name: 'Fish — 500g', amount: '500g', tag: 'CARD' } },
+      sequence: [{ stage_name: 'Load', action: 'Boil', cue: 'Opaque', duration: 'UNKNOWN', tag: 'METHOD' }],
+      doNots: [],
+      controlPoints: [],
+      productYieldHold: null,
+      printable: true,
+    });
+
+    const result = await controller.latestAnalysis(
+      { actor } as never,
+      'aaaaaaaa-0000-4000-8000-000000000004',
+    );
+
+    expect(result.station_card).toEqual({
+      station_card_id: 'sc-1',
+      analysis_id: 'a-1',
+      mise: { fish_500g: { display_name: 'Fish — 500g', amount: '500g', tag: 'CARD' } },
+      sequence: [{ stage_name: 'Load', action: 'Boil', cue: 'Opaque', duration: 'UNKNOWN', tag: 'METHOD' }],
+      do_nots: [],
+      control_points: [],
+      product_yield_hold: null,
+      printable: true,
+    });
+  });
+});
+
+describe('AnalysisController.getStationCard (D-20 P4-2)', () => {
+  const prisma = {
+    analysis: { findUnique: jest.fn() },
+    analysisStationCard: { findUnique: jest.fn() },
+  };
+  const controller = new AnalysisController({} as never, {} as never, prisma as never);
+
+  const actor = {
+    kind: 'user' as const,
+    user: { accountId: 'acc-1', email: 'c@t.dev', sub: 's' },
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('returns the persisted card in the frozen wire shape', async () => {
+    prisma.analysis.findUnique.mockResolvedValue({
+      id: 'a-1',
+      recipe: { accountId: 'acc-1', guestSessionId: null },
+    });
+    prisma.analysisStationCard.findUnique.mockResolvedValue({
+      id: 'sc-1',
+      analysisId: 'a-1',
+      mise: {},
+      sequence: [],
+      doNots: [],
+      controlPoints: [],
+      productYieldHold: null,
+      printable: true,
+    });
+
+    const result = await controller.getStationCard(
+      { actor } as never,
+      'aaaaaaaa-0000-4000-8000-000000000001',
+    );
+
+    expect(result.station_card_id).toBe('sc-1');
+    expect(result.printable).toBe(true);
+    expect(result.product_yield_hold).toBeNull();
+  });
+
+  it('valid analysis without a card → 404 STATION_CARD_NOT_FOUND (refusal path, never fabricated)', async () => {
+    prisma.analysis.findUnique.mockResolvedValue({
+      id: 'a-1',
+      recipe: { accountId: 'acc-1', guestSessionId: null },
+    });
+    prisma.analysisStationCard.findUnique.mockResolvedValue(null);
+
+    await expect(
+      controller.getStationCard({ actor } as never, 'aaaaaaaa-0000-4000-8000-000000000001'),
+    ).rejects.toMatchObject({ response: { code: 'STATION_CARD_NOT_FOUND' } });
+  });
+
+  it('foreign analysis → 404 ANALYSIS_NOT_FOUND (INV-17, no existence leak)', async () => {
+    prisma.analysis.findUnique.mockResolvedValue({
+      id: 'a-1',
+      recipe: { accountId: 'acc-OTHER', guestSessionId: null },
+    });
+
+    await expect(
+      controller.getStationCard({ actor } as never, 'aaaaaaaa-0000-4000-8000-000000000001'),
+    ).rejects.toMatchObject({ response: { code: 'ANALYSIS_NOT_FOUND' } });
+    expect(prisma.analysisStationCard.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('malformed id → clean 404 (UUID guard before Prisma)', async () => {
+    await expect(controller.getStationCard({ actor } as never, 'not-a-uuid')).rejects.toMatchObject({
+      response: { code: 'ANALYSIS_NOT_FOUND' },
+    });
+    expect(prisma.analysis.findUnique).not.toHaveBeenCalled();
   });
 });
 

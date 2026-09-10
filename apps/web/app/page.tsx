@@ -147,6 +147,7 @@ export default function Home() {
           signedIn={state.phase === 'signed-in'}
           onBack={() => setView({ name: 'home' })}
           initialLines={view.initialLines}
+          preferredMode={user?.preferred_mode === 'chef' ? 'chef' : 'home'}
         />
       )}
       {state.phase === 'guest' && guestSessionId && (

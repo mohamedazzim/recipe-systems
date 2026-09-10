@@ -615,6 +615,97 @@ execution output; Git: not available / not authorized throughout.
   (API :3001 · worker consuming both queues · web :3000 · containers up) after verification.
   Reference data re-verified intact 17/12/6/6/12/12. Q1/Q5/Q9/Q10/Q11 OPEN.
 
+- 2026-09-10 — **D-20 PREFLIGHT (dispatcher authorization: D-21 GO → implement D-20 only) — STARTING STATE, recorded before any D-20 code**:
+  **DECISION (dispatcher 2026-09-10):** D-20 = P4-2 chef mode + station card (C3/C5, §7/§8).
+  **CANONICAL SOURCES READ:** DISPATCH D-20/A-20 · Recipe_Systems.md §7 (chef voice/output order/
+  required blanks/refusal) + §8 (golden station card) · ERD §6 `analysis_station_card` (mise/
+  sequence/do_nots/control_points JSONB, product_yield_hold nullable, printable default true) ·
+  Epic-C C3 (default home; chef leads with the card; preference saved on account — toggle
+  semantics OPEN per ERD §15.4, label not decide) + C5 (card when method exists or inferred
+  accepted; mise/sequence/do-nots/control points; printable) · BUILD_PLAN P4-2 · SCAFFOLD §7
+  ("one app, not two": modes over one analysis) · TEST_PLAN e2e tier · D-05 StationCardSchema
+  (frozen) + envelope `station_card` nullable.
+  **ALREADY IMPLEMENTED (verified, reused):** Prisma `AnalysisStationCard` model + migrated table
+  (0 rows today — D-20 populates) · frozen StationCardSchema + envelope field · `account.
+  preferred_mode` (CHECK home/chef) + `PATCH /auth/me/preferences` (zod enum) · `analysis.mode`
+  (always 'home' from the web today) · worker one-writer handler + idempotent upserts ·
+  Q1-labeled capture (method steps + ingredients) rides the job payload · Views 1–9 complete.
+  **D-20 DESIGN DECISIONS (labeled, recorded here BEFORE code):**
+  - D-20A: the station card is assembled DETERMINISTICALLY by the worker (the sole
+    analysis_* writer) from the Q1-labeled capture + the persisted View 3/8 rows — NEVER free
+    LLM prose (INV-10; A-20 BLOCKER class). No new snapshot persistence invented (Q1 OPEN).
+  - D-20B: card precondition = method steps exist in the capture (METHOD or accepted INFERRED)
+    AND persisted View 3 is COMPLETE. Otherwise NO card (refusal path; list-only analyses are
+    already 422-refused at enqueue, so this also covers method-cleared-after-analysis).
+  - D-20C: field sources (derivable, nothing invented): `mise` = capture ingredients verbatim
+    (record keyed by ingredient id: display_name + amount_text + CARD) · `sequence` = View 3
+    stages verbatim (action/cue/duration/tag) · `control_points` = one per View 3 stage
+    (stage_name + cue verbatim) · `do_nots` = captured `explicitly_absent` mapped to ABSENT
+    items ("confirmed absent — do not add"); EMPTY in the stub world (Q9 OPEN — inventing
+    family-specific do-nots would violate no-invention; the field exists and populates
+    truthfully) · `product_yield_hold` = null (unknowns stay blank per §7 required blanks) ·
+    `printable` = true.
+  - D-20D: API `GET /analysis/:analysisId/station-card` (GuestOrJwtGuard; UUID guard; INV-17 404
+    for missing AND foreign; valid analysis WITHOUT a card → 404 `STATION_CARD_NOT_FOUND`);
+    `station_card` (nullable, frozen shape) included in the GET /analysis/:id and
+    /recipes/:id/analysis assemblies.
+  - D-20E: web chef mode = a Home↔Chef toggle on the analysis workspace. Default home (C3 AC-1);
+    chef leads with the station card then the compressed nine views with the §7 chef-voice
+    headers (table column mapping only — payload CONTENT transformation awaits the real LLM,
+    Q9 OPEN; the same nine frozen views render, never invented chef copy beyond the §7
+    headers). Preference persisted via the existing `PATCH /auth/me/preferences`
+    (signed-in only); guests get a session-local toggle (C3 is account-scoped — labeled).
+  - D-20F: chef output order per §7: identification+confidence → station card → control points
+    → product/yield/hold (unknowns blank) → compressed nine views → "Untasted briefing. Season
+    after." line.
+  **PLAN:** worker producer + handler hook → API route + assembly → web toggle + card component
+  + chef headers → unit/integration/e2e coverage → gates/lint/typecheck → verify-local → commit
+  → CI → H-20 + GO/NO-GO-style close. STOP (no D-22).
+
+- 2026-09-10 — **D-20 EXECUTION (implementation + verification; dispatcher authorization above) — recorded at close-out**:
+  **IMPLEMENTED per D-20A..F (decision trace above, honored verbatim):**
+  - worker: `apps/analysis-worker/src/station-card.ts` — deterministic `buildStationCard(captured,
+    view3)` (mise = capture ingredients verbatim keyed by line id; sequence = View 3 stages
+    verbatim; control_points = one per stage; do_nots = capture `explicitly_absent` → ABSENT
+    notes; product_yield_hold null; printable true). Precondition (method steps AND View 3
+    COMPLETE) else null — the refusal path. Handler calls `upsertStationCard` after the View 8/9
+    writes and before finalize; idempotent upsert on the unique `analysis_id`.
+  - API: `GET /api/v1/analysis/:analysisId/station-card` (GuestOrJwtGuard; UUID guard; INV-17
+    404 missing AND foreign; no-card → 404 `STATION_CARD_NOT_FOUND`) + `station_card` (nullable,
+    frozen D-05 wire) in the GET /analysis/:id and /recipes/:id/analysis assemblies. API writes
+    nothing (one-writer preserved).
+  - web: Home↔Chef `ModeToggle` (radiogroup "Presentation mode") on the workspace; chef leads
+    with the persisted `StationCard` (or the honest `NoStationCard`) then the nine views with the
+    §7 chef-voice tab headers (label mapping only); closing line "Untasted briefing. Season
+    after."; `preferredMode` prop from `/auth/me`; toggle persists via existing
+    `PATCH /auth/me/preferences` (signed-in) / session-local for guests.
+  **EVIDENCE (this session):**
+  - unit: worker 44/44 · API 183/183 · web 93/93 (D-20 additions: worker station-card suite 8,
+    handler +2, API station-card route suite 4 + assembly 1, web StationCard suite 4 + chef-mode
+    tabs 3) · integration 97/97 incl. NEW `tests/integration/story_d20_station_card.test.ts`
+    (3/3 on real Postgres: card row persisted with verbatim capture/View 3 content on a
+    chef-mode run; 404 STATION_CARD_NOT_FOUND for INCOMPLETE-view3 AND no-method branches;
+    foreign 404 ANALYSIS_NOT_FOUND; assemblies carry the card).
+  - gates: QG2 regression gates PASS (8/8 golden invariants) · contract-check OK (openapi
+    regenerated, zero drift) · lint 0 · typecheck 0 · verify-local ALL STEPS PASSED (exit 0).
+  - LIVE stack (internal browser, real Keycloak chef account): paste golden card → method →
+    analyse → complete → Chef toggle rendered the persisted card (Mise 11 lines CARD, Sequence,
+    Control points, "Untasted briefing. Season after.") and all nine §7 chef-voice tab labels →
+    Home toggle restored the home labels (no Views 1–9 regression) → Chef persisted
+    (`PATCH /auth/me/preferences` 200) → reload + reopen restored chef mode with the card
+    (C3 TC-03) → guest session: toggle present, chef caption switches, NO fabricated card
+    (guest analysis copy intact) → live API: foreign/malformed station-card requests → 404
+    ANALYSIS_NOT_FOUND (INV-17). `analysis_station_card` populated on the live DB (was 0 rows).
+  - e2e: NEW `tests/e2e/chef-mode.spec.ts` (signed-in journey + C3 TC-03 persistence + guest
+    refusal surface) — Playwright launches remain machine-policy blocked here (H-13); the live
+    internal-browser run above is the executed verification of the same assertions.
+  **DECISIONS CARRIED:** Q1 OPEN (card derives from the job-payload capture — no snapshot
+  persistence invented) · Q9 OPEN (stub LLM content; chef payload transformation awaits the
+  real provider — headers only) · do_nots empty in the stub world (truthful, never invented) ·
+  analysis `mode` remains 'home' for web enqueues (the toggle is presentation-only per ERD
+  §15.4 — labeled, no second analysis system).
+  **COMMIT/CI:** see the H-20 ledger entry (SHA + CI run id recorded after the push).
+
 - 2026-09-10 — **D-21 PREFLIGHT (dispatcher authorization: preflight → implement D-21 only; report GO/NO-GO for D-20) — STARTING STATE, recorded before any D-21 code**:
   **DECISION (dispatcher 2026-09-10):** D-21 = P4-3 disclaimer sweep (H6/I6 unconditional,
   INV-13 "safe" forbidden, INV-14 no point-kcal — DISPATCH D-21, A-21 attack vectors).

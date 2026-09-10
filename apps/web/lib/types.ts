@@ -50,6 +50,24 @@ export interface EnqueueState {
 
 export type AnalysisStatus = 'queued' | 'generating' | 'complete' | 'failed';
 
+/** D-20 (P4-2): frozen station-card wire shape (D-05 StationCardSchema / API §5). */
+export interface StationCard {
+  station_card_id: string;
+  analysis_id: string;
+  mise: Record<string, { display_name: string; amount: string | null; tag: 'CARD' }>;
+  sequence: Array<{
+    stage_name: string;
+    action: string;
+    cue: string;
+    duration: string;
+    tag: string;
+  }>;
+  do_nots: Array<{ item: string; tag: 'ABSENT'; note: string }>;
+  control_points: Array<{ stage_name: string; cue: string; tag: string }>;
+  product_yield_hold: Record<string, unknown> | null;
+  printable: boolean;
+}
+
 /** GET /analysis/:id wire shape (D-17 read surface). */
 export interface AnalysisState {
   analysis_id: string;
@@ -65,6 +83,8 @@ export interface AnalysisState {
     status: 'COMPLETE' | 'INCOMPLETE';
     payload: unknown;
   }>;
+  /** D-20 (P4-2): present only when the worker generated the card (method + View 3 COMPLETE). */
+  station_card?: StationCard | null;
 }
 
 export interface AnalyseAck {

@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft } from '@phosphor-icons/react';
 import { Heading } from '@/components/ui/Typography';
+import { Button } from '@/components/ui/Button';
 import { api, ApiError } from '@/lib/api';
 import { listSessionRecipes } from '@/lib/flow';
 import type { AnalysisState, MethodState } from '@/lib/types';
@@ -22,13 +23,34 @@ export interface RecipeWorkspaceProps {
   onBack: () => void;
   /** Lines from the parse-text response (guest read-only rendering). */
   initialLines?: WireLine[] | null;
+  /** D-20 (C3): the account's saved mode preference (default home). */
+  preferredMode?: 'home' | 'chef';
 }
 
-export function RecipeWorkspace({ recipeId, signedIn, onBack, initialLines = null }: RecipeWorkspaceProps) {
+export function RecipeWorkspace({
+  recipeId,
+  signedIn,
+  onBack,
+  initialLines = null,
+  preferredMode = 'home',
+}: RecipeWorkspaceProps) {
   const [analysisId, setAnalysisId] = useState<string | null>(null);
   const [lines, setLines] = useState<WireLine[]>(initialLines ?? []);
   const [methodState, setMethodState] = useState<MethodState | null>(null);
   const [title, setTitle] = useState('Recipe');
+  /** D-20 (C3): home explains, chef briefs. Guests get a session-local toggle;
+   *  signed-in users persist the preference on the account (C3 AC-2/TC-03). */
+  const [mode, setMode] = useState<'home' | 'chef'>(preferredMode);
+
+  const selectMode = (next: 'home' | 'chef'): void => {
+    setMode(next);
+    if (signedIn) {
+      void api('/auth/me/preferences', {
+        method: 'PATCH',
+        body: JSON.stringify({ preferred_mode: next }),
+      }).catch(() => undefined);
+    }
+  };
 
   useEffect(() => {
     const record = listSessionRecipes().find((r) => r.recipe_id === recipeId);
@@ -76,6 +98,13 @@ export function RecipeWorkspace({ recipeId, signedIn, onBack, initialLines = nul
         Review the lines, attach a method, then run the analysis.
       </p>
 
+      <div className="mt-4 flex items-center gap-3">
+        <ModeToggle mode={mode} onSelect={selectMode} />
+        <span className="text-caption text-faint">
+          {mode === 'home' ? 'Home explains.' : 'Chef briefs — the station card leads.'}
+        </span>
+      </div>
+
       <div className="mt-8">
         <IngredientReview
           recipeId={recipeId}
@@ -90,7 +119,59 @@ export function RecipeWorkspace({ recipeId, signedIn, onBack, initialLines = nul
 
       <ReadinessPanel recipeId={recipeId} signedIn={signedIn} lines={lines} onAnalysed={setAnalysisId} />
 
-      <AnalysisPanel analysisId={analysisId} recipeId={recipeId} lines={lines} methodState={methodState} signedIn={signedIn} />
+      <AnalysisPanel
+        analysisId={analysisId}
+        recipeId={recipeId}
+        lines={lines}
+        methodState={methodState}
+        signedIn={signedIn}
+        mode={mode}
+      />
+    </div>
+  );
+}
+
+/** D-20 (C3): the Home↔Chef segmented toggle (mode semantics per ERD §15.4 —
+ *  presentation mode over the same analysis, never a second system). */
+export function ModeToggle({
+  mode,
+  onSelect,
+}: {
+  mode: 'home' | 'chef';
+  onSelect: (next: 'home' | 'chef') => void;
+}) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Presentation mode"
+      className="inline-flex rounded-md border border-border-strong bg-surface p-0.5"
+    >
+      <button
+        type="button"
+        role="radio"
+        aria-checked={mode === 'home'}
+        onClick={() => onSelect('home')}
+        className={
+          mode === 'home'
+            ? 'rounded-sm bg-accent px-3 py-1 text-small font-semibold text-surface'
+            : 'rounded-sm px-3 py-1 text-small font-semibold text-muted hover:text-ink'
+        }
+      >
+        Home
+      </button>
+      <button
+        type="button"
+        role="radio"
+        aria-checked={mode === 'chef'}
+        onClick={() => onSelect('chef')}
+        className={
+          mode === 'chef'
+            ? 'rounded-sm bg-accent px-3 py-1 text-small font-semibold text-surface'
+            : 'rounded-sm px-3 py-1 text-small font-semibold text-muted hover:text-ink'
+        }
+      >
+        Chef
+      </button>
     </div>
   );
 }

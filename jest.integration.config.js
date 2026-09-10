@@ -4,6 +4,10 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
+  // D-29/D-19: the reference-data stories share the SIX curated tables and use
+  // snapshot/truncate/load/restore hygiene — suites must run SERIALLY so one
+  // story's truncate/restore window can never race another story's reads.
+  maxWorkers: 1,
   roots: ['<rootDir>/tests/integration'],
   testMatch: ['**/*.test.ts'],
   transform: {

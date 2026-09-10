@@ -1,5 +1,4 @@
-// D-19 (P4-1) integration — deterministic Views 8/9 on real Postgres with the
-// LIVE D-29 reviewed reference data:
+// D-19 (P4-1) integration — deterministic Views 8/9 on real Postgres:
 //   - the full AnalysisJobHandler run persists View 8 (allergen flags from
 //     dietary_allergen_mapping) and View 9 (band from nutrition_food_composition_*)
 //     as COMPLETE — never fabricated, never "safe" (INV-13), sodium Unknown.
@@ -7,8 +6,14 @@
 //     over the persisted payload and rewrites ONLY view 9 (one-writer).
 //   - I7: the fenugreek-powder line has no distinct USDA composition record →
 //     unmapped, excluded from totals and listed.
-// Snapshot hygiene: this story only READS reference tables — the live load is
-// untouched (no writes, no deletes).
+//
+// Reference-data bootstrap: CI's ephemeral Postgres has EMPTY reference tables,
+// so this story loads the REAL committed D-29 reviewed imports through the real
+// reviewed path (ReferenceDataService.approve with the committed approval
+// records) inside a snapshot/truncate/load/restore window — the same hygiene as
+// story_d29. On the live dev DB the exact prior rows are restored at the end.
+// Integration suites run SERIALLY (jest.integration.config.js maxWorkers: 1) so
+// this window can never race the D-29 story.
 
 /* eslint-disable @typescript-eslint/no-var-requires */
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -29,9 +34,23 @@ const { IntakeService } = require('../../apps/api/src/modules/intake/intake.serv
 const { AnalysisService } = require('../../apps/api/src/modules/analysis/analysis.service');
 const { AnalysisJobHandler } = require('../../apps/analysis-worker/src/analysis-job.handler');
 const { MockLlmAdapter } = require('@recipe-systems/llm-adapter');
+const {
+  ReferenceDataRepository,
+} = require('../../apps/api/src/admin/reference-data.repository');
+const { ReferenceDataService } = require('../../apps/api/src/admin/reference-data.service');
 
 const recipes = new RecipeService(prisma);
 const intake = new IntakeService(prisma, recipes as any);
+
+const COMMITTED_APPROVALS_DIR = path.join(REPO, 'infra', 'reference-data', 'approvals');
+const COMMITTED_IMPORTS_DIR = path.join(REPO, 'infra', 'reference-data', 'imports');
+const D29_REVIEWER = 'Mohamed Azzim (D-29 dispatch authorization 2026-09-09)';
+const COMMITTED_IMPORTS = [
+  'R-2026-09-09-001-allergen-definitions.json',
+  'R-2026-09-09-002-dictionary-golden.json',
+  'R-2026-09-09-003-allergen-mappings.json',
+  'R-2026-09-09-004-nutrition-composition.json',
+];
 
 const CARD_LINES = [
   'Fish — 500g',
@@ -86,7 +105,59 @@ function fixtureAdapter(lineId: string) {
   return new MockLlmAdapter(fixtures);
 }
 
-describe('D-19 deterministic views 8/9 — real Postgres + live reference data', () => {
+async function truncateReferenceTables() {
+  await prisma.dietaryAllergenMapping.deleteMany();
+  await prisma.nutritionFoodCompositionVersion.deleteMany();
+  await prisma.nutritionFoodCompositionEntry.deleteMany();
+  await prisma.ingredientAlias.deleteMany();
+  await prisma.ingredientDictionary.deleteMany();
+  await prisma.dietaryAllergenDefinition.deleteMany();
+}
+
+let snapshot: {
+  definitions: object[];
+  dictionary: object[];
+  aliases: object[];
+  mappings: object[];
+  entries: object[];
+  versions: object[];
+} | null = null;
+
+async function captureReferenceTables() {
+  snapshot = {
+    definitions: await prisma.dietaryAllergenDefinition.findMany(),
+    dictionary: await prisma.ingredientDictionary.findMany(),
+    aliases: await prisma.ingredientAlias.findMany(),
+    mappings: await prisma.dietaryAllergenMapping.findMany(),
+    entries: await prisma.nutritionFoodCompositionEntry.findMany(),
+    versions: await prisma.nutritionFoodCompositionVersion.findMany(),
+  };
+}
+
+async function restoreReferenceTables() {
+  if (!snapshot) return;
+  await prisma.dietaryAllergenDefinition.createMany({ data: snapshot.definitions as never });
+  await prisma.ingredientDictionary.createMany({ data: snapshot.dictionary as never });
+  await prisma.ingredientAlias.createMany({ data: snapshot.aliases as never });
+  await prisma.nutritionFoodCompositionEntry.createMany({ data: snapshot.entries as never });
+  await prisma.dietaryAllergenMapping.createMany({ data: snapshot.mappings as never });
+  await prisma.nutritionFoodCompositionVersion.createMany({ data: snapshot.versions as never });
+}
+
+async function loadCommittedReviewedImports() {
+  const service = new ReferenceDataService(
+    new ReferenceDataRepository(prisma),
+    COMMITTED_APPROVALS_DIR,
+  );
+  for (const fileName of COMMITTED_IMPORTS) {
+    const file = JSON.parse(
+      fs.readFileSync(path.join(COMMITTED_IMPORTS_DIR, fileName), 'utf8'),
+    );
+    await service.approve(file.import_id, D29_REVIEWER, file);
+  }
+}
+
+describe('D-19 deterministic views 8/9 — real Postgres + reviewed reference data', () => {
   const createdRecipeIds: string[] = [];
   const createdAccountIds: string[] = [];
 
@@ -102,6 +173,12 @@ describe('D-19 deterministic views 8/9 — real Postgres + live reference data',
     };
   }
 
+  beforeAll(async () => {
+    await captureReferenceTables();
+    await truncateReferenceTables();
+    await loadCommittedReviewedImports();
+  });
+
   afterAll(async () => {
     for (const id of createdRecipeIds) {
       await prisma.recipe.deleteMany({ where: { id } });
@@ -109,6 +186,21 @@ describe('D-19 deterministic views 8/9 — real Postgres + live reference data',
     for (const id of createdAccountIds) {
       await prisma.account.deleteMany({ where: { id } });
     }
+    await truncateReferenceTables();
+    await restoreReferenceTables();
+    await prisma.$disconnect();
+  });
+
+  it('the reviewed-path load carries the full D-29 content (17 defs / 12 dict / 6 aliases / 6 mappings / 12 entries / 12 versions)', async () => {
+    const counts = {
+      defs: await prisma.dietaryAllergenDefinition.count(),
+      dict: await prisma.ingredientDictionary.count(),
+      aliases: await prisma.ingredientAlias.count(),
+      mappings: await prisma.dietaryAllergenMapping.count(),
+      entries: await prisma.nutritionFoodCompositionEntry.count(),
+      versions: await prisma.nutritionFoodCompositionVersion.count(),
+    };
+    expect(counts).toEqual({ defs: 17, dict: 12, aliases: 6, mappings: 6, entries: 12, versions: 12 });
   });
 
   it('full run persists COMPLETE View 8 + View 9 from the reviewed reference tables; recompute merges the I2 delta', async () => {
@@ -223,20 +315,5 @@ describe('D-19 deterministic views 8/9 — real Postgres + live reference data',
     // hygiene: the analysis rows this story created are removed with the recipe cascade
     await prisma.analysisView.deleteMany({ where: { analysisId } });
     await prisma.analysis.deleteMany({ where: { id: analysisId } });
-  });
-
-  it('reference tables remain untouched by the D-19 story (live D-29 load intact)', async () => {
-    const defs = await prisma.dietaryAllergenDefinition.count();
-    const dict = await prisma.ingredientDictionary.count();
-    const mappings = await prisma.dietaryAllergenMapping.count();
-    const entries = await prisma.nutritionFoodCompositionEntry.count();
-    const versions = await prisma.nutritionFoodCompositionVersion.count();
-    expect({ defs, dict, mappings, entries, versions }).toEqual({
-      defs: 17,
-      dict: 12,
-      mappings: 6,
-      entries: 12,
-      versions: 12,
-    });
   });
 });

@@ -11,16 +11,23 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Heading, Text } from '@/components/ui/Typography';
 import { isOwnedBy, listSessionRecipes, sessionRecipeLines } from '@/lib/flow';
 import { GuestNotice } from '@/components/app/GuestNotice';
-import type { WireLine } from '@/lib/types';
+import type { LibraryRecipe, WireLine } from '@/lib/types';
 
 export interface HomeViewProps {
   signedIn: boolean;
   /** The current identity's owner tag (null = guest). */
   accountId: string | null;
+  /**
+   * D-22 (D2): the canonical account library (GET /recipes — persisted DB rows,
+   * never browser state). null while loading. Guests never receive one.
+   */
+  library: LibraryRecipe[] | null;
   onCreate: () => void;
   /** QA-B1 fix: guest-owned records carry their parse-response lines so a
-   *  read-only reopen renders them (guests can't fetch Bearer-only routes). */
-  onOpenRecipe: (recipeId: string, initialLines?: WireLine[] | null) => void;
+   *  read-only reopen renders them (guests can't fetch Bearer-only routes).
+   *  D-22: library rows pass their saved DB name so the workspace title is the
+   *  saved name even after a browser restart (no session record exists then). */
+  onOpenRecipe: (recipeId: string, initialLines?: WireLine[] | null, title?: string) => void;
   onSignUp: () => void;
   onSignOut: () => void;
 }
@@ -28,6 +35,7 @@ export interface HomeViewProps {
 export function HomeView({
   signedIn,
   accountId,
+  library,
   onCreate,
   onOpenRecipe,
   onSignUp,
@@ -62,62 +70,119 @@ export function HomeView({
         </div>
       </section>
 
-      <section aria-labelledby="recent-heading" className="mt-12 border-t border-border pt-8">
-        <div className="flex items-baseline justify-between gap-4">
-          <h2 id="recent-heading" className="font-display text-h2 text-ink">
-            This session
-          </h2>
-          <span className="text-caption text-faint">saved in this browser only</span>
-        </div>
-
-        {recipes.length === 0 ? (
-          <div className="mt-6">
-            <EmptyState
-              title="No recipes yet"
-              description="Your pastes from this browser will appear here."
-              action={
-                <Button onClick={onCreate} variant="outline">
-                  Paste your first recipe
-                </Button>
-              }
-              glyph={<CookingPot size={40} aria-hidden="true" />}
-            />
+      {signedIn && library !== null && (
+        <section aria-labelledby="library-heading" className="mt-12 border-t border-border pt-8">
+          <div className="flex items-baseline justify-between gap-4">
+            <h2 id="library-heading" className="font-display text-h2 text-ink">
+              Your library
+            </h2>
+            <span className="text-caption text-faint">saved to your account</span>
           </div>
-        ) : (
-          <ul className="mt-6 divide-y divide-border rounded-lg border border-border bg-surface">
-            {mine.map((recipe) => (
-              <li key={recipe.recipe_id}>
-                <button
-                  type="button"
-                  onClick={() =>
-                    onOpenRecipe(
-                      recipe.recipe_id,
-                      recipe.owner === 'guest' ? sessionRecipeLines(recipe.recipe_id) : null,
-                    )
-                  }
-                  className="group flex w-full items-center justify-between gap-4 rounded-sm px-4 py-4 text-left focus-visible:outline-2 focus-visible:outline-offset--2 focus-visible:outline-gold sm:px-5"
-                >
-                  <span className="min-w-0">
-                    <span className="block truncate text-small font-semibold text-ink">
-                      {recipe.preview}
+          {library.length === 0 ? (
+            <div className="mt-6">
+              <EmptyState
+                title="No saved recipes yet"
+                description="Recipes you save appear here and survive closing the browser."
+              />
+            </div>
+          ) : (
+            <ul className="mt-6 divide-y divide-border rounded-lg border border-border bg-surface">
+              {library.map((recipe) => (
+                <li key={recipe.recipe_id}>
+                  <button
+                    type="button"
+                    onClick={() => onOpenRecipe(recipe.recipe_id, null, recipe.name)}
+                    className="group flex w-full items-center justify-between gap-4 rounded-sm px-4 py-4 text-left focus-visible:outline-2 focus-visible:outline-offset--2 focus-visible:outline-gold sm:px-5"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-small font-semibold text-ink">
+                        {recipe.name}
+                      </span>
+                      <span className="mt-0.5 block text-caption text-faint">
+                        {new Date(recipe.date).toLocaleDateString()}
+                        {recipe.family ? ` · ${recipe.family}` : ' · Family unknown'}
+                      </span>
                     </span>
-                    <span className="mt-0.5 block text-caption text-faint">
-                      {new Date(recipe.created_at).toLocaleString()}
+                    <span className="flex shrink-0 items-center gap-3">
+                      {recipe.has_cook_log ? (
+                        <span className="rounded-sm border border-border px-2 py-0.5 text-caption font-semibold text-body">
+                          Cooked
+                        </span>
+                      ) : (
+                        <span className="text-caption text-faint">No cook log yet</span>
+                      )}
+                      <ArrowRight
+                        size={16}
+                        aria-hidden="true"
+                        className="shrink-0 text-faint transition-transform group-hover:translate-x-0.5 group-hover:text-accent"
+                      />
                     </span>
-                  </span>
-                  <ArrowRight
-                    size={16}
-                    aria-hidden="true"
-                    className="shrink-0 text-faint transition-transform group-hover:translate-x-0.5 group-hover:text-accent"
-                  />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
 
-      {others.length > 0 && (
+      {!signedIn && (
+        <section aria-labelledby="recent-heading" className="mt-12 border-t border-border pt-8">
+          <div className="flex items-baseline justify-between gap-4">
+            <h2 id="recent-heading" className="font-display text-h2 text-ink">
+              This session
+            </h2>
+            <span className="text-caption text-faint">saved in this browser only</span>
+          </div>
+
+          {recipes.length === 0 ? (
+            <div className="mt-6">
+              <EmptyState
+                title="No recipes yet"
+                description="Your pastes from this browser will appear here."
+                action={
+                  <Button onClick={onCreate} variant="outline">
+                    Paste your first recipe
+                  </Button>
+                }
+                glyph={<CookingPot size={40} aria-hidden="true" />}
+              />
+            </div>
+          ) : (
+            <ul className="mt-6 divide-y divide-border rounded-lg border border-border bg-surface">
+              {mine.map((recipe) => (
+                <li key={recipe.recipe_id}>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onOpenRecipe(
+                        recipe.recipe_id,
+                        recipe.owner === 'guest' ? sessionRecipeLines(recipe.recipe_id) : null,
+                      )
+                    }
+                    className="group flex w-full items-center justify-between gap-4 rounded-sm px-4 py-4 text-left focus-visible:outline-2 focus-visible:outline-offset--2 focus-visible:outline-gold sm:px-5"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-small font-semibold text-ink">
+                        {recipe.preview}
+                      </span>
+                      <span className="mt-0.5 block text-caption text-faint">
+                        {new Date(recipe.created_at).toLocaleString()}
+                      </span>
+                    </span>
+                    <ArrowRight
+                      size={16}
+                      aria-hidden="true"
+                      className="shrink-0 text-faint transition-transform group-hover:translate-x-0.5 group-hover:text-accent"
+                    />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+
+      {!signedIn && others.length > 0 && (
         <section aria-labelledby="other-heading" className="mt-10">
           <h2 id="other-heading" className="font-display text-h2 text-ink">
             Other sessions

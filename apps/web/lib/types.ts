@@ -68,6 +68,30 @@ export interface StationCard {
   printable: boolean;
 }
 
+/** D-22 (D1): PUT /recipes/:recipeId/save wire — artifact presence, never copies. */
+export interface SavedRecipe {
+  recipe_id: string;
+  title: string;
+  saved_at: string;
+  artifacts: {
+    raw_input: boolean;
+    photo: boolean;
+    object: boolean;
+    identification: boolean;
+    analysis: boolean;
+    timestamps: boolean;
+  };
+}
+
+/** D-22 (D2): one canonical library row (AC-1 fields exactly). */
+export interface LibraryRecipe {
+  recipe_id: string;
+  name: string;
+  date: string;
+  family: string | null;
+  has_cook_log: boolean;
+}
+
 /** GET /analysis/:id wire shape (D-17 read surface). */
 export interface AnalysisState {
   analysis_id: string;

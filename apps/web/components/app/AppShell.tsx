@@ -11,7 +11,7 @@ import type { User, WireLine } from '@/lib/types';
 export type AppView =
   | { name: 'home' }
   | { name: 'create' }
-  | { name: 'workspace'; recipeId: string; initialLines?: WireLine[] | null };
+  | { name: 'workspace'; recipeId: string; initialLines?: WireLine[] | null; initialTitle?: string };
 
 export interface AppShellProps {
   user: User | null;

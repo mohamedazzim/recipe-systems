@@ -1363,6 +1363,63 @@ execution output; Git: not available / not authorized throughout.
   app's (accepts demo@gmail.c format) — the app boundary is the defense-in-depth layer; pre-existing
   broken rows (e.g. `demo@gmail.c`) are not auto-cleaned.
 
+- 2026-09-10 — **D-22 PREFLIGHT (dispatcher authorization: implement ONLY canonical D-22 scope — D1 save + D2 browse/open) — STARTING STATE, recorded before any D-22 code**:
+  **DECISION (dispatcher 2026-09-10):** D-22 = P5-1 library (D1 save, D2 browse/open). D6 (delete)
+  is part of the canonical D-22 unit in DISPATCH.md but was NOT dispatched in this message —
+  explicitly deferred here as the open remainder of D-22 (no delete UI/endpoint this session).
+  **CANONICAL SOURCES READ:** USER_STORIES Epic D (D1 AC-1/AC-2 TC-01/02; D2 AC-1 TC-01) + Epic A
+  (A1 "recipes survive closing the browser", AC "Register → empty library", TC-02 save-while-signed-out
+  resume; A2 claim) · Recipe_Systems.md §12 Epic D verbatim · ERD §4.2/4.3/§5 `recipe` (title editable,
+  NO saved_at column, "no family column — identification belongs to analysis"), §12 `ix_recipe_account_updated`
+  (account_id, updated_at DESC, deleted_at IS NULL), §13 lifecycle (D6 hard DELETE) · ADR §2 (one-writer),
+  §4/§5 (claim transaction, guest session TTL), §9 (ownership authorization on every request; browser never
+  reaches Postgres) · DISPATCH D-22 (deliverables/done-criteria/non-goals) · BUILD_PLAN P5-1 · TEST_PLAN
+  (e2e flow "library save/reopen with cook-note recall") · IMPROVEMENT_PLAN (no D-22 blocker) · HANDOFF
+  H-07 (resume-save seam documented, "the save flow itself arrives with D-22") + H-08/QA-B2 (callback
+  claim already moves guest recipes onto the account).
+  **ALREADY IMPLEMENTED (verified, reused):** recipe rows persist since intake (D-10; `title` placeholder
+  'Untitled recipe' — D-10 decision: "later unit makes it editable" = D-22) · raw_text/photo_uri/lines/
+  inputs/analyses all persisted · `assertOwned` INV-17 404 missing+foreign on every recipes/intake/analysis
+  surface · guest sessions (Q11 TTL) + idempotent claim at auth callback (QA-B2) — a claimed recipe already
+  lands on the account · `cook_log` table live in the DB (indicator = EXISTS) · web localStorage session list
+  ("This session", capped, browser-only convenience — NOT canonical, see D-22I).
+  **D-22 DESIGN DECISIONS (labeled, recorded here BEFORE code):**
+  - D-22A: SCOPE = D1 + D2 only (dispatcher enumeration). D6 delete DEFERRED (open remainder of the
+    canonical unit). No LLM/DeepSeek/Q9 work (dispatcher NON-GOAL confirmed).
+  - D-22B: NO schema change. The ERD has no saved_at/saved flag — the saved artifact set IS the recipe
+    row + recipe_input + recipe_ingredient_line + analysis rows (all already persisted). Save =
+    (1) normalize the name (D-10 placeholder → family-defaulted, editable title), (2) confirm the
+    artifact set, (3) bump `updated_at` (library ordering uses the ERD's own ix_recipe_account_updated).
+  - D-22C: Save surface — `PUT /api/v1/recipes/:recipeId/save` (GuestOrJwtGuard + CsrfGuard; guests may
+    save — A1 TC-02 seam). Body {title?: string ≤255} strict. Default name when title omitted/blank:
+    latest current analysis identification family (view-5 payload `family` via the frozen
+    View5PayloadSchema — the worker does NOT populate analysis.family today; column read first as
+    fallback) → else existing non-placeholder title → else 'Untitled recipe'. Response carries the
+    artifact-set presence (raw_input, photo, object, identification, analysis, timestamps) — nothing is
+    copied or invented; the set lives in the existing rows.
+  - D-22D: Library surface — `GET /api/v1/recipes` (JwtAuthGuard ONLY: the canonical library is
+    account-owned). Rows: {recipe_id, name=title, date=created_at, family (same D-22C source),
+    has_cook_log = EXISTS(cook_log)} ordered updated_at DESC (ERD index). Cross-account isolation is by
+    construction (WHERE account_id = actor) and still 404-guarded elsewhere (INV-17 unchanged).
+  - D-22E: One-writer — RecipeService remains the sole `recipe` writer (save/rename go through it);
+    library family/cook reads are read-only API reads of analysis/cook_log (worker = sole analysis writer).
+  - D-22F: Web — signed-in Home renders the canonical library from GET /recipes (name, date, family,
+    cook indicator; click → workspace reopen via the existing onOpenRecipe path). Workspace gains a
+    visible "Save recipe" action + editable title input (default family name offered; rename = save with
+    a new title). Guest sessions keep the existing session list AND may save (naming) — save state rides
+    the recipe row through the QA-B2 claim → the account library shows it = the resume-save path (A1 TC-02).
+  - D-22G: Resume-save mechanics: no extra state — the claimed recipe row (title + updated_at + artifacts)
+    is the resume. H-07's documented seam is closed by D-22C+D (nothing new to invent).
+  - D-22H: Q1/Q5/Q9/Q10/Q11 stay OPEN. No register changes.
+  - D-22I: localStorage data is NOT deleted and NOT migrated. Signed-in Home switches to the DB library
+    (canonical replacement, verified by tests before the browser-state UI is retired for signed-in users);
+    guests continue on the session list unchanged.
+  **PLAN:** API (RecipeService save/list + RecipesController PUT save/GET list + tests) → web (HomeView
+  library + RecipeWorkspace save UI + tests) → integration story_d22 (save default-name=family, library
+  rows incl. cook indicator, cross-account denial, guest save→claim→resume) → e2e library.spec (save,
+  reload persistence, reopen, guest resume-save) → gates/lint/typecheck/verify-local → commit/CI → H-22 +
+  CHANGE_LOG → HARD STOP (D6 delete remains the next D-22 continuation point).
+
 ### H-10 — D-10 Raw intake rows + photo pipeline
 
 - BASE_SHA / COMMIT_SHA: **BASE `871ec48` (Initial commit) · COMMIT `432b601`** — pushed to

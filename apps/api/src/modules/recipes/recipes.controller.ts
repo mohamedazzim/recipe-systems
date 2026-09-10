@@ -26,12 +26,13 @@ import {
   Get,
   Param,
   Patch,
+  Put,
   Req,
   UseGuards,
 } from '@nestjs/common';
 import { z } from 'zod';
 import { CsrfGuard } from '../../common/guards/csrf.guard';
-import { Actor } from '../../common/guards/guest-or-jwt.guard';
+import { Actor, ActorRequest, GuestOrJwtGuard } from '../../common/guards/guest-or-jwt.guard';
 import { AuthedRequest, JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RecipeService } from './recipe.service';
 
@@ -45,9 +46,52 @@ const methodAttachSchema = z.object({
   accept_inferred: z.boolean().optional(),
 });
 
+// D-22 (D1): save accepts an optional editable title; omitted/blank → the default
+// (family) is applied by the service (AC-2 default name = family, editable).
+const saveSchema = z
+  .object({ title: z.string().min(1).max(255).optional() })
+  .strict();
+
 @Controller('recipes')
 export class RecipesController {
   constructor(private readonly recipes: RecipeService) {}
+
+  /**
+   * D-22 (D2): the account library — persistent DB rows, never browser state.
+   * Rows carry exactly the canonical D2 AC-1 fields: name, date, family,
+   * cook-log indicator. Bearer-only by design (D-22D): the library is
+   * account-owned; guests keep their session-local surface.
+   */
+  @Get()
+  @UseGuards(JwtAuthGuard)
+  async library(@Req() req: AuthedRequest) {
+    const actor: Actor = { kind: 'user', user: req.user! };
+    const recipes = await this.recipes.listLibrary(actor);
+    return { recipes };
+  }
+
+  /**
+   * D-22 (D1): Save — normalizes the name (default = identification family,
+   * editable) and confirms the persisted artifact set. Guests may save
+   * (A1 TC-02 seam): the QA-B2 claim moves the row — and its save state — onto
+   * the account, which is the resume-save path. INV-17 404 missing AND foreign.
+   */
+  @Put(':recipeId/save')
+  @UseGuards(GuestOrJwtGuard, CsrfGuard)
+  async save(
+    @Req() req: ActorRequest,
+    @Param('recipeId') recipeId: string,
+    @Body() body: unknown,
+  ) {
+    const parsed = saveSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException({
+        code: 'INVALID_SAVE',
+        message: 'Invalid save body: title must be a string of at most 255 characters',
+      });
+    }
+    return this.recipes.saveRecipe(req.actor!, recipeId, { title: parsed.data.title });
+  }
 
   /** Read-only method-state hydration (same canonical wire shape as the PATCH
    *  200). Added so the web workspace can reopen on the persisted method without

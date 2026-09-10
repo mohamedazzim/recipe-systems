@@ -9,6 +9,7 @@
 
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, PrismaClient, Recipe } from '@recipe-systems/database';
+import { View5PayloadSchema } from '@recipe-systems/schemas';
 import type { Actor } from '../../common/guards/guest-or-jwt.guard';
 
 const UUID_RE =
@@ -34,6 +35,30 @@ export interface MethodState {
   method_tag: 'METHOD' | 'INFERRED' | null;
   method_source: string | null;
   list_only: boolean;
+}
+
+/** D-22 (D1): the saved-recipe wire — artifact presence only, never copies. */
+export interface SavedRecipeWire {
+  recipe_id: string;
+  title: string;
+  saved_at: string;
+  artifacts: {
+    raw_input: boolean;
+    photo: boolean;
+    object: boolean;
+    identification: boolean;
+    analysis: boolean;
+    timestamps: boolean;
+  };
+}
+
+/** D-22 (D2): one canonical library row (AC-1 fields exactly). */
+export interface LibraryRecipeRow {
+  recipe_id: string;
+  name: string;
+  date: string;
+  family: string | null;
+  has_cook_log: boolean;
 }
 
 /**
@@ -138,5 +163,110 @@ export class RecipeService {
   async getMethodState(actor: Actor, recipeId: string): Promise<MethodState> {
     const recipe = await this.assertOwned(actor, recipeId);
     return toMethodState(recipe);
+  }
+
+  /**
+   * D-22 (D1): the identification family from the latest CURRENT analysis — the
+   * canonical default name source. The ERD puts identification on `analysis`
+   * (`analysis.family`); the worker has never populated that column (Q9 stub world
+   * writes the view-5 payload), so BOTH are read, frozen-schema-gated:
+   * analysis.family column first, then the persisted View 5 payload.
+   * Read-only — the worker remains the sole writer of analysis_* (one-writer).
+   */
+  async identificationFamily(recipeId: string): Promise<string | null> {
+    const current = await this.prisma.analysis.findFirst({
+      where: { recipeId, isCurrent: true },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, family: true },
+    });
+    if (!current) return null;
+    if (current.family) return current.family;
+    const view5 = await this.prisma.analysisView.findUnique({
+      where: { analysisId_viewNumber: { analysisId: current.id, viewNumber: 5 } },
+      select: { payload: true },
+    });
+    if (!view5) return null;
+    const parsed = View5PayloadSchema.safeParse(view5.payload);
+    if (!parsed.success) return null;
+    return parsed.data.family;
+  }
+
+  /**
+   * D-22 (D1): the canonical Save — the artifact set already persists in the
+   * existing rows (recipe + inputs + lines + analyses); Save normalizes the name
+   * (D-10 placeholder → family-defaulted, editable title) and confirms the set.
+   * No new columns (ERD has none): `updated_at` is the save stamp, and the ERD's
+   * own ix_recipe_account_updated index orders the library.
+   * Guests may save (A1 TC-02 seam): the row + save state ride the QA-B2 claim
+   * transaction onto the account — that is the resume-save path.
+   */
+  async saveRecipe(
+    actor: Actor,
+    recipeId: string,
+    input: { title?: string },
+  ): Promise<SavedRecipeWire> {
+    const recipe = await this.assertOwned(actor, recipeId);
+    const family = await this.identificationFamily(recipeId);
+    const given = input.title?.trim() ?? '';
+    const hasPlaceholder = recipe.title === UNTITLED_RECIPE;
+    const title =
+      given.length > 0
+        ? given
+        : hasPlaceholder
+          ? (family ?? UNTITLED_RECIPE)
+          : recipe.title;
+    if (title !== recipe.title) {
+      await this.prisma.recipe.update({ where: { id: recipeId }, data: { title } });
+    }
+    const [lineCount, analysisId, updated] = await Promise.all([
+      this.prisma.recipeIngredientLine.count({
+        where: { recipeId, deletedAt: null },
+      }),
+      this.prisma.analysis.findFirst({
+        where: { recipeId, isCurrent: true, status: 'complete' },
+        orderBy: { createdAt: 'desc' },
+        select: { id: true },
+      }),
+      this.prisma.recipe.findUniqueOrThrow({ where: { id: recipeId }, select: { updatedAt: true } }),
+    ]);
+    return {
+      recipe_id: recipeId,
+      title,
+      saved_at: updated.updatedAt.toISOString(),
+      artifacts: {
+        raw_input: recipe.rawText != null,
+        photo: recipe.photoUri != null,
+        object: lineCount > 0,
+        identification: family != null,
+        analysis: analysisId != null,
+        timestamps: true,
+      },
+    };
+  }
+
+  /**
+   * D-22 (D2): the account library — persisted rows, never browser state.
+   * Rows carry exactly the canonical D2 AC-1 fields: name (title), date
+   * (created_at), family (identification), has_cook_log (EXISTS on the live
+   * cook_log table). Ordered by the ERD's own index (updated_at DESC).
+   * Account-only by construction — INV-17 cross-account isolation holds.
+   */
+  async listLibrary(actor: Actor): Promise<LibraryRecipeRow[]> {
+    if (actor.kind !== 'user') return []; // the canonical library is account-owned (D-22D)
+    const recipes = await this.prisma.recipe.findMany({
+      where: { accountId: actor.user.accountId, deletedAt: null },
+      orderBy: { updatedAt: 'desc' },
+      select: { id: true, title: true, createdAt: true },
+    });
+    return Promise.all(
+      recipes.map(async (recipe) => ({
+        recipe_id: recipe.id,
+        name: recipe.title,
+        date: recipe.createdAt.toISOString(),
+        family: await this.identificationFamily(recipe.id),
+        has_cook_log:
+          (await this.prisma.cookLog.count({ where: { recipeId: recipe.id } })) > 0,
+      })),
+    );
   }
 }

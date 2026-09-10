@@ -12,6 +12,7 @@ describe('HomeView', () => {
     return {
       signedIn: true,
       accountId: 'acc-1',
+      library: null,
       onCreate: jest.fn(),
       onOpenRecipe: jest.fn(),
       onSignUp: jest.fn(),
@@ -27,14 +28,14 @@ describe('HomeView', () => {
   });
 
   it('shows a helpful empty state when no session recipes exist', () => {
-    render(<HomeView {...props()} />);
+    render(<HomeView {...props({ signedIn: false, accountId: null })} />);
     expect(screen.getByText('No recipes yet')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Paste your first recipe' })).toBeInTheDocument();
   });
 
-  it('lists session recipes and opens them', async () => {
-    recordSessionRecipe('r1', 'Meen Kuzhambu', { kind: 'user', accountId: 'acc-1' });
-    const p = props();
+  it('guest: lists session recipes and opens them', async () => {
+    recordSessionRecipe('r1', 'Meen Kuzhambu', { kind: 'guest' });
+    const p = props({ signedIn: false, accountId: null });
     render(<HomeView {...p} />);
     const row = screen.getByRole('button', { name: /Meen Kuzhambu/ });
     expect(row).toBeInTheDocument();
@@ -55,14 +56,14 @@ describe('HomeView', () => {
   it('recipes owned by another identity are listed but NOT openable (cross-session 404 regression)', () => {
     recordSessionRecipe('r1', 'Chef paste', { kind: 'user', accountId: 'acc-1' });
     recordSessionRecipe('r2', 'Guest paste', { kind: 'guest' });
-    render(<HomeView {...props()} />);
-    // the chef recipe is the openable row
-    expect(screen.getByRole('button', { name: /Chef paste/ })).toBeInTheDocument();
-    // the guest recipe appears under "Other sessions" and is not a button
+    render(<HomeView {...props({ signedIn: false, accountId: null })} />);
+    // the guest recipe is the openable row for this guest identity
+    expect(screen.getByRole('button', { name: /Guest paste/ })).toBeInTheDocument();
+    // the account-owned recipe appears under "Other sessions" and is not a button
     expect(screen.getByText('Other sessions')).toBeInTheDocument();
-    expect(screen.getByText('Guest paste')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Guest paste/ })).not.toBeInTheDocument();
-    expect(screen.getByText('Created in a guest session.')).toBeInTheDocument();
+    expect(screen.getByText('Chef paste')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Chef paste/ })).not.toBeInTheDocument();
+    expect(screen.getByText('Created under an account.')).toBeInTheDocument();
   });
 
   it('guest identity: user-owned recipes go to Other sessions with account copy', () => {
@@ -73,9 +74,70 @@ describe('HomeView', () => {
   });
 
   it('signed in: account section offers sign out', async () => {
-    const p = props();
+    const p = props({ library: [] });
     render(<HomeView {...p} />);
     await userEvent.click(screen.getByRole('button', { name: 'Sign out' }));
     expect(p.onSignOut).toHaveBeenCalled();
+  });
+});
+
+describe('HomeView — D-22 library (D2)', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  function props(overrides: Partial<Parameters<typeof HomeView>[0]> = {}) {
+    return {
+      signedIn: true,
+      accountId: 'acc-1',
+      library: [] as Parameters<typeof HomeView>[0]['library'],
+      onCreate: jest.fn(),
+      onOpenRecipe: jest.fn(),
+      onSignUp: jest.fn(),
+      onSignOut: jest.fn(),
+      ...overrides,
+    };
+  }
+
+  it('renders canonical library rows (name, date, family, cook indicator) and opens them', async () => {
+    const p = props({
+      library: [
+        {
+          recipe_id: 'r1',
+          name: 'Coastal Tamil (Kanyakumari) style meen kuzhambu',
+          date: '2026-09-10T11:00:00.000Z',
+          family: 'Coastal Tamil (Kanyakumari) style meen kuzhambu',
+          has_cook_log: true,
+        },
+        {
+          recipe_id: 'r2',
+          name: 'Untitled recipe',
+          date: '2026-09-09T11:00:00.000Z',
+          family: null,
+          has_cook_log: false,
+        },
+      ],
+    });
+    render(<HomeView {...p} />);
+    expect(screen.getByRole('heading', { name: 'Your library' })).toBeInTheDocument();
+    const row1 = screen.getByRole('button', { name: /Coastal Tamil/ });
+    expect(row1).toBeInTheDocument();
+    expect(screen.getByText('Cooked')).toBeInTheDocument();
+    expect(screen.getByText(/Family unknown/)).toBeInTheDocument();
+    expect(screen.getByText('No cook log yet')).toBeInTheDocument();
+    await userEvent.click(row1);
+    expect(p.onOpenRecipe).toHaveBeenCalledWith(
+      'r1',
+      null,
+      'Coastal Tamil (Kanyakumari) style meen kuzhambu',
+    );
+  });
+
+  it('shows the library empty state and never the browser session list for signed-in users', () => {
+    recordSessionRecipe('r9', 'Browser-only paste', { kind: 'user', accountId: 'acc-1' });
+    render(<HomeView {...props({ library: [] })} />);
+    expect(screen.getByText('No saved recipes yet')).toBeInTheDocument();
+    expect(screen.queryByText('This session')).not.toBeInTheDocument();
+    expect(screen.queryByText('Browser-only paste')).not.toBeInTheDocument();
   });
 });

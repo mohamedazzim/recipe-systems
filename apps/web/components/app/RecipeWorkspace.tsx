@@ -10,7 +10,7 @@ import { Heading } from '@/components/ui/Typography';
 import { Button } from '@/components/ui/Button';
 import { api, ApiError } from '@/lib/api';
 import { listSessionRecipes } from '@/lib/flow';
-import type { AnalysisState, MethodState } from '@/lib/types';
+import type { AnalysisState, MethodState, SavedRecipe } from '@/lib/types';
 import { IngredientReview } from '@/components/app/IngredientReview';
 import type { WireLine } from '@/lib/types';
 import { MethodSection } from '@/components/app/MethodSection';
@@ -23,6 +23,9 @@ export interface RecipeWorkspaceProps {
   onBack: () => void;
   /** Lines from the parse-text response (guest read-only rendering). */
   initialLines?: WireLine[] | null;
+  /** D-22: the saved DB name passed from a library row — the authoritative
+   *  title after a browser restart, when no session record exists. */
+  initialTitle?: string;
   /** D-20 (C3): the account's saved mode preference (default home). */
   preferredMode?: 'home' | 'chef';
 }
@@ -32,6 +35,7 @@ export function RecipeWorkspace({
   signedIn,
   onBack,
   initialLines = null,
+  initialTitle,
   preferredMode = 'home',
 }: RecipeWorkspaceProps) {
   const [analysisId, setAnalysisId] = useState<string | null>(null);
@@ -41,6 +45,37 @@ export function RecipeWorkspace({
   /** D-20 (C3): home explains, chef briefs. Guests get a session-local toggle;
    *  signed-in users persist the preference on the account (C3 AC-2/TC-03). */
   const [mode, setMode] = useState<'home' | 'chef'>(preferredMode);
+
+  /**
+   * D-22 (D1): the visible Save action. The artifact set already persists in
+   * the recipe/line/analysis rows — Save normalizes the name (blank → the
+   * identification family default) and confirms the set. Guests may save too
+   * (A1 TC-02 seam): the QA-B2 claim moves the row — and this save state —
+   * onto the account, which is the resume-save path.
+   */
+  const [saveTitle, setSaveTitle] = useState('');
+  const [saved, setSaved] = useState<SavedRecipe | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const saveRecipe = async (): Promise<void> => {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const result = await api<SavedRecipe>(`/recipes/${recipeId}/save`, {
+        method: 'PUT',
+        body: JSON.stringify({ title: saveTitle.trim() || undefined }),
+      });
+      setSaved(result);
+      setSaveTitle(result.title);
+      setTitle(result.title);
+    } catch (err) {
+      setSaved(null);
+      setSaveError(err instanceof ApiError ? err.message : 'Could not save the recipe.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const selectMode = (next: 'home' | 'chef'): void => {
     setMode(next);
@@ -54,7 +89,9 @@ export function RecipeWorkspace({
 
   useEffect(() => {
     const record = listSessionRecipes().find((r) => r.recipe_id === recipeId);
-    if (record) setTitle(record.preview);
+    // D-22: the saved DB name (library row) wins over the session preview —
+    // after a browser restart no session record exists at all.
+    setTitle(initialTitle ?? record?.preview ?? 'Recipe');
     setAnalysisId(null);
     setLines(initialLines ?? []);
     setMethodState(null);
@@ -78,7 +115,7 @@ export function RecipeWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [recipeId, initialLines, signedIn]);
+  }, [recipeId, initialLines, initialTitle, signedIn]);
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -104,6 +141,42 @@ export function RecipeWorkspace({
           {mode === 'home' ? 'Home explains.' : 'Chef briefs — the station card leads.'}
         </span>
       </div>
+
+      <section aria-labelledby="save-heading" className="mt-6 rounded-lg border border-border bg-surface p-5">
+        <h2 id="save-heading" className="text-small font-semibold text-ink">
+          Save
+        </h2>
+        <p className="mt-1 text-caption text-muted">
+          Saved recipes survive closing the browser and appear in your library. Blank name = the dish family.
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <input
+            aria-label="Recipe name"
+            value={saveTitle}
+            onChange={(e) => setSaveTitle(e.target.value)}
+            placeholder="Family name (leave blank for the default)"
+            maxLength={255}
+            className="min-w-64 max-w-full flex-1 rounded-md border border-border-strong bg-background px-3 py-2 text-body focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+          />
+          <Button onClick={() => void saveRecipe()} disabled={saving}>
+            {saving ? 'Saving…' : 'Save recipe'}
+          </Button>
+        </div>
+        {saveError && <p className="mt-2 text-caption text-negative">{saveError}</p>}
+        {saved && (
+          <div className="mt-3 border-t border-border pt-3">
+            <p className="text-caption text-body">
+              Saved as <span className="font-semibold text-ink">{saved.title}</span> ·{' '}
+              {new Date(saved.saved_at).toLocaleString()}
+            </p>
+            <p className="mt-1 text-caption text-muted">
+              Artifacts — raw input {saved.artifacts.raw_input ? '✓' : '—'} · photo{' '}
+              {saved.artifacts.photo ? '✓' : '—'} · object {saved.artifacts.object ? '✓' : '—'} · identification{' '}
+              {saved.artifacts.identification ? '✓' : '—'} · analysis {saved.artifacts.analysis ? '✓' : '—'} · timestamps ✓
+            </p>
+          </div>
+        )}
+      </section>
 
       <div className="mt-8">
         <IngredientReview

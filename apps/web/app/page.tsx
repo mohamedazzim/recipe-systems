@@ -10,7 +10,7 @@ import { HomeView } from '@/components/app/HomeView';
 import { CreateView } from '@/components/app/CreateView';
 import { RecipeWorkspace } from '@/components/app/RecipeWorkspace';
 import { claimSessionRecords } from '@/lib/flow';
-import type { WireLine } from '@/lib/types';
+import type { LibraryRecipe, WireLine } from '@/lib/types';
 
 type State =
   | { phase: 'loading' }
@@ -30,6 +30,16 @@ export default function Home() {
   const [guestSessionId, setGuestSessionId] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(readAuthError());
   const [view, setView] = useState<AppView>({ name: 'home' });
+  /** D-22 (D2): the canonical account library (persisted DB rows, never
+   *  browser state). null = not loaded / no account (guests keep their
+   *  session-local surface). */
+  const [library, setLibrary] = useState<LibraryRecipe[] | null>(null);
+
+  const loadLibrary = useCallback(() => {
+    api<{ recipes: LibraryRecipe[] }>('/recipes')
+      .then((result) => setLibrary(result.recipes))
+      .catch(() => setLibrary([]));
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,12 +55,13 @@ export default function Home() {
           window.history.replaceState(null, '', clean);
         }
         setState({ phase: 'signed-in', user });
+        loadLibrary();
       })
       .catch(() => !cancelled && setState({ phase: 'anonymous' }));
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [loadLibrary]);
 
   const startLogin = useCallback(() => {
     // Interactive OIDC: the BFF redirects to Keycloak (authorization-code flow).
@@ -88,6 +99,7 @@ export default function Home() {
     } catch {
       // fall through to a local anonymous state
     }
+    setLibrary(null);
     setState({ phase: 'anonymous' });
   }, []);
 
@@ -125,9 +137,10 @@ export default function Home() {
         <HomeView
           signedIn={state.phase === 'signed-in'}
           accountId={user?.id ?? null}
+          library={user ? library : null}
           onCreate={() => setView({ name: 'create' })}
-          onOpenRecipe={(recipeId, lines) =>
-            setView({ name: 'workspace', recipeId, initialLines: lines ?? null })
+          onOpenRecipe={(recipeId, lines, title) =>
+            setView({ name: 'workspace', recipeId, initialLines: lines ?? null, initialTitle: title })
           }
           onSignUp={startSignup}
           onSignOut={() => void signOut()}
@@ -145,7 +158,11 @@ export default function Home() {
         <RecipeWorkspace
           recipeId={view.recipeId}
           signedIn={state.phase === 'signed-in'}
-          onBack={() => setView({ name: 'home' })}
+          initialTitle={view.initialTitle}
+          onBack={() => {
+            setView({ name: 'home' });
+            loadLibrary(); // the saved title/family shows on the library rows
+          }}
           initialLines={view.initialLines}
           preferredMode={user?.preferred_mode === 'chef' ? 'chef' : 'home'}
         />

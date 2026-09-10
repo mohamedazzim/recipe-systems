@@ -4,8 +4,19 @@ import { RecipeService, UNTITLED_RECIPE } from './recipe.service';
 
 function mockPrisma() {
   return {
-    recipe: { findUnique: jest.fn(), create: jest.fn(), delete: jest.fn(), update: jest.fn() },
+    recipe: {
+      findUnique: jest.fn(),
+      findUniqueOrThrow: jest.fn(),
+      findMany: jest.fn(),
+      create: jest.fn(),
+      delete: jest.fn(),
+      update: jest.fn(),
+    },
     recipeInput: { count: jest.fn() },
+    analysis: { findFirst: jest.fn() },
+    analysisView: { findUnique: jest.fn() },
+    recipeIngredientLine: { count: jest.fn() },
+    cookLog: { count: jest.fn() },
   };
 }
 
@@ -194,5 +205,145 @@ describe('RecipeService — D-13 method attach (B4)', () => {
       svc.attachMethod(userActor, '11111111-1111-4111-8111-111111111111', { mode: 'paste', methodText: 'x' }),
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(prisma.recipe.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('RecipeService — D-22 save + library (D1/D2)', () => {
+  const RECIPE_ID = '11111111-1111-4111-8111-111111111111';
+  const FAMILY = 'Coastal Tamil (Kanyakumari) style meen kuzhambu';
+  const VIEW5_PAYLOAD = {
+    family: FAMILY,
+    architecture: 'Raw-ground coconut paste, triple sour',
+    confidence: 'high',
+    not_this: [],
+    needs_review: true,
+    tag: 'INFERRED',
+  };
+
+  function mockD22(overrides: Record<string, unknown> = {}) {
+    const prisma: any = mockPrisma();
+    prisma.recipe.findUnique.mockResolvedValue({
+      id: RECIPE_ID,
+      accountId: 'acc-1',
+      guestSessionId: null,
+      title: UNTITLED_RECIPE,
+      rawText: 'Fish — 500g\nFenugreek — 1/4 Tsp',
+      photoUri: null,
+    });
+    prisma.analysis.findFirst.mockResolvedValue({ id: 'an-1', family: null });
+    prisma.analysisView.findUnique.mockResolvedValue({ payload: VIEW5_PAYLOAD });
+    prisma.recipeIngredientLine.count.mockResolvedValue(11);
+    prisma.recipe.findUniqueOrThrow = jest.fn().mockResolvedValue({ updatedAt: new Date('2026-09-10T12:00:00Z') });
+    prisma.recipe.findMany.mockResolvedValue([
+      { id: RECIPE_ID, title: 'Untitled recipe', createdAt: new Date('2026-09-10T11:00:00Z') },
+    ]);
+    prisma.cookLog.count.mockResolvedValue(0);
+    Object.assign(prisma.recipe, overrides.recipe ?? {});
+    Object.assign(prisma.analysis, overrides.analysis ?? {});
+    Object.assign(prisma.analysisView, overrides.analysisView ?? {});
+    Object.assign(prisma.cookLog, overrides.cookLog ?? {});
+    return prisma;
+  }
+
+  it('save with no title applies the family default and reports the artifact set (D1 AC-1/AC-2)', async () => {
+    const prisma = mockD22();
+    const svc = new RecipeService(prisma);
+    const wire = await svc.saveRecipe(userActor, RECIPE_ID, {});
+    expect(prisma.recipe.update).toHaveBeenCalledWith({ where: { id: RECIPE_ID }, data: { title: FAMILY } });
+    expect(wire).toEqual({
+      recipe_id: RECIPE_ID,
+      title: FAMILY,
+      saved_at: '2026-09-10T12:00:00.000Z',
+      artifacts: {
+        raw_input: true,
+        photo: false,
+        object: true,
+        identification: true,
+        analysis: true,
+        timestamps: true,
+      },
+    });
+  });
+
+  it('save accepts an explicit editable title and never overwrites a non-placeholder name silently (AC-2)', async () => {
+    const prisma = mockD22();
+    prisma.recipe.findUnique.mockResolvedValue({
+      id: RECIPE_ID, accountId: 'acc-1', guestSessionId: null, title: 'My curry', rawText: null, photoUri: null,
+    });
+    const svc = new RecipeService(prisma);
+    const named = await svc.saveRecipe(userActor, RECIPE_ID, { title: 'Sunday fish curry' });
+    expect(named.title).toBe('Sunday fish curry');
+    expect(prisma.recipe.update).toHaveBeenCalledWith({
+      where: { id: RECIPE_ID },
+      data: { title: 'Sunday fish curry' },
+    });
+    // blank title keeps the existing (already named) recipe title
+    const blank = await svc.saveRecipe(userActor, RECIPE_ID, { title: '   ' });
+    expect(blank.title).toBe('My curry');
+  });
+
+  it('save falls back to the analysis.family column when populated, and stays honest without identification', async () => {
+    const prisma = mockD22({ analysis: { findFirst: jest.fn().mockResolvedValue({ id: 'an-1', family: 'Column family' }) } });
+    const svc = new RecipeService(prisma);
+    expect((await svc.saveRecipe(userActor, RECIPE_ID, {})).title).toBe('Column family');
+
+    const noId = mockD22({ analysis: { findFirst: jest.fn().mockResolvedValue(null) } });
+    const svc2 = new RecipeService(noId);
+    expect((await svc2.saveRecipe(userActor, RECIPE_ID, {})).title).toBe(UNTITLED_RECIPE);
+    expect(noId.analysisView.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('guest save is allowed (A1 TC-02 seam) and rides the same ownership guard', async () => {
+    const prisma = mockD22();
+    prisma.recipe.findUnique.mockResolvedValue({
+      id: RECIPE_ID, accountId: null, guestSessionId: 'gs-1', title: UNTITLED_RECIPE, rawText: null, photoUri: null,
+    });
+    const svc = new RecipeService(prisma);
+    expect((await svc.saveRecipe(guestActor, RECIPE_ID, {})).title).toBe(FAMILY);
+    // foreign guest → 404 (INV-17)
+    prisma.recipe.findUnique.mockResolvedValue({
+      id: RECIPE_ID, accountId: null, guestSessionId: 'gs-OTHER', title: UNTITLED_RECIPE, rawText: null, photoUri: null,
+    });
+    await expect(svc.saveRecipe(guestActor, RECIPE_ID, {})).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('library returns canonical D2 AC-1 rows with the cook-log indicator (EXISTS)', async () => {
+    const prisma = mockD22();
+    prisma.recipe.findMany.mockResolvedValue([
+      { id: RECIPE_ID, title: 'Sunday fish curry', createdAt: new Date('2026-09-10T11:00:00Z') },
+      { id: '22222222-2222-4222-8222-222222222222', title: FAMILY, createdAt: new Date('2026-09-09T11:00:00Z') },
+    ]);
+    prisma.cookLog.count.mockResolvedValueOnce(3).mockResolvedValueOnce(0);
+    const svc = new RecipeService(prisma);
+    const rows = await svc.listLibrary(userActor);
+    expect(prisma.recipe.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { accountId: 'acc-1', deletedAt: null },
+        orderBy: { updatedAt: 'desc' },
+      }),
+    );
+    expect(rows).toEqual([
+      {
+        recipe_id: RECIPE_ID,
+        name: 'Sunday fish curry',
+        date: '2026-09-10T11:00:00.000Z',
+        family: FAMILY,
+        has_cook_log: true,
+      },
+      {
+        recipe_id: '22222222-2222-4222-8222-222222222222',
+        name: FAMILY,
+        date: '2026-09-09T11:00:00.000Z',
+        family: FAMILY,
+        has_cook_log: false,
+      },
+    ]);
+  });
+
+  it('guest library is empty — the canonical library is account-owned (D-22D)', async () => {
+    const prisma = mockD22();
+    const svc = new RecipeService(prisma);
+    expect(await svc.listLibrary(guestActor)).toEqual([]);
+    expect(prisma.recipe.findMany).not.toHaveBeenCalled();
   });
 });

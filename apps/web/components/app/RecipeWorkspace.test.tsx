@@ -2,6 +2,20 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RecipeWorkspace } from '@/components/app/RecipeWorkspace';
 import { recordSessionRecipe } from '@/lib/flow';
+import { api, ApiError } from '@/lib/api';
+
+jest.mock('@/lib/api', () => ({
+  api: jest.fn(),
+  ApiError: class ApiError extends Error {
+    constructor(
+      public readonly status: number,
+      public readonly code: string,
+      message: string,
+    ) {
+      super(message);
+    }
+  },
+}));
 
 jest.mock('@/components/app/IngredientReview', () => ({
   IngredientReview: ({ title }: { title: string }) => <p>Review: {title}</p>,
@@ -21,6 +35,9 @@ jest.mock('@/components/app/AnalysisPanel', () => ({
 describe('RecipeWorkspace', () => {
   beforeEach(() => {
     window.localStorage.clear();
+    // The mount effect fetches the latest analysis — reject it as a 404 by default.
+    (api as jest.Mock).mockReset();
+    (api as jest.Mock).mockRejectedValue(new ApiError(404, 'ANALYSIS_NOT_FOUND', 'Analysis not found'));
   });
 
   function props(overrides: Partial<Parameters<typeof RecipeWorkspace>[0]> = {}) {
@@ -44,10 +61,77 @@ describe('RecipeWorkspace', () => {
     expect(await screen.findByText('Panel: a-1')).toBeInTheDocument();
   });
 
+  it('D-22: a library reopen uses the saved DB name even without a session record', async () => {
+    render(
+      <RecipeWorkspace
+        {...props({ initialTitle: 'Coastal Tamil (Kanyakumari) style meen kuzhambu' })}
+      />,
+    );
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Coastal Tamil (Kanyakumari) style meen kuzhambu' }),
+    ).toBeInTheDocument();
+  });
+
   it('back returns to the recipe home', async () => {
     const p = props();
     render(<RecipeWorkspace {...p} />);
     await userEvent.click(screen.getByRole('button', { name: /Back to your recipes/ }));
     expect(p.onBack).toHaveBeenCalled();
+  });
+});
+
+describe('RecipeWorkspace — D-22 Save (D1)', () => {
+  const apiMock = api as jest.Mock;
+
+  beforeEach(() => {
+    window.localStorage.clear();
+    apiMock.mockReset();
+  });
+
+  function props(overrides: Partial<Parameters<typeof RecipeWorkspace>[0]> = {}) {
+    return { recipeId: 'r1', signedIn: true, onBack: jest.fn(), ...overrides };
+  }
+
+  it('Save sends a PUT with a blank title omitted (the family default applies server-side)', async () => {
+    apiMock.mockResolvedValue({
+      recipe_id: 'r1',
+      title: 'Coastal Tamil (Kanyakumari) style meen kuzhambu',
+      saved_at: '2026-09-10T12:00:00.000Z',
+      artifacts: { raw_input: true, photo: false, object: true, identification: true, analysis: true, timestamps: true },
+    });
+    render(<RecipeWorkspace {...props()} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Save recipe' }));
+    expect(apiMock).toHaveBeenCalledWith('/recipes/r1/save', {
+      method: 'PUT',
+      body: '{}',
+    });
+    expect(await screen.findByText(/Saved as/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Coastal Tamil/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/raw input ✓ · photo — · object ✓/)).toBeInTheDocument();
+  });
+
+  it('Save forwards an editable name and updates the heading title', async () => {
+    apiMock.mockResolvedValue({
+      recipe_id: 'r1',
+      title: 'Sunday fish curry',
+      saved_at: '2026-09-10T12:00:00.000Z',
+      artifacts: { raw_input: true, photo: false, object: true, identification: true, analysis: false, timestamps: true },
+    });
+    render(<RecipeWorkspace {...props()} />);
+    await userEvent.type(screen.getByLabelText('Recipe name'), '  Sunday fish curry  ');
+    await userEvent.click(screen.getByRole('button', { name: 'Save recipe' }));
+    expect(apiMock).toHaveBeenCalledWith('/recipes/r1/save', {
+      method: 'PUT',
+      body: JSON.stringify({ title: 'Sunday fish curry' }),
+    });
+    expect(await screen.findByRole('heading', { level: 1, name: 'Sunday fish curry' })).toBeInTheDocument();
+  });
+
+  it('a failed save surfaces the honest error and never shows a saved state', async () => {
+    apiMock.mockRejectedValue(new ApiError(404, 'RECIPE_NOT_FOUND', 'Recipe not found'));
+    render(<RecipeWorkspace {...props()} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Save recipe' }));
+    expect(await screen.findByText('Recipe not found')).toBeInTheDocument();
+    expect(screen.queryByText(/Saved as/)).not.toBeInTheDocument();
   });
 });

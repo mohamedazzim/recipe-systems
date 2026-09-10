@@ -55,7 +55,7 @@
   gates/contract/verify-local re-run at close-out · live: session survives 20+ min with
   sliding renewal, recompute applies within seconds, second pass completes with zero
   redelivery.
-- Commit(s): see close-out commit (uncommitted at entry time).
+- Commit(s): `1509c71` (live-QA regression fixes; CI run `34531539189`).
 
 ## 2026-09-10 — D-20 P4-2: Chef mode + station card (deterministic, persisted through the model/API path)
 

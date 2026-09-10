@@ -39,7 +39,10 @@
   live reference data), gates PASS, lint/typecheck 0, verify-local exit 0, CI green;
   live browser recompute verified.
 - Commit(s): `46c0559` (`46c0559fa7ac7668671b7f60776b9c49d93c72da`) — D-19 checkpoint;
-  pushed to `main`; CI run recorded at checkpoint.
+  pushed to `main`; CI run recorded at checkpoint. Follow-up: the first CI run FAILED
+  (CI's ephemeral Postgres has empty reference tables) — fixed in `cc69d15`
+  (story self-bootstraps the committed reviewed imports through the reviewed path;
+  integration suites serialized via `maxWorkers: 1`). CI re-verified green.
 
 ## 2026-09-10 — Method-save bug fix + D-19 pre-flight (GO with labeled recompute)
 

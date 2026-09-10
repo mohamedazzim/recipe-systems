@@ -1440,6 +1440,7 @@ execution output; Git: not available / not authorized throughout.
 - OPEN DECISION notes: Q1 OPEN (recompute input rides the job-payload capture — labeled, not resolved) · Q5 OPEN (D-19 reads dictionary/alias only) · Q9 OPEN (Views 5–7 stub in dev; Views 8/9 need no provider) · Q10 OPEN (no OCR) · ERD §15.4 recompute granularity labeled (View 9 only; Views 1–7 never regenerated).
 - Deviations: RS-US-45 200 is `{analysis_id, status:'recompute_queued', assumptions}` instead of the synchronous recomputed band (one-writer + single-implementation hygiene; recorded in §5) · I7 unmapped listing carried as ASSUMED-tagged assumption entries (frozen View 9 payload has no dedicated unmapped field) · live lines without extracted amounts stay I7-excluded (D-12 intake limitation — honest, not invented).
 - Audit result: A-19 not yet executed — PENDING.
+- Follow-up: CI run for the checkpoint FAILED on the first push (CI's ephemeral Postgres has EMPTY reference tables; the D-19 story originally depended on the live load). Fixed in `cc69d15` (full SHA appended after the push): the story now self-bootstraps the committed reviewed imports through the real reviewed path in a snapshot/truncate/load/restore window, and `jest.integration.config.js` serializes integration suites (`maxWorkers: 1`) so the D-29/D-19 reference-table windows can never race. verify-local re-run exit 0; CI re-verified green (run id at checkpoint).
 
 ### H-20 — D-20 Chef mode + station card
 

@@ -160,7 +160,11 @@ describe('RecipeWorkspace — D-22 Save (D1)', () => {
   });
 
   it('D6: a failed delete keeps the recipe and surfaces the error (no optimistic removal)', async () => {
-    apiMock.mockRejectedValue(new ApiError(503, 'HTTP_ERROR', 'Service unavailable'));
+    apiMock.mockImplementation((path: string) =>
+      path.includes('/shopping-list')
+        ? Promise.reject(new ApiError(404, 'SHOPPING_LIST_NOT_FOUND', 'No shopping list generated yet'))
+        : Promise.reject(new ApiError(503, 'HTTP_ERROR', 'Service unavailable')),
+    );
     const p = props({ onDeleted: jest.fn() });
     render(<RecipeWorkspace {...p} />);
     await userEvent.click(screen.getByRole('button', { name: 'Delete recipe' }));

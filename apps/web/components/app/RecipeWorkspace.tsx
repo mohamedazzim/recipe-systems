@@ -14,6 +14,7 @@ import type { AnalysisState, MethodState, SavedRecipe } from '@/lib/types';
 import { IngredientReview } from '@/components/app/IngredientReview';
 import type { WireLine } from '@/lib/types';
 import { MethodSection } from '@/components/app/MethodSection';
+import { ShoppingSection } from '@/components/app/ShoppingSection';
 import { ReadinessPanel } from '@/components/app/ReadinessPanel';
 import { AnalysisPanel } from '@/components/app/AnalysisPanel';
 
@@ -260,6 +261,8 @@ export function RecipeWorkspace({
       </div>
 
       <MethodSection recipeId={recipeId} signedIn={signedIn} onChange={setMethodState} />
+
+      <ShoppingSection recipeId={recipeId} />
 
       <ReadinessPanel recipeId={recipeId} signedIn={signedIn} lines={lines} onAnalysed={setAnalysisId} />
 

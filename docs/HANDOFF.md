@@ -116,6 +116,32 @@
   H-30 entry + audit A-30. D-23 stays blocked until D-30 completes (DISPATCH dependency), then
   ships with the Q2 Option A allergen line.
 
+**D-30 EXECUTION STARTING POINT (2026-09-11, recorded before code — dispatcher authorization):**
+- Scope: DISPATCH D-30 deliverables 1–4 exactly (E1/E2/E3 + composite FK + C-28 + golden
+  fidelity + Q2 Option A allergen snapshot + INV-17 + canonical shopping UI only, no print).
+- D-30A (grouping — D-30-scoped design assumption, preflight-recommended mechanism): the five
+  canonical groups are derived by a deterministic keyword mapping over the line's intake
+  category (`recipe_ingredient_line.group_name`, free text) then its `display_name`, in the
+  priority fish/meat → fats/oils → spices → fresh produce → other; the result is persisted
+  into `shopping_list_item.group_name` at generation. `recipe_ingredient_line.group_name` is
+  NEVER written by D-30 (Q4: Intake is the line's sole writer).
+- D-30B (Q2 Option A, shopping side): `shopping_list_generation.allergen_line` (new column,
+  migration 004, ERD §7 amendment) carries the FROZEN allergen line rendered from the recipe's
+  CURRENT analysis View-8 payload (D-05-gated) at generation time — never re-derived from
+  `dietary_allergen_mapping` at print/render time. Renderer stays read-only.
+- D-30C (include_on_list): the dispatcher's E1 rule — one active row per active (non-deleted)
+  line — is implemented verbatim. The ERD §15.1 `include_on_list` semantics question stays
+  OPEN (not silently decided by D-30).
+- D-30D (writer): new API `ShoppingModule` is the sole logical writer of
+  `shopping_list_generation`/`shopping_list_item`/`ingredient_shopping_state`; the worker
+  writes no shopping tables (A-17); INV-17 404 for missing AND foreign AND malformed ids.
+- Endpoints: POST /recipes/:recipeId/shopping-list (generate) · GET …/shopping-list (latest +
+  current state) · PATCH …/shopping-state ({shopping_key, state have|need}) — GuestOrJwt +
+  Csrf on writes. State upserts key on (recipe_id, shopping_key); C-28 cleans on soft-delete.
+- Evidence targets: API unit + web unit + integration story_d30 (real Postgres, golden fixture,
+  reference-data bootstrap as story_d22) + new QG2 gates (shopping one-writer; allergen_line
+  column presence) + live internal-browser flow + verify-local + CI.
+
 ---
 
 ---
@@ -2358,8 +2384,67 @@ execution output; Git: not available / not authorized throughout.
 - Audit result: A-29 not yet executed — PENDING.
 
 ### H-30 — D-30 Track S shopping data
-
-☐ No entry yet.
+- BASE_SHA / COMMIT_SHA: base `1bd38f1` / D-30 checkpoint commit (this entry).
+- Date / agent session: 2026-09-11 · DeepSeek V4 Pro (VS Code) D-30 dispatch.
+- Summary (what shipped): the Track S shopping data layer behind new API
+  `ShoppingModule` endpoints (`POST/GET /recipes/:id/shopping-list`, `PATCH
+  /recipes/:id/shopping-state`; GuestOrJwt + Csrf on writes, INV-17 404s) — E1
+  generation from ACTIVE `recipe_ingredient_line` rows only (C-39 keys preserved,
+  two fenugreeks distinct, qualifiers visible, no headers), E2 have/need in the
+  canonical `ingredient_shopping_state` (composite-key upsert; survives
+  regeneration + reopen; C-28 cleans on soft-delete), E3 five-group market
+  grouping (D-30A keyword mapping persisted into `shopping_list_item.group_name`),
+  Q2 Option A allergen snapshot (`shopping_list_generation.allergen_line`,
+  migration 004 + ERD §7 amendment, frozen View-8 line rendered at generation,
+  never re-derived at print time). Web `ShoppingSection` (generate/groups/
+  have-need toggle/regenerate/reopen, no print UI).
+- Files changed: `apps/api/src/modules/shopping/{shopping.service,shopping.controller,
+  shopping.module,*.test}.ts`, `apps/api/src/app.module.ts`,
+  `packages/database/prisma/schema.prisma` + `migrations/004_shopping_allergen_line`,
+  `docs/Recipe_Systems_ERD_FINAL.md` (§7 amendment), `apps/web/components/app/
+  ShoppingSection.{tsx,test.tsx}`, `apps/web/lib/types.ts`, `apps/web/components/
+  app/RecipeWorkspace.tsx(+flow test routes)`, `scripts/regression-gates.sh`
+  (2b shopping one-writer + 2c allergen_line column), `tests/integration/
+  story_d30_shopping.test.ts`.
+- Commands run: `npx prisma migrate deploy` (004 applied) · shopping API unit
+  suite · web ShoppingSection suite + full web suite · full API/web/worker/db/
+  domain/llm-adapter suites · `npx jest --config jest.integration.config.js` ·
+  `bash scripts/regression-gates.sh` · `bash scripts/contract-check.sh` ·
+  lint/typecheck · `bash scripts/verify-local.sh` (exit 0).
+- Test results: API 224/224 (16 new shopping tests) · web 110/110 (6 new) ·
+  worker 60/60 · database 3/3 · domain 1/1 · llm-adapter 123/123 · integration
+  111/111 incl. NEW `story_d30_shopping.test.ts` 5/5 (real Postgres + golden
+  fixture + reviewed reference data) · gates PASS (8/8 golden + 2 new D-30
+  gates) · contract OK · lint/typecheck 0 · verify-local ALL STEPS PASSED.
+- Done-criteria evidence (DISPATCH D-30, one line per criterion):
+  - "List generated from the golden object … two fenugreek rows, no headers,
+    'to taste'/'for tempering' visible (E1 TCs)" → story_d30 E1: 11 rows for the
+    11 golden lines, fenugreek rows distinct keys + names, no headers (rows only),
+    qualifiers in the display names; grouping matches D-30A for all 11 lines.
+  - "Have/need state persists across list regeneration and reopen (E2 TCs)" →
+    story_d30 E2 + live browser: toggle Fish → regenerate ×2 → reopen → state
+    'have' persisted; exactly 1 state row (no duplicates).
+  - "Grouping per E3 categories (E3 TC)" → story_d30 E1 groups equal the five
+    canonical groups (golden card yields 4 non-empty groups, canonical order).
+  - "Soft-delete of a line cleans its shopping state (C-28); state survives list
+    regeneration" → story_d30 C-28: softDeleteLine → state row gone (trigger) →
+    regeneration yields 10 rows without the deleted line; E2 regeneration keeps
+    the state.
+- Gate evidence: regression-gates PASS incl. NEW gates 2b (shopping_* writes
+  confined to the API shopping module) + 2c (allergen_line in schema + migration)
+  · qg2_gates scratch-tree proofs still pass (gates trivially green before the
+  subject exists) · contract OK (openapi unchanged — D-05 frozen set untouched).
+- OPEN DECISION notes: Q2 stays RESOLVED (Option A — D-30B ships its shopping
+  side). `include_on_list` semantics stay OPEN (ERD §15.1) — D-30C applies the
+  dispatcher's explicit rule (one row per active line) without deciding the ERD
+  question. Q1/Q5/Q9/Q10/Q11 untouched. No D-23/D-24+ work.
+- Deviations: none from the dispatch — E3 grouping mechanism (D-30A) and the
+  allergen-snapshot rendering (D-30B) are the recorded D-30-scoped assumptions
+  from the preflight, now implemented.
+- Open items / follow-up risks: D-23 next (print templates; the station-card
+  allergen column + the renderer stay D-23) · E3 keyword mapping is a labeled
+  D-30 assumption — refine under D-23/D-25 if market feedback demands.
+- Audit result: A-30 not yet executed — PENDING.
 
 ### H-31 — D-31 Could-have tail (E6, F5, I5 — conditional per §13)
 

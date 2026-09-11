@@ -92,6 +92,30 @@ export interface LibraryRecipe {
   has_cook_log: boolean;
 }
 
+/** D-30 (Track S): the canonical five market groups (E3). */
+export type ShoppingGroup = 'fresh produce' | 'fish/meat' | 'spices' | 'fats/oils' | 'other';
+
+/** D-30 (Track S): one shopping row (E1/E2). */
+export interface ShoppingItem {
+  shopping_key: string | null;
+  display_name: string;
+  display_quantity: string;
+  unit: string | null;
+  group_name: ShoppingGroup;
+  state: 'have' | 'need';
+  position: number;
+}
+
+/** D-30 (Track S): the shopping-list wire (latest snapshot + current state). */
+export interface ShoppingList {
+  generation_id: string;
+  recipe_id: string;
+  layout: string;
+  generated_at: string;
+  allergen_line: string | null;
+  groups: { name: ShoppingGroup; items: ShoppingItem[] }[];
+}
+
 /** GET /analysis/:id wire shape (D-17 read surface). */
 export interface AnalysisState {
   analysis_id: string;

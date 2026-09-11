@@ -279,11 +279,15 @@ model AnalysisStationCard {
 // ───────────────────────────── §7 Shopping ─────────────────────────────
 
 model ShoppingListGeneration {
-  id          String   @id @default(uuid()) @db.Uuid
-  recipeId    String   @map("recipe_id") @db.Uuid
-  layout      String?  @db.VarChar(32) // grouped/flat
-  generatedAt DateTime @default(now()) @map("generated_at") @db.Timestamptz(6)
-  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  id           String   @id @default(uuid()) @db.Uuid
+  recipeId     String   @map("recipe_id") @db.Uuid
+  layout       String?  @db.VarChar(32) // grouped/flat
+  // Q2 Option A (D-30): the FROZEN View-8 allergen line persisted with the
+  // print snapshot at generation — print never re-derives it from the current
+  // effective-dated mapping (ADR §7 amendment 2026-09-11).
+  allergenLine String?  @map("allergen_line") @db.VarChar(512)
+  generatedAt  DateTime @default(now()) @map("generated_at") @db.Timestamptz(6)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   recipe Recipe             @relation(fields: [recipeId], references: [id], onDelete: Cascade)
   items  ShoppingListItem[]

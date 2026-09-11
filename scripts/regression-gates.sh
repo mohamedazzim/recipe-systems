@@ -56,6 +56,29 @@ if [ -z "$hits" ]; then note "packages/rendering has no database-write reference
   fire "packages/rendering must be read-only:"; echo "$hits"
 fi
 
+# --- 2b. Shopping one-writer (D-30) --------------------------------------------------------------
+echo "-- one-writer: shopping_* written only by the API shopping module (D-30)"
+pat='prisma\.(shoppingListGeneration|shoppingListItem|ingredientShoppingState)[A-Za-z]*\.(create|upsert|delete|update|updateMany|createMany|deleteMany)|\b(INSERT INTO|UPDATE|DELETE FROM)\s+(shopping_list_generation|shopping_list_item|ingredient_shopping_state)'
+hits=$(grep -rInE "$pat" "$SCAN/apps" "$SCAN/packages" --include="*.ts" --include="*.tsx" --include="*.sql" \
+  --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.next --exclude-dir=generated 2>/dev/null \
+  | grep -vE "packages/database/prisma/migrations/" || true)
+outside=$(echo "$hits" | grep -vE "apps/api/src/modules/shopping" || true)
+if [ -z "$hits" ]; then trivial "shopping one-writer (no write references yet)"; else
+  if [ -z "$outside" ]; then note "shopping_* writes confined to the API shopping module"; else fire "shopping_* write outside the API shopping module:"; echo "$outside"; fi
+fi
+
+# --- 2c. Q2 Option A: allergen_line snapshot column (D-30) --------------------------------------
+echo "-- Q2 Option A: shopping_list_generation.allergen_line exists in schema + migration (D-30)"
+SCHEMA_FILE="$SCAN/packages/database/prisma/schema.prisma"
+if [ ! -f "$SCHEMA_FILE" ]; then
+  trivial "allergen_line column gate (no Prisma schema in the scan tree yet)"
+elif grep -q "allergen_line" "$SCHEMA_FILE" \
+  && grep -rq "allergen_line" "$SCAN/packages/database/prisma/migrations"; then
+  note "allergen_line snapshot column declared in the Prisma schema and a migration"
+else
+  fire "Q2 Option A: shopping_list_generation must carry allergen_line (schema + migration)"
+fi
+
 # --- 3. DDL outside Prisma migrations (SCAFFOLD §2) --------------------------------------------
 echo "-- DDL: no CREATE/ALTER/DROP TABLE outside packages/database/prisma/migrations"
 hits=$(grep -rInE "CREATE TABLE|ALTER TABLE|DROP TABLE" "$SCAN/apps" "$SCAN/packages" --include="*.ts" --include="*.tsx" --include="*.sql" \

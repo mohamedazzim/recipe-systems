@@ -735,6 +735,7 @@ ALTER TABLE analysis
 | `id` | UUID | NO | PK |
 | `recipe_id` | UUID | NO | FK, `ON DELETE CASCADE` |
 | `layout` | VARCHAR(32) | YES | `grouped/flat` |
+| `allergen_line` | VARCHAR(512) | YES | **Amendment 2026-09-11 (Q2 Option A, D-30):** the frozen View-8 allergen line persisted with the print snapshot at generation — print never re-derives it from the current effective-dated mapping (ADR §7 amendment) |
 | `generated_at` | TIMESTAMPTZ | NO | — |
 | `created_at` | TIMESTAMPTZ | NO | — |
 

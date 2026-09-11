@@ -48,10 +48,15 @@ describe('authenticated paste → workspace → ingredient lines (reported-bug r
   });
 
   it('renders the parse-text lines immediately and refreshes with the SAME recipe id', async () => {
-    (globalThis.fetch as jest.Mock).mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({ items: LINES }),
+    (globalThis.fetch as jest.Mock).mockImplementation((url: string) => {
+      if (url.includes('/shopping-list')) {
+        return Promise.resolve({
+          ok: false,
+          status: 404,
+          json: async () => ({ error: { code: 'SHOPPING_LIST_NOT_FOUND', message: 'none' } }),
+        });
+      }
+      return Promise.resolve({ ok: true, status: 200, json: async () => ({ items: LINES }) });
     });
 
     // The workspace receives the parse response (recipe_id + lines) exactly as
@@ -74,10 +79,15 @@ describe('authenticated paste → workspace → ingredient lines (reported-bug r
   });
 
   it('edits reach the persisted recipe id with the stale-edit token', async () => {
-    (globalThis.fetch as jest.Mock).mockResolvedValue({
-      ok: true,
-      status: 200,
-      json: async () => ({ items: LINES }),
+    (globalThis.fetch as jest.Mock).mockImplementation((url: string) => {
+      if (url.includes('/shopping-list')) {
+        return Promise.resolve({
+          ok: false,
+          status: 404,
+          json: async () => ({ error: { code: 'SHOPPING_LIST_NOT_FOUND', message: 'none' } }),
+        });
+      }
+      return Promise.resolve({ ok: true, status: 200, json: async () => ({ items: LINES }) });
     });
     render(
       <RecipeWorkspace recipeId="r-persisted" signedIn={true} onBack={jest.fn()} initialLines={LINES} />,

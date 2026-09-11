@@ -20,6 +20,51 @@
 
 **Rule:** a change that alters any Q1–Q18 row must say so in its entry. The register (SCAFFOLD §7) is the single source of truth for open decisions; this log records the history of how the register changed. No Q-row changes in D-13.
 
+## 2026-09-11 — D-30 Track S: shopping data layer (E1/E2/E3 + Q2 Option A allergen snapshot)
+
+- Author / session: DeepSeek V4 Pro (VS Code) D-30 dispatch (implementation;
+  no D-23, no provider changes).
+- What changed:
+  1. `apps/api/src/modules/shopping/` (new): `ShoppingService` + `ShoppingController`
+     + module — the sole logical writer of `shopping_list_generation` /
+     `shopping_list_item` / `ingredient_shopping_state` (D-30D). Endpoints:
+     `POST /recipes/:id/shopping-list` (generate), `GET …/shopping-list` (latest +
+     current state), `PATCH …/shopping-state` ({shopping_key, state}).
+     GuestOrJwt + Csrf on writes; INV-17 404 for missing/foreign/malformed.
+  2. E1: one row per ACTIVE `recipe_ingredient_line` (C-39 shopping_keys
+     preserved → the two golden fenugreeks stay distinct; qualifiers visible;
+     no headers). E2: have/need in the canonical `ingredient_shopping_state`
+     composite-key upsert (survives regeneration + reopen; C-28 cleans on
+     soft-delete; no duplicate states). E3: the five canonical market groups via
+     the D-30A keyword mapping (line category then display name) persisted into
+     `shopping_list_item.group_name`.
+  3. Q2 Option A (shopping side): `shopping_list_generation.allergen_line`
+     (migration 004 + Prisma + ERD §7 amendment) — the frozen View-8 allergen
+     line of the recipe's CURRENT analysis, rendered at generation; print never
+     re-derives it from the live effective-dated mapping.
+  4. Web `ShoppingSection` on the workspace (generate / five groups / have-need
+     toggle / regenerate / reopen / allergen-line display — no print UI) +
+     `apps/web/lib/types.ts` shopping wires.
+  5. QG2 gates 2b/2c (shopping one-writer; allergen_line column presence).
+- Why: DISPATCH D-30 deliverables 1–4; Q2 Option A consequence per the
+  2026-09-11 resolution; D-30A/D-30B/D-30C/D-30D recorded in HANDOFF §0.
+- Register impact: Q2 stays RESOLVED (Option A implemented shopping-side).
+  `include_on_list` semantics stay OPEN (ERD §15.1 — D-30C applies the
+  dispatcher's explicit rule). Q1/Q5/Q9/Q10/Q11 untouched. No D-23 work.
+- Verification: API 224/224 · web 110/110 · worker 60/60 · database 3/3 ·
+  domain 1/1 · llm-adapter 123/123 · integration 111/111 (story_d30 5/5 real
+  Postgres + golden) · gates PASS (8/8 golden + 2 new) · contract OK ·
+  lint/typecheck 0 · verify-local ALL STEPS PASSED (exit 0) · secret sweep clean
+  · CI: see commit.
+- Live (internal browser, verified DeepSeek stack): opened the fully-analysed
+  saved golden recipe → Generate → 11 rows, groups fresh produce / fish/meat /
+  spices / fats/oils in canonical order, two distinct fenugreeks, allergen line
+  "Contains: Fish, Coconut, Fenugreek. Notes: Fish species unknown." → toggled
+  Fish to have → Regenerate (state kept) → reload + reopen from the library
+  (state still have; allergen line + two fenugreeks intact). DB: 2 generations
+  with allergen_line, 22 item rows, exactly 1 state row.
+- Commit(s): see D-30 checkpoint commit (this entry).
+
 ## 2026-09-11 — Q2 formal resolution (Option A: analysis-time allergen-line persistence) + D-30 preflight (GO)
 
 - Author / session: DeepSeek V4 Pro (VS Code) Q2-resolution + D-30-preflight dispatch (docs only;

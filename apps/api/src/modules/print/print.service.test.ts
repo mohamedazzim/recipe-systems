@@ -78,9 +78,9 @@ describe('PrintService (D-23)', () => {
     expect(out.html).toContain('Contains: Fish, Coconut, Fenugreek. Notes: Fish species unknown.');
     // E2 AC-2: CURRENT ticking (Fish, ticked now) + snapshot fallback
     // (Fenugreek Powder, ticked at generation) are BOTH struck.
-    expect(out.html.match(/class="have"/g)).toHaveLength(2);
+    expect(out.html.match(/class="row have"/g)).toHaveLength(2);
     const fishRow = out.html.slice(out.html.indexOf('Fish — 500g') - 130);
-    expect(fishRow).toContain('class="have"');
+    expect(fishRow).toContain('class="row have"');
     expect(out.pdf).toBeNull();
   });
 

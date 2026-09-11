@@ -43,6 +43,26 @@
   incomplete View 3 correctly refused a station card.
 - Commit(s): D-23 checkpoint pending.
 
+## 2026-09-11 — D-23 regression fix: current have/need print state and duplicate line key
+
+- Author / session: DeepSeek V4 Pro (VS Code) D-23 continuation.
+- What changed: print rows now carry an explicit row-level HAVE class and
+  checked marker; current `ingredient_shopping_state` overrides historical
+  `state_at_generation`. Ingredient review deduplicates repeated line records
+  by stable database id. CI builds the rendering workspace before typecheck.
+- Why: live reproduction showed correct UI strike-through but a normal PDF row,
+  plus a duplicate React key. DB inspection found one persisted ingredient and
+  unique shopping snapshot keys; stale rendering output explained the PDF
+  mismatch and the UI boundary now guards repeated records.
+- Register impact: Q2 remains RESOLVED (Option A); INV-12 remains snapshot-only.
+  Q1/Q5/Q9/Q10/Q11 untouched. No D-24 work.
+- Verification: API print 11/11 · rendering 14/14 · affected web 20/20 · full
+  unit suites green · D-30/D-23 integration 10/10 · gates PASS · contract OK ·
+  lint/typecheck 0 · verify-local ALL STEPS PASSED (116 integration tests).
+  Lifecycle coverage includes all NEED, current HAVE, regenerate/reopen, and
+  soft-delete print behavior.
+- Commit(s): fix checkpoint pending.
+
 ## 2026-09-11 — D-30 Track S: shopping data layer (E1/E2/E3 + Q2 Option A allergen snapshot)
 
 - Author / session: DeepSeek V4 Pro (VS Code) D-30 dispatch (implementation;

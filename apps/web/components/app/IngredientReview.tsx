@@ -56,8 +56,19 @@ function emptyEditor(line: WireLine): EditorState {
   };
 }
 
+function uniqueLines(lines: WireLine[]): WireLine[] {
+  const seen = new Set<string>();
+  return lines.filter((line) => {
+    if (seen.has(line.id)) return false;
+    seen.add(line.id);
+    return true;
+  });
+}
+
 export function IngredientReview({ recipeId, signedIn, title, initialLines = null, onLinesLoaded }: IngredientReviewProps) {
-  const [lines, setLines] = useState<WireLine[] | null>(initialLines);
+  const [lines, setLines] = useState<WireLine[] | null>(
+    initialLines ? uniqueLines(initialLines) : initialLines,
+  );
   const [error, setError] = useState<string | null>(null);
   /** RECIPE_NOT_FOUND for a signed-in actor means a cross-session recipe
    *  (INV-17: foreign recipes 404). Distinct copy, never a raw error. */
@@ -73,8 +84,9 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
     setForeignRecipe(false);
     try {
       const result = await api<{ items: WireLine[] }>(`/recipes/${recipeId}/lines`);
-      setLines(result.items);
-      onLinesLoaded?.(result.items);
+      const nextLines = uniqueLines(result.items);
+      setLines(nextLines);
+      onLinesLoaded?.(nextLines);
       setError(null);
     } catch (err) {
       if (err instanceof ApiError && err.code === 'RECIPE_NOT_FOUND') {
@@ -96,8 +108,9 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
     if (!signedIn) {
       // Guests: read-only, render the parse-text lines, never fetch Bearer-only
       // routes (API §3). No spinner, no dead request.
-      setLines(initialLines ?? []);
-      onLinesLoaded?.(initialLines ?? []);
+      const nextLines = uniqueLines(initialLines ?? []);
+      setLines(nextLines);
+      onLinesLoaded?.(nextLines);
       setError(null);
       return;
     }

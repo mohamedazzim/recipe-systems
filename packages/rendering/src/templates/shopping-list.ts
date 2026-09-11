@@ -33,8 +33,10 @@ export function shoppingListHtml(data: ShoppingListPrintData): string {
           const label = item.displayQuantity
             ? `${escapeHtml(item.displayName)} — ${escapeHtml(item.displayQuantity)}`
             : escapeHtml(item.displayName);
-          const struck = item.state === 'have' ? ' class="have"' : '';
-          return `<li class="row"><span class="checkbox">☐</span><span class="name"${struck}>${label}</span></li>`;
+          const have = item.state === 'have';
+          const rowClass = have ? 'row have' : 'row';
+          const checkbox = have ? '☑' : '☐';
+          return `<li class="${rowClass}"><span class="checkbox">${checkbox}</span><span class="name">${label}</span></li>`;
         })
         .join('\n');
       return `<h2>${escapeHtml(group.name)}</h2>\n<ul>\n${rows}\n</ul>`;

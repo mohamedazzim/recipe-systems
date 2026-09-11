@@ -249,12 +249,57 @@ describe('D-23 print — real Postgres + real Chromium PDF', () => {
     expect(html).toContain('fats/oils');
     expect(html).toContain('Contains: Fish, Coconut, Fenugreek. Notes: Fish species unknown.');
     expect(html).toContain('Reads the card only. Does not test food.'); // H6 verbatim
-    expect(html).toContain('class="have"'); // E2 strike
+    expect(html).toContain('class="row have"'); // E2 strike
     expect(html).not.toMatch(/\bsafe\b/i);
 
     // One-page layout proof: the rendered height fits the A4 viewport.
     const height = await (print as unknown as { runtime: { measureHeight(html: string, t: number): Promise<number> } }).runtime.measureHeight(html, 30_000);
     expect(height).toBeLessThanOrEqual(A4_HEIGHT_PX);
+  });
+
+  it('E2/D-23: current state survives regenerate/reopen and controls the printed projection', async () => {
+    const actor = await newUserActor('d23e2');
+    const { recipe, lines } = await makeAnalysedRecipe(actor, 'd23e2');
+    const activeKeys = lines.map((line) => line.shoppingKey).filter(Boolean) as string[];
+
+    await shopping.generate(actor, recipe.id);
+    const allNeed = await print.shoppingListPrint(actor, recipe.id, 'html');
+    expect(allNeed.html.match(/class="row have"/g)).toBeNull();
+
+    for (const shoppingKey of activeKeys.slice(0, -1)) {
+      await shopping.setState(actor, recipe.id, { shopping_key: shoppingKey, state: 'have' });
+    }
+    await shopping.generate(actor, recipe.id);
+    const reopened = await shopping.latest(actor, recipe.id);
+    const reopenedItems = reopened.groups.flatMap((group) => group.items);
+    expect(reopenedItems.filter((item) => item.state === 'have')).toHaveLength(activeKeys.length - 1);
+    expect(reopenedItems.filter((item) => item.state === 'need')).toHaveLength(1);
+
+    const latestGeneration = await prisma.shoppingListGeneration.findUniqueOrThrow({
+      where: { id: reopened.generation_id },
+    });
+    const latestRows = await prisma.shoppingListItem.findMany({
+      where: { generationId: latestGeneration.id },
+      select: { shoppingKey: true, stateAtGeneration: true },
+    });
+    const currentStates = await prisma.ingredientShoppingState.findMany({
+      where: { recipeId: recipe.id },
+      select: { shoppingKey: true, state: true },
+    });
+    expect(latestRows).toHaveLength(activeKeys.length);
+    expect(currentStates.filter((state) => state.state === 'have')).toHaveLength(activeKeys.length - 1);
+
+    const currentPrint = await print.shoppingListPrint(actor, recipe.id, 'html');
+    expect(currentPrint.html.match(/class="row have"/g)).toHaveLength(activeKeys.length - 1);
+    expect(currentPrint.html.match(/class="row"/g)?.length).toBeGreaterThanOrEqual(1);
+    expect(currentPrint.html).toContain('Fenugreek Powder — 1/2 Tsp');
+    expect(currentPrint.html).toContain('Fenugreek — 1/4 Tsp');
+
+    await intake.softDeleteLine(actor, recipe.id, lines[0].id);
+    await shopping.generate(actor, recipe.id);
+    const afterDelete = await print.shoppingListPrint(actor, recipe.id, 'html');
+    expect(afterDelete.html).not.toContain(lines[0].displayName);
+    expect(afterDelete.html).toContain('Contains: Fish, Coconut, Fenugreek. Notes: Fish species unknown.');
   });
 
   it('E5 + H4: the station-card print renders the persisted D-20 snapshot on ONE page with the frozen allergen line', async () => {

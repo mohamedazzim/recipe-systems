@@ -2377,7 +2377,7 @@ execution output; Git: not available / not authorized throughout.
 
 ### H-23 — D-23 Print list + station card
 
-- BASE_SHA / COMMIT_SHA: base `1073291` / D-23 checkpoint pending.
+- BASE_SHA / COMMIT_SHA: base `1073291` / fix checkpoint pending.
 - Date / agent session: 2026-09-11 · DeepSeek V4 Pro (VS Code) D-23 dispatch.
 - Status: **DONE — E4/E5/H4 print templates, PDF generation, INV-12 snapshot
   proof, one-page fit, retryable PDF failure, and Q2 Option A persistence
@@ -2398,9 +2398,10 @@ execution output; Git: not available / not authorized throughout.
   StationCard,AnalysisViews,AnalysisPanel}.{tsx,test.tsx}`, `scripts/
   regression-gates.sh`, `tests/integration/story_d23_print.test.ts`,
   `docs/Recipe_Systems_ERD_FINAL.md`, and `start-dev.cmd`.
-- Test results: rendering 14/14 · API 235/235 · web 113/113 · worker 61/61 ·
+- Test results: rendering 14/14 · API 235/235 · web 114/114 · worker 61/61 ·
   database 3/3 · domain 1/1 · llm-adapter 123/123 · integration 115/115
-  (17 suites, including `story_d23_print` 4/4) · typecheck 0 · lint 0.
+  (17 suites, including `story_d23_print` 5/5) · typecheck 0 · lint 0 ·
+  verify-local all steps passed (116 integration tests).
 - Done-criteria evidence: `story_d23_print` generated real Chromium PDFs with
   `%PDF-`, one page, and measured height within A4; E4 proved five canonical
   groups, two distinct fenugreek rows, current have-state, H4, H6, and no
@@ -2421,6 +2422,12 @@ execution output; Git: not available / not authorized throughout.
   latest shopping generation; print code has no live mapping access (QG2 gate
   2d). Migrations 004 and 005 are applied locally. Q2 remains RESOLVED,
   Option A.
+- Lifecycle proof: all NEED rows print normally; marking all but one HAVE
+  survives regeneration and reopen, prints HAVE rows struck with the remaining
+  NEED row normal, and soft-deleting a line removes it from print. The print
+  projection emits a row-level `have` class and checked marker; the ingredient
+  boundary removes repeated records by stable line id. CI builds rendering
+  before typecheck so API/integration cannot consume stale print artifacts.
 - OPEN DECISION notes: Q1/Q5/Q9/Q10/Q11 untouched. No D-24+ or D-30 changes.
 - Audit result: A-23 PENDING.
 

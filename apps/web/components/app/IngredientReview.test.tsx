@@ -224,6 +224,12 @@ describe('IngredientReview (D-12 actions)', () => {
     expect((globalThis.fetch as jest.Mock).mock.calls.length).toBe(0);
   });
 
+  it('deduplicates repeated line records by id before rendering', () => {
+    const duplicate = { ...LINES[0] };
+    render(<IngredientReview {...props({ initialLines: [LINES[0], duplicate] })} />);
+    expect(screen.getAllByText(LINES[0].display_name)).toHaveLength(1);
+  });
+
   it('RECIPE_NOT_FOUND (cross-session recipe) shows the ownership state, not a raw error', async () => {
     (globalThis.fetch as jest.Mock).mockResolvedValue({
       ok: false,

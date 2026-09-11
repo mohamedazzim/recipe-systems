@@ -71,8 +71,11 @@ describe('shoppingListHtml (E4)', () => {
     expect(html).toContain('Fenugreek Powder — 1/2 Tsp');
     expect(html).toContain('Fenugreek — 1/4 Tsp'); // distinct rows, never collapsed
     expect(html).toContain('Coconut Oil — For Tempering'); // qualifier verbatim
-    const haveRow = html.slice(html.indexOf('Tamarind — A Lemon Size') - 120);
-    expect(haveRow).toContain('class="have"'); // E2 AC-2 strike
+    const haveRowStart = html.lastIndexOf('<li class="row have"', html.indexOf('Tamarind — A Lemon Size'));
+    const haveRow = html.slice(haveRowStart, html.indexOf('</li>', haveRowStart));
+    expect(haveRow).toContain('class="row have"'); // E2 AC-2 strike
+    expect(haveRow).toContain('>☑</span>');
+    expect(html).toContain('>☐</span>');
   });
 
   it('includes the snapshot allergen line + H6 verbatim; no "safe"; no account chrome', () => {

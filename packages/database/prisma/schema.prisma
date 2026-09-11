@@ -268,6 +268,10 @@ model AnalysisStationCard {
   doNots           Json     @map("do_nots")
   controlPoints    Json     @map("control_points")
   productYieldHold Json?    @map("product_yield_hold")
+  // Q2 Option A (D-23): the FROZEN View-8 allergen line persisted with the
+  // card at analysis time — print never re-derives it from the current
+  // effective-dated mapping (ADR §7 amendment 2026-09-11).
+  allergenLine     String?  @map("allergen_line") @db.VarChar(512)
   printable        Boolean  @default(true)
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 

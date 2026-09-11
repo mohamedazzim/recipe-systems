@@ -6,6 +6,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { IntakeModule } from './modules/intake/intake.module';
 import { ReferenceDataModule } from './admin/reference-data.module';
 import { ShoppingModule } from './modules/shopping/shopping.module';
+import { PrintModule } from './modules/print/print.module';
 import { HealthController } from './health/health.controller';
 
 @Module({
@@ -17,6 +18,7 @@ import { HealthController } from './health/health.controller';
     AnalysisModule,
     ReferenceDataModule,
     ShoppingModule,
+    PrintModule,
   ],
   controllers: [HealthController],
 })

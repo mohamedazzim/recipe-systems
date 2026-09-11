@@ -4,18 +4,79 @@
 // persisted analysis_station_card row (worker-assembled, never free prose).
 // §7 output order: identification → station card → control points →
 // product/yield/hold → "Untasted briefing. Season after."
+// D-23 (P5-2): the print surface — the PDF comes from the snapshot-only
+// print endpoint (no re-analysis, no print-time allergen derivation).
 
+import { useState } from 'react';
+import { API_BASE_URL, ApiError } from '@/lib/api';
 import { Badge, Tag } from '@/components/ui/Badge';
 import type { StationCard } from '@/lib/types';
 
-export function StationCard({ card }: { card: StationCard }) {
+export function StationCard({ card, recipeId }: { card: StationCard; recipeId?: string }) {
   const mise = Object.entries(card.mise);
+  const [printing, setPrinting] = useState(false);
+  const [printError, setPrintError] = useState<string | null>(null);
+
+  async function printCard() {
+    if (!recipeId) return;
+    setPrinting(true);
+    setPrintError(null);
+    // Open the viewer SYNCHRONOUSLY inside the click gesture — window.open
+    // after the awaited fetch would be outside the user-activation window and
+    // blocked as a popup. The tab is navigated to the PDF blob once ready.
+    const viewer = window.open('', '_blank');
+    try {
+      const res = await fetch(`${API_BASE_URL}/recipes/${recipeId}/print/station-card`, {
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        let code = 'HTTP_ERROR';
+        let message = res.statusText;
+        try {
+          const body = (await res.json()) as { error?: { code?: string; message?: string } };
+          code = body.error?.code ?? code;
+          message = body.error?.message ?? message;
+        } catch {
+          // non-JSON error body
+        }
+        viewer?.close();
+        throw new ApiError(res.status, code, message);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      if (viewer) {
+        viewer.location.href = url;
+      } else {
+        window.open(url, '_blank');
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      viewer?.close();
+      setPrintError(err instanceof Error ? err.message : 'Could not print the station card');
+    } finally {
+      setPrinting(false);
+    }
+  }
+
   return (
     <section aria-labelledby="station-card-heading" className="rounded-lg border border-border bg-surface p-5">
       <p className="eyebrow">Chef mode · station card</p>
       <h3 id="station-card-heading" className="mt-1 font-display text-h2 text-ink">
         Station card
       </h3>
+      {recipeId && (
+        <div className="mt-3">
+          <button
+            type="button"
+            onClick={() => void printCard()}
+            disabled={printing}
+            className="inline-flex items-center justify-center gap-2 rounded-md border border-border-strong bg-transparent px-3 py-1.5 text-small font-semibold text-ink transition-colors hover:border-ink/40 hover:bg-ink/5 disabled:cursor-not-allowed disabled:text-faint"
+          >
+            {printing ? 'Printing…' : 'Print station card'}
+          </button>
+          {printError && <p className="mt-2 text-caption text-negative">{printError}</p>}
+        </div>
+      )}
 
       <div className="mt-5">
         <h4 className="text-small font-semibold text-ink">Mise</h4>

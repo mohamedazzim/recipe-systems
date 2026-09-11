@@ -721,6 +721,7 @@ ALTER TABLE analysis
 | `do_nots` | JSONB | NO | — |
 | `control_points` | JSONB | NO | — |
 | `product_yield_hold` | JSONB | YES | — |
+| `allergen_line` | VARCHAR(512) | YES | **Amendment 2026-09-11 (Q2 Option A, D-23):** the frozen View-8 allergen line persisted with the card at analysis time — print never re-derives it from the current effective-dated mapping (ADR §7 amendment) |
 | `printable` | BOOLEAN | NO | DEFAULT TRUE |
 | `created_at` | TIMESTAMPTZ | NO | — |
 

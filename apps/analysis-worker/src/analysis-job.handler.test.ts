@@ -534,6 +534,59 @@ describe('D-17 analysis job handler (A-17 contract)', () => {
     expect(prisma.analysisStationCard.upsert).not.toHaveBeenCalled();
   });
 
+  it('D-23 Q2 Option A: the station card persists the frozen View-8 allergen line of THIS analysis', async () => {
+    const prisma = mockPrisma();
+    prisma.analysisView.findUnique.mockImplementation(
+      async (args: { where: { analysisId_viewNumber: { viewNumber: number } } }) => {
+        if (args.where.analysisId_viewNumber.viewNumber === 3) {
+          return {
+            viewNumber: 3,
+            status: 'COMPLETE',
+            payload: {
+              status: 'COMPLETE',
+              stages: [
+                {
+                  stage_name: 'Load and heat',
+                  action: 'Add fish; boil then reduce',
+                  cue: 'Fish opaque and just flaking',
+                  duration: 'About 5-6 minutes',
+                  tag: 'METHOD',
+                },
+              ],
+              incomplete_reason: null,
+            },
+          };
+        }
+        return {
+          viewNumber: 8,
+          status: 'COMPLETE',
+          payload: {
+            present: ['Fish', 'Mustard'],
+            not_on_card: [],
+            unknown: ['Coconut'],
+            removal_notes: [],
+            disclaimer: 'Reads the card only. Does not test food.',
+            allergen_line: {
+              contains: ['Fish', 'Coconut'],
+              notes: ['Fish species unknown.'],
+              unknown: [],
+            },
+          },
+        };
+      },
+    );
+    const { handler } = makeHandler(prisma);
+
+    await handler.handle(jobData());
+
+    const card = prisma.analysisStationCard.upsert.mock.calls[0][0] as {
+      create: { allergenLine: string | null };
+    };
+    expect(card.create.allergenLine).toBe(
+      'Contains: Fish, Coconut. Notes: Fish species unknown.',
+    );
+  });
+
   it('D-19: deterministic views 8/9 are COMPLETE with the frozen payload shapes (no LLM)', async () => {
     const prisma = mockPrisma();
     const { handler } = makeHandler(prisma);

@@ -12,6 +12,7 @@ module.exports = {
     '^@recipe-systems/database$': '<rootDir>/../../packages/database/src/index.ts',
     '^@recipe-systems/schemas$': '<rootDir>/../../packages/schemas/src/index.ts',
     '^@recipe-systems/llm-adapter$': '<rootDir>/../../packages/llm-adapter/src/index.ts',
+    '^@recipe-systems/rendering$': '<rootDir>/../../packages/rendering/src/index.ts',
   },
   // QG1 floor: apps/analysis-worker (grounding + validation paths) = 80% statements (TEST_PLAN §2).
   coverageThreshold: {

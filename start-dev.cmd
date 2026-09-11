@@ -5,9 +5,10 @@ rem  Recipe Systems - local dev startup (native Windows cmd script)
 rem
 rem  What it does:
 rem    1. Docker infrastructure (Postgres :5433, MinIO, nginx :8080, Keycloak :8081)
-rem    2. Prisma migrations (packages\database)
+rem    2. Prisma migrations incl. D-30 shopping + D-23 print columns (packages\database)
 rem    3. NestJS API in its own window (:3001)
-rem    4. Analysis worker in its own window (pg-boss queue, ANALYSIS_LLM_STUB=1)
+rem    4. Analysis worker in its own window (pg-boss queue; provider per .env,
+rem       deterministic stub default — Q9 RESOLVED: DeepSeek via MODEL_PROVIDER=deepseek)
 rem    5. Next.js web in its own window (:3000)
 rem    6. Health-checks everything, then opens the app
 rem
@@ -22,6 +23,22 @@ echo.
 echo ==========================================================
 echo  Recipe Systems - local dev startup
 echo ==========================================================
+
+rem --- optional local .env (provider config; NEVER committed) -------------
+rem Loaded FIRST so the API/worker windows inherit it (DeepSeek/Gemini keys,
+rem MODEL_PROVIDER, ANALYSIS_LLM_STUB). The inline dev defaults below still
+rem win for infrastructure-critical values (ports, DB, Keycloak, MinIO).
+if exist ".env" (
+  for /F "usebackq eol=# delims=" %%A in (".env") do (
+    set "line=%%A"
+    if defined line (
+      set "line=!line:"=!"
+      for /F "tokens=1,* delims==" %%K in ("!line!") do (
+        if not "%%K"=="" if not "%%L"=="" if not "!line:~0,1!"=="#" set "%%K=%%L"
+      )
+    )
+  )
+)
 
 rem --- dev environment (inherited by the API/web windows) ----------------
 set "DATABASE_URL=postgresql://recipe:recipe_dev_password@localhost:5433/recipe"
@@ -41,9 +58,11 @@ set "WEB_ORIGIN=http://localhost:3000"
 set "CORS_ORIGINS=http://localhost:3000"
 set "PORT=3001"
 set "NEXT_PUBLIC_API_BASE_URL=http://localhost:3001/api/v1"
-rem Q9 is OPEN — the dev worker runs the deterministic stub adapter so the
-rem analysis pipeline (incl. the D-16 grounding gate) is demonstrable end-to-end.
-set "ANALYSIS_LLM_STUB=1"
+rem Q9 RESOLVED (2026-09-11): the dev worker defaults to the deterministic stub
+rem adapter (ANALYSIS_LLM_STUB=1) unless the local .env selects a real provider
+rem (MODEL_PROVIDER=deepseek | gemini + keys). The stub exercises the full
+rem pipeline incl. the D-16 grounding gate without any provider call.
+if not defined ANALYSIS_LLM_STUB set "ANALYSIS_LLM_STUB=1"
 
 rem --- 0. Docker daemon must be running -----------------------------------
 echo [0/6] Checking Docker...
@@ -56,7 +75,7 @@ if errorlevel 1 (
 echo   Docker daemon OK.
 
 rem --- 1. Docker infrastructure ------------------------------------------
-echo [1/5] Starting Docker infrastructure...
+echo [1/6] Starting Docker infrastructure...
 docker compose --profile core --profile identity -f "infra\docker\docker-compose.yml" up -d
 if errorlevel 1 (
   echo   ERROR: docker compose up failed.
@@ -95,7 +114,7 @@ goto wait_kc
 echo   Keycloak realm up.
 
 rem --- 2. Prisma migrations ------------------------------------------------
-echo [2/5] Applying Prisma migrations...
+echo [2/6] Applying Prisma migrations...
 pushd packages\database
 call npx prisma migrate deploy
 if errorlevel 1 (
@@ -118,7 +137,7 @@ if not errorlevel 1 (
 )
 
 rem --- 4. Analysis worker -----------------------------------------------------
-echo [4/6] Analysis worker (pg-boss queue, dev stub adapter)...
+echo [4/6] Analysis worker (pg-boss queue; provider per .env, stub default)...
 call :worker_is_up && goto worker_ok
 rem stale worker processes (dead consumers that never shut down cleanly) are
 rem swept so a fresh window can start
@@ -204,7 +223,11 @@ echo ==========================================================
 echo  Recipe Systems is up
 echo    Web       : http://localhost:3000
 echo    API       : http://localhost:3001/api/v1
-echo    Worker    : consuming queue "analysis" (ANALYSIS_LLM_STUB=1)
+if "%ANALYSIS_LLM_STUB%"=="1" (
+  echo    Worker    : consuming queue "analysis" ^(deterministic stub^)
+) else (
+  echo    Worker    : consuming queue "analysis" ^(MODEL_PROVIDER=%MODEL_PROVIDER%^)
+)
 echo    Keycloak  : http://localhost:8081  (realm: recipesystems)
 echo    Postgres  : localhost:5433/recipe
 echo    Sign in   : chef@recipesystems.test / password

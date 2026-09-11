@@ -20,6 +20,29 @@
 
 **Rule:** a change that alters any Q1–Q18 row must say so in its entry. The register (SCAFFOLD §7) is the single source of truth for open decisions; this log records the history of how the register changed. No Q-row changes in D-13.
 
+## 2026-09-11 — D-23 Track P5-2: printable shopping list, station card, and PDF
+
+- Author / session: DeepSeek V4 Pro (VS Code) D-23 dispatch.
+- What changed: added the `packages/rendering` A4 print engine and E4/E5
+  templates; persisted the View-8 allergen line on `analysis_station_card`
+  (migration 005); added snapshot-only API print endpoints with Chromium PDF
+  generation, bounded retry, ownership checks, and retryable failure mapping;
+  added web print controls and the D-23 real-Postgres/Chromium integration
+  story. `start-dev.cmd` was also modernized for the current local stack.
+- Why: DISPATCH D-23 deliverables E4, E5, H4, PDF generation, INV-12,
+  one-page golden-card fit, and QG4 retryable failure.
+- Register impact: Q2 stays RESOLVED (Option A). Q1/Q5/Q9/Q10/Q11 untouched.
+  No provider changes and no D-24+ work.
+- Verification: rendering 14/14 · API 235/235 · web 113/113 · worker 61/61 ·
+  database 3/3 · domain 1/1 · llm-adapter 123/123 · integration 115/115 ·
+  typecheck 0 · lint 0. Real Chromium PDFs were one page and within A4;
+  `story_d23_print` proved snapshot byte identity after live source changes.
+- Live: signed-in golden recipe analysis and shopping generation displayed the
+  frozen allergen line, five groups, and two fenugreek rows; authenticated
+  print HTML/PDF endpoints returned the expected content. The golden recipe's
+  incomplete View 3 correctly refused a station card.
+- Commit(s): D-23 checkpoint pending.
+
 ## 2026-09-11 — D-30 Track S: shopping data layer (E1/E2/E3 + Q2 Option A allergen snapshot)
 
 - Author / session: DeepSeek V4 Pro (VS Code) D-30 dispatch (implementation;

@@ -107,6 +107,7 @@ export function AnalysisPanel({ analysisId, recipeId, lines, methodState, signed
                   signedIn={signedIn}
                   onRefresh={refresh}
                   mode={mode}
+                  recipeId={recipeId}
                 />
               </div>
             )}

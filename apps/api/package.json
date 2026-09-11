@@ -22,6 +22,7 @@
     "@nestjs/platform-express": "^10.4.6",
     "@recipe-systems/database": "*",
     "@recipe-systems/llm-adapter": "*",
+    "@recipe-systems/rendering": "*",
     "@recipe-systems/schemas": "*",
     "cookie-parser": "^1.4.7",
     "jose": "^5.9.6",

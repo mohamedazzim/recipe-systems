@@ -22,6 +22,7 @@ import {
   View9PayloadSchema,
 } from '@recipe-systems/schemas';
 import { generateGrounded, LlmAdapter, LlmPermanentProviderError } from '@recipe-systems/llm-adapter';
+import { renderAllergenLine } from '@recipe-systems/rendering';
 import { ProviderPendingError } from './adapter';
 import {
   computeView8,
@@ -346,6 +347,14 @@ export class AnalysisJobHandler {
     if (!card) {
       return;
     }
+    // Q2 Option A (D-23): persist the FROZEN View-8 allergen line of THIS
+    // analysis with the card — print never re-derives it from the current
+    // effective-dated mapping (ADR §7 amendment 2026-09-11).
+    const view8Row = await this.prisma.analysisView.findUnique({
+      where: { analysisId_viewNumber: { analysisId, viewNumber: 8 } },
+    });
+    const parsedView8 = view8Row ? View8PayloadSchema.safeParse(view8Row.payload) : null;
+    const allergenLine = parsedView8?.success ? renderAllergenLine(parsedView8.data) : null;
     await this.prisma.analysisStationCard.upsert({
       where: { analysisId },
       create: {
@@ -355,6 +364,7 @@ export class AnalysisJobHandler {
         doNots: card.do_nots as unknown as Prisma.InputJsonValue,
         controlPoints: card.control_points as unknown as Prisma.InputJsonValue,
         productYieldHold: Prisma.JsonNull,
+        allergenLine,
         printable: true,
       },
       update: {
@@ -363,6 +373,7 @@ export class AnalysisJobHandler {
         doNots: card.do_nots as unknown as Prisma.InputJsonValue,
         controlPoints: card.control_points as unknown as Prisma.InputJsonValue,
         productYieldHold: Prisma.JsonNull,
+        allergenLine,
         printable: true,
       },
     });

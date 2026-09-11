@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { NoStationCard, StationCard } from '@/components/app/StationCard';
 import type { StationCard as StationCardType } from '@/lib/types';
 
@@ -65,5 +66,33 @@ describe('StationCard (D-20 P4-2)', () => {
   it('NoStationCard explains the refusal path honestly (never fabricates a card)', () => {
     render(<NoStationCard />);
     expect(screen.getByText(/No station card for this analysis/)).toBeInTheDocument();
+  });
+
+  it('D-23: with a recipeId, the print button opens the snapshot PDF from the print endpoint', async () => {
+    const viewer = { location: { href: '' }, close: jest.fn() };
+    const openSpy = jest.spyOn(window, 'open').mockImplementation(() => viewer as never);
+    URL.createObjectURL = (jest.fn(() => 'blob:card') as unknown as typeof URL.createObjectURL);
+    (globalThis as unknown as { fetch: unknown }).fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      blob: async () => new Blob(['%PDF']),
+    });
+    render(<StationCard card={CARD} recipeId="recipe-1" />);
+    await userEvent.click(screen.getByRole('button', { name: 'Print station card' }));
+    await waitFor(() => expect(openSpy).toHaveBeenCalledWith('', '_blank'));
+    // The viewer tab is opened synchronously in the click gesture (popup-safe)
+    // and navigated to the PDF blob once it is ready.
+    await waitFor(() => expect(viewer.location.href).toBe('blob:card'));
+    expect(viewer.close).not.toHaveBeenCalled();
+    expect((globalThis.fetch as jest.Mock).mock.calls[0][0]).toContain(
+      '/recipes/recipe-1/print/station-card',
+    );
+    openSpy.mockRestore();
+    delete (URL as unknown as Record<string, unknown>).createObjectURL;
+  });
+
+  it('D-23: without a recipeId the print surface is absent (no orphan button)', () => {
+    render(<StationCard card={CARD} />);
+    expect(screen.queryByRole('button', { name: 'Print station card' })).not.toBeInTheDocument();
   });
 });

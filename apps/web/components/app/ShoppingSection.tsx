@@ -5,7 +5,7 @@
 // from the BFF shopping endpoints (structured object, never prose).
 
 import { useCallback, useEffect, useState } from 'react';
-import { api, ApiError } from '@/lib/api';
+import { api, ApiError, API_BASE_URL } from '@/lib/api';
 import type { ShoppingList, ShoppingItem } from '@/lib/types';
 
 export function ShoppingSection({ recipeId }: { recipeId: string }) {
@@ -58,7 +58,6 @@ export function ShoppingSection({ recipeId }: { recipeId: string }) {
   };
 
   const toggle = async (item: ShoppingItem) => {
-    if (!item.shopping_key) return;
     setBusy(true);
     setError(null);
     const next: 'have' | 'need' = item.state === 'have' ? 'need' : 'have';
@@ -91,6 +90,46 @@ export function ShoppingSection({ recipeId }: { recipeId: string }) {
   };
 
   const items = list?.groups.flatMap((g) => g.items) ?? [];
+
+  async function printList() {
+    setBusy(true);
+    setError(null);
+    // Open the viewer SYNCHRONOUSLY inside the click gesture — window.open
+    // after the awaited fetch would be outside the user-activation window and
+    // blocked as a popup. The tab is navigated to the PDF blob once ready.
+    const viewer = window.open('', '_blank');
+    try {
+      const res = await fetch(`${API_BASE_URL}/recipes/${recipeId}/print/shopping-list`, {
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        let code = 'HTTP_ERROR';
+        let message = res.statusText;
+        try {
+          const body = (await res.json()) as { error?: { code?: string; message?: string } };
+          code = body.error?.code ?? code;
+          message = body.error?.message ?? message;
+        } catch {
+          // non-JSON error body
+        }
+        viewer?.close();
+        throw new ApiError(res.status, code, message);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      if (viewer) {
+        viewer.location.href = url;
+      } else {
+        window.open(url, '_blank');
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      viewer?.close();
+      setError(err instanceof Error ? err.message : 'Could not print the shopping list');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <section
@@ -127,6 +166,14 @@ export function ShoppingSection({ recipeId }: { recipeId: string }) {
               className="inline-flex items-center justify-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-accent-strong disabled:cursor-not-allowed disabled:bg-faint disabled:text-surface"
             >
               {busy ? 'Regenerating…' : 'Regenerate list'}
+            </button>
+            <button
+              type="button"
+              onClick={() => void printList()}
+              disabled={busy}
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-border-strong bg-transparent px-4 py-2 text-sm font-semibold text-ink transition-colors hover:border-ink/40 hover:bg-ink/5 disabled:cursor-not-allowed disabled:text-faint"
+            >
+              Print list
             </button>
             <span className="text-caption text-muted">
               {`${items.length} rows · generated ${new Date(list.generated_at).toLocaleString()}`}

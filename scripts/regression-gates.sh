@@ -79,6 +79,15 @@ else
   fire "Q2 Option A: shopping_list_generation must carry allergen_line (schema + migration)"
 fi
 
+# --- 2d. Print snapshot-only (D-23 / INV-12 / Q2 Option A) ---------------------------------------
+echo "-- print snapshot-only: the print path never reads the live effective-dated mapping (D-23)"
+pat='prisma\.dietaryAllergenMapping|dietary_allergen_mapping\.'
+hits=$(grep -rInE "$pat" "$SCAN/apps/api/src/modules/print" "$SCAN/packages/rendering/src" \
+  --include="*.ts" --include="*.tsx" --exclude="*.test.ts" --exclude="*.spec.ts" 2>/dev/null || true)
+if [ -z "$hits" ]; then note "print path has no live-mapping reads (the persisted allergen snapshot only)"; else
+  fire "print must consume the persisted allergen snapshot only:"; echo "$hits"
+fi
+
 # --- 3. DDL outside Prisma migrations (SCAFFOLD §2) --------------------------------------------
 echo "-- DDL: no CREATE/ALTER/DROP TABLE outside packages/database/prisma/migrations"
 hits=$(grep -rInE "CREATE TABLE|ALTER TABLE|DROP TABLE" "$SCAN/apps" "$SCAN/packages" --include="*.ts" --include="*.tsx" --include="*.sql" \

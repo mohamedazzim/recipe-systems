@@ -158,4 +158,34 @@ describe('ShoppingSection (D-30)', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Generate shopping list' }));
     expect(await screen.findByText('Recipe not found')).toBeInTheDocument();
   });
+
+  it('Print list opens the snapshot PDF from the print endpoint (D-23 E4)', async () => {
+    const viewer = { location: { href: '' }, close: jest.fn() };
+    const openSpy = jest.spyOn(window, 'open').mockImplementation(() => viewer as never);
+    const createUrl = jest.fn(() => 'blob:print');
+    URL.createObjectURL = createUrl as never;
+    fetchMock().mockImplementation((_url: string, init?: RequestInit) => {
+      if (!init || !init.method || init.method === 'GET') {
+        if (_url.includes('/print/shopping-list')) {
+          return Promise.resolve({ ok: true, status: 200, blob: async () => new Blob(['%PDF']) });
+        }
+        return Promise.resolve(jsonResponse(LIST));
+      }
+      return Promise.resolve(jsonResponse(LIST));
+    });
+    render(<ShoppingSection recipeId="recipe-1" />);
+    await screen.findByText(/Fish — 500g/);
+    await userEvent.click(screen.getByRole('button', { name: 'Print list' }));
+    await waitFor(() => expect(openSpy).toHaveBeenCalledWith('', '_blank'));
+    // The viewer tab is opened synchronously in the click gesture (popup-safe)
+    // and navigated to the PDF blob once it is ready.
+    await waitFor(() => expect(viewer.location.href).toBe('blob:print'));
+    expect(viewer.close).not.toHaveBeenCalled();
+    const printCall = fetchMock().mock.calls.find((c: unknown[]) =>
+      String(c[0]).includes('/print/shopping-list'),
+    );
+    expect(printCall).toBeTruthy();
+    openSpy.mockRestore();
+    delete (URL as unknown as Record<string, unknown>).createObjectURL;
+  });
 });

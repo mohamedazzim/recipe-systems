@@ -18,6 +18,7 @@ module.exports = {
     // Unit tests consume the database package's TS source directly (no dist build needed).
     // rootDir is src/ → ../../../ reaches the repo root.
     '^@recipe-systems/database$': '<rootDir>/../../../packages/database/src/index.ts',
+    '^@recipe-systems/rendering$': '<rootDir>/../../../packages/rendering/src/index.ts',
   },
   testEnvironment: 'node',
 };

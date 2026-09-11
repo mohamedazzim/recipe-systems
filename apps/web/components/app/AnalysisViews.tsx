@@ -45,6 +45,8 @@ export interface AnalysisViewsProps {
   onRefresh?: () => Promise<void>;
   /** D-20 (C3): home explains, chef briefs — same nine views, different framing. */
   mode?: 'home' | 'chef';
+  /** D-23 (P5-2): the owning recipe id — enables the print surface. */
+  recipeId?: string;
 }
 
 /** §7 Home-vs-chef framing per view (table column mapping; content transformation
@@ -68,6 +70,7 @@ export function AnalysisViews({
   signedIn = false,
   onRefresh = async () => undefined,
   mode = 'home',
+  recipeId,
 }: AnalysisViewsProps) {
   const [activeView, setActiveView] = useState('view-1');
   const byNumber = new Map(analysis.views.map((v) => [v.view_number, v]));
@@ -143,7 +146,7 @@ export function AnalysisViews({
         {mode === 'chef' && (
           <div className="mb-6">
             {analysis.station_card ? (
-              <StationCard card={analysis.station_card} />
+              <StationCard card={analysis.station_card} recipeId={recipeId} />
             ) : (
               <NoStationCard />
             )}

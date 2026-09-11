@@ -142,6 +142,36 @@
   reference-data bootstrap as story_d22) + new QG2 gates (shopping one-writer; allergen_line
   column presence) + live internal-browser flow + verify-local + CI.
 
+**D-23 EXECUTION STARTING POINT (2026-09-11, recorded before code — dispatcher authorization):**
+- Scope: DISPATCH D-23 deliverables 1–4 exactly — E4 shopping print, E5 station-card print,
+  H4 allergen line, PDF via Playwright + headless Chromium (Tech Stack §12), INV-12
+  snapshot-only, one-page golden fit, retryable PDF failure. No D-24+, no print of anything
+  beyond the two canonical templates.
+- D-23A (renderer): `packages/rendering` owns the two HTML templates + the PDF engine
+  (`renderPdf`, injectable Chromium launcher, bounded 2-attempt retry, render timeout,
+  `PdfRenderError` = retryable). `renderAllergenLine` moves here (pure; D-30's shopping
+  service and the worker's station-card writer share it). Page size A4; one-page fit proven
+  by page-count == 1 on the generated PDF AND a viewport scrollHeight layout assertion.
+- D-23B (station-card allergen column): migration 005 adds
+  `analysis_station_card.allergen_line` (ERD §6 amendment). The WORKER's station-card upsert
+  persists the frozen View-8 line of the SAME analysis (Q2 Option A — analysis time, never
+  print time). Existing cards stay NULL and the print honestly omits the line (nothing
+  invented).
+- D-23C (API print module): `GET /recipes/:id/print/shopping-list` and
+  `GET /recipes/:id/print/station-card` (GuestOrJwt; INV-17 404s) return `application/pdf`
+  (the HTML of the SAME template is served on `?format=html` — SCAFFOLD §4 preview parity).
+  Read-only reads of the persisted snapshots ONLY: the module never touches
+  `dietary_allergen_mapping` or live recipe lines (new QG2 gate 2d).
+- D-23D (web): print buttons on the ShoppingSection and the station-card surface fetch the
+  PDF (credentialed blob) and open it — no print UI redesign, no account chrome in the PDF.
+- D-23E (snapshot-only proof): integration story_d23 — after the snapshot is generated,
+  (1) a NEW reviewed effective-dated allergen mapping is approved, (2) a recipe line is
+  edited live; the re-print output is BYTE-IDENTICAL to the original (INV-12).
+- Evidence targets: rendering unit (templates + engine failure cells) · API print unit ·
+  web print-button unit · integration story_d23 (real Postgres, real D-30 snapshot, real
+  D-20 card, real Q2 value) · QG4 PDF-failure cell · live internal-browser golden print
+  journey · suites/gates/contract/lint/typecheck/verify-local/CI.
+
 ---
 
 ---
@@ -2347,7 +2377,52 @@ execution output; Git: not available / not authorized throughout.
 
 ### H-23 — D-23 Print list + station card
 
-☐ No entry yet.
+- BASE_SHA / COMMIT_SHA: base `1073291` / D-23 checkpoint pending.
+- Date / agent session: 2026-09-11 · DeepSeek V4 Pro (VS Code) D-23 dispatch.
+- Status: **DONE — E4/E5/H4 print templates, PDF generation, INV-12 snapshot
+  proof, one-page fit, retryable PDF failure, and Q2 Option A persistence
+  shipped.**
+- Summary: `packages/rendering` now owns the shared A4 print shell, shopping
+  list template, station-card template, frozen allergen-line renderer, and
+  Playwright PDF runtime with bounded retry. Migration 005 adds
+  `analysis_station_card.allergen_line`; the worker persists the View-8 line
+  at analysis completion. API print endpoints read only the persisted shopping
+  generation or station-card snapshot, enforce ownership through
+  `RecipeService.assertOwned`, and return `PDF_RENDER_FAILED` as a retryable
+  503 without changing snapshots. Web print controls open the viewer during
+  the click gesture and navigate it to the generated PDF blob.
+- Files changed: `packages/rendering/**`, `packages/database/prisma/{schema.prisma,
+  migrations/005_station_card_allergen_line}`, `apps/analysis-worker/src/
+  analysis-job.handler.ts`, `apps/api/src/modules/print/**`, `apps/api/src/
+  app.module.ts`, `apps/api/package.json`, `apps/web/components/app/{ShoppingSection,
+  StationCard,AnalysisViews,AnalysisPanel}.{tsx,test.tsx}`, `scripts/
+  regression-gates.sh`, `tests/integration/story_d23_print.test.ts`,
+  `docs/Recipe_Systems_ERD_FINAL.md`, and `start-dev.cmd`.
+- Test results: rendering 14/14 · API 235/235 · web 113/113 · worker 61/61 ·
+  database 3/3 · domain 1/1 · llm-adapter 123/123 · integration 115/115
+  (17 suites, including `story_d23_print` 4/4) · typecheck 0 · lint 0.
+- Done-criteria evidence: `story_d23_print` generated real Chromium PDFs with
+  `%PDF-`, one page, and measured height within A4; E4 proved five canonical
+  groups, two distinct fenugreek rows, current have-state, H4, H6, and no
+  forbidden safety wording. E5 proved mise, sequence, control points, do-not,
+  and one-page station-card output. QG4 tests cover launch failure, transient
+  retry, and timeout. INV-12 proved byte-identical HTML after editing a recipe
+  line and renaming a live allergen definition. INV-17 ownership and malformed
+  id tests pass.
+- Live internal-browser evidence: the signed-in golden recipe completed a new
+  DeepSeek analysis, generated the shopping list, displayed the five groups,
+  two fenugreek rows, and the persisted allergen line. Authenticated HTML and
+  PDF endpoints returned 200, `%PDF-`, one page, H6, and no forbidden wording.
+  The golden recipe's View 3 was incomplete, so its station-card surface
+  correctly refused with `STATION_CARD_NOT_FOUND`; the real station-card
+  render is covered by the integration story. The integrated browser suppresses
+  popup creation, so the endpoint proof was performed in-page.
+- Q2 / snapshot proof: DB rows contain the same frozen allergen line in the
+  latest shopping generation; print code has no live mapping access (QG2 gate
+  2d). Migrations 004 and 005 are applied locally. Q2 remains RESOLVED,
+  Option A.
+- OPEN DECISION notes: Q1/Q5/Q9/Q10/Q11 untouched. No D-24+ or D-30 changes.
+- Audit result: A-23 PENDING.
 
 ### H-24 — D-24 Cook loop
 

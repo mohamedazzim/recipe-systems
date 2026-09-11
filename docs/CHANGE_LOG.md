@@ -19,6 +19,48 @@
 ```
 
 **Rule:** a change that alters any Q1–Q18 row must say so in its entry. The register (SCAFFOLD §7) is the single source of truth for open decisions; this log records the history of how the register changed. No Q-row changes in D-13.
+## 2026-09-11 — Q9 model benchmark: deepseek-v4-pro vs deepseek-flash (thinking effort LOW/HIGH)
+
+- Author / session: DeepSeek V4 Pro (VS Code) model-benchmark dispatch (HARD STOP after the
+  benchmark; the application's default model was NOT changed).
+- What changed:
+  1. `scripts/benchmark-models.js` (new): the designated model-benchmark harness. Controlled
+     identical inputs for every configuration (the canonical Q9 golden fish-curry capture with
+     garlic+ginger explicitly_absent, D-15 v2 prompts, home mode, temperature 0, the real
+     DeepSeekLlmAdapter, generateGrounded = D-05 schema + D-16 grounding, regenerate-once,
+     concurrency 4). Views 8/9 never called. Records per-view latency/attempts/outcomes, token
+     usage incl. cache hit/miss, schema/grounding failures, regenerates, timeouts, wall time,
+     and persists accepted payloads for semantic analysis. Never auto-run; CI never runs it.
+  2. `packages/llm-adapter/src/deepseek-adapter.ts`: OPTIONAL passthrough config
+     (`thinking` / `reasoningEffort`) included in the request body ONLY when configured - the
+     production request shape and the app's default model are unchanged (worker passes no such
+     config). + `DeepSeekUsage.details` (raw provider usage incl. cache breakdown).
+  3. Tests: adapter 103/103 (+2: passthrough presence/absence, usage details).
+- Why: measured benchmark. API contract verified live first (/models -> deepseek-flash +
+  deepseek-v4-pro; official docs: thinking {type} + reasoning_effort none/low/high/max; flash =
+  V4.1-Flash, pro = V4-Pro-0813; docs announce pro retirement 2026-09-14 with routing to Flash).
+- Results (4 controlled passes per config, 28 views each):
+  - wall (avg): pro 449.2 s | flash 104.0 s | flash-low 49.3 s | flash-high 84.5 s
+  - complete views: pro 21 | flash 19 | flash-low 23 | flash-high 18
+  - schema failures: pro 1 | flash 4 | flash-low 2 | flash-high 6 (all tag-enum violations -
+    D-05 caught every one; nothing invalid persisted)
+  - grounding violations: pro 18 | flash 19 | flash-low 19 | flash-high 17 (all caught by D-16;
+    regenerated or refused)
+  - provider timeouts: pro 2 (view 3, thinking mode) | flash configs 0
+  - zero banned-mention leaks in accepted payloads across all configs
+  - tokens/analysis: pro 13.3k in / 40.4k out | flash 14.6k / 47.5k | flash-low 13.3k / 30.2k |
+    flash-high 14.9k / 50.7k
+  - est. cost/analysis (official pricing, all-cache-miss): pro $0.089 off-peak / $0.178 peak |
+    flash $0.031 / $0.061 | flash-low $0.020 / $0.040 | flash-high $0.033 / $0.065
+  - RECOMMENDATION: deepseek-flash + reasoning_effort=low (best completion 23/28, lowest wall
+    49.3 s, cheapest, schema 2/28; pro's v3 timeouts + the provider's own 2026-09-14 pro
+    retirement both point the same way). Default model NOT changed (dispatch constraint).
+- Register impact: Q1/Q5/Q10/Q11/Q13 unchanged. Q9 remains RESOLVED. No D-23/D-30 work.
+- Verification: adapter 103/103 · worker 53/53 · API 208/208 · web 104/104 · integration 106/106
+  · gates 8/8 PASS · contract OK · lint 0 · typecheck 0 · CI: see benchmark commit.
+- Commit(s): see benchmark commit (uncommitted at entry time).
+
+
 ## 2026-09-11 — Q9 DeepSeek performance pass (measured optimizations only)
 
 - Author / session: DeepSeek V4 Pro (VS Code) performance/production-readiness dispatch (HARD

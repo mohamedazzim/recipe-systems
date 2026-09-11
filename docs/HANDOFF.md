@@ -2936,3 +2936,47 @@ ONLY the single missing view (view 3) - zero duplicate spend on completed views.
    8. Suites: worker 53/53, API 208/208, web 104/104, llm-adapter 102/102,
    integration 106/106, gates 8/8, contract OK, lint/typecheck 0, verify-local
    ALL STEPS PASSED. 9. CI: see performance-pass checkpoint commit. 10. Numbers: this table.
+
+## BENCH - Q9 model benchmark: pro vs flash vs flash-low vs flash-high (2026-09-11)
+
+Controlled: same golden capture (garlic+ginger explicitly_absent), D-15 v2 prompts, home mode,
+temperature 0, same DeepSeekLlmAdapter + generateGrounded (D-05 + D-16), regenerate-once,
+concurrency 4. Views 8/9 deterministic (not called). API contract verified live: /models ->
+deepseek-flash + deepseek-v4-pro; docs: thinking {type} + reasoning_effort none/low/high/max.
+4 passes per config (2 benchmark + 1 + 1 payload-capturing), 28 views per config.
+
+| Metric | pro | flash | flash-low | flash-high |
+|---|---:|---:|---:|---:|
+| Wall time avg | 449.2s | 104.0s | 49.3s | 84.5s |
+| View 1 | 94.3s | 42.1s | 16.8s | 69.7s |
+| View 2 | 302.6s* | 119.6s | 28.8s | 53.9s |
+| View 3 | 345.7s** | 28.0s | 31.4s | 30.3s |
+| View 4 | 180.9s | 24.1s | 10.1s | 27.7s |
+| View 5 | 211.1s | 65.0s | 21.1s | 33.8s |
+| View 6 | 58.7s | 44.7s | 19.9s | 13.0s |
+| View 7 | 38.4s | 10.1s | 6.3s | 8.3s |
+| Complete views (of 28) | 21 | 19 | 23 | 18 |
+| Incomplete (refusals) | 4 | 5 | 3 | 4 |
+| Schema failures | 1 | 4 | 2 | 6 |
+| Grounding violations | 18 | 19 | 19 | 17 |
+| Provider timeouts | 2 (v3) | 0 | 0 | 0 |
+| Retries (in-adapter) | on timeouts only | 0 | 0 | 0 |
+| Tokens in / out | 13.3k / 40.4k | 14.6k / 47.5k | 13.3k / 30.2k | 14.9k / 50.7k |
+| Est cost/analysis off-peak | $0.089 | $0.031 | $0.020 | $0.033 |
+| Est cost/analysis peak | $0.178 | $0.061 | $0.040 | $0.065 |
+
+* view 2 over its 3 completed passes; one pass schema-failed. ** includes two 540 s
+triple-timeout passes (180 s x 3 attempts); the two healthy passes averaged 151.4 s.
+Cost = official pricing (verified 2026-09-11), all-cache-miss (production assumption).
+Semantic findings: zero banned-mention (garlic/ginger/onion) leaks in accepted payloads in any
+config (D-16 enforced); pro refused view 5 in all 4 passes (family text trips the garlic
+absent-plant); flash configs passed v5 in some passes with grounded wording; flash tag
+discipline is weaker than pro (UNKNOWN/ABSENT tag values -> D-05 catches all, nothing invalid
+persisted); flash derives view-6 ratios from the card's amount_text (defensible) while pro
+refuses (strict); flash view-3 sometimes returns status INCOMPLETE with stages (station-card
+refusal quirk, same as pro observed earlier); view 7 honors the v3 dependency gate.
+RECOMMENDED: deepseek-flash + reasoning_effort=low. REASON: highest completion (23/28), lowest
+wall (49.3 s), lowest cost ($0.020 off-peak), zero timeouts; schema compliance 2/28 acceptable
+(D-05 catches all); grounding refusals are the guardrail working, not model output leakage.
+Pro is additionally scheduled for provider retirement 2026-09-14 (routed to Flash).
+Application default model NOT changed (dispatch constraint - recommendation only).

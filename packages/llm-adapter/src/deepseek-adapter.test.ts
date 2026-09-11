@@ -106,6 +106,26 @@ describe('DeepSeekLlmAdapter (Q9)', () => {
     }
   });
 
+  it('omits thinking fields by default and passes them through when configured (benchmark passthrough)', async () => {
+    const { fetchMock, restore } = mockFetch();
+    fetchMock.mockImplementation(() => Promise.resolve(chatResponse(JSON.stringify(VIEW1))));
+    try {
+      await adapter().generate(req(1));
+      const plain = JSON.parse(fetchMock.mock.calls[0][1].body as string) as Record<string, unknown>;
+      expect(plain.thinking).toBeUndefined();
+      expect(plain.reasoning_effort).toBeUndefined();
+
+      fetchMock.mockClear();
+      await adapter({ thinking: { type: 'enabled' }, reasoningEffort: 'low' }).generate(req(1));
+      const configured = JSON.parse(fetchMock.mock.calls[0][1].body as string) as Record<string, unknown>;
+      expect(configured.thinking).toEqual({ type: 'enabled' });
+      expect(configured.reasoning_effort).toBe('low');
+      expect(configured.temperature).toBe(0); // unchanged
+    } finally {
+      restore();
+    }
+  });
+
   it('reports token usage to the optional telemetry hook (tokens only — never content)', async () => {
     const { fetchMock, restore } = mockFetch();
     const usage = { prompt_tokens: 1234, completion_tokens: 567, total_tokens: 1801 };
@@ -123,13 +143,15 @@ describe('DeepSeekLlmAdapter (Q9)', () => {
       const out = await adapter({ onUsage }).generate(req(1));
       expect(out).toBeTruthy();
       expect(onUsage).toHaveBeenCalledTimes(1);
-      expect(onUsage).toHaveBeenCalledWith({
-        view: 1,
-        mode: 'home',
-        promptTokens: 1234,
-        completionTokens: 567,
-        totalTokens: 1801,
-      });
+      expect(onUsage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          view: 1,
+          mode: 'home',
+          promptTokens: 1234,
+          completionTokens: 567,
+          totalTokens: 1801,
+        }),
+      );
       // The hook never receives response content.
       expect(JSON.stringify(onUsage.mock.calls)).not.toContain('line-fish');
     } finally {

@@ -48,6 +48,11 @@ export interface DeepSeekConfig {
   /** Optional per-call token-usage telemetry (Q9 performance pass). Never the
    *  response content — tokens only. The worker logs it; nothing is stored. */
   onUsage?: (usage: DeepSeekUsage) => void;
+  /** Optional thinking-mode passthrough (model-benchmark ONLY). When omitted,
+   *  the body has no thinking fields and the provider default applies — the
+   *  production request shape is unchanged. */
+  thinking?: { type: 'enabled' | 'disabled' };
+  reasoningEffort?: 'none' | 'low' | 'high' | 'max';
 }
 
 /** Token usage as reported by the provider (OpenAI-compatible `usage`). */
@@ -57,6 +62,8 @@ export interface DeepSeekUsage {
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
+  /** Raw provider usage object (e.g. cache hit/miss breakdown) — telemetry only. */
+  details?: unknown;
 }
 
 function envConfig(): DeepSeekConfig {
@@ -95,6 +102,8 @@ export class DeepSeekLlmAdapter implements LlmAdapter {
   private readonly timeoutMs: number;
   private readonly maxRetries: number;
   private readonly onUsage: DeepSeekConfig['onUsage'];
+  private readonly thinking: DeepSeekConfig['thinking'];
+  private readonly reasoningEffort: DeepSeekConfig['reasoningEffort'];
 
   constructor(config: DeepSeekConfig = envConfig()) {
     this.apiKey = config.apiKey ?? '';
@@ -103,6 +112,8 @@ export class DeepSeekLlmAdapter implements LlmAdapter {
     this.timeoutMs = config.timeoutMs ?? 60_000;
     this.maxRetries = Math.max(0, config.maxRetries ?? 2);
     this.onUsage = config.onUsage;
+    this.thinking = config.thinking;
+    this.reasoningEffort = config.reasoningEffort;
   }
 
   /** Non-secret description for boot logs (never includes the key). */
@@ -138,6 +149,8 @@ export class DeepSeekLlmAdapter implements LlmAdapter {
             ],
             temperature: 0,
             stream: false,
+            ...(this.thinking ? { thinking: this.thinking } : {}),
+            ...(this.reasoningEffort ? { reasoning_effort: this.reasoningEffort } : {}),
           }),
           signal: controller.signal,
         });
@@ -170,6 +183,7 @@ export class DeepSeekLlmAdapter implements LlmAdapter {
                 promptTokens: u.prompt_tokens,
                 completionTokens: u.completion_tokens,
                 totalTokens: u.total_tokens,
+                details: u,
               }
             : undefined;
         return { content, usage };

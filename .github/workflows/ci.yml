@@ -54,6 +54,10 @@ jobs:
         working-directory: packages/llm-adapter
         run: npm run build
 
+      - name: "Rendering build (D-23: api + worker import the print engine)"
+        working-directory: packages/rendering
+        run: npm run build
+
       - name: Lint
         run: npm run lint
 

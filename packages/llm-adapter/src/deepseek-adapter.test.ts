@@ -257,6 +257,9 @@ describe('DeepSeekLlmAdapter (Q9)', () => {
 
   it('describe() exposes provider/model only — never the key', () => {
     expect(adapter().describe()).toBe('deepseek:deepseek-v4-pro @ https://api.deepseek.com');
+    expect(adapter({ reasoningEffort: 'low' }).describe()).toBe(
+      'deepseek:deepseek-v4-pro (effort low) @ https://api.deepseek.com',
+    );
     expect(adapter().describe()).not.toContain('sk-test');
   });
 

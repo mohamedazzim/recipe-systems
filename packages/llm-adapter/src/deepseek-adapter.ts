@@ -118,7 +118,8 @@ export class DeepSeekLlmAdapter implements LlmAdapter {
 
   /** Non-secret description for boot logs (never includes the key). */
   describe(): string {
-    return `deepseek:${this.model} @ ${this.baseUrl}`;
+    const effort = this.reasoningEffort ? ` (effort ${this.reasoningEffort})` : '';
+    return `deepseek:${this.model}${effort} @ ${this.baseUrl}`;
   }
 
   private async chatCompletion(

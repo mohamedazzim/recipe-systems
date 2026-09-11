@@ -2980,3 +2980,41 @@ wall (49.3 s), lowest cost ($0.020 off-peak), zero timeouts; schema compliance 2
 (D-05 catches all); grounding refusals are the guardrail working, not model output leakage.
 Pro is additionally scheduled for provider retirement 2026-09-14 (routed to Flash).
 Application default model NOT changed (dispatch constraint - recommendation only).
+
+## VERIFY - Model switch live verification: deepseek-flash + effort low (2026-09-11)
+
+Runtime (verified from .env, key never printed): LLM_PROVIDER=deepseek,
+DEEPSEEK_MODEL=deepseek-flash, DEEPSEEK_REASONING_EFFORT=low, ANALYSIS_LLM_STUB=0.
+Worker boot: "LLM adapter = deepseek (deepseek:deepseek-flash (effort low) @
+https://api.deepseek.com)". model_version persisted = deepseek:deepseek-flash
+(UI + DB). Session alive 26+ min under SSE polling (sliding fix held).
+
+FINDING (fixed): (1) the worker ignored DEEPSEEK_REASONING_EFFORT (env was not
+wired) - wired + tested; (2) flash-low emits D-05 tag-enum violations on
+views 1/2, and the worker's old semantics (one schema-invalid view -> whole-job
+transient failure) caused a 3+ delivery retry storm ending 'failed' with 6/7
+valid views persisted. FIX: schema-invalid regenerates ONCE, then the view row
+is INCOMPLETE (INV-08) and the analysis completes. Verified live on the SAME
+analysis: v1 regenerated -> COMPLETE, v2 grounded refusal -> INCOMPLETE,
+9/9 rows, status complete, is_current true, single delivery retry_count 0.
+
+Live journey (internal browser): create -> paste (11 lines verbatim, two
+fenugreeks) -> method saved -> analyse -> Views 1-7 (zero garlic/ginger/onion/
+turmeric in any accepted panel; v3/v7 honest refusals; v2 balance table after
+regenerate) -> Views 8/9 deterministic (fish/coconut/fenugreek, no "safe",
+band 716-1,018 kcal, sodium Unknown) -> view-9 recompute coconut 100 ->
+539-664 kcal, only view 9 changes -> chef mode honest no-card copy ->
+save "Flash Low Live Verification 0911" -> library row -> reopen persists ->
+disposable recipe delete (cancel intact, confirm removes, reload persists) ->
+bad UUID 404, foreign UUID 404 -> duplicate Analyse = new analysis, single
+delivery, no duplicate jobs, INV-09 flip correct.
+
+Performance (live, flash-low, second clean pass): v1 28.6+32.1 s (regenerated),
+v2 27.8+32.4 s (regenerated then refused), v3 30.3 s, v4 10.7 s, v5 18.6 s,
+v6 23.2 s, v7 2.8 s; wall ~61 s. vs pro baseline 449.2 s and flash-low
+benchmark 49.3 s - consistent.
+
+Verdict: PASS (with one confirmed regression found and fixed; suites green:
+worker 57/57, adapter 103/103, API 208/208, web 104/104, integration 106/106,
+gates 8/8, contract OK, lint/typecheck 0, verify-local ALL STEPS PASSED,
+secret sweep clean, CI green at the verification commit).

@@ -140,12 +140,23 @@ export function resolveAdapter(env: Record<string, string | undefined>): LlmAdap
   // Credentials stay server-side (DeepSeekLlmAdapter reads env directly);
   // CI never sets LLM_PROVIDER and never requires the key.
   if (env.LLM_PROVIDER === 'deepseek') {
+    // Q9 model benchmark (2026-09-11): optional reasoning-effort wiring — the
+    // verified model switch runs deepseek-flash + reasoning_effort=low. Only
+    // the provider's documented enum values are forwarded; anything else is
+    // dropped (provider default applies) rather than guessed.
+    const effort = env.DEEPSEEK_REASONING_EFFORT;
+    const validEffort =
+      effort === 'none' || effort === 'low' || effort === 'high' || effort === 'max'
+        ? effort
+        : undefined;
     return new DeepSeekLlmAdapter({
       apiKey: env.DEEPSEEK_API_KEY,
       model: env.DEEPSEEK_MODEL,
       baseUrl: env.DEEPSEEK_BASE_URL,
       timeoutMs: env.DEEPSEEK_TIMEOUT_MS ? Number(env.DEEPSEEK_TIMEOUT_MS) : undefined,
       maxRetries: env.DEEPSEEK_MAX_RETRIES ? Number(env.DEEPSEEK_MAX_RETRIES) : undefined,
+      reasoningEffort: validEffort,
+      thinking: validEffort ? { type: validEffort === 'none' ? 'disabled' : 'enabled' } : undefined,
       // Q9 performance pass: token-usage telemetry (prompt/completion/total
       // tokens per view attempt). Never content, never secrets.
       onUsage: (usage) => {

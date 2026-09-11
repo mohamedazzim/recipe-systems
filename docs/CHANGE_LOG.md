@@ -19,6 +19,46 @@
 ```
 
 **Rule:** a change that alters any Q1–Q18 row must say so in its entry. The register (SCAFFOLD §7) is the single source of truth for open decisions; this log records the history of how the register changed. No Q-row changes in D-13.
+## 2026-09-11 — Model switch live verification (deepseek-flash + effort low) + schema-refusal regression fix
+
+- Author / session: DeepSeek V4 Pro (VS Code) live-verification dispatch (verification/
+  regression only; no D-23/D-30; .env untouched by the agent).
+- What changed:
+  1. `apps/analysis-worker/src/adapter.ts`: the worker now FORWARDS
+     `DEEPSEEK_REASONING_EFFORT` (validated enum none/low/high/max) as the adapter's
+     optional thinking passthrough — previously the .env setting was silently ignored and
+     the provider default (effort high) applied. Boot log now proves the runtime config:
+     `deepseek:deepseek-flash (effort low)`.
+  2. `apps/analysis-worker/src/analysis-job.handler.ts` (CONFIRMED REGRESSION FIX): a
+     D-05 schema-invalid view no longer fails the whole job (GenerationFailedError removed).
+     Instead it regenerates ONCE (A-16 parity with the grounding path) and, if still invalid,
+     the view row is INCOMPLETE (INV-08 refusal representation) and the analysis COMPLETES.
+     Live evidence: flash-low emits tag-enum violations on views 1/2; the old semantics made
+     the job retry-storm 3+ times and end `failed` with 6/7 valid views already persisted;
+     the new semantics converged the SAME analysis (v1 regenerated -> COMPLETE, v2 refused
+     -> INCOMPLETE, 9/9 rows, status complete, is_current true, single job delivery
+     retry_count 0).
+  3. `packages/llm-adapter/src/deepseek-adapter.ts`: describe() includes the effort
+     (non-secret) for boot-log evidence.
+- Why: the configured model switch exposed the worker's job-level schema-failure semantics;
+  fixed at the smallest correct layer without touching D-05/D-16/concurrency/prompts.
+- Live verification (internal browser, flash-low): full journey passed — sign-in, create,
+  parse (11 lines verbatim), method, analyse, Views 1-7 (zero banned mentions in any
+  accepted panel; v3/v7 honest refusals), Views 8/9 deterministic (fish/coconut/fenugreek,
+  no "safe"; band 716-1,018 kcal, sodium Unknown), view-9 recompute (coconut 100 ->
+  539-664 kcal, only view 9 changes), chef mode + honest no-card copy (v3 INCOMPLETE),
+  save/library/reopen (model pin deepseek:deepseek-flash in UI + DB), disposable delete
+  (cancel intact, confirm removes, persists), bad-UUID/foreign 404s, session alive 26+ min
+  (sliding SSE-path fix held), duplicate Analyse = new analysis, single delivery, no
+  duplicate jobs. Performance: live pass wall ~61 s (views 2.8-32.4 s each incl. two
+  regenerations) vs pro baseline 449.2 s / flash-low benchmark 49.3 s.
+- Register impact: Q1/Q5/Q10/Q11/Q13 unchanged. Q9 remains RESOLVED. No D-23/D-30 work.
+- Verification: worker 57/57 (+2) · adapter 103/103 · API 208/208 · web 104/104 ·
+  integration 106/106 · gates 8/8 · contract OK · lint/typecheck 0 · verify-local
+  ALL STEPS PASSED · secret sweep clean · CI: see commit.
+- Commit(s): see model-switch verification commit (uncommitted at entry time).
+
+
 ## 2026-09-11 — Q9 model benchmark: deepseek-v4-pro vs deepseek-flash (thinking effort LOW/HIGH)
 
 - Author / session: DeepSeek V4 Pro (VS Code) model-benchmark dispatch (HARD STOP after the

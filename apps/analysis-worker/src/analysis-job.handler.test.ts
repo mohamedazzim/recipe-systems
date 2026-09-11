@@ -313,6 +313,83 @@ describe('D-17 analysis job handler (A-17 contract)', () => {
     expect(notify).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed' }));
   });
 
+  it('model-switch regression: a schema-invalid view regenerates once, then the row is INCOMPLETE and the JOB COMPLETES', async () => {
+    const prisma = mockPrisma();
+    const INVALID_VIEW_1 = {
+      items: [
+        { ingredient_id: 'fish_500g', job: 'Body', if_omitted: 'No main element', tag: 'UNKNOWN' },
+      ],
+      role_groups: [],
+    };
+    const fixtures: Record<number, unknown> = {
+      2: VALID_VIEW_2, 3: VALID_VIEW_3, 4: VALID_VIEW_4, 5: VALID_VIEW_5,
+      6: VALID_VIEW_6, 7: VALID_VIEW_7,
+    };
+    const adapter = {
+      providerName: 'deepseek',
+      modelVersion: 'deepseek:test',
+      generate: jest.fn(async (r: { view: number }) => {
+        if (r.view === 1) return JSON.parse(JSON.stringify(INVALID_VIEW_1)); // always invalid
+        return JSON.parse(JSON.stringify(fixtures[r.view]));
+      }),
+    };
+    const { handler, notify } = makeHandler(prisma, adapter as never);
+
+    await expect(handler.handle(jobData())).resolves.toBeUndefined(); // no throw, no job retry storm
+    // view 1: 2 attempts, never published; views 2-7 + deterministic 8/9 = 8 upserts
+    // (view 1's INCOMPLETE row is one of them: 1 + 6 + 2 = 9 total).
+    expect(adapter.generate).toHaveBeenCalledTimes(8); // 7 first attempts + 1 regenerate
+    expect(prisma.analysisView.upsert).toHaveBeenCalledTimes(9);
+    const view1Upsert = prisma.analysisView.upsert.mock.calls.find(
+      (c) => (c[0] as { create: { viewNumber: number } }).create.viewNumber === 1,
+    );
+    expect((view1Upsert?.[0] as { create: { status: string } }).create.status).toBe('INCOMPLETE');
+    expect(JSON.stringify(prisma.analysisView.upsert.mock.calls)).not.toContain('UNKNOWN');
+    expect(prisma.analysis.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: 'complete', isCurrent: true } }),
+    );
+    expect(notify).toHaveBeenCalledWith(expect.objectContaining({ status: 'complete' }));
+  });
+
+  it('model-switch regression: a schema-invalid first attempt is accepted when the regenerate is valid', async () => {
+    const prisma = mockPrisma();
+    const INVALID_VIEW_1 = {
+      items: [
+        { ingredient_id: 'fish_500g', job: 'Body', if_omitted: 'No main element', tag: 'UNKNOWN' },
+      ],
+      role_groups: [],
+    };
+    const fixtures: Record<number, unknown> = {
+      2: VALID_VIEW_2, 3: VALID_VIEW_3, 4: VALID_VIEW_4, 5: VALID_VIEW_5,
+      6: VALID_VIEW_6, 7: VALID_VIEW_7,
+    };
+    let view1Calls = 0;
+    const adapter = {
+      providerName: 'deepseek',
+      modelVersion: 'deepseek:test',
+      generate: jest.fn(async (r: { view: number }) => {
+        if (r.view === 1) {
+          view1Calls += 1;
+          return view1Calls === 1
+            ? JSON.parse(JSON.stringify(INVALID_VIEW_1))
+            : JSON.parse(JSON.stringify(VALID_VIEW_1));
+        }
+        return JSON.parse(JSON.stringify(fixtures[r.view]));
+      }),
+    };
+    const { handler } = makeHandler(prisma, adapter as never);
+
+    await handler.handle(jobData());
+
+    const view1Upsert = prisma.analysisView.upsert.mock.calls.find(
+      (c) => (c[0] as { create: { viewNumber: number } }).create.viewNumber === 1,
+    );
+    expect((view1Upsert?.[0] as { create: { status: string } }).create.status).toBe('COMPLETE');
+    expect(prisma.analysis.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: 'complete', isCurrent: true } }),
+    );
+  });
+
   it('provider-pending (Q9 OPEN) fails cleanly: status failed, job completes without retry', async () => {
     const prisma = mockPrisma();
     const pending = { generate: jest.fn().mockRejectedValue(new ProviderPendingError()) };

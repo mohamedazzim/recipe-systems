@@ -51,6 +51,33 @@ describe('worker adapter resolution (Q9 RESOLVED — deepseek branch)', () => {
     expect(adapter.modelVersion).toBe('deepseek:deepseek-v4-pro');
   });
 
+  it('model-switch verification: DEEPSEEK_REASONING_EFFORT=low forwards the documented passthrough', () => {
+    const adapter = resolveAdapter({
+      LLM_PROVIDER: 'deepseek',
+      DEEPSEEK_API_KEY: 'sk-test-not-real',
+      DEEPSEEK_MODEL: 'deepseek-flash',
+      DEEPSEEK_BASE_URL: 'https://api.deepseek.com',
+      DEEPSEEK_REASONING_EFFORT: 'low',
+    });
+    expect(adapter.providerName).toBe('deepseek');
+    expect(adapter.modelVersion).toBe('deepseek:deepseek-flash');
+    expect((adapter as unknown as { describe(): string }).describe()).toBe(
+      'deepseek:deepseek-flash (effort low) @ https://api.deepseek.com',
+    );
+  });
+
+  it('model-switch verification: an unknown effort value is dropped, not guessed', () => {
+    const adapter = resolveAdapter({
+      LLM_PROVIDER: 'deepseek',
+      DEEPSEEK_API_KEY: 'sk-test-not-real',
+      DEEPSEEK_MODEL: 'deepseek-flash',
+      DEEPSEEK_REASONING_EFFORT: 'ultra',
+    });
+    expect((adapter as unknown as { describe(): string }).describe()).toBe(
+      'deepseek:deepseek-flash @ https://api.deepseek.com',
+    );
+  });
+
   it('Q9-2: ANALYSIS_LLM_STUB=1 always forces the deterministic stub (explicit determinism wins)', () => {
     const adapter = resolveAdapter({ ANALYSIS_LLM_STUB: '1', LLM_PROVIDER: 'deepseek' });
     expect(adapter.providerName).toBe('stub');

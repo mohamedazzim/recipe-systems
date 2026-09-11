@@ -232,7 +232,24 @@ export class AnalysisJobHandler {
     );
 
     if (!first.parse.ok) {
-      throw new GenerationFailedError(view, 'schema');
+      // D-05 refusal (model-switch regression fix): a schema-invalid output is
+      // NEVER published. Regenerate once (A-16 parity with the grounding path),
+      // then the view row goes INCOMPLETE — a job must not fail and retry-storm
+      // over a deterministic schema mismatch while its other views are already
+      // COMPLETE (observed live with flash tag-enum outputs).
+      const secondStarted = Date.now();
+      const second = await generateGrounded(this.adapter, request, data.captured);
+      console.log(
+        `analysis ${data.analysis_id} view ${view} attempt 2 [${this.adapter.providerName}]: ` +
+          `${Date.now() - secondStarted}ms parse=${second.parse.ok ? 'ok' : 'invalid'} ` +
+          `grounding=${second.grounding ? (second.grounding.ok ? 'ok' : 'violations:' + second.grounding.violations.length) : 'n/a'}`,
+      );
+      if (!second.parse.ok) {
+        await this.upsertView(data.analysis_id, view, 'INCOMPLETE', {});
+        return;
+      }
+      await this.upsertView(data.analysis_id, view, 'COMPLETE', second.parse.data);
+      return;
     }
 
     if (first.grounding && !first.grounding.ok) {
@@ -390,12 +407,5 @@ export class AnalysisJobHandler {
       );
     }
     return stale.length;
-  }
-}
-
-export class GenerationFailedError extends Error {
-  constructor(view: number, stage: 'schema' | 'grounding') {
-    super(`view ${view} failed the ${stage} gate`);
-    this.name = 'GenerationFailedError';
   }
 }

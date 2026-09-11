@@ -1,7 +1,7 @@
 # Epic E — Shopping list and print (E1–E6)
 
 > **Epic:** E — Shopping list and print · **Stories:** E1 (Must), E2 (Should), E3 (Should), E4 (Must), E5 (Must), E6 (Could — conditional per §13) · **Domain:** Shopping / Print
-> **Boundaries:** the list is generated from the structured object, never from prose (E1). Shopping state persists on the saved recipe and survives list regeneration and line soft-delete (E2, C-28). Print renders from persisted snapshots only (INV-12) via the Playwright templates (Tech Stack §12, ADR §7). The printed allergen line (H4) is gated on **Q2 (OPEN)**.
+> **Boundaries:** the list is generated from the structured object, never from prose (E1). Shopping state persists on the saved recipe and survives list regeneration and line soft-delete (E2, C-28). Print renders from persisted snapshots only (INV-12) via the Playwright templates (Tech Stack §12, ADR §7). The printed allergen line (H4) is **Q2 RESOLVED 2026-09-11 — Option A: persisted into the print snapshots at analysis time; print never re-derives it from the current effective-dated mapping** (SCAFFOLD §7, ADR §7 amendment).
 > **Full detail:** description + acceptance criteria + test cases + API + data + traceability. Source: Recipe_Systems.md §12.
 > **Canonical note:** canonical split representation of Epic E from `USER_STORIES.md` v1.2 — story IDs, acceptance criteria, and test cases preserved exactly; only the presentation follows the mentor's epic-file format.
 
@@ -189,7 +189,7 @@ Not yet defined at the design stage. Specified by dispatch unit **D-30**.
 | **Domain** | Print |
 | **Priority** | Must |
 
-**Badges:** UI · Print · Priority: Must · Q2 (OPEN DECISION — allergen-line source)
+**Badges:** UI · Print · Priority: Must · Q2 RESOLVED (Option A — analysis-time persistence)
 
 ### Description
 
@@ -222,7 +222,7 @@ Not yet defined at the design stage. Specified by dispatch unit **D-30**.
 **TC-04 — Allergen line present**
 - Given: the printed page
 - When: inspected
-- Then: the View 8 allergen line is present (H4; mechanism gated on Q2)
+- Then: the View 8 allergen line is present (H4; mechanism per Q2 RESOLVED — analysis-time persistence, Option A)
 
 ### API Endpoints
 
@@ -252,7 +252,7 @@ Not yet defined at the design stage. Print renders via the Playwright templates 
 | **Domain** | Print |
 | **Priority** | Must |
 
-**Badges:** UI · Print · Priority: Must · Q2 (OPEN DECISION — allergen-line source)
+**Badges:** UI · Print · Priority: Must · Q2 RESOLVED (Option A — analysis-time persistence)
 
 ### Description
 

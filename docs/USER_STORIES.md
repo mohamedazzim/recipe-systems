@@ -540,7 +540,7 @@ Count check: A2 + B6 + C7 + D6 + E6 + F6 + G3 + H7 + I7 = **50** — matches the
 | TC-01 | Print the golden list | Black text, recipe name, date, grouped rows, checkboxes |
 | TC-02 | Print the golden list | Fits one A4/Letter page (P7 exit metric) |
 | TC-03 | Inspect the printed page | No account chrome |
-| TC-04 | Inspect the printed page | View 8 allergen line present (H4; mechanism gated on Q2) |
+| TC-04 | Inspect the printed page | View 8 allergen line present (H4; mechanism per Q2 RESOLVED — analysis-time persistence, Option A) |
 
 ---
 
@@ -828,7 +828,7 @@ Count check: A2 + B6 + C7 + D6 + E6 + F6 + G3 + H7 + I7 = **50** — matches the
 **Test cases (derived 1:1):**
 | # | Test | Expected |
 |---|---|---|
-| TC-01 | Print the shopping list | Allergen line present (mechanism gated on Q2) |
+| TC-01 | Print the shopping list | Allergen line present (mechanism per Q2 RESOLVED — analysis-time persistence, Option A) |
 | TC-02 | Print the station card | Allergen line present |
 
 ---

@@ -1,7 +1,7 @@
 # Epic H — Dietary profile (H1–H7)
 
 > **Epic:** H — Dietary profile (View 8) · **Stories:** H1 (Should), H2 (Must), H3 (Should), H4 (Must), H5 (Should), H6 (Must), H7 (Must) · **Domain:** Dietary / View 8
-> **Boundaries:** View 8 runs on every analysis against the versioned allergen mapping (H2, via `analysis_claim.allergen_id` — BUILD_PLAN P4-1). "Reads the card only. Does not test food. Does not know your kitchen. Not medical advice." appears on every surface (H6). "Safe" is forbidden (INV-13). The mapping is curated and a change is a reviewed data change (H7). The printed allergen line (H4) is gated on **Q2 (OPEN)**.
+> **Boundaries:** View 8 runs on every analysis against the versioned allergen mapping (H2, via `analysis_claim.allergen_id` — BUILD_PLAN P4-1). "Reads the card only. Does not test food. Does not know your kitchen. Not medical advice." appears on every surface (H6). "Safe" is forbidden (INV-13). The mapping is curated and a change is a reviewed data change (H7). The printed allergen line (H4) is **Q2 RESOLVED 2026-09-11 — Option A: persisted into the print snapshots at analysis time; print never re-derives it from the current effective-dated mapping** (SCAFFOLD §7, ADR §7 amendment).
 > **Full detail:** description + acceptance criteria + test cases + API + data + traceability. Source: Recipe_Systems.md §12.
 > **Canonical note:** canonical split representation of Epic H from `USER_STORIES.md` v1.2 — story IDs, acceptance criteria, and test cases preserved exactly; only the presentation follows the mentor's epic-file format.
 
@@ -177,7 +177,7 @@ Not yet defined at the design stage. Specified by dispatch unit **D-26**.
 | **Domain** | Dietary / Print |
 | **Priority** | Must |
 
-**Badges:** UI · Print · Priority: Must · Q2 (OPEN DECISION — allergen-line source)
+**Badges:** UI · Print · Priority: Must · Q2 RESOLVED (Option A — analysis-time persistence)
 
 ### Description
 
@@ -193,7 +193,7 @@ Not yet defined at the design stage. Specified by dispatch unit **D-26**.
 **TC-01 — List carries the line**
 - Given: the printed shopping list
 - When: inspected
-- Then: the allergen line is present (mechanism gated on Q2)
+- Then: the allergen line is present (mechanism per Q2 RESOLVED — analysis-time persistence, Option A)
 
 **TC-02 — Card carries the line**
 - Given: the printed station card

@@ -269,6 +269,8 @@ The renderer is read-only and must use only frozen records:
 
 The renderer must not build a historical print from live `recipe_ingredient_line` rows or mutable current analysis data. It must include the View 8 allergen line, preserve the required disclaimer, and apply the A4/Letter and readability constraints from E4/E5. The implementation technology remains open, but the engine and snapshot-read rule are fixed.
 
+**Amendment 2026-09-11 — Q2 RESOLVED (Option A — analysis-time persistence):** the View 8 allergen line shown on both prints is written into the print snapshot tables at analysis time — the station-card row for E5, and the shopping-list generation snapshot for E4 (carried when the list snapshot is generated) — sourced from the analysis's own View 8 output. The renderer consumes ONLY that persisted snapshot value and must NOT re-derive the allergen line at print time from the current effective-dated `dietary_allergen_mapping`. Rationale (recorded from the dispatcher's decision): analysis-time persistence is easier to audit; historical print output must remain stable; it avoids future drift caused by effective-dated reference-table changes; it avoids print-time re-derivation disagreement; the duplicated value is acceptable because it is a frozen print snapshot; INV-13 wording/safety constraints still apply. (SCAFFOLD §7 Q2 RESOLVED; IMPROVEMENT_PLAN P0-6 RESOLVED; the supporting schema columns land with D-30/D-23 under the ERD amendment discipline.)
+
 These persisted shopping-list/station-card snapshots are **historical output snapshots**. They are separate from the analysis-input snapshot captured when an Analysis job starts (§6).
 
 ---

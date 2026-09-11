@@ -53,7 +53,7 @@
 ### P0-6. Q2 — Printed allergen-line source *(due week 8)*
 
 **Declared in:** E4/H4/E5 vs ADR §7 permitted-source table (SCAFFOLD §7 Q2). **Gates:** P5 print (BUILD_PLAN §7.1; D-23 stops and raises it if still open).
-**Problem:** the allergen line must come from somewhere under the snapshot-only render rule (INV-12); which permitted source is undecided. **Status:** OPEN. *(Classified P0 because its week-8 deadline drives the week-1–8 window alongside Q1.)*
+**Problem:** the allergen line must come from somewhere under the snapshot-only render rule (INV-12); which permitted source is undecided. **Status:** ~~OPEN~~ → **RESOLVED 2026-09-11 (Option A — analysis-time persistence).** Decision (dispatcher): the View 8 allergen line required by INV-12 for print is written into the print snapshot tables at analysis time (the station-card row for E5; the shopping-list generation snapshot for E4); print/PDF generation consumes the persisted snapshot value and must NOT re-derive the allergen line at print time from the current effective-dated `dietary_allergen_mapping`. Rationale: analysis-time persistence is easier to audit; historical print output must remain stable; avoids future drift caused by effective-dated reference-table changes; avoids print-time re-derivation disagreement; the duplicated value is acceptable because it is a frozen print snapshot; INV-13 wording/safety constraints still apply. ADR §7 amended; SCAFFOLD §7 Q2 RESOLVED; CHANGE_LOG 2026-09-11. The supporting schema columns land with D-30/D-23 under the ERD amendment discipline.
 
 ---
 

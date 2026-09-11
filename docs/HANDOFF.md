@@ -60,6 +60,62 @@
   `packages/rendering` (E4/E5/H4, one A4/Letter page for the golden card, snapshot-only
   INV-12, PDF failure → retryable error) per DISPATCH D-23 deliverables.
 
+**Q2 FORMAL RESOLUTION (dispatcher, 2026-09-11) — Option A (analysis-time persistence):**
+- Decision: the View 8 allergen line required by INV-12 for print is written into the print
+  snapshot tables at analysis time (station-card row for E5; the shopping-list generation
+  snapshot for E4). Print/PDF consumes ONLY the persisted snapshot value and must NOT re-derive
+  the allergen line at print time from the current effective-dated `dietary_allergen_mapping`.
+- Rationale (recorded as accepted): analysis-time persistence is easier to audit; historical
+  print output must remain stable; avoids future drift from effective-dated reference-table
+  changes; avoids print-time re-derivation disagreement; the duplicated value is acceptable
+  because it is a frozen print snapshot; INV-13 wording/safety constraints still apply.
+- Recorded in: SCAFFOLD §7 Q2 row (RESOLVED, dated-resolution pattern) · ADR §7 amended
+  (Decision 6) · IMPROVEMENT_PLAN P0-6 RESOLVED · CHANGE_LOG. The historical OPEN Q2 entries
+  remain visible in the strikethrough trace.
+
+**D-30 PREFLIGHT (recorded BEFORE code; no implementation this task):**
+- Sources read: DISPATCH D-30 · BUILD_PLAN §4 Track S + §6 story map · Epic E stories E1/E2/E3
+  (AC + TC + data tables) · Recipe_Systems §12 Epic E · ERD §7 data dictionary + §17 support
+  matrix + C-28/C-39 · ADR §7/§10 · TEST_PLAN Track S row · HANDOFF D-22 (D5/D-23 seam) +
+  H-03 DDL/trigger evidence · Prisma schema (shopping models) · D-29 reference-data state.
+- Scope (DISPATCH D-30, exact): E1 list generation from the structured object (one row per
+  ingredient; "to taste"/"for tempering" visible; two fenugreek rows; no headers) · E2 have/need
+  state persisting on the saved recipe and surviving list regeneration · E3 market grouping
+  (fresh produce, fish/meat, spices, fats/oils, other) · composite FK + C-28 trigger behavior
+  verified. NON-GOALS: print rendering (D-23), library UI (D-22 — consumes the state), cook loop.
+- Data source: the saved recipe's structured object = active `recipe_ingredient_line` rows
+  (deleted_at NULL, card `line_no` order, display_name/amount_text/unit/confirmed_sense/
+  category/food_id); distinct `shopping_key`s preserved by C-39 split/merge → the two fenugreek
+  rows come for free. Never from prose.
+- Writer ownership: API/BFF shopping module (recipe-scoped writes following the D-22
+  RecipeService one-writer pattern). The worker writes no shopping tables (A-17 analysis-only
+  writer). The renderer stays read-only (ADR §7). No OPEN register row covers these tables → no
+  new architecture question.
+- Schema readiness: all three tables + `uq_ingredient_shopping_state` composite FK + the C-28
+  soft-delete cleanup trigger already exist in the P0 migrations and are gates-verified (H-03).
+- Import/review + versioning/effective dating: N/A for shopping state (reviewed import path is
+  ADR §7 reference data — D-29 done). Generation snapshots are historical (`generated_at`,
+  per-generation rows, latest via `ix_shopping_generation_recipe`); state rows key by
+  (recipe_id, shopping_key).
+- Q2 Option A consequence: the shopping-list generation snapshot and the station-card row gain
+  allergen-line columns (persisted at analysis time) — schema additions under the frozen-ERD
+  amendment discipline, landing with D-30 (shopping table) / D-23 (station-card writer).
+- Golden: `golden_kanyakumari_card.json` (G1) drives E1 TC-04 (two fenugreek rows) and the
+  D-30 done criteria quote the golden object.
+- Done criteria (DISPATCH D-30, exact): 4 bullets — golden-object list shape (one row per
+  ingredient, two fenugreek rows, no headers, loose quantities visible) · have/need persists
+  across regeneration + reopen · E3 five-group grouping · C-28 soft-delete cleans state AND
+  state survives regeneration.
+- Design points to pin at D-30 dispatch (flagged, not decided): (1) E3 grouping mapping source —
+  recommended: derive from the captured line's category/food_id via a fixed five-group mapping,
+  persisted into `group_name` at generation; (2) exact placement/timing of the Option A
+  allergen-line column on the shopping snapshot.
+- **VERDICT: D-30 PREFLIGHT = GO.** Dependencies met (D-14 done; DDL + trigger + golden fixture
+  in place; no OPEN register gate; Q2 now resolved and its shopping-side consequence scoped).
+- Resume point: dispatch D-30 implementation per DISPATCH deliverables 1–4 + done criteria →
+  H-30 entry + audit A-30. D-23 stays blocked until D-30 completes (DISPATCH dependency), then
+  ships with the Q2 Option A allergen line.
+
 ---
 
 ---

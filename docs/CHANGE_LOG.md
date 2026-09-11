@@ -20,6 +20,36 @@
 
 **Rule:** a change that alters any Q1–Q18 row must say so in its entry. The register (SCAFFOLD §7) is the single source of truth for open decisions; this log records the history of how the register changed. No Q-row changes in D-13.
 
+## 2026-09-11 — Q2 formal resolution (Option A: analysis-time allergen-line persistence) + D-30 preflight (GO)
+
+- Author / session: DeepSeek V4 Pro (VS Code) Q2-resolution + D-30-preflight dispatch (docs only;
+  no implementation).
+- Q2 RESOLVED (dispatcher decision, Option A — analysis-time persistence): the View 8 allergen
+  line required by INV-12 for print is written into the print snapshot tables at analysis time
+  (station-card row for E5; the shopping-list generation snapshot for E4). Print/PDF consumes
+  ONLY the persisted snapshot value and must NOT re-derive the allergen line at print time from
+  the current effective-dated `dietary_allergen_mapping`.
+- Rationale recorded as accepted: analysis-time persistence is easier to audit; historical print
+  output must remain stable; avoids future drift caused by effective-dated reference-table
+  changes; avoids print-time re-derivation disagreement; the duplicated value is acceptable
+  because it is a frozen print snapshot; INV-13 wording/safety constraints still apply.
+- Recorded in: SCAFFOLD §7 Q2 row (dated-resolution pattern; historical OPEN trace preserved) ·
+  ADR §7 (Decision 6 amendment) · IMPROVEMENT_PLAN P0-6 RESOLVED · HANDOFF §0.
+- D-30 PREFLIGHT (read-only): scope = DISPATCH D-30 deliverables 1–4 (E1 list from the
+  structured object, E2 have/need persistence, E3 five-group market grouping, composite FK +
+  C-28 verification). Data source = active `recipe_ingredient_line` rows of the saved recipe
+  (C-39 shopping_keys preserved → two fenugreek rows). Writer = API/BFF shopping module
+  (D-22 one-writer pattern); worker writes no shopping tables; renderer read-only. Schema ready
+  (P0 DDL + trigger, gates-verified). Import/review/effective-dating N/A (reference data is
+  ADR §7/D-29). Q2 Option A consequence flagged: allergen-line columns on the print snapshot
+  tables land with D-30/D-23 under the frozen-ERD amendment discipline. Design points flagged
+  for the D-30 dispatch: E3 grouping mapping source; allergen-column placement. VERDICT: GO.
+- Register impact: Q2 → RESOLVED (Option A). Q1/Q5/Q9/Q10/Q11 untouched. No D-23/D-30
+  implementation this task.
+- Verification: docs-only change; no code/tests touched (runtime stays verified DeepSeek
+  deepseek-flash/effort-low from the previous entry). CI: see commit.
+- Commit(s): see Q2-resolution commit (this entry).
+
 ## 2026-09-11 — Q9 provider switch attempt (DeepSeek → Gemini) reverted to verified DeepSeek; D-23 preflight (Q2 gate: STOP)
 
 - Author / session: DeepSeek V4 Pro (VS Code) provider-switch dispatch, then the switch-back /

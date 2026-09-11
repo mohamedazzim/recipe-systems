@@ -19,6 +19,52 @@
 ```
 
 **Rule:** a change that alters any Q1–Q18 row must say so in its entry. The register (SCAFFOLD §7) is the single source of truth for open decisions; this log records the history of how the register changed. No Q-row changes in D-13.
+## 2026-09-11 — Q9 DeepSeek performance pass (measured optimizations only)
+
+- Author / session: DeepSeek V4 Pro (VS Code) performance/production-readiness dispatch (HARD
+  STOP after the performance pass; no D-23/D-30).
+- What changed (only measured changes; correctness architecture untouched):
+  1. **Bounded parallel view generation** (`apps/analysis-worker/src/analysis-job.handler.ts`):
+     Views 1–7 now generate concurrently (default 4 lanes, `ANALYSIS_VIEW_CONCURRENCY`
+     1–7). Every view still passes the D-05 frozen-schema gate and the D-16 grounding choke
+     point individually; regenerate-once, INV-08 refusal, per-view redelivery skip, and
+     Views 8/9 determinism are unchanged. Error semantics preserved: any permanent error →
+     fail without retry; transient/schema errors → fail + pg-boss retry (resume skips
+     COMPLETE views).
+  2. **Token-usage telemetry** (`packages/llm-adapter/src/deepseek-adapter.ts`,
+     `apps/analysis-worker/src/adapter.ts`): the adapter captures the provider's `usage`
+     and emits prompt/completion/total tokens per view attempt via a non-secret `onUsage`
+     hook (worker logs it). No content, no secrets, nothing stored.
+  3. **Queue-wait telemetry** (`apps/analysis-worker/src/main.ts`): job pickup logs the
+     enqueue→worker wait when pg-boss exposes `createdOn`.
+  4. **SSE-path session sliding** (`apps/api/src/common/guards/guest-or-jwt.guard.ts` +
+     shared `slideSessionCookies` in `session.ts`): the status-poll endpoints
+     (`GET /analysis/:id/events`, analysis reads) use `GuestOrJwtGuard`, which previously
+     verified the session WITHOUT re-issuing the cookie — so the 15-minute idle window
+     still killed sessions mid-analysis even after the JwtAuthGuard fix. Live-confirmed:
+     with the fix the session survives 16+ min under continuous polling.
+- Why: measured before/after. Sequential real-DeepSeek passes summed to 636–981 s
+  (~10.6–16.4 min, 7 views × 13–352 s each). Views 1–7 are independent prompts (each gets
+  the full D-15 pair + the captured snapshot) → concurrency bounds total time by the
+  slowest lane instead of the sum. Determinations with evidence: prompts are NOT bloated
+  (captured snapshot = 3,178 B ≈ 3.2 KB; full request ≈ 5–6 KB; output payloads 50 B–3.3 KB
+  — generation time dominates, not context) → NO per-view context trimming (D-15 pins the
+  single shared input object); timeout (180 s) KEPT (1 timeout / 14 pre-change views, 0/7
+  post-change; parallel + resume makes a timeout cost at most the slow lane); pg-boss
+  (expire 4 h + retryLimit 3 + per-view resume) verified appropriate — the healthy parallel
+  pass completed with retry_count 0 and no duplicate job.
+- Register impact: Q1/Q5/Q10/Q11/Q13 unchanged. Q9 remains RESOLVED. No D-23/D-30 work.
+- Verification: worker 53/53 (+5 concurrency/error-semantics tests) · API 208/208 (+1
+  SSE-sliding test) · web 104/104 · llm-adapter 102/102 (+1 usage test) · integration
+  106/106 · gates 8/8 PASS · contract OK · lint/typecheck 0 · verify-local ALL STEPS PASSED ·
+  live: healthy parallel pass (v1 96.3s · v2 522.7s · v3 150.4s · v4 123.3s · v5 82.2s ·
+  v6 95.0s · v7 5.7s — wall ≈ 8.7 min bounded by the slowest lane, retries 0, timeouts 0,
+  9/9 views COMPLETE, INV-09 flip correct) · session survives 16+ min under SSE polling ·
+  view-3 "INCOMPLETE with stages" model inconsistency correctly refused by the station-card
+  builder (INV-08/INV-10 honest path).
+- Commit(s): see performance-pass commit (uncommitted at entry time).
+
+
 ## 2026-09-11 — Live black-box QA (real DeepSeek): 3 latency-regime regression fixes
 
 - Author / session: DeepSeek V4 Pro (VS Code) live QA dispatch (QA-ONLY, fix confirmed

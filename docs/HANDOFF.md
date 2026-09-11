@@ -2873,3 +2873,66 @@ execution output; Git: not available / not authorized throughout.
   CI run recorded at checkpoint) → paired audit A-19 (executed 2026-09-10 — PASS-WITH-FINDINGS,
   see AUDIT_LOG.md; correction commit recorded there) → then D-20
   (chef mode + station card) or D-21 (disclaimer sweep) per dispatch.
+
+
+## PERF - Q9 DeepSeek performance / production-readiness pass (2026-09-11)
+
+Not a dispatch unit (H-XX numbering untouched). Measured baseline first, then measured
+optimizations only. Before/after numbers recorded here per the performance dispatch.
+
+### Measured baseline (sequential generation, real deepseek-v4-pro, QA recipe)
+
+| Metric | Pass A (20cda642) | Pass B (55c93e85) |
+|---|---|---|
+| View 1 | 109.8 s | 91.0 s |
+| View 2 | 167.8 s | 172.1 s |
+| View 3 | 352.3 s (1 timeout + retry) | 142.1 s |
+| View 4 | 147.7 s | 103.8 s |
+| View 5 | 41.7 s | 46.3 s |
+| View 6 | 134.8 s | 67.8 s |
+| View 7 | 27.2 s | 13.1 s |
+| Total (sum) | 981.3 s (16.4 min) | 636.2 s (10.6 min) |
+| Queue wait | ~0.2 s | ~0.2 s |
+| Retries/timeouts | 1 timeout (v3) | 0 |
+| Input | captured snapshot 3,178 B (~3.2 KB); full request ~5-6 KB | same |
+| Output | view payloads 50 B - 3.3 KB | same |
+
+### After (bounded parallel, 4 lanes, ANALYSIS_VIEW_CONCURRENCY default 4)
+
+Pass D (97cf0ae3, healthy): v1 96.3 s, v4 123.3 s, v3 150.4 s, v7 5.7 s, v5 82.2 s,
+v6 95.0 s, v2 522.7 s -> wall ~523 s (8.7 min) = slowest lane, not the sum.
+Six of seven views finished within ~170 s wall. Retries 0, timeouts 0, retry_count 0,
+no duplicate job. Token telemetry per view: prompt 1,803-1,951, completion 293-10,923,
+total 2,139-12,832 (whole pass ~56k tokens). Pass C (7021d48c) proved the resume path:
+a host-network suspension killed the first delivery, and three redeliveries re-generated
+ONLY the single missing view (view 3) - zero duplicate spend on completed views.
+
+### Determinations (with evidence)
+
+- Prompts contain no unnecessary context: snapshot 3.2 KB; D-15 pins the single shared
+  input object for all views -> NO prompt changes, NO per-view context trimming.
+- Safe parallel view generation: YES - Views 1-7 are independent prompts; implemented
+  bounded at 4 with every view still through D-05 schema + D-16 grounding.
+- Timeouts: DEEPSEEK_TIMEOUT_MS=180000 KEPT (1/14 timeouts before; 0/7 after; with resume
+  a timeout costs at most one lane). No evidence to change it.
+- pg-boss: expireInSeconds 4 h + retryLimit 3 + per-view resume verified appropriate.
+- Session fix: SSE status polling runs on GuestOrJwtGuard which previously did NOT slide
+  the session cookie - fixed (shared slideSessionCookies); live-verified 16+ min session
+  survival under polling (checklist item 6).
+- Environment note (QA machine): OS network suspension pauses Node timers AND in-flight
+  fetches - a hung view is reclaimed by pg-boss expiry + per-view resume; no code change
+  (production hosts are not suspend-prone).
+
+### Checklist evidence
+
+1. Real DeepSeek pass in the internal browser: pass D above, "Analysis complete",
+   model deepseek:deepseek-v4-pro. 2. Views 1-7: worker telemetry parse=ok grounding=ok
+   every view. 3. Views 8/9 deterministic: COMPLETE rows, never sent to the provider.
+   4. Chef Mode + Station Card: station card persisted (printable) for pass C; pass D's
+   view-3 "INCOMPLETE with stages" model inconsistency correctly refused (honest no-card
+   copy rendered). 5. Save + Library + Delete: title/ownership persisted, library row,
+   delete flow proven earlier this session. 6. Long-running session: survived 16+ min.
+   7. pg-boss: no duplicate expensive jobs (healthy pass retry_count 0).
+   8. Suites: worker 53/53, API 208/208, web 104/104, llm-adapter 102/102,
+   integration 106/106, gates 8/8, contract OK, lint/typecheck 0, verify-local
+   ALL STEPS PASSED. 9. CI: see performance-pass checkpoint commit. 10. Numbers: this table.

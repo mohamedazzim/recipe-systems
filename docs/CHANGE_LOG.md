@@ -19,6 +19,54 @@
 ```
 
 **Rule:** a change that alters any Q1–Q18 row must say so in its entry. The register (SCAFFOLD §7) is the single source of truth for open decisions; this log records the history of how the register changed. No Q-row changes in D-13.
+
+## 2026-09-11 — Q9 provider switch attempt (DeepSeek → Gemini) reverted to verified DeepSeek; D-23 preflight (Q2 gate: STOP)
+
+- Author / session: DeepSeek V4 Pro (VS Code) provider-switch dispatch, then the switch-back /
+  D-23-preflight dispatch.
+- What changed:
+  1. `packages/llm-adapter/src/gemini-adapter.ts` (new): Gemini provider behind the EXISTING
+     `LlmAdapter` seam — `POST {base}/v1beta/models/{model}:generateContent` via global fetch,
+     `x-goog-api-key` header, official thinking shape
+     `generationConfig.thinkingConfig.thinkingLevel` (enum MINIMAL/LOW/MEDIUM/HIGH, verified
+     against the live API and the REST reference), response normalized to parsed JSON before
+     the domain (D-05/D-16 downstream unchanged). Errors reuse the shared adapter model:
+     401/403/400 + prompt-block → permanent; 429/5xx/network/timeout/malformed → transient;
+     bounded in-adapter retries, Retry-After-aware, backoff 1s→16s cap + jitter, default 8
+     (gemini-3.8-flash launched under high demand).
+  2. `packages/llm-adapter/src/errors.ts` + `src/json.ts` (new): shared error classes + JSON
+     extraction; `deepseek-adapter.ts` now re-exports them (its public API unchanged).
+  3. `apps/analysis-worker/src/adapter.ts`: `MODEL_PROVIDER` is the canonical selection knob
+     (`gemini` | `deepseek`; legacy `LLM_PROVIDER` still honored for deepseek).
+     `ANALYSIS_LLM_STUB=1` still wins for dev/CI. DeepSeek branch unchanged.
+  4. `.env.example`: documents MODEL_PROVIDER + the Gemini block (DeepSeek block kept).
+- Why (switch-back): ONE live recipe test through the internal browser proved the adapter and
+  seam work end-to-end (views 2/5/4/6/7/1 accepted: `parse=ok grounding=ok`; UI + DB model pin
+  `gemini:gemini-3.8-flash`; thinking tokens billed; zero secrets), BUT `gemini-3.8-flash` is
+  provider-side rate-limited under launch demand: 429 quota windows lasting minutes — even
+  single sequential minimal calls were rejected (14 consecutive 429s over ~7 min, live probe).
+  View 3 of the live analysis could not complete and the job exhausted `retry_limit=3`
+  (analysis d533b2f2 / job 9db440c5 preserved as evidence). Dispatcher abandoned Gemini for
+  runtime and restored the verified DeepSeek configuration. The Gemini adapter code is KEPT
+  (available via `MODEL_PROVIDER=gemini`) — not selected.
+- Runtime restored + sanity-verified: `analysis-worker: LLM adapter = deepseek
+  (deepseek:deepseek-flash (effort low) @ https://api.deepseek.com)`;
+  `scripts/verify-deepseek.js` live pass (D-16 garlic plant REJECTED on views 1/3/5, D-05
+  tag-enum REJECTED on view 2, views 4/6/7 COMPLETE — the planted-violation harness behaving
+  as designed); web/API/worker/Postgres/Keycloak/MinIO all listening.
+- D-23 PREFLIGHT (read-only): Q2 (printed allergen-line source under the snapshot-only render
+  rule) is **OPEN** — SCAFFOLD §7 register row unresolved, IMPROVEMENT_PLAN P0-6 "OPEN",
+  Epic E/H "Q2 (OPEN DECISION)", no resolution record anywhere, and ADR §7 names the print
+  outputs' snapshot tables but not the allergen line's source. DISPATCH D-23 gate: "if Q2 is
+  still open at week 9, STOP and raise it." D-23's other canonical dependency, D-30 (Track S,
+  E1/E2/E3), is also NOT delivered (tables exist, 0 rows, no code). → **D-23 = STOP.**
+- Register impact: Q9 stays RESOLVED (DeepSeek dev provider; Gemini adapter now available but
+  not selected). Q2 stays OPEN. Q1/Q5/Q10/Q11 untouched. No D-23/D-30 implementation.
+- Verification: llm-adapter 123/123 (incl. Gemini mocked-HTTP tests, no live calls) ·
+  worker 60/60 · API 208/208 · web 104/104 · database 3/3 · domain 1/1 · gates 8/8 ·
+  contract OK · lint/typecheck 0 · secret sweep clean · CI: see commit.
+- Commit(s): see provider-switch commit (this entry).
+
 ## 2026-09-11 — Model switch live verification (deepseek-flash + effort low) + schema-refusal regression fix
 
 - Author / session: DeepSeek V4 Pro (VS Code) live-verification dispatch (verification/

@@ -5,6 +5,65 @@
 
 ---
 
+## 0. Session decision trace — 2026-09-11 (Q9 provider switch-back + D-23 preflight)
+
+**Gemini switch-back decision (recorded; history preserved):**
+- A Gemini provider was implemented behind the EXISTING `LlmAdapter` seam and unit-tested
+  (`packages/llm-adapter/src/gemini-adapter.ts` + shared `errors.ts`/`json.ts`; worker selection
+  via `MODEL_PROVIDER=gemini`). One live recipe test ran: views 2/5/4/6/7/1 returned through the
+  Gemini adapter with D-05 parse + D-16 grounding `ok` (UI + DB model pin
+  `gemini:gemini-3.8-flash`; zero secrets committed).
+- CONFIRMED PROVIDER-SIDE BLOCKER: `gemini-3.8-flash` returned 429 quota errors in windows
+  lasting minutes — 14 consecutive 429s over ~7 min even for single minimal calls (live probe).
+  View 3 of the live analysis could not complete; the job exhausted `retry_limit=3`
+  (analysis d533b2f2, job 9db440c5 — rows preserved as evidence). The adapter's bounded
+  Retry-After-aware retry profile (default 8, backoff cap 16s + jitter) is in place for when
+  provider capacity returns.
+- DECISION: dispatcher abandoned Gemini for runtime. The Gemini adapter code is KEPT (available
+  via `MODEL_PROVIDER=gemini`) but NOT selected. No further Gemini architecture changes.
+
+**Verified DeepSeek runtime state (restored + sanity-checked):**
+- Local `.env` (never committed): `MODEL_PROVIDER=deepseek`, `LLM_PROVIDER=deepseek`,
+  `DEEPSEEK_MODEL=deepseek-flash`, `DEEPSEEK_REASONING_EFFORT=low`.
+- Worker boot: `analysis-worker: LLM adapter = deepseek (deepseek:deepseek-flash (effort low)
+  @ https://api.deepseek.com)` — no configuration error.
+- Tiny sanity check: `scripts/verify-deepseek.js` live pass (D-16 garlic plant REJECTED on
+  views 1/3/5, D-05 tag-enum REJECTED on view 2, views 4/6/7 COMPLETE; publish 3/7 — the
+  planted-violation harness behaving as designed). web/API/worker/Postgres/Keycloak/MinIO all
+  listening.
+
+**D-23 PREFLIGHT (read-only; no implementation):**
+- Canonical sources read: DISPATCH D-23 (P5-2: E4/E5/H4, depends D-22 + D-30, gate Q2),
+  BUILD_PLAN P5-2 + §7.1 (Q2 gates P5 print; decide by week 8), SCAFFOLD §4/§7, ADR §7
+  (renderer read-only; permitted sources: `shopping_list_generation` + `shopping_list_item`
+  for the list; `analysis_station_card` for the card), Tech Stack §12, TEST_PLAN P5 row,
+  Epic E/H, IMPROVEMENT_PLAN P0-6.
+- Q2 determination: **OPEN**. Evidence: SCAFFOLD §7 register row has no resolution (vs the
+  resolved Q4/Q8/Q9 rows); IMPROVEMENT_PLAN P0-6 "Status: OPEN"; Epic E/H headers
+  "Q2 (OPEN DECISION — allergen-line source)"; no resolution record in CHANGE_LOG/HANDOFF;
+  ADR §7 names the two print outputs' snapshot tables but does NOT name the allergen line's
+  source under the snapshot-only render rule (INV-12).
+- Missing decision (exact): which frozen, permitted record supplies the View 8 allergen line
+  at print time under INV-12. Candidates: (a) analysis-time persistence of the allergen line
+  into the print snapshots (station-card row / shopping-generation row) so the renderer reads
+  only the permitted tables; (b) a render-time join of the same analysis's frozen
+  `analysis_view` (view 8) + effective-dated `dietary_allergen_mapping` — requires amending the
+  ADR §7 permitted-source table. Evidence needed to unblock: a dispatcher decision naming the
+  source + ADR §7 amendment + Q2 register row → RESOLVED (same trace as Q4).
+- Additional dependency check: D-23 depends on D-30 (DISPATCH header) — D-30 (Track S,
+  E1/E2/E3) is NOT delivered (`shopping_list_generation`/`shopping_list_item` exist with 0
+  rows; no code writes them).
+- **VERDICT: D-23 = STOP** (Q2 OPEN — DISPATCH: "if Q2 is still open at week 9, STOP and raise
+  it; do not pick a source silently" — plus the unmet D-30 dependency).
+- Resume point: (1) dispatcher resolves Q2 (source named, ADR §7 amended, register flipped);
+  (2) D-30 ships Track S data; (3) D-23 then implements P5-2 print templates in
+  `packages/rendering` (E4/E5/H4, one A4/Letter page for the golden card, snapshot-only
+  INV-12, PDF failure → retryable error) per DISPATCH D-23 deliverables.
+
+---
+
+---
+
 ## 1. Entry template (mandatory for every unit)
 
 Every dispatch unit appends exactly this block, one line of evidence per done criterion (DISPATCH global rule 6):

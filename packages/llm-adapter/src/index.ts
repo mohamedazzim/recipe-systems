@@ -149,3 +149,5 @@ export const LLM_ADAPTER_SEAM =
 
 export { DeepSeekLlmAdapter, extractJson, LlmPermanentProviderError, LlmTransientProviderError } from './deepseek-adapter';
 export type { DeepSeekConfig } from './deepseek-adapter';
+export { GeminiLlmAdapter, candidateText, retryAfterSeconds } from './gemini-adapter';
+export type { GeminiConfig, GeminiThinkingLevel, GeminiUsage } from './gemini-adapter';

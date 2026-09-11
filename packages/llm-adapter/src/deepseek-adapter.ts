@@ -19,25 +19,14 @@
 // default 2) — the worker's own retry semantics are unchanged (Q9-5).
 
 import { AnalysisMode } from '@recipe-systems/schemas';
+import { LlmPermanentProviderError, LlmTransientProviderError } from './errors';
+import { extractJson } from './json';
 import { buildViewPrompt } from './prompts/views';
 import type { LlmAdapter, LlmGenerateRequest } from './index';
 
-/** Permanent provider/configuration failure — the worker must fail the job
- *  WITHOUT retry (same class as ProviderPendingError, ADR §14). */
-export class LlmPermanentProviderError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'LlmPermanentProviderError';
-  }
-}
-
-/** Transient provider failure — the worker's existing pg-boss retry path. */
-export class LlmTransientProviderError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'LlmTransientProviderError';
-  }
-}
+// Backward-compatible re-exports (the shared modules are the canonical home).
+export { LlmPermanentProviderError, LlmTransientProviderError } from './errors';
+export { extractJson } from './json';
 
 export interface DeepSeekConfig {
   apiKey?: string;
@@ -74,17 +63,6 @@ function envConfig(): DeepSeekConfig {
     timeoutMs: process.env.DEEPSEEK_TIMEOUT_MS ? Number(process.env.DEEPSEEK_TIMEOUT_MS) : undefined,
     maxRetries: process.env.DEEPSEEK_MAX_RETRIES ? Number(process.env.DEEPSEEK_MAX_RETRIES) : undefined,
   };
-}
-
-/** Strip markdown fences/commentary: the first `{` .. last `}` span. */
-export function extractJson(text: string): unknown {
-  const trimmed = text.trim();
-  const start = trimmed.indexOf('{');
-  const end = trimmed.lastIndexOf('}');
-  if (start < 0 || end <= start) {
-    throw new LlmTransientProviderError('DeepSeek output contained no JSON object');
-  }
-  return JSON.parse(trimmed.slice(start, end + 1));
 }
 
 export class DeepSeekLlmAdapter implements LlmAdapter {

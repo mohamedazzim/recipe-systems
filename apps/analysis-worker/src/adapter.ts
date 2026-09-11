@@ -9,14 +9,16 @@
 
 import {
   DeepSeekLlmAdapter,
+  GeminiLlmAdapter,
   LlmAdapter,
   LlmGenerateRequest,
+  type GeminiThinkingLevel,
 } from '@recipe-systems/llm-adapter';
 import type { StructuredRecipeInput } from '@recipe-systems/schemas';
 
 export class ProviderPendingError extends Error {
   constructor() {
-    super('no LLM provider configured (LLM_PROVIDER not set; Q9 now resolved via deepseek)');
+    super('no LLM provider configured (MODEL_PROVIDER not set; Q9 providers: gemini | deepseek)');
     this.name = 'ProviderPendingError';
   }
 }
@@ -136,10 +138,40 @@ export function resolveAdapter(env: Record<string, string | undefined>): LlmAdap
   if (env.ANALYSIS_LLM_STUB === '1') {
     return new StubAdapter();
   }
-  // Q9 (2026-09-11): the real provider behind the same LlmAdapter seam.
-  // Credentials stay server-side (DeepSeekLlmAdapter reads env directly);
-  // CI never sets LLM_PROVIDER and never requires the key.
-  if (env.LLM_PROVIDER === 'deepseek') {
+  // Q9 provider switch (2026-09-11): MODEL_PROVIDER is the canonical selection
+  // knob; LLM_PROVIDER is accepted for backward compatibility (deepseek only).
+  // Credentials stay server-side (the adapters read env directly); CI never
+  // sets a provider and never requires a key.
+  const provider = env.MODEL_PROVIDER ?? env.LLM_PROVIDER;
+  if (provider === 'gemini') {
+    // Only the provider's documented enum values are forwarded (case-
+    // insensitive); anything else is dropped (the provider default applies)
+    // rather than guessed.
+    const rawLevel = env.GEMINI_THINKING_LEVEL;
+    const level = rawLevel ? rawLevel.toLowerCase() : undefined;
+    const validLevel: GeminiThinkingLevel | undefined =
+      level === 'minimal' || level === 'low' || level === 'medium' || level === 'high'
+        ? (level.toUpperCase() as GeminiThinkingLevel)
+        : undefined;
+    return new GeminiLlmAdapter({
+      apiKey: env.GEMINI_API_KEY,
+      model: env.GEMINI_MODEL,
+      baseUrl: env.GEMINI_BASE_URL,
+      timeoutMs: env.GEMINI_TIMEOUT_MS ? Number(env.GEMINI_TIMEOUT_MS) : undefined,
+      maxRetries: env.GEMINI_MAX_RETRIES ? Number(env.GEMINI_MAX_RETRIES) : undefined,
+      thinkingLevel: validLevel,
+      // Token-usage telemetry (prompt/completion/thought/total tokens per view
+      // attempt). Never content, never secrets.
+      onUsage: (usage) => {
+        console.log(
+          `analysis telemetry [gemini] view ${usage.view ?? '?'} mode ${usage.mode ?? '?'}: ` +
+            `tokens prompt=${usage.promptTokens} completion=${usage.completionTokens} ` +
+            `thoughts=${usage.thoughtTokens} total=${usage.totalTokens}`,
+        );
+      },
+    });
+  }
+  if (provider === 'deepseek') {
     // Q9 model benchmark (2026-09-11): optional reasoning-effort wiring — the
     // verified model switch runs deepseek-flash + reasoning_effort=low. Only
     // the provider's documented enum values are forwarded; anything else is

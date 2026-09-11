@@ -33,14 +33,59 @@ function req(view: number) {
   };
 }
 
-describe('worker adapter resolution (Q9 RESOLVED — deepseek branch)', () => {
+describe('worker adapter resolution (Q9 RESOLVED — gemini + deepseek branches)', () => {
   it('default (no env): pending adapter throws the labeled ProviderPendingError', async () => {
     const adapter = resolveAdapter({});
     await expect(adapter.generate(req(1))).rejects.toBeInstanceOf(ProviderPendingError);
-    await expect(adapter.generate(req(1))).rejects.toThrow(/LLM_PROVIDER/);
+    await expect(adapter.generate(req(1))).rejects.toThrow(/MODEL_PROVIDER/);
   });
 
-  it('Q9-2: LLM_PROVIDER=deepseek selects the real provider (observable, no secrets)', () => {
+  it('Q9 provider switch: MODEL_PROVIDER=gemini selects the Gemini adapter (observable, no secrets)', () => {
+    const adapter = resolveAdapter({
+      MODEL_PROVIDER: 'gemini',
+      GEMINI_API_KEY: 'AIza-test-not-real',
+      GEMINI_MODEL: 'gemini-3.8-flash',
+      GEMINI_THINKING_LEVEL: 'low',
+    });
+    expect(adapter.providerName).toBe('gemini');
+    expect(adapter.modelVersion).toBe('gemini:gemini-3.8-flash');
+    expect((adapter as unknown as { describe(): string }).describe()).toBe(
+      'gemini:gemini-3.8-flash (thinking low) @ https://generativelanguage.googleapis.com',
+    );
+  });
+
+  it('Q9 provider switch: GEMINI_THINKING_LEVEL is case-insensitive and enum-validated', () => {
+    const upper = resolveAdapter({
+      MODEL_PROVIDER: 'gemini',
+      GEMINI_API_KEY: 'AIza-test-not-real',
+      GEMINI_MODEL: 'gemini-3.8-flash',
+      GEMINI_THINKING_LEVEL: 'MEDIUM',
+    });
+    expect((upper as unknown as { describe(): string }).describe()).toContain('(thinking medium)');
+
+    const invalid = resolveAdapter({
+      MODEL_PROVIDER: 'gemini',
+      GEMINI_API_KEY: 'AIza-test-not-real',
+      GEMINI_MODEL: 'gemini-3.8-flash',
+      GEMINI_THINKING_LEVEL: 'ultra',
+    });
+    // Unknown levels are dropped, not guessed — provider default applies.
+    expect((invalid as unknown as { describe(): string }).describe()).toBe(
+      'gemini:gemini-3.8-flash @ https://generativelanguage.googleapis.com',
+    );
+  });
+
+  it('Q9 provider switch: MODEL_PROVIDER wins over the legacy LLM_PROVIDER value', () => {
+    const adapter = resolveAdapter({
+      MODEL_PROVIDER: 'gemini',
+      LLM_PROVIDER: 'deepseek',
+      GEMINI_API_KEY: 'AIza-test-not-real',
+      GEMINI_MODEL: 'gemini-3.8-flash',
+    });
+    expect(adapter.providerName).toBe('gemini');
+  });
+
+  it('Q9-2: LLM_PROVIDER=deepseek still selects DeepSeek (backward compatibility)', () => {
     const adapter = resolveAdapter({
       LLM_PROVIDER: 'deepseek',
       DEEPSEEK_API_KEY: 'sk-test-not-real',
@@ -83,8 +128,8 @@ describe('worker adapter resolution (Q9 RESOLVED — deepseek branch)', () => {
     expect(adapter.providerName).toBe('stub');
   });
 
-  it('Q9-2: unknown LLM_PROVIDER stays on the pending adapter (no silent fallback to a real provider)', () => {
-    const adapter = resolveAdapter({ LLM_PROVIDER: 'something-else' });
+  it('Q9 provider switch: unknown MODEL_PROVIDER stays on the pending adapter (no silent fallback to a real provider)', () => {
+    const adapter = resolveAdapter({ MODEL_PROVIDER: 'something-else' });
     expect(adapter.providerName).toBe('pending');
   });
 

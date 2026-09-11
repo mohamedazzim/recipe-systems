@@ -94,6 +94,27 @@ describe('GuestOrJwtGuard', () => {
     expect((req.actor as { kind: string }).kind).toBe('user');
   });
 
+  it('slides the session + CSRF cookies for the SSE polling path (long-running analysis regression)', async () => {
+    const guard = guardWith({});
+    const token = await signSession({ accountId: 'a1', email: 'x@test.dev', sub: 's1' });
+    const req: Record<string, unknown> = {
+      cookies: { recipe_session: token, recipe_csrf: 'csrf-v' },
+    };
+    const res = { cookie: jest.fn() };
+    await expect(
+      guard.canActivate({
+        switchToHttp: () => ({ getRequest: () => req, getResponse: () => res }),
+      } as unknown as ExecutionContext),
+    ).resolves.toBe(true);
+    expect((req.actor as { kind: string }).kind).toBe('user');
+    expect(res.cookie).toHaveBeenCalledWith('recipe_session', token, expect.any(Object));
+    expect(res.cookie).toHaveBeenCalledWith(
+      'recipe_csrf',
+      'csrf-v',
+      expect.objectContaining({ httpOnly: false }),
+    );
+  });
+
   it('resolves a valid guest session as the actor', async () => {
     const guard = guardWith({
       guestSession: {

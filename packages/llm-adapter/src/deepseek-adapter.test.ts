@@ -106,6 +106,37 @@ describe('DeepSeekLlmAdapter (Q9)', () => {
     }
   });
 
+  it('reports token usage to the optional telemetry hook (tokens only — never content)', async () => {
+    const { fetchMock, restore } = mockFetch();
+    const usage = { prompt_tokens: 1234, completion_tokens: 567, total_tokens: 1801 };
+    fetchMock.mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [{ message: { content: JSON.stringify(VIEW1) } }],
+          usage,
+        }),
+        { status: 200 },
+      ),
+    );
+    const onUsage = jest.fn();
+    try {
+      const out = await adapter({ onUsage }).generate(req(1));
+      expect(out).toBeTruthy();
+      expect(onUsage).toHaveBeenCalledTimes(1);
+      expect(onUsage).toHaveBeenCalledWith({
+        view: 1,
+        mode: 'home',
+        promptTokens: 1234,
+        completionTokens: 567,
+        totalTokens: 1801,
+      });
+      // The hook never receives response content.
+      expect(JSON.stringify(onUsage.mock.calls)).not.toContain('line-fish');
+    } finally {
+      restore();
+    }
+  });
+
   it('strips markdown code fences around the JSON', async () => {
     const { fetchMock, restore } = mockFetch();
     fetchMock.mockResolvedValue(chatResponse('```json\n' + JSON.stringify(VIEW1) + '\n```'));

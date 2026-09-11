@@ -18,8 +18,7 @@ import {
   CSRF_COOKIE,
   SESSION_COOKIE,
   SessionPayload,
-  defaultSessionTtl,
-  sessionCookieOptions,
+  slideSessionCookies,
   verifySession,
 } from '../../modules/auth/session';
 
@@ -50,17 +49,7 @@ export class JwtAuthGuard implements CanActivate {
       });
     }
     // Slide the idle window: same token value, fresh cookie maxAge.
-    res.cookie(SESSION_COOKIE, cookie, sessionCookieOptions(defaultSessionTtl()));
-    const csrf = cookies[CSRF_COOKIE];
-    if (csrf) {
-      res.cookie(CSRF_COOKIE, csrf, {
-        httpOnly: false,
-        secure: sessionCookieOptions(0).secure,
-        sameSite: 'lax',
-        path: '/',
-        maxAge: defaultSessionTtl() * 1000, // Express maxAge is milliseconds
-      });
-    }
+    slideSessionCookies(res, cookie, cookies[CSRF_COOKIE]);
     return true;
   }
 }

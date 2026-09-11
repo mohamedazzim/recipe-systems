@@ -146,6 +146,14 @@ export function resolveAdapter(env: Record<string, string | undefined>): LlmAdap
       baseUrl: env.DEEPSEEK_BASE_URL,
       timeoutMs: env.DEEPSEEK_TIMEOUT_MS ? Number(env.DEEPSEEK_TIMEOUT_MS) : undefined,
       maxRetries: env.DEEPSEEK_MAX_RETRIES ? Number(env.DEEPSEEK_MAX_RETRIES) : undefined,
+      // Q9 performance pass: token-usage telemetry (prompt/completion/total
+      // tokens per view attempt). Never content, never secrets.
+      onUsage: (usage) => {
+        console.log(
+          `analysis telemetry [deepseek] view ${usage.view ?? '?'} mode ${usage.mode ?? '?'}: ` +
+            `tokens prompt=${usage.promptTokens} completion=${usage.completionTokens} total=${usage.totalTokens}`,
+        );
+      },
     });
   }
   return new PendingAdapter();

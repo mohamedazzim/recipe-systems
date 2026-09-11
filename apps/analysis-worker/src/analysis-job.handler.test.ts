@@ -204,6 +204,115 @@ describe('D-17 analysis job handler (A-17 contract)', () => {
     expect(notify).toHaveBeenCalledWith(expect.objectContaining({ status: 'complete' }));
   });
 
+  it('Q9 performance: Views 1–7 generate CONCURRENTLY (bounded lanes), not sequentially', async () => {
+    const prisma = mockPrisma();
+    const fixtures: Record<number, unknown> = {
+      1: VALID_VIEW_1, 2: VALID_VIEW_2, 3: VALID_VIEW_3, 4: VALID_VIEW_4,
+      5: VALID_VIEW_5, 6: VALID_VIEW_6, 7: VALID_VIEW_7,
+    };
+    const adapter = {
+      providerName: 'deepseek',
+      modelVersion: 'deepseek:test',
+      generate: jest.fn(async (r: { view: number }) => {
+        await new Promise((resolve) => setTimeout(resolve, 60));
+        return JSON.parse(JSON.stringify(fixtures[r.view]));
+      }),
+    };
+    const { handler } = makeHandler(prisma, adapter as never);
+
+    const started = Date.now();
+    await handler.handle(jobData());
+    const wall = Date.now() - started;
+
+    // 7 views × 60 ms sequential = 420 ms; 4 lanes → 2 batches ≈ 120 ms.
+    expect(wall).toBeLessThan(400);
+    expect(adapter.generate).toHaveBeenCalledTimes(7);
+    expect(prisma.analysisView.upsert).toHaveBeenCalledTimes(9);
+    expect(prisma.analysis.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: 'complete', isCurrent: true } }),
+    );
+  });
+
+  it('Q9 performance: ANALYSIS_VIEW_CONCURRENCY=1 forces sequential generation', async () => {
+    process.env.ANALYSIS_VIEW_CONCURRENCY = '1';
+    try {
+      const prisma = mockPrisma();
+      const fixtures: Record<number, unknown> = {
+        1: VALID_VIEW_1, 2: VALID_VIEW_2, 3: VALID_VIEW_3, 4: VALID_VIEW_4,
+        5: VALID_VIEW_5, 6: VALID_VIEW_6, 7: VALID_VIEW_7,
+      };
+      const adapter = {
+        providerName: 'deepseek',
+        modelVersion: 'deepseek:test',
+        generate: jest.fn(async (r: { view: number }) => {
+          await new Promise((resolve) => setTimeout(resolve, 60));
+          return JSON.parse(JSON.stringify(fixtures[r.view]));
+        }),
+      };
+      const { handler } = makeHandler(prisma, adapter as never);
+
+      const started = Date.now();
+      await handler.handle(jobData());
+      const wall = Date.now() - started;
+
+      expect(wall).toBeGreaterThanOrEqual(400); // 7 × 60 ms
+      expect(prisma.analysisView.upsert).toHaveBeenCalledTimes(9);
+    } finally {
+      delete process.env.ANALYSIS_VIEW_CONCURRENCY;
+    }
+  });
+
+  it('Q9 performance: a transient failure in one view does not block the others — job fails and throws for retry', async () => {
+    const prisma = mockPrisma();
+    const fixtures: Record<number, unknown> = {
+      1: VALID_VIEW_1, 2: VALID_VIEW_2, 4: VALID_VIEW_4, 5: VALID_VIEW_5,
+      6: VALID_VIEW_6, 7: VALID_VIEW_7,
+    };
+    const adapter = {
+      providerName: 'deepseek',
+      modelVersion: 'deepseek:test',
+      generate: jest.fn(async (r: { view: number }) => {
+        if (r.view === 3) throw new Error('connection reset');
+        return JSON.parse(JSON.stringify(fixtures[r.view]));
+      }),
+    };
+    const { handler, notify } = makeHandler(prisma, adapter as never);
+
+    await expect(handler.handle(jobData())).rejects.toThrow('connection reset');
+    // All seven views were attempted; the six healthy views persisted.
+    expect(adapter.generate).toHaveBeenCalledTimes(7);
+    expect(prisma.analysisView.upsert).toHaveBeenCalledTimes(6);
+    expect(prisma.analysis.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: 'failed' } }),
+    );
+    expect(notify).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed' }));
+  });
+
+  it('Q9 performance: a PERMANENT provider error fails without retry even when other views succeed', async () => {
+    const prisma = mockPrisma();
+    const fixtures: Record<number, unknown> = {
+      2: VALID_VIEW_2, 3: VALID_VIEW_3, 4: VALID_VIEW_4, 5: VALID_VIEW_5,
+      6: VALID_VIEW_6, 7: VALID_VIEW_7,
+    };
+    const adapter = {
+      providerName: 'deepseek',
+      modelVersion: 'deepseek:test',
+      generate: jest.fn(async (r: { view: number }) => {
+        if (r.view === 1) throw new LlmPermanentProviderError('HTTP 401');
+        return JSON.parse(JSON.stringify(fixtures[r.view]));
+      }),
+    };
+    const { handler, notify } = makeHandler(prisma, adapter as never);
+
+    await expect(handler.handle(jobData())).resolves.toBeUndefined(); // no throw = no retry
+    expect(adapter.generate).toHaveBeenCalledTimes(7);
+    expect(prisma.analysisView.upsert).toHaveBeenCalledTimes(6); // the healthy six
+    expect(prisma.analysis.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: 'failed' } }),
+    );
+    expect(notify).toHaveBeenCalledWith(expect.objectContaining({ status: 'failed' }));
+  });
+
   it('provider-pending (Q9 OPEN) fails cleanly: status failed, job completes without retry', async () => {
     const prisma = mockPrisma();
     const pending = { generate: jest.fn().mockRejectedValue(new ProviderPendingError()) };

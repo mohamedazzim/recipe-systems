@@ -97,10 +97,20 @@ export async function main(): Promise<void> {
     const batch = (Array.isArray(jobs) ? jobs : [jobs]) as Array<{
       id?: string;
       data?: AnalysisJobData;
+      createdOn?: string | number | Date;
     }>;
     for (const job of batch) {
       if (!job || !job.data) continue;
-      console.log(`analysis-worker: job ${job.id ?? 'unknown'} for analysis ${job.data.analysis_id}`);
+      // Q9 performance pass: queue-wait telemetry (enqueue → worker pickup).
+      const queueWaitMs = job.createdOn
+        ? Date.now() - new Date(job.createdOn).getTime()
+        : undefined;
+      console.log(
+        `analysis-worker: job ${job.id ?? 'unknown'} for analysis ${job.data.analysis_id}` +
+          (queueWaitMs !== undefined && Number.isFinite(queueWaitMs)
+            ? ` (queue wait ${queueWaitMs}ms)`
+            : ''),
+      );
       await handler.handle(job.data);
     }
   });

@@ -15,9 +15,11 @@ import { PrismaClient } from '@recipe-systems/database';
 import { Inject } from '@nestjs/common';
 import { Request } from 'express';
 import {
+  CSRF_COOKIE,
   GUEST_COOKIE,
   SESSION_COOKIE,
   SessionPayload,
+  slideSessionCookies,
   verifySession,
 } from '../../modules/auth/session';
 
@@ -40,7 +42,8 @@ export class GuestOrJwtGuard implements CanActivate {
   constructor(@Inject('PRISMA') private readonly prisma: PrismaClient) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const req = context.switchToHttp().getRequest<ActorRequest>();
+    const http = context.switchToHttp();
+    const req = http.getRequest<ActorRequest>();
     const cookies = (req.cookies as Record<string, string>) ?? {};
 
     const sessionToken = cookies[SESSION_COOKIE];
@@ -48,6 +51,10 @@ export class GuestOrJwtGuard implements CanActivate {
       const user = await verifySession(sessionToken);
       req.user = user;
       req.actor = { kind: 'user', user };
+      // Sliding idle renewal: the SSE status poll runs through this guard for
+      // the whole analysis — without sliding here the session cookie would age
+      // out mid-analysis even while the page is actively polling.
+      slideSessionCookies(http.getResponse(), sessionToken, cookies[CSRF_COOKIE]);
       return true;
     }
 

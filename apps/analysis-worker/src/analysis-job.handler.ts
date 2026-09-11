@@ -65,6 +65,19 @@ export interface View9RecomputeJobData {
 
 const LLM_VIEWS = [1, 2, 3, 4, 5, 6, 7] as const;
 
+/**
+ * Q9 performance pass (measured): Views 1–7 are INDEPENDENT prompts (each gets
+ * the full D-15 pair + captured snapshot) — sequential generation summed to
+ * ~10–17 min per analysis (real DeepSeek, 13–352 s/view). Generation runs with
+ * this bounded concurrency; validation is unchanged (D-05 parse + D-16
+ * grounding per view, regenerate-once, Views 8/9 deterministic after).
+ */
+function viewConcurrency(): number {
+  const raw = Number(process.env.ANALYSIS_VIEW_CONCURRENCY ?? 4);
+  if (!Number.isFinite(raw)) return 4;
+  return Math.min(LLM_VIEWS.length, Math.max(1, Math.floor(raw)));
+}
+
 export class AnalysisJobHandler {
   constructor(
     private readonly prisma: PrismaClient,
@@ -99,71 +112,40 @@ export class AnalysisJobHandler {
     await this.notify({ analysis_id: data.analysis_id, status: 'generating' });
 
     try {
-      for (const view of LLM_VIEWS) {
-        // Real-LLM-latency regression: a redelivered job (pg-boss expiry while a
-        // pass was still running) must RESUME, not regenerate — a COMPLETE view
-        // row is kept as-is (INV-11 extension to per-view granularity). This
-        // prevents duplicate provider spend and two passes racing over the same
-        // views.
-        const done = await this.prisma.analysisView.findUnique({
-          where: { analysisId_viewNumber: { analysisId: data.analysis_id, viewNumber: view } },
-        });
-        if (done?.status === 'COMPLETE') {
-          console.log(`analysis ${data.analysis_id} view ${view} already COMPLETE — skip (redelivery)`);
-          continue;
-        }
-        const started = Date.now();
-        const first = await generateGrounded(
-          this.adapter,
-          {
-            view,
-            mode: data.mode,
-            recipe_snapshot: data.captured,
-            prompt_version: data.prompt_version,
-            model_version: modelVersion,
-          },
-          data.captured,
-        );
-        console.log(
-          `analysis ${data.analysis_id} view ${view} attempt 1 [${this.adapter.providerName}]: ` +
-            `${Date.now() - started}ms parse=${first.parse.ok ? 'ok' : 'invalid'} ` +
-            `grounding=${first.grounding ? (first.grounding.ok ? 'ok' : 'violations:' + first.grounding.violations.length) : 'n/a'}`,
-        );
-
-        if (!first.parse.ok) {
-          throw new GenerationFailedError(view, 'schema');
-        }
-
-        if (first.grounding && !first.grounding.ok) {
-          // D-16 regenerate-once (A-16): second attempt, then INCOMPLETE.
-          const secondStarted = Date.now();
-          const second = await generateGrounded(
-            this.adapter,
-            {
-              view,
-              mode: data.mode,
-              recipe_snapshot: data.captured,
-              prompt_version: data.prompt_version,
-              model_version: modelVersion,
-            },
-            data.captured,
-          );
-          console.log(
-            `analysis ${data.analysis_id} view ${view} attempt 2 [${this.adapter.providerName}]: ` +
-              `${Date.now() - secondStarted}ms parse=${second.parse.ok ? 'ok' : 'invalid'} ` +
-              `grounding=${second.grounding ? (second.grounding.ok ? 'ok' : 'violations:' + second.grounding.violations.length) : 'n/a'}`,
-          );
-          if (!second.parse.ok || (second.grounding && !second.grounding.ok)) {
-            // INV-08 refusal representation: the view row is INCOMPLETE; the
-            // ungrounded output is never published (payload stays empty).
-            await this.upsertView(data.analysis_id, view, 'INCOMPLETE', {});
-            continue;
+      // Q9 performance pass: Views 1–7 generate CONCURRENTLY (bounded by
+      // ANALYSIS_VIEW_CONCURRENCY, default 4). Every view still passes the
+      // D-05 schema gate and the D-16 grounding choke point individually, and
+      // a redelivered job still skips COMPLETE views (per-view resume).
+      const errors: Array<{ view: number; error: Error }> = [];
+      let nextViewIndex = 0;
+      const lanes = Array.from({ length: viewConcurrency() }, async () => {
+        while (nextViewIndex < LLM_VIEWS.length) {
+          const view = LLM_VIEWS[nextViewIndex];
+          nextViewIndex += 1;
+          try {
+            await this.processView(data, view, modelVersion);
+          } catch (err) {
+            errors.push({ view, error: err as Error });
           }
-          await this.upsertView(data.analysis_id, view, 'COMPLETE', second.parse.data);
-          continue;
         }
+      });
+      await Promise.all(lanes);
 
-        await this.upsertView(data.analysis_id, view, 'COMPLETE', first.parse.data);
+      if (errors.length > 0) {
+        const permanent = errors.find(
+          (e) =>
+            e.error instanceof ProviderPendingError ||
+            e.error instanceof LlmPermanentProviderError,
+        );
+        // Never stuck at `generating` (P3 exit). Permanent → no retry;
+        // transient/schema → throw so pg-boss retries (per-view resume makes
+        // the retry cheap — COMPLETE views are skipped).
+        await this.markFailed(data.analysis_id);
+        await this.notify({ analysis_id: data.analysis_id, status: 'failed' });
+        if (permanent) {
+          return;
+        }
+        throw errors[0].error;
       }
 
       // Deterministic views 8/9 (D-19): computed here from the captured state +
@@ -207,6 +189,72 @@ export class AnalysisJobHandler {
       await this.notify({ analysis_id: data.analysis_id, status: 'failed' });
       throw err;
     }
+  }
+
+  /**
+   * One LLM view end-to-end (Q9 performance pass extraction): redelivery skip →
+   * generateGrounded (D-05 parse + D-16 grounding inside) → regenerate-once on
+   * grounding violations → COMPLETE/INCOMPLETE upsert. Throws on schema failure
+   * (transient — the retry regenerates only non-COMPLETE views) and on provider
+   * errors (classified by the caller).
+   */
+  private async processView(
+    data: AnalysisJobData,
+    view: (typeof LLM_VIEWS)[number],
+    modelVersion: string,
+  ): Promise<void> {
+    // Real-LLM-latency regression: a redelivered job (pg-boss expiry while a
+    // pass was still running) must RESUME, not regenerate — a COMPLETE view
+    // row is kept as-is (INV-11 extension to per-view granularity). This
+    // prevents duplicate provider spend and two passes racing over the same
+    // views.
+    const done = await this.prisma.analysisView.findUnique({
+      where: { analysisId_viewNumber: { analysisId: data.analysis_id, viewNumber: view } },
+    });
+    if (done?.status === 'COMPLETE') {
+      console.log(`analysis ${data.analysis_id} view ${view} already COMPLETE — skip (redelivery)`);
+      return;
+    }
+
+    const request = {
+      view,
+      mode: data.mode,
+      recipe_snapshot: data.captured,
+      prompt_version: data.prompt_version,
+      model_version: modelVersion,
+    };
+    const started = Date.now();
+    const first = await generateGrounded(this.adapter, request, data.captured);
+    console.log(
+      `analysis ${data.analysis_id} view ${view} attempt 1 [${this.adapter.providerName}]: ` +
+        `${Date.now() - started}ms parse=${first.parse.ok ? 'ok' : 'invalid'} ` +
+        `grounding=${first.grounding ? (first.grounding.ok ? 'ok' : 'violations:' + first.grounding.violations.length) : 'n/a'}`,
+    );
+
+    if (!first.parse.ok) {
+      throw new GenerationFailedError(view, 'schema');
+    }
+
+    if (first.grounding && !first.grounding.ok) {
+      // D-16 regenerate-once (A-16): second attempt, then INCOMPLETE.
+      const secondStarted = Date.now();
+      const second = await generateGrounded(this.adapter, request, data.captured);
+      console.log(
+        `analysis ${data.analysis_id} view ${view} attempt 2 [${this.adapter.providerName}]: ` +
+          `${Date.now() - secondStarted}ms parse=${second.parse.ok ? 'ok' : 'invalid'} ` +
+          `grounding=${second.grounding ? (second.grounding.ok ? 'ok' : 'violations:' + second.grounding.violations.length) : 'n/a'}`,
+      );
+      if (!second.parse.ok || (second.grounding && !second.grounding.ok)) {
+        // INV-08 refusal representation: the view row is INCOMPLETE; the
+        // ungrounded output is never published (payload stays empty).
+        await this.upsertView(data.analysis_id, view, 'INCOMPLETE', {});
+        return;
+      }
+      await this.upsertView(data.analysis_id, view, 'COMPLETE', second.parse.data);
+      return;
+    }
+
+    await this.upsertView(data.analysis_id, view, 'COMPLETE', first.parse.data);
   }
 
   /**

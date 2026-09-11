@@ -146,6 +146,31 @@ export function sessionCookieOptions(maxAgeSeconds: number): {
   };
 }
 
+/**
+ * Sliding idle renewal (real-LLM-latency regression): re-issue the session +
+ * CSRF cookies with a fresh idle maxAge on every authenticated request. The
+ * JWT value is unchanged (its exp is the absolute ceiling). Shared by
+ * JwtAuthGuard AND GuestOrJwtGuard — the web app's SSE status polling runs on
+ * the latter, and without sliding there the cookie would age out mid-analysis
+ * even while the page was actively polling.
+ */
+export function slideSessionCookies(
+  res: { cookie: (name: string, value: string, options: unknown) => void },
+  sessionToken: string,
+  csrfToken?: string,
+): void {
+  res.cookie(SESSION_COOKIE, sessionToken, sessionCookieOptions(defaultSessionTtl()));
+  if (csrfToken) {
+    res.cookie(CSRF_COOKIE, csrfToken, {
+      httpOnly: false,
+      secure: sessionCookieOptions(0).secure,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: defaultSessionTtl() * 1000, // Express maxAge is milliseconds
+    });
+  }
+}
+
 function sessionSecret(): Uint8Array {
   const secret = process.env.SESSION_SECRET;
   if (!secret) {

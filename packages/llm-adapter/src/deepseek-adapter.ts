@@ -45,6 +45,18 @@ export interface DeepSeekConfig {
   baseUrl?: string;
   timeoutMs?: number;
   maxRetries?: number;
+  /** Optional per-call token-usage telemetry (Q9 performance pass). Never the
+   *  response content — tokens only. The worker logs it; nothing is stored. */
+  onUsage?: (usage: DeepSeekUsage) => void;
+}
+
+/** Token usage as reported by the provider (OpenAI-compatible `usage`). */
+export interface DeepSeekUsage {
+  view?: number;
+  mode?: string;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
 }
 
 function envConfig(): DeepSeekConfig {
@@ -82,6 +94,7 @@ export class DeepSeekLlmAdapter implements LlmAdapter {
   private readonly baseUrl: string;
   private readonly timeoutMs: number;
   private readonly maxRetries: number;
+  private readonly onUsage: DeepSeekConfig['onUsage'];
 
   constructor(config: DeepSeekConfig = envConfig()) {
     this.apiKey = config.apiKey ?? '';
@@ -89,6 +102,7 @@ export class DeepSeekLlmAdapter implements LlmAdapter {
     this.baseUrl = (config.baseUrl ?? 'https://api.deepseek.com').replace(/\/+$/, '');
     this.timeoutMs = config.timeoutMs ?? 60_000;
     this.maxRetries = Math.max(0, config.maxRetries ?? 2);
+    this.onUsage = config.onUsage;
   }
 
   /** Non-secret description for boot logs (never includes the key). */
@@ -99,7 +113,7 @@ export class DeepSeekLlmAdapter implements LlmAdapter {
   private async chatCompletion(
     system: string,
     user: string,
-  ): Promise<string> {
+  ): Promise<{ content: string; usage?: DeepSeekUsage }> {
     if (!this.apiKey) {
       throw new LlmPermanentProviderError(
         'DEEPSEEK_API_KEY is not set in the server environment (Q9 credential missing)',
@@ -140,12 +154,25 @@ export class DeepSeekLlmAdapter implements LlmAdapter {
         }
         const body = (await response.json()) as {
           choices?: Array<{ message?: { content?: string } }>;
+          usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
         };
         const content = body.choices?.[0]?.message?.content;
         if (typeof content !== 'string' || content.length === 0) {
           throw new LlmTransientProviderError('DeepSeek returned an empty completion');
         }
-        return content;
+        const u = body.usage;
+        const usage: DeepSeekUsage | undefined =
+          u &&
+          typeof u.prompt_tokens === 'number' &&
+          typeof u.completion_tokens === 'number' &&
+          typeof u.total_tokens === 'number'
+            ? {
+                promptTokens: u.prompt_tokens,
+                completionTokens: u.completion_tokens,
+                totalTokens: u.total_tokens,
+              }
+            : undefined;
+        return { content, usage };
       } catch (err) {
         if (err instanceof LlmPermanentProviderError) throw err;
         const isRetryable = attempt < this.maxRetries;
@@ -176,7 +203,10 @@ export class DeepSeekLlmAdapter implements LlmAdapter {
     const prompts = buildViewPrompt(request.view, request.mode as AnalysisMode);
     const snapshot = JSON.stringify(request.recipe_snapshot);
     const user = `${prompts.user}\n\nSTRUCTURED RECIPE OBJECT (the ONLY source of truth):\n${snapshot}`;
-    const content = await this.chatCompletion(prompts.system, user);
+    const { content, usage } = await this.chatCompletion(prompts.system, user);
+    if (usage && this.onUsage) {
+      this.onUsage({ view: request.view, mode: request.mode, ...usage });
+    }
     return extractJson(content);
   }
 }

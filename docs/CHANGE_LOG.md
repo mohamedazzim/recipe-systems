@@ -62,7 +62,8 @@
   9/9 views COMPLETE, INV-09 flip correct) · session survives 16+ min under SSE polling ·
   view-3 "INCOMPLETE with stages" model inconsistency correctly refused by the station-card
   builder (INV-08/INV-10 honest path).
-- Commit(s): see performance-pass commit (uncommitted at entry time).
+- Commit(s): `e9de140` (code) + `14acdba` (docs); CI runs `34531539189`-era all
+  `success` (runs 53 + 54 on the performance-pass tree).
 
 
 ## 2026-09-11 — Live black-box QA (real DeepSeek): 3 latency-regime regression fixes

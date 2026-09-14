@@ -91,14 +91,19 @@ jobs:
 
       - name: Start MinIO for integration tests (same image/command as local compose)
         run: |
+          MINIO_IMAGE="minio/minio:latest"
           for attempt in 1 2 3; do
             if docker run -d --name minio -p 9000:9000 \
                  -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
-                 minio/minio:latest server /data --console-address ":9001"; then
+                 "$MINIO_IMAGE" server /data --console-address ":9001"; then
               break
             fi
-            echo "docker run failed (attempt $attempt); retrying…"
+            echo "docker run failed with $MINIO_IMAGE (attempt $attempt)"
             docker rm -f minio >/dev/null 2>&1 || true
+            if [ "$attempt" -eq 1 ]; then
+              echo "falling back to the official Quay mirror (Docker Hub anonymous pull limit)"
+              MINIO_IMAGE="quay.io/minio/minio:latest"
+            fi
             sleep 20
           done
           if ! docker ps --format '{{.Names}}' | grep -q '^minio$'; then

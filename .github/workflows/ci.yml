@@ -91,16 +91,27 @@ jobs:
 
       - name: Start MinIO for integration tests (same image/command as local compose)
         run: |
-          docker run -d --name minio -p 9000:9000 \
-            -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
-            minio/minio:latest server /data --console-address ":9001"
+          for attempt in 1 2 3; do
+            if docker run -d --name minio -p 9000:9000 \
+                 -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
+                 minio/minio:latest server /data --console-address ":9001"; then
+              break
+            fi
+            echo "docker run failed (attempt $attempt); retrying…"
+            docker rm -f minio >/dev/null 2>&1 || true
+            sleep 20
+          done
+          if ! docker ps --format '{{.Names}}' | grep -q '^minio$'; then
+            echo "minio container failed to start after 3 attempts"
+            exit 1
+          fi
           for i in $(seq 1 60); do
             if curl -sf http://localhost:9000/minio/health/live; then
               echo "minio ready"; exit 0
             fi
             sleep 3
           done
-          echo "minio failed to start after 180s; container logs:"
+          echo "minio failed to become healthy after 180s; container logs:"
           docker logs minio || true
           exit 1
 

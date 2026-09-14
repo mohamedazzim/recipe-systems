@@ -172,6 +172,72 @@
   D-20 card, real Q2 value) · QG4 PDF-failure cell · live internal-browser golden print
   journey · suites/gates/contract/lint/typecheck/verify-local/CI.
 
+**D-24 PREFLIGHT (2026-09-14, read-only — recorded BEFORE any D-24 code):**
+- Sources read: DISPATCH D-24 (P6-1) · Recipe_Systems §12 F1/F2/F6 + §15 acceptance
+  scene · USER_STORIES F1/F2/F6 · Epic-F_After_Cook.md · ERD §8 cook_log tables +
+  §17 coverage · BUILD_PLAN P6-1 · ADR (Web API owns cook-loop writes; cook notes
+  private) · TEST_PLAN P6 row + §4 time note · AUDIT.md A-24 · HANDOFF ledger ·
+  IMPROVEMENT_PLAN.
+- D-24A (scope): EXACTLY F1 (log cook: `cooked_at` default today editable, multiple
+  logs, library shows last cooked) + F2 (rating 1–5 optional + free-text note,
+  private, visible on reopen above the analysis) + F6 (surface last cooked date,
+  rating, and the next-time line when present). NON-GOALS: F3 swaps, F4 next-time
+  FIELD (write), F5 photos, profiles, D-25+.
+- D-24B (schema): `cook_log` already exists (Prisma + ERD §8) with `cooked_at` DATE,
+  `rating` SMALLINT (CHECK 1–5), `note` TEXT, `next_time_instruction` TEXT — NO
+  migration needed. F6 only SURFACES `next_time_instruction` when a row carries it
+  (F4/D-26 will write it). `cook_log_swap` / `cook_log_photo` untouched.
+- D-24C (ownership): ADR — the Web API owns cook-loop writes. New API cook module is
+  the sole writer of `cook_log` (new QG2 one-writer gate, D-22/D-30 pattern); the
+  worker never writes cook tables; the renderer stays read-only. Library
+  (GET /recipes) extends the D-22 cook indicator with the last cooked date.
+  Ownership via `RecipeService.assertOwned` (INV-17 404s; D-09 cross-account
+  privacy suite re-asserted — ratings/notes return nothing across accounts).
+- D-24D (surface/UX): canonical §15 cook step — “I cooked this” → rate 4 → note
+  “2 green chillies, fenugreek powder off heat” → Sunday reopen shows the note at
+  the top, garlic still absent, list printable. The F2 note carries the next-time
+  text until the dedicated F4 field lands (labeled working assumption, not a silent
+  F4 implementation).
+- D-24E (dependencies/register): D-23 DONE (CI run 69 success 2026-09-14,
+  `f8af600`); no D-29 dependency. Q1/Q5/Q9/Q10/Q11 untouched; no register changes;
+  DeepSeek config untouched; OCR/Q10 untouched.
+- **VERDICT: D-24 = GO** (preflight only — no D-24 code this session; HARD STOP after
+  this trace).
+
+---
+
+**D-24 PREFLIGHT (2026-09-14, read-only — recorded BEFORE any D-24 code):**
+- Sources read: DISPATCH D-24 (P6-1) · Recipe_Systems §12 F1/F2/F6 + §15 acceptance
+  scene · USER_STORIES F1/F2/F6 · Epic-F_After_Cook.md · ERD §8 cook_log tables +
+  §17 coverage · BUILD_PLAN P6-1 · ADR (Web API owns cook-loop writes; cook notes
+  private) · TEST_PLAN P6 row + §4 time note · AUDIT.md A-24 · HANDOFF ledger ·
+  IMPROVEMENT_PLAN.
+- D-24A (scope): EXACTLY F1 (log cook: `cooked_at` default today editable, multiple
+  logs, library shows last cooked) + F2 (rating 1–5 optional + free-text note,
+  private, visible on reopen above the analysis) + F6 (surface last cooked date,
+  rating, and the next-time line when present). NON-GOALS: F3 swaps, F4 next-time
+  FIELD (write), F5 photos, profiles, D-25+.
+- D-24B (schema): `cook_log` already exists (Prisma + ERD §8) with `cooked_at` DATE,
+  `rating` SMALLINT (CHECK 1–5), `note` TEXT, `next_time_instruction` TEXT — NO
+  migration needed. F6 only SURFACES `next_time_instruction` when a row carries it
+  (F4/D-26 will write it). `cook_log_swap` / `cook_log_photo` untouched.
+- D-24C (ownership): ADR — the Web API owns cook-loop writes. New API cook module is
+  the sole writer of `cook_log` (new QG2 one-writer gate, D-22/D-30 pattern); the
+  worker never writes cook tables; the renderer stays read-only. Library
+  (GET /recipes) extends the D-22 cook indicator with the last cooked date.
+  Ownership via `RecipeService.assertOwned` (INV-17 404s; D-09 cross-account
+  privacy suite re-asserted — ratings/notes return nothing across accounts).
+- D-24D (surface/UX): canonical §15 cook step — “I cooked this” → rate 4 → note
+  “2 green chillies, fenugreek powder off heat” → Sunday reopen shows the note at
+  the top, garlic still absent, list printable. The F2 note carries the next-time
+  text until the dedicated F4 field lands (labeled working assumption, not a silent
+  F4 implementation).
+- D-24E (dependencies/register): D-23 DONE (CI run 69 success 2026-09-14,
+  `f8af600`); no D-29 dependency. Q1/Q5/Q9/Q10/Q11 untouched; no register changes;
+  DeepSeek config untouched; OCR/Q10 untouched.
+- **VERDICT: D-24 = GO** (preflight only — no D-24 code this session; HARD STOP after
+  this trace).
+
 ---
 
 ---
@@ -2377,8 +2443,8 @@ execution output; Git: not available / not authorized throughout.
 
 ### H-23 — D-23 Print list + station card
 
-- BASE_SHA / COMMIT_SHA: base `1073291` / fix checkpoint pending.
-- Date / agent session: 2026-09-11 · DeepSeek V4 Pro (VS Code) D-23 dispatch.
+- BASE_SHA / COMMIT_SHA: base `1073291` / **final `f8af600`** (D-23 fix chain `66e652e → 834405c → 5346976` + diagnostics `4c82ead` + CI-infra `7478832/02cb872/7edac70/f8af600`).
+- Date / agent session: 2026-09-11..14 · DeepSeek V4 Pro (VS Code) D-23 dispatch.
 - Status: **DONE — E4/E5/H4 print templates, PDF generation, INV-12 snapshot
   proof, one-page fit, retryable PDF failure, and Q2 Option A persistence
   shipped.**
@@ -2428,8 +2494,19 @@ execution output; Git: not available / not authorized throughout.
   projection emits a row-level `have` class and checked marker; the ingredient
   boundary removes repeated records by stable line id. CI builds rendering
   before typecheck so API/integration cannot consume stale print artifacts.
+- Final CI evidence (recorded 2026-09-14): GitHub Actions run **69 = success** on
+  `f8af600` — full cumulative suite + regression gates + contract + migrate +
+  MinIO + integration on Ubuntu, after the CI-infra fixes below. Earlier D-23
+  runs 61–65 failed for CI-infra reasons, not code: 61/62 missing
+  `packages/rendering` build step (fixed 42788d9); 63/64 transient install
+  (fixed: npm ci retry); 65 integration had no Chromium (fixed: Playwright
+  install step); 66–68 MinIO Docker Hub anonymous pull limits (fixed: retry +
+  official Quay mirror fallback). The final-fix SHA `5346976`'s run 64 failed
+  only at the install stage; its exact tree passes in run 69's superset.
 - OPEN DECISION notes: Q1/Q5/Q9/Q10/Q11 untouched. No D-24+ or D-30 changes.
-- Audit result: A-23 PENDING.
+- Audit result: **A-23 PASS-WITH-FINDINGS (2026-09-14)** — no blocker; findings
+  F-1 e2e print spec absent (H-13), F-2 rendering has no QG1 floor row,
+  F-3 audit ran in the builder session. Verdict block in AUDIT_LOG.md.
 
 ### H-24 — D-24 Cook loop
 

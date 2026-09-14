@@ -119,3 +119,44 @@ RS-US-45 async deviation, and the I7 listing representation — complete; no fab
   can then build on a stable View surface. Include the F-2 claim-row materialization as a
   scoped follow-up item (dispatcher decision), and keep F-3 in mind when Q13 is revisited at
   P7.
+
+## A-23 — Audit: Print list + station card (D-23)
+
+- **Date / audit agent:** 2026-09-14 · DeepSeek V4 Pro (builder session, read-only audit
+  intent — canonical independence caveat recorded as F-3 below).
+- **Audited commits:** D-23 tree `66e652e` → final `f8af600` (incl. `42788d9`, `834405c`,
+  `5346976`, `4c82ead`, CI infra `7478832`/`02cb872`/`7edac70`/`f8af600`).
+- **Scope:** DISPATCH D-23 done criteria; E4/E5/H4; INV-12 snapshot-only; QG4 PDF failure
+  cell; Q2 Option A persistence.
+
+### Verdict: PASS-WITH-FINDINGS
+
+No BLOCKER. Behavior re-executed 2026-09-14: rendering 14/14 · API print 11/11 ·
+story_d23_print 5/5 (real Postgres + real Chromium: one-page `%PDF` for both templates,
+byte-identical INV-12 proof, INV-17 404s) · regression gates PASS incl. gate 2d · CI run
+**69 = success** on `f8af600` (full cumulative suite + gates + migrate + MinIO + integration
+on Ubuntu). Conformance spot-checks: one-writer intact, no DDL outside migrations, error
+envelope canonical, no "safe" in print output.
+
+### Findings
+
+**F-1 (MAJOR — deferred): no Playwright e2e spec covers the two print flows.**
+- Attack: TEST_PLAN QG1's web gate is the e2e of the five critical flows; "print list +
+  station card (one page each)" is one of the five, and no print e2e spec exists. CI also
+  has no e2e job at all (pre-existing infra gap, H-13 — local Playwright launches are
+  machine-policy blocked).
+- Evidence: `tests/e2e/` contains no print spec; `ci.yml` has no e2e step.
+- Recommendation: add print e2e specs and an e2e CI job when Keycloak-in-CI becomes viable;
+  until then the D-23 integration story (real Chromium PDFs) is the CI-grade substitute — a
+  pre-existing gap, not a D-23 regression.
+
+**F-2 (MINOR — deferred): `packages/rendering` has no QG1 floor row.**
+- Attack: the QG1 table lists floors for every package except rendering (new in D-23);
+  measured coverage ≈ 64% statements (pdf.ts partly uncovered).
+- Recommendation: dispatcher adds a rendering floor row or accepts the current number;
+  no silent decision made here.
+
+**F-3 (MINOR — process note): audit executed in the builder's session.**
+- The canonical independence constraint (fresh independent agent) could not be honored
+  in-session; the audit ran with read-only intent — findings only, no fixes during
+  re-execution.

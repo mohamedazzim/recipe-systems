@@ -41,7 +41,9 @@
   frozen allergen line, five groups, and two fenugreek rows; authenticated
   print HTML/PDF endpoints returned the expected content. The golden recipe's
   incomplete View 3 correctly refused a station card.
-- Commit(s): D-23 checkpoint pending.
+- Commit(s): `66e652e` (D-23) + `42788d9` (CI rendering build) + `834405c`
+  (state/key fix) + `5346976` (line endings) + `4c82ead` (diagnostics) +
+  CI infra `7478832`/`02cb872`/`7edac70`/`f8af600`. CI run 69 = success.
 
 ## 2026-09-11 — D-23 regression fix: current have/need print state and duplicate line key
 

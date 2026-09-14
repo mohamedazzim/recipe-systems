@@ -40,7 +40,13 @@ jobs:
           cache: npm
 
       - name: Install
-        run: npm ci --no-audit --no-fund
+        run: |
+          for attempt in 1 2 3; do
+            npm ci --no-audit --no-fund && exit 0
+            echo "npm ci failed (attempt $attempt); retrying…"
+            sleep 15
+          done
+          exit 1
 
       - name: Prisma generate + database build (client and dist must exist before typecheck/unit)
         working-directory: packages/database
@@ -57,6 +63,12 @@ jobs:
       - name: "Rendering build (D-23: api + worker import the print engine)"
         working-directory: packages/rendering
         run: npm run build
+
+      # D-23: story_d23_print launches REAL headless Chromium through the
+      # Playwright runtime — the runner image ships no browsers, so install
+      # the pinned Chromium (and its system libraries) before integration.
+      - name: "Install Playwright Chromium (D-23 print PDF integration)"
+        run: npx playwright install --with-deps chromium
 
       - name: Lint
         run: npm run lint

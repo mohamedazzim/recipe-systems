@@ -94,13 +94,15 @@ jobs:
           docker run -d --name minio -p 9000:9000 \
             -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
             minio/minio:latest server /data --console-address ":9001"
-          for i in $(seq 1 30); do
+          for i in $(seq 1 60); do
             if curl -sf http://localhost:9000/minio/health/live; then
               echo "minio ready"; exit 0
             fi
-            sleep 2
+            sleep 3
           done
-          echo "minio failed to start"; exit 1
+          echo "minio failed to start after 180s; container logs:"
+          docker logs minio || true
+          exit 1
 
       - name: Integration tests
         run: npm run test:integration

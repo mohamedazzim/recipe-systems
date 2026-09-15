@@ -20,6 +20,34 @@
 
 **Rule:** a change that alters any Q1–Q18 row must say so in its entry. The register (SCAFFOLD §7) is the single source of truth for open decisions; this log records the history of how the register changed. No Q-row changes in D-13.
 
+## 2026-09-15 — D-25 P7-1: aliases, tags, edit + re-analyse (B6/C6/D3/D4/D5)
+
+- Author / session: DeepSeek V4 Pro (VS Code) D-25 dispatch (preflight GO recorded
+  in HANDOFF H-25; two sessions + checkpoint).
+- What changed: NEW reviewed reference import R-2026-09-15-005 (shallots + curry-leaves
+  canonicals; moringa/fenugreek/uluva/vendhayam/chinna-vengayam/cheriya-ulli/
+  karuveppilai aliases; drumstick `requires_confirmation`) via the D-29 admin path.
+  Intake `resolveWireLines` resolves `canonical_name` + `requires_confirmation` on the
+  line wire (read-only dictionary/alias; two fenugreeks stay distinct). Recipes module
+  is the sole `recipe_tag` writer (`PUT/GET /recipes/:recipeId/tags`) + library search
+  (`GET /recipes?q=`). Worker `finalize` links `analysis.snapshot_of_analysis_id` to the
+  previous current analysis (order-safe; NO `cook_log.analysis_id` column). API exposes
+  `snapshot_of_analysis_id` in the analysis wires. QG2 gate 2g (recipe_tag one-writer) +
+  fire proof. Also fixed the auth `.env` loading (ConfigModule envFilePath).
+- Why: DISPATCH D-25 (P7-1) — B6, C6, D3, D4, D5 (C7 conditional/deferred).
+- Register impact: none resolved. Q5 stays OPEN (dictionary/alias admin-module working
+  assumption); Q1/Q10/Q11 untouched; C7 deferred (no §13 stability evidence).
+- Verification: API 297/297 · worker 64/64 · web 132/132 · integration 138/138
+  (story_d25_session1 3/3, story_d25_session2 3/3, story_d17 4/4) · qg2_gates 20/20 ·
+  lint 0 · typecheck 0 · verify-local ALL STEPS PASSED.
+- Commit(s): `fb09de4` (session 1) · `c92186b` (session 2) · `224eb34` (auth .env fix).
+- Audit: A-25 PASS-WITH-FINDINGS (2026-09-15) — all attack vectors re-executed green
+  (alias resolution + drumstick confirmation on the wire; Q5 one-writer; snapshot chain;
+  explicit re-run only; C7 deferred; D3 ownership; D4/D-24 preservation; INV-17).
+  Findings (AUDIT_LOG A-25): F-1 MAJOR — B6 + D3 web surfaces not shipped (no
+  `canonical_name`/`requires_confirmation`/tags/search UI rendering; backend correct);
+  F-2 MINOR — builder-session audit caveat.
+
 ## 2026-09-15 — D-26 P7-2: profiles, swaps, next-time, portions (F3/F4/H1/H3/H5/I3/I4)
 
 - Author / session: DeepSeek V4 Pro (VS Code) D-26 dispatch (preflight GO

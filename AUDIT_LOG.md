@@ -304,3 +304,80 @@ the truncate throws 23514 (F-1 above) and the whole suite fails before a test ru
 D-26 is fit for the next unit; carry F-1/F-2 into the D-29 reference-data work (or a
 hygiene backlog item) so the definition-delete path and the test fixture are hardened
 together.
+
+## A-25 — Audit: aliases, tags, edit + re-analyse (D-25)
+
+- **Date / audit agent:** 2026-09-15 · DeepSeek V4 Pro (builder session, read-only
+  audit intent — independence caveat recorded as F-2 below).
+- **Audited commits:** `fb09de4` (D-25 session 1) + `c92186b` (D-25 session 2) +
+  `224eb34` (auth .env-loading fix). Base `f16d8b0`. CI run 34952720762 = success
+  on `224eb34`.
+- **Scope:** DISPATCH D-25 (P7-1) done criteria; B6/C6/C7/D3/D4/D5; AUDIT.md A-25
+  attack vectors (alias-resolution BLOCKER, Q5 one-writer, snapshot-chain BLOCKER,
+  explicit re-run only, C7 conditional).
+
+### Verdict: PASS-WITH-FINDINGS
+
+No BLOCKER. Every attack vector re-executed 2026-09-15:
+
+- **Alias resolution (BLOCKER class):** `story_d25_session1` 3/3 on real Postgres —
+  all five vernacular groups resolve to their canonical (`drumstick`/murungakkai/
+  moringa → drumstick; shallots/chinna vengayam/cheriya ulli → shallots; fenugreek/
+  methi/uluva/vendhayam → fenugreek_seed with "fenugreek powder" staying distinct;
+  tamarind/puli → tamarind; curry leaves/karuveppilai → curry_leaves) and ambiguous
+  "drumstick" carries `requires_confirmation: true` on the wire (TC-01/TC-02). The
+  resolution logic is read-only over dictionary/alias and is CORRECT.
+- **One-writer (Q5):** `qg2_gates` 20/20 incl. the dictionary/alias + recipe_tag fire
+  proofs and the real-tree pass; write-scoped grep confirms
+  `ingredientDictionary/ingredientAlias` writes exist ONLY in
+  `apps/api/src/admin/reference-data.repository.ts` (the D-29 admin module). Q5 stays
+  OPEN (working assumption honored, not resolved).
+- **Snapshot chain (BLOCKER class):** `story_d25_session2` 3/3 + `story_d17` 4/4 —
+  re-analyse links the previous analysis via `analysis.snapshot_of_analysis_id` (new
+  current `0dda7f25` → previous `5ed224a6`), the `is_current` flip stays order-safe
+  (INV-09, exactly one current), the worker remains the sole `analysis_*` writer, and
+  NO `cook_log.analysis_id` column exists (grep: schema has none).
+- **Explicit re-run only (C6):** `story_d25_session2` — editing a saved recipe never
+  auto-enqueues (analysis count unchanged after a line edit); re-analysis is the
+  explicit `POST /recipes/:recipeId/analyse`.
+- **C7 conditional:** grep confirms NO substitution-preview implementation shipped (the
+  only "identity-shift" hit is the pre-existing D-11 View 4 prompt vocabulary).
+  C7 DEFERRED — the §13 weeks-9–10 Must-stability evidence is still not recorded.
+- **D3 tag/search ownership:** `story_d25_session1` proves tags persist + three-axis
+  search (name/ingredient/tag) + cross-account isolation; grep confirms the
+  `recipe_tag` writer is confined to `apps/api/src/modules/recipes`.
+- **D4 edit/review + D-24 note preservation:** live journey + `story_d25_session2` —
+  line edit via the review surface, cook logs/notes unchanged ("fish held, garlic
+  stayed out"), and write-scoped grep shows no `cook_log` writes outside the cook
+  module (no silent note overwrite).
+- **INV-17 / malformed / foreign IDs:** `story_d25_session2` — foreign edit → canonical
+  404; malformed (non-UUID) recipe id → clean 404 before Prisma.
+
+### Findings
+
+**F-1 (MAJOR — deferred, user-facing completeness gap): the B6 + D3 web surfaces are
+not shipped.**
+- The API exposes `canonical_name` + `requires_confirmation` on the line wire (B6) and
+  `PUT/GET /recipes/:recipeId/tags` + `GET /recipes?q=` search (D3), and both are
+  integration-proven correct. But NO web component renders them — grep across
+  `apps/web` finds zero references to `canonical_name`, `requires_confirmation`,
+  `tagText`, `/tags`, or the search query path.
+- Consequence: the user-facing acceptance criteria are not reachable from the UI —
+  "drumstick asks for confirmation" (B6 AC-2/TC-02) shows no prompt, the resolved
+  canonical is never displayed (B6 AC-1), and free-text tags + three-axis search
+  (D3 AC-1/AC-2) have no editor or search box.
+- Severity rationale: NOT a BLOCKER — the resolution logic and ownership are correct,
+  no wrong data is produced, and nothing regressed. It is a story-completeness gap
+  against the UI-side acceptance criteria (the D-25 dispatch listed B6/D3 as
+  backend-first deliverables, but Recipe_Systems §12 stories are user-facing).
+- Recommendation: surface the canonical name + a confirmation affordance in
+  `IngredientReview`, and add a tag editor + search box to the library/home surface, in
+  a small D-25-adjacent follow-up (dispatcher decision, not an audit-side fix).
+
+**F-2 (MINOR — process note): audit executed in the builder's session.**
+- Same independence caveat as A-23 F-3 / A-24 F-2 / A-26 F-3: read-only intent,
+  findings only, nothing fixed during re-execution. Q5/Q1/Q10/Q11 left OPEN.
+
+**Recommendation for the next dispatch:** proceed to D-27 (D-25 is otherwise fit; the
+snapshot chain, one-writer gates, and explicit-re-run behavior are sound). Fold F-1
+(the B6/D3 web surfaces) into a scoped follow-up alongside D-27 or a UI pass.

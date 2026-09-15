@@ -2760,11 +2760,15 @@ execution output; Git: not available / not authorized throughout.
   correct — the empty client secret was the actual fault.
 - **C7:** DEFERRED — §13 weeks-9–10 Must-stability evidence is still not recorded
   in HANDOFF (same gate D-31 carries).
-- **Resume point:** D-25 is COMPLETE. Next per dispatcher: A-25 audit (AUDIT.md) —
-  re-execute alias resolution (B6, five groups + drumstick confirmation), Q5
-  one-writer, snapshot-chain BLOCKER (re-analyse → previous linked, logs/notes
-  intact), explicit re-run only, and C7 (deferred). Then D-27 (blocked until
-  D-25 completes — now unblocked).
+- **Resume point:** A-25 audit complete — **PASS-WITH-FINDINGS** (2026-09-15):
+  story_d25_session1 3/3 · story_d25_session2 3/3 · story_d17 4/4 · qg2_gates 20/20
+  · conformance greps clean (Q5 admin-only dictionary/alias writes; recipe_tag
+  confined to recipes; worker-only snapshot write; no cook_log.analysis_id column;
+  C7 not shipped; no cook_log writes outside cook). Findings (AUDIT_LOG A-25):
+  F-1 MAJOR — the B6 + D3 web surfaces are not shipped (`canonical_name` /
+  `requires_confirmation` / tags / search have no UI rendering; backend correct);
+  F-2 MINOR — builder-session audit caveat. Next per dispatcher: D-27 (D-25 is
+  otherwise fit; fold F-1 into a scoped UI follow-up).
 
 ### H-26 — D-26 Profiles, swaps, next-time, I3/I4
 

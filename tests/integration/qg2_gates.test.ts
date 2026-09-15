@@ -109,6 +109,18 @@ describe('QG2 static gates fire on real violations (D-01 criterion)', () => {
     }
   });
 
+  it('one-writer: a recipe_tag write outside the API recipes module fires (D-25)', () => {
+    const s = makeScratch();
+    try {
+      s.write('apps/web/app/page.tsx', 'prisma.recipeTag.create({ data: { recipeId: "r", tagText: "x" } });\n');
+      const result = runGates(s.dir);
+      expect(result.exit).toBe(1);
+      expect(result.out).toContain('recipe_tag write outside the API recipes module');
+    } finally {
+      s.cleanup();
+    }
+  });
+
   it('render read-only: a database write in packages/rendering fires', () => {
     const s = makeScratch();
     try {

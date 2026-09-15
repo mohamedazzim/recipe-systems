@@ -26,7 +26,7 @@ import { CsrfGuard } from '../../common/guards/csrf.guard';
 import { Actor, ActorRequest, GuestOrJwtGuard } from '../../common/guards/guest-or-jwt.guard';
 import { AuthedRequest, JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RecipeService } from '../recipes/recipe.service';
-import { IntakeService, LinePatch, toWireLine } from './intake.service';
+import { IntakeService, LinePatch } from './intake.service';
 import { IMAGE_CONTENT_TYPES, ImageContentType, MAX_IMAGE_BYTES, StorageService } from './storage.service';
 
 const parseTextSchema = z.object({ text: z.string().min(1) });
@@ -105,11 +105,12 @@ export class IntakeController {
     const recipe = await this.recipes.createForIntake(actor, { rawText });
     await this.intake.recordPaste(actor, recipe.id, rawText);
     const lines = await this.intake.listDraftLines(actor, recipe.id);
+    const wireLines = await this.intake.resolveWireLines(lines);
     return {
       recipe_id: recipe.id, // D-12I: needed to address the RS-US-08 review routes (upload already returns recipe_id)
       recipe: {
         raw_text: rawText,
-        lines: lines.map(toWireLine),
+        lines: wireLines,
         flags: [], // wrap-around detection is parse-review work (D-12)
       },
     };
@@ -198,12 +199,12 @@ export class IntakeController {
         throw this.badRequest('INVALID_LINE_EDIT', 'merge_with_next must be sent alone');
       }
       const merged = await this.intake.mergeWithNext(actor, recipeId, lineId, d.expected_updated_at);
-      return toWireLine(merged);
+      return (await this.intake.resolveWireLines([merged]))[0];
     }
 
     if (d.is_header === true) {
       const deleted = await this.intake.markHeader(actor, recipeId, lineId, d.expected_updated_at);
-      return toWireLine(deleted); // D-12C: header marked = excluded from the corrected object
+      return (await this.intake.resolveWireLines([deleted]))[0]; // D-12C: header marked = excluded from the corrected object
     }
 
     const patch: LinePatch = {};
@@ -217,7 +218,7 @@ export class IntakeController {
     if (d.needs_review !== undefined) patch.needsReview = d.needs_review; // D-14C: literal false only
 
     const updated = await this.intake.updateLine(actor, recipeId, lineId, patch, d.expected_updated_at);
-    return toWireLine(updated);
+    return (await this.intake.resolveWireLines([updated]))[0];
   }
 
   /** B3 AC-1: delete (soft) — 204 (API doc). */
@@ -253,7 +254,7 @@ export class IntakeController {
       parsed.data.split_point,
       parsed.data.expected_updated_at,
     );
-    return { lines: [toWireLine(l1), toWireLine(l2)] };
+    return { lines: await this.intake.resolveWireLines([l1, l2]) };
   }
 
   /** B3 AC-1: add a new ingredient line (appended; 201). */
@@ -278,7 +279,7 @@ export class IntakeController {
       confirmedSense: d.confirmed_sense,
       includeOnList: d.include_on_list,
     });
-    return toWireLine(line);
+    return (await this.intake.resolveWireLines([line]))[0];
   }
 
   /** B3: all active lines (200 { items }). */
@@ -286,7 +287,7 @@ export class IntakeController {
   @UseGuards(JwtAuthGuard)
   async getLines(@Req() req: AuthedRequest, @Param('recipeId') recipeId: string) {
     const lines = await this.intake.listDraftLines(this.userActor(req), recipeId);
-    return { items: lines.map(toWireLine) };
+    return { items: await this.intake.resolveWireLines(lines) };
   }
 
   /** B3 AC-6: the corrected object analysis will read + review status (D-12G). */

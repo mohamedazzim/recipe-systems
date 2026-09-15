@@ -3,7 +3,7 @@ import type { Actor } from '../../common/guards/guest-or-jwt.guard';
 import { RecipeService, UNTITLED_RECIPE } from './recipe.service';
 
 function mockPrisma() {
-  return {
+  const prisma: any = {
     recipe: {
       findUnique: jest.fn(),
       findUniqueOrThrow: jest.fn(),
@@ -18,7 +18,10 @@ function mockPrisma() {
     recipeIngredientLine: { count: jest.fn() },
     cookLog: { count: jest.fn(), findMany: jest.fn(), findFirst: jest.fn() },
     cookLogPhoto: { findMany: jest.fn() },
+    recipeTag: { findMany: jest.fn(), deleteMany: jest.fn(), createMany: jest.fn() },
+    $transaction: jest.fn(async (fn: any) => fn(prisma)),
   };
+  return prisma;
 }
 
 const userActor: Actor = {
@@ -351,6 +354,91 @@ describe('RecipeService — D-22 save + library (D1/D2)', () => {
     const svc = new RecipeService(prisma);
     expect(await svc.listLibrary(guestActor)).toEqual([]);
     expect(prisma.recipe.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('RecipeService — D-25 D3 tags + search', () => {
+  const RECIPE_ID = '11111111-1111-4111-8111-111111111111';
+
+  function mockD3() {
+    const prisma: any = mockPrisma();
+    prisma.recipe.findUnique.mockResolvedValue({
+      id: RECIPE_ID, accountId: 'acc-1', guestSessionId: null,
+    });
+    prisma.recipeTag.findMany.mockResolvedValue([{ tagText: 'sunday' }, { tagText: 'fish' }]);
+    return prisma;
+  }
+
+  it('setTags trims, de-duplicates, replaces, and returns the normalized set (D3 AC-1)', async () => {
+    const prisma = mockD3();
+    const svc = new RecipeService(prisma);
+    const tags = await svc.setTags(userActor, RECIPE_ID, [' fish ', 'fish', 'sunday']);
+    expect(tags).toEqual(['fish', 'sunday']);
+    expect(prisma.recipeTag.deleteMany).toHaveBeenCalledWith({ where: { recipeId: RECIPE_ID } });
+    expect(prisma.recipeTag.createMany).toHaveBeenCalledWith({
+      data: [
+        { recipeId: RECIPE_ID, tagText: 'fish' },
+        { recipeId: RECIPE_ID, tagText: 'sunday' },
+      ],
+      skipDuplicates: true,
+    });
+  });
+
+  it('setTags rejects an over-length tag (VARCHAR(100))', async () => {
+    const prisma = mockD3();
+    const svc = new RecipeService(prisma);
+    await expect(svc.setTags(userActor, RECIPE_ID, ['x'.repeat(101)])).rejects.toMatchObject({
+      response: { code: 'INVALID_TAG' },
+    });
+    expect(prisma.recipeTag.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it('listTags returns the sorted persisted set', async () => {
+    const prisma = mockD3();
+    const svc = new RecipeService(prisma);
+    expect(await svc.listTags(userActor, RECIPE_ID)).toEqual(['sunday', 'fish']);
+    expect(prisma.recipeTag.findMany).toHaveBeenCalledWith({
+      where: { recipeId: RECIPE_ID },
+      orderBy: { tagText: 'asc' },
+      select: { tagText: true },
+    });
+  });
+
+  it('search filters by name, ingredient, and tag (D3 AC-2 — three axes)', async () => {
+    const prisma = mockD3();
+    prisma.recipe.findMany.mockResolvedValue([]);
+    const svc = new RecipeService(prisma);
+    await svc.search(userActor, 'fish');
+    expect(prisma.recipe.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          accountId: 'acc-1',
+          deletedAt: null,
+          OR: [
+            { title: { contains: 'fish', mode: 'insensitive' } },
+            {
+              lines: {
+                some: { displayName: { contains: 'fish', mode: 'insensitive' }, deletedAt: null },
+              },
+            },
+            { tags: { some: { tagText: { contains: 'fish', mode: 'insensitive' } } } },
+          ],
+        },
+      }),
+    );
+  });
+
+  it('search with an empty query falls back to the full library', async () => {
+    const prisma = mockD3();
+    prisma.recipe.findMany.mockResolvedValue([]);
+    prisma.cookLog.findFirst.mockResolvedValue(null);
+    const svc = new RecipeService(prisma);
+    const rows = await svc.search(userActor, '   ');
+    expect(rows).toEqual([]);
+    // the full-library branch re-queries with the library where clause (no OR)
+    expect(prisma.recipe.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { accountId: 'acc-1', deletedAt: null } }),
+    );
   });
 });
 

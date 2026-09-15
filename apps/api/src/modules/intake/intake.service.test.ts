@@ -1,7 +1,13 @@
 import { ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { Prisma } from '@recipe-systems/database';
 import type { Actor } from '../../common/guards/guest-or-jwt.guard';
-import { IntakeService, splitRawLines, toWireLine } from './intake.service';
+import {
+  buildResolutionMap,
+  IntakeService,
+  splitRawLines,
+  toWireLine,
+  toWireLineResolved,
+} from './intake.service';
 import type { RecipeService } from '../recipes/recipe.service';
 
 const userActor: Actor = {
@@ -38,6 +44,8 @@ function mockPrisma(recipeService?: Partial<RecipeService>) {
       update: jest.fn(),
       aggregate: jest.fn(),
     },
+    ingredientAlias: { findMany: jest.fn().mockResolvedValue([]) },
+    ingredientDictionary: { findMany: jest.fn().mockResolvedValue([]) },
     $transaction: jest.fn(async (fnOrArray: any) => {
       if (Array.isArray(fnOrArray)) return Promise.all(fnOrArray);
       return fnOrArray(prisma);
@@ -257,6 +265,7 @@ describe('toWireLine (API §3 wire shape + D-12B)', () => {
       id: 'l1',
       display_name: 'Fish — 500g',
       canonical_name: null, // dictionary lands at D-29
+      requires_confirmation: false,
       amount: '500g',
       unit: 'g',
       quantity: 500,
@@ -301,6 +310,84 @@ describe('toWireLine (API §3 wire shape + D-12B)', () => {
         updatedAt: new Date('2026-09-09T10:00:00.000Z'),
       } as any).needs_review,
     ).toBe(true);
+  });
+});
+
+describe('IntakeService — D-25 B6 alias resolution (read-only dictionary/alias)', () => {
+  const aliases = [
+    { aliasText: 'methi', requiresConfirmation: false, ingredient: { canonicalName: 'fenugreek_seed' } },
+    { aliasText: 'uluva', requiresConfirmation: false, ingredient: { canonicalName: 'fenugreek_seed' } },
+    { aliasText: 'vendhayam', requiresConfirmation: false, ingredient: { canonicalName: 'fenugreek_seed' } },
+    { aliasText: 'fenugreek', requiresConfirmation: false, ingredient: { canonicalName: 'fenugreek_seed' } },
+    { aliasText: 'moringa', requiresConfirmation: false, ingredient: { canonicalName: 'drumstick' } },
+    { aliasText: 'murungakkai', requiresConfirmation: false, ingredient: { canonicalName: 'drumstick' } },
+    { aliasText: 'drumstick', requiresConfirmation: true, ingredient: { canonicalName: 'drumstick' } },
+    { aliasText: 'puli', requiresConfirmation: false, ingredient: { canonicalName: 'tamarind' } },
+    { aliasText: 'chinna vengayam', requiresConfirmation: false, ingredient: { canonicalName: 'shallots' } },
+    { aliasText: 'cheriya ulli', requiresConfirmation: false, ingredient: { canonicalName: 'shallots' } },
+    { aliasText: 'karuveppilai', requiresConfirmation: false, ingredient: { canonicalName: 'curry_leaves' } },
+  ];
+  const canonicals = [
+    { canonicalName: 'fish' },
+    { canonicalName: 'drumstick' },
+    { canonicalName: 'tamarind' },
+    { canonicalName: 'fenugreek_seed' },
+    { canonicalName: 'fenugreek_powder' },
+    { canonicalName: 'shallots' },
+    { canonicalName: 'curry_leaves' },
+  ];
+  const map = buildResolutionMap(aliases, canonicals);
+
+  function line(displayName: string) {
+    return {
+      id: 'x',
+      displayName,
+      amountText: null,
+      amount: null,
+      unit: null,
+      groupName: null,
+      confirmedSense: null,
+      includeOnList: true,
+      needsReview: false,
+      updatedAt: new Date('2026-09-09T10:00:00.000Z'),
+    } as any;
+  }
+
+  it('resolves the five B6 groups to their canonical (TC-01)', () => {
+    const cases: Array<[string, string]> = [
+      ['murungakkai — 2 nos', 'drumstick'],
+      ['moringa — 2 pods', 'drumstick'],
+      ['chinna vengayam — 8 nos', 'shallots'],
+      ['cheriya ulli — 8 nos', 'shallots'],
+      ['shallots — 8 nos', 'shallots'],
+      ['uluva — 1/4 tsp', 'fenugreek_seed'],
+      ['vendhayam — 1/4 tsp', 'fenugreek_seed'],
+      ['fenugreek — 1/4 tsp', 'fenugreek_seed'],
+      ['fenugreek powder — 1/2 tsp', 'fenugreek_powder'],
+      ['puli — a lemon size', 'tamarind'],
+      ['tamarind — a lemon size', 'tamarind'],
+      ['karuveppilai — a sprig', 'curry_leaves'],
+      ['curry leaves — a sprig', 'curry_leaves'],
+      ['fish — 500g', 'fish'],
+    ];
+    for (const [displayName, expected] of cases) {
+      expect(toWireLineResolved(line(displayName), map).canonical_name).toBe(expected);
+    }
+  });
+
+  it('ambiguous "drumstick" asks for confirmation; moringa/murungakkai do not (TC-02)', () => {
+    const ambiguous = toWireLineResolved(line('drumstick — 1 nos'), map);
+    expect(ambiguous.canonical_name).toBe('drumstick');
+    expect(ambiguous.requires_confirmation).toBe(true);
+
+    expect(toWireLineResolved(line('murungakkai — 1 nos'), map).requires_confirmation).toBe(false);
+    expect(toWireLineResolved(line('moringa — 1 nos'), map).requires_confirmation).toBe(false);
+  });
+
+  it('leaves canonical_name null for an unresolvable line', () => {
+    const wire = toWireLineResolved(line('unknown spice — to taste'), map);
+    expect(wire.canonical_name).toBeNull();
+    expect(wire.requires_confirmation).toBe(false);
   });
 });
 

@@ -33,6 +33,10 @@ export interface WireLine {
   id: string;
   display_name: string;
   canonical_name: string | null;
+  /** D-25 B6: true when the line's ingredient matched an alias with
+   *  `requires_confirmation` (ambiguous — the UI asks before the canonical is
+   *  committed via confirmed_sense). Distinct from needs_review (OCR/D-11). */
+  requires_confirmation: boolean;
   amount: string | null;
   unit: string | null;
   quantity: number | null;
@@ -64,7 +68,8 @@ export function toWireLine(line: RecipeIngredientLine): WireLine {
   return {
     id: line.id,
     display_name: line.displayName,
-    canonical_name: null, // alias resolution lands with the dictionary (Track R / D-29)
+    canonical_name: null, // D-25 B6 fills this via resolveWireLines (dictionary/alias read-only)
+    requires_confirmation: false,
     amount: line.amountText,
     unit: line.unit,
     quantity: line.amount != null ? Number(line.amount) : null,
@@ -75,6 +80,79 @@ export function toWireLine(line: RecipeIngredientLine): WireLine {
     needs_review: line.needsReview,
     updated_at: line.updatedAt.toISOString(),
   };
+}
+
+/** D-25 B6: the resolution outcome for one line. */
+export interface AliasResolution {
+  canonicalName: string;
+  requiresConfirmation: boolean;
+}
+
+/** Match keys are normalized (lowercase); canonical snake_case names also resolve
+ *  through their display form (underscores → spaces: "curry_leaves" → "curry leaves"). */
+function canonicalMatchKeys(canonicalName: string): string[] {
+  const raw = canonicalName.toLowerCase();
+  const display = canonicalName.replace(/_/g, ' ').toLowerCase();
+  return display === raw ? [raw] : [raw, display];
+}
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * D-25 B6: build the alias/canonical resolution map (read-only). Alias entries
+ * win over canonical entries for the same key so that a `requires_confirmation`
+ * alias ("drumstick" → drumstick) is authoritative over the identical canonical.
+ */
+export function buildResolutionMap(
+  aliases: Array<{ aliasText: string; requiresConfirmation: boolean; ingredient: { canonicalName: string } }>,
+  canonicals: Array<{ canonicalName: string }>,
+): Map<string, AliasResolution> {
+  const map = new Map<string, AliasResolution>();
+  for (const c of canonicals) {
+    for (const key of canonicalMatchKeys(c.canonicalName)) {
+      if (!map.has(key)) {
+        map.set(key, { canonicalName: c.canonicalName, requiresConfirmation: false });
+      }
+    }
+  }
+  for (const a of aliases) {
+    map.set(a.aliasText.toLowerCase(), {
+      canonicalName: a.ingredient.canonicalName,
+      requiresConfirmation: a.requiresConfirmation,
+    });
+  }
+  return map;
+}
+
+/** Longest-match-first, whole-word lookup of the display name in the map. */
+function resolveDisplayName(displayName: string, map: Map<string, AliasResolution>): AliasResolution | null {
+  const norm = displayName.toLowerCase();
+  let best: AliasResolution | null = null;
+  let bestLen = -1;
+  for (const [key, res] of map) {
+    if (key.length <= bestLen) continue;
+    if (new RegExp(`\\b${escapeRegex(key)}\\b`).test(norm)) {
+      best = res;
+      bestLen = key.length;
+    }
+  }
+  return best;
+}
+
+/** D-25 B6: annotate a wire line with the resolved canonical + confirmation flag. */
+export function toWireLineResolved(
+  line: RecipeIngredientLine,
+  map: Map<string, AliasResolution>,
+): WireLine {
+  const wire = toWireLine(line);
+  const resolution = resolveDisplayName(line.displayName, map);
+  if (resolution) {
+    wire.canonical_name = resolution.canonicalName;
+    wire.requires_confirmation = resolution.requiresConfirmation;
+  }
+  return wire;
 }
 
 /** D-12 line patch fields (wire names already mapped by the controller). */
@@ -177,6 +255,29 @@ export class IntakeService {
       where: { recipeId, deletedAt: null },
       orderBy: { lineNo: 'asc' },
     });
+  }
+
+  /** D-25 B6: load the alias/canonical resolution map (read-only — dictionary and
+   *  alias writes stay with the D-29 admin module, Q5 working assumption). */
+  private async loadResolutionMap(): Promise<Map<string, AliasResolution>> {
+    const [aliases, canonicals] = await Promise.all([
+      this.prisma.ingredientAlias.findMany({
+        select: {
+          aliasText: true,
+          requiresConfirmation: true,
+          ingredient: { select: { canonicalName: true } },
+        },
+      }),
+      this.prisma.ingredientDictionary.findMany({ select: { canonicalName: true } }),
+    ]);
+    return buildResolutionMap(aliases, canonicals);
+  }
+
+  /** D-25 B6: annotate draft lines with the resolved canonical + confirmation flag
+   *  (the parse-review wire; the analysis capture stays verbatim — Q5/Track R). */
+  async resolveWireLines(lines: RecipeIngredientLine[]): Promise<WireLine[]> {
+    const map = await this.loadResolutionMap();
+    return lines.map((line) => toWireLineResolved(line, map));
   }
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -405,7 +506,7 @@ export class IntakeService {
     const lines = await this.listDraftLines(actor, recipeId);
     const status = lines.some((l) => l.needsReview) ? 'draft' : 'confirmed';
     const enqueue = await this.getEnqueueState(actor, recipeId);
-    return { status, lines: lines.map(toWireLine), enqueue };
+    return { status, lines: await this.resolveWireLines(lines), enqueue };
   }
 
   /** Shift active line_nos strictly after `afterLineNo` by `delta` (+1/-1) against the

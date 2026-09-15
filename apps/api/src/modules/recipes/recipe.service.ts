@@ -7,7 +7,14 @@
 // owner (chk_recipe_owner_xor); `assertOwned` answers 404 for both missing and foreign
 // recipes so recipe existence never leaks across accounts/guest sessions (INV-17).
 
-import { Inject, Injectable, Logger, NotFoundException, Optional } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
 import { Prisma, PrismaClient, Recipe } from '@recipe-systems/database';
 import { View5PayloadSchema } from '@recipe-systems/schemas';
 import type { Actor } from '../../common/guards/guest-or-jwt.guard';
@@ -64,6 +71,11 @@ export interface LibraryRecipeRow {
   has_cook_log: boolean;
   last_cooked_at: string | null;
 }
+
+/** D-25 (D3): the recipe_tag write + search surface. The recipes module is the
+ *  SOLE `recipe_tag` writer (QG2 gate 2g) — free-text tags, one per recipe. */
+export const MAX_RECIPE_TAGS = 20;
+export const MAX_TAG_LENGTH = 100; // recipe_tag.tag_text is VARCHAR(100)
 
 /**
  * D-13D/G (HANDOFF §5): the persisted contract is `method_text` + `method_source_tag`
@@ -344,6 +356,14 @@ export class RecipeService {
       orderBy: { updatedAt: 'desc' },
       select: { id: true, title: true, createdAt: true },
     });
+    return this.toLibraryRows(recipes);
+  }
+
+  /** Shared enrichment for library + search: family, cook-log indicator, and the
+   *  D-24 last_cooked_at stamp. Read-only. */
+  private async toLibraryRows(
+    recipes: Array<{ id: string; title: string; createdAt: Date }>,
+  ): Promise<LibraryRecipeRow[]> {
     return Promise.all(
       recipes.map(async (recipe) => {
         const lastLog = await this.prisma.cookLog.findFirst({
@@ -361,5 +381,79 @@ export class RecipeService {
         };
       }),
     );
+  }
+
+  /**
+   * D-25 (D3): search the account library across the three axes — name (title),
+   * ingredients (active line display names), and tags (recipe_tag). Account-only
+   * (INV-17); an empty query returns the whole library. Same canonical row shape
+   * as the library so the UI reuses one list.
+   */
+  async search(actor: Actor, query: string): Promise<LibraryRecipeRow[]> {
+    if (actor.kind !== 'user') return [];
+    const q = query.trim();
+    if (q.length === 0) return this.listLibrary(actor);
+    const recipes = await this.prisma.recipe.findMany({
+      where: {
+        accountId: actor.user.accountId,
+        deletedAt: null,
+        OR: [
+          { title: { contains: q, mode: 'insensitive' } },
+          {
+            lines: {
+              some: { displayName: { contains: q, mode: 'insensitive' }, deletedAt: null },
+            },
+          },
+          { tags: { some: { tagText: { contains: q, mode: 'insensitive' } } } },
+        ],
+      },
+      orderBy: { updatedAt: 'desc' },
+      select: { id: true, title: true, createdAt: true },
+    });
+    return this.toLibraryRows(recipes);
+  }
+
+  /**
+   * D-25 (D3): replace the recipe's tag set (free-text). The recipes module is
+   * the SOLE recipe_tag writer (QG2 gate 2g). Tags are trimmed, de-duplicated,
+   * length-capped (VARCHAR(100)) and count-capped (MAX_RECIPE_TAGS). Wholesale
+   * replace — the tag set is the editable surface, never a log.
+   */
+  async setTags(actor: Actor, recipeId: string, tags: string[]): Promise<string[]> {
+    await this.assertOwned(actor, recipeId);
+    const normalized = [...new Set(tags.map((t) => t.trim()).filter((t) => t.length > 0))];
+    if (normalized.some((t) => t.length > MAX_TAG_LENGTH)) {
+      throw new BadRequestException({
+        code: 'INVALID_TAG',
+        message: `tags must be at most ${MAX_TAG_LENGTH} characters`,
+      });
+    }
+    if (normalized.length > MAX_RECIPE_TAGS) {
+      throw new BadRequestException({
+        code: 'INVALID_TAG',
+        message: `at most ${MAX_RECIPE_TAGS} tags per recipe`,
+      });
+    }
+    await this.prisma.$transaction(async (tx) => {
+      await tx.recipeTag.deleteMany({ where: { recipeId } });
+      if (normalized.length > 0) {
+        await tx.recipeTag.createMany({
+          data: normalized.map((tagText) => ({ recipeId, tagText })),
+          skipDuplicates: true,
+        });
+      }
+    });
+    return normalized;
+  }
+
+  /** D-25 (D3): the persisted tag set, sorted (read-only). */
+  async listTags(actor: Actor, recipeId: string): Promise<string[]> {
+    await this.assertOwned(actor, recipeId);
+    const tags = await this.prisma.recipeTag.findMany({
+      where: { recipeId },
+      orderBy: { tagText: 'asc' },
+      select: { tagText: true },
+    });
+    return tags.map((t) => t.tagText);
   }
 }

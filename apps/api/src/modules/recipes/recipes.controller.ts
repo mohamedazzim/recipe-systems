@@ -30,6 +30,7 @@ import {
   Param,
   Patch,
   Put,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -59,6 +60,11 @@ const saveSchema = z
 // the canonical anti-foot-gun contract (API doc §5: `{ "confirm": true }`).
 const deleteSchema = z.object({ confirm: z.literal(true) }).strict();
 
+// D-25 (D3): free-text tags — wholesale replace; each tag ≤100 chars, ≤20 tags.
+const tagsSchema = z
+  .object({ tags: z.array(z.string().min(1).max(100)).max(20) })
+  .strict();
+
 @Controller('recipes')
 export class RecipesController {
   constructor(private readonly recipes: RecipeService) {}
@@ -71,10 +77,41 @@ export class RecipesController {
    */
   @Get()
   @UseGuards(JwtAuthGuard)
-  async library(@Req() req: AuthedRequest) {
+  async library(@Req() req: AuthedRequest, @Query('q') q?: string) {
     const actor: Actor = { kind: 'user', user: req.user! };
-    const recipes = await this.recipes.listLibrary(actor);
+    const recipes =
+      q !== undefined && q.trim().length > 0
+        ? await this.recipes.search(actor, q)
+        : await this.recipes.listLibrary(actor);
     return { recipes };
+  }
+
+  /** D-25 (D3): the recipe's persisted free-text tags (read-only). */
+  @Get(':recipeId/tags')
+  @UseGuards(JwtAuthGuard)
+  async tags(@Req() req: AuthedRequest, @Param('recipeId') recipeId: string) {
+    const actor: Actor = { kind: 'user', user: req.user! };
+    return { tags: await this.recipes.listTags(actor, recipeId) };
+  }
+
+  /** D-25 (D3): replace the recipe's tag set. The recipes module is the sole
+   *  recipe_tag writer (QG2 gate 2g). */
+  @Put(':recipeId/tags')
+  @UseGuards(JwtAuthGuard, CsrfGuard)
+  async setTags(
+    @Req() req: AuthedRequest,
+    @Param('recipeId') recipeId: string,
+    @Body() body: unknown,
+  ) {
+    const parsed = tagsSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException({
+        code: 'INVALID_TAGS',
+        message: 'tags must be an array of at most 20 strings, each at most 100 characters',
+      });
+    }
+    const actor: Actor = { kind: 'user', user: req.user! };
+    return { tags: await this.recipes.setTags(actor, recipeId, parsed.data.tags) };
   }
 
   /**

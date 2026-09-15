@@ -2610,7 +2610,106 @@ execution output; Git: not available / not authorized throughout.
 
 ### H-25 — D-25 Aliases, tags, edit + re-analyse
 
-☐ No entry yet.
+- Date / agent session: 2026-09-15 · DeepSeek V4 Pro (VS Code) — **D-25 PREFLIGHT ONLY**
+  (no implementation; no product code/tests/migrations/schema/config/UI touched).
+- Base SHA / state: `f16d8b0` (A-26 docs) = `origin/main`; CI green; tree clean.
+- Gate: **GO — with conditions** (see findings). No STOP-level contradiction found.
+
+- **Scope (DISPATCH D-25 / P7-1):** B6 (vernacular aliases), C6 (re-analyse explicit
+  only), C7 (substitution preview — §13 CONDITIONAL), D3 (free-text tags + search),
+  D4 (edit saved recipe → parse review), D5 (analysis snapshot chain).
+- **Dependencies:** D-24 ✅ (cook loop — C6 must preserve notes/logs), D-29 ✅
+  (Track R admin writer — B6 reads dictionary/alias under the Q5 working
+  assumption). D-27 is blocked until D-25 completes (DISPATCH table).
+- **Tables (already migrated, migration 002 — no new DDL expected):**
+  `ingredient_dictionary`, `ingredient_alias` (`requires_confirmation`),
+  `recipe_tag` (composite PK recipe_id+tag_text), `analysis.snapshot_of_analysis_id`
+  + `analysis.is_current` (partial unique `uq_analysis_current`).
+- **Existing implementations to build on:** Intake `WireLine.canonical_name` is the
+  B6 seam (currently hardcoded `null`, comment "alias resolution lands with the
+  dictionary (Track R / D-29)"); D-12 parse-review routes + `IngredientReview.tsx`
+  are the D4 surface; `POST /analysis` enqueue (D-14 readiness + D-13 METHOD_REQUIRED
+  gates) is the C6 explicit re-run path; the worker ALREADY flips `is_current`
+  order-safely (INV-09) — D5 only adds `snapshotOfAnalysisId` capture; D-29 admin
+  module is the dictionary/alias writer (gate armed).
+- **Open decisions / gates:** Q5 stays OPEN (D-25 does NOT resolve — B6 reads only);
+  Q1/Q10/Q11 untouched; C7 is §13-conditional (stability evidence not yet recorded →
+  defer or record first).
+
+- **Preflight findings (recorded, NOT resolved here):**
+  - **F-1 (PREREQUISITE — reference-data gap, not a code defect):** the committed
+    dictionary import `R-2026-09-09-002` covers only 2 of B6's 5 alias groups in
+    full. Missing: shallots group entirely (no `shallots` canonical, no
+    chinna-vengayam/cheriya-ulli aliases), curry-leaves group entirely, and the
+    aliases `moringa` (drumstick), `uluva`/`vendhayam` (fenugreek); `drumstick` has
+    no `requires_confirmation` row. B6's done criterion "all five groups resolve"
+    is unsatisfiable with current data — D-25 must first ship a NEW reviewed import
+    (dictionary + aliases + approval record) via the D-29 admin path.
+  - **F-2 (DESIGN AMBIGUITY):** D5 TC-02 says "logs point at the analysis they were
+    made against", but ERD §6 models no `cook_log.analysis_id` FK — the ERD supports
+    D5 via `analysis.snapshot_of_analysis_id` only (traceability row: D5 → ✅). Must
+    resolve explicitly at implementation: (a) logs stay on `recipe_id` and the
+    snapshot chain makes last+current reachable (matches "last + current is enough
+    for the pilot"), or (b) add a `cook_log.analysis_id` column (ERD amendment — not
+    a silent invention). Recommend (a).
+  - **F-3 (GATE):** `recipe_tag` has NO writer today and NO one-writer gate. D-25
+    must designate a single writer module and arm a new QG2 gate (mirror 2e/2f).
+  - **F-4 (§13):** C7 is a Could-have gated on weeks-9–10 Must stability; that
+    evidence is not yet recorded in HANDOFF. Ship B6/C6/D3/D4/D5 unconditionally;
+    defer C7 (or record the stability evidence first).
+
+- **A-25 audit vectors (re-execution targets):** alias resolution BLOCKER (five
+  groups + drumstick confirmation); Q5 one-writer (no dictionary/alias writes
+  outside admin); snapshot-chain BLOCKER (re-analyse → previous linked snapshot,
+  logs → original analysis, notes untouched); explicit re-run only (edit never
+  auto-enqueues); C7 preview states shift class + invents nothing (INV-10).
+- **Exact implementation resume point:** dispatcher GO on D-25 → (1) dispatch the
+  B6 reference-data import prerequisite (or fold into D-25 session 1); (2) resolve
+  F-2/F-3 at implementation start; (3) session 1 = aliases (B6) + tags/search (D3);
+  session 2 = edit/re-analyse/snapshots (D4/D5/C6) + optional C7 (only with §13
+  evidence). CHECKPOINT after session 1 (commit + HANDOFF per DISPATCH).
+
+### Session 1 — shipped (2026-09-15)
+
+- **Status:** SESSION 1 COMPLETE — B6 aliases + D3 tags/search + recipe_tag gate.
+  Session 2 (C6/D4/D5 + optional C7) NOT started.
+- **B6 reference-data prerequisite (F-1 closed):** NEW reviewed import
+  `infra/reference-data/imports/R-2026-09-15-005-b6-aliases.json` +
+  approval `approvals/R-2026-09-15-005.json` (reviewer
+  "Mohamed Azzim (D-25 dispatch authorization 2026-09-15)"; sha over the
+  zod-parsed object). Adds canonicals `shallots` + `curry_leaves` and aliases
+  moringa, drumstick (`requires_confirmation: true` — TC-02), fenugreek, uluva,
+  vendhayam, chinna vengayam, cheriya ulli, karuveppilai. No app code hardcodes
+  aliases — they ride the reviewed D-29 path (Q5 working assumption).
+- **B6 alias resolution:** `IntakeService.resolveWireLines` + pure
+  `buildResolutionMap`/`toWireLineResolved` — read-only over dictionary/alias
+  (writes stay admin-only). Wire gained `requires_confirmation`; `canonical_name`
+  now resolves via longest whole-word match (canonical display form = underscores
+  → spaces, so "curry leaves" → `curry_leaves`; the two fenugreeks stay DISTINCT:
+  "fenugreek" → `fenugreek_seed`, "fenugreek powder" → `fenugreek_powder`).
+  Analysis capture (`buildCapture`) unchanged — still verbatim (`canonical_name`
+  null there is the Q5/Track-R seam). D-24/D-26 behavior preserved.
+- **D3 tags + search:** recipes module is the SOLE `recipe_tag` writer
+  (`setTags`/`listTags` — wholesale replace, trimmed + de-duped, ≤100 chars,
+  ≤20 tags) + `search` (name/ingredient/tag axes, insensitive contains, account
+  scoped). Routes: `PUT/GET /recipes/:recipeId/tags`, `GET /recipes?q=` (library
+  search).
+- **QG2 gate (F-3 closed):** gate 2g "recipe_tag written only by the API recipes
+  module" armed in `scripts/regression-gates.sh` + scratch-tree fire proof in
+  `qg2_gates.test.ts` (20/20).
+- **Verification:** API 296/296 (26 suites) · integration 135/135 (20 suites;
+  `story_d25_session1` 3/3 on real Postgres: five groups + drumstick confirmation
+  + tags persist + three-axis search + cross-account isolation) · qg2_gates 20/20
+  · typecheck 0 · lint 0 · regression gates PASS · contract-check OK ·
+  verify-local ALL STEPS PASSED.
+- **D5 decision (F-2) recorded for session 2:** reuse `analysis.snapshot_of_analysis_id`
+  chain — new analysis points at the previous; NO `cook_log.analysis_id` column.
+  **C7 (F-4):** DEFERRED — §13 stability evidence not present; ship only if it is
+  recorded first.
+- **Resume point (session 2):** C6 explicit re-analyse · D4 saved-recipe edit →
+  parse review · D5 snapshot chain (worker: capture previous current `analysis.id`
+  into `snapshotOfAnalysisId` before the is_current flip) · historical cook-log
+  preservation. C7 only with §13 evidence.
 
 ### H-26 — D-26 Profiles, swaps, next-time, I3/I4
 

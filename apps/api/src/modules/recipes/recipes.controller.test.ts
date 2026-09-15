@@ -137,6 +137,74 @@ describe('RecipesController — D-22 save + library (D1/D2)', () => {
   });
 });
 
+describe('RecipesController — D-25 D3 tags + search', () => {
+  const recipes = {
+    search: jest.fn(),
+    listTags: jest.fn(),
+    setTags: jest.fn(),
+    listLibrary: jest.fn(),
+  };
+  const controller = new RecipesController(recipes as unknown as RecipeService);
+  const userReq = { user: { accountId: 'acc-1', email: 'c@t.dev', sub: 's' } } as never;
+
+  beforeEach(() => {
+    recipes.search.mockClear();
+    recipes.listTags.mockClear();
+    recipes.setTags.mockClear();
+    recipes.listLibrary.mockClear();
+  });
+
+  it('GET library with ?q= delegates to search (D3 AC-2)', async () => {
+    recipes.search.mockResolvedValue([{ recipe_id: 'r1' }]);
+    const result = await controller.library(userReq, 'fish');
+    expect(recipes.search).toHaveBeenCalledWith(
+      { kind: 'user', user: { accountId: 'acc-1', email: 'c@t.dev', sub: 's' } },
+      'fish',
+    );
+    expect(result.recipes).toEqual([{ recipe_id: 'r1' }]);
+    expect(recipes.listLibrary).not.toHaveBeenCalled();
+  });
+
+  it('GET library without q keeps the canonical library path', async () => {
+    recipes.listLibrary.mockResolvedValue([{ recipe_id: 'r1' }]);
+    const result = await controller.library(userReq);
+    expect(recipes.listLibrary).toHaveBeenCalled();
+    expect(recipes.search).not.toHaveBeenCalled();
+    expect(result.recipes).toEqual([{ recipe_id: 'r1' }]);
+  });
+
+  it('GET tags returns the persisted set', async () => {
+    recipes.listTags.mockResolvedValue(['fish', 'sunday']);
+    const result = await controller.tags(userReq, 'r1');
+    expect(recipes.listTags).toHaveBeenCalledWith(
+      { kind: 'user', user: { accountId: 'acc-1', email: 'c@t.dev', sub: 's' } },
+      'r1',
+    );
+    expect(result).toEqual({ tags: ['fish', 'sunday'] });
+  });
+
+  it('PUT tags replaces the set (D3 AC-1)', async () => {
+    recipes.setTags.mockResolvedValue(['fish']);
+    const result = await controller.setTags(userReq, 'r1', { tags: [' fish '] });
+    expect(recipes.setTags).toHaveBeenCalledWith(
+      { kind: 'user', user: { accountId: 'acc-1', email: 'c@t.dev', sub: 's' } },
+      'r1',
+      [' fish '],
+    );
+    expect(result).toEqual({ tags: ['fish'] });
+  });
+
+  it('PUT tags rejects malformed bodies (strict schema)', async () => {
+    await expect(controller.setTags(userReq, 'r1', { tags: 'nope' })).rejects.toMatchObject({
+      response: { code: 'INVALID_TAGS' },
+    });
+    await expect(controller.setTags(userReq, 'r1', { tags: ['x'.repeat(101)] })).rejects.toMatchObject({
+      response: { code: 'INVALID_TAGS' },
+    });
+    expect(recipes.setTags).not.toHaveBeenCalled();
+  });
+});
+
 describe('RecipesController — D-22 D6 delete (RS-US-24)', () => {
   const recipes = { deleteRecipe: jest.fn() };
   const controller = new RecipesController(recipes as unknown as RecipeService);

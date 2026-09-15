@@ -1,0 +1,25 @@
+{
+  "import_id": "R-2026-09-15-005",
+  "title": "B6 vernacular alias groups — shallots + curry-leaves canonicals; moringa / fenugreek / uluva / vendhayam / chinna vengayam / cheriya ulli / karuveppilai aliases; drumstick confirmation row (Q5 WORKING ASSUMPTION: admin module writes dictionary/alias pending Q5)",
+  "sources": [
+    "Recipe_Systems.md §12 B6 (five vernacular groups: drumstick/murungakkai/moringa; shallots/chinna vengayam/cheriya ulli; fenugreek/methi/uluva/vendhayam; tamarind/puli; curry leaves/karuveppilai)",
+    "Recipe_Systems_ERD_FINAL.md §5 ingredient_dictionary / ingredient_alias (requires_confirmation)",
+    "Golden Kanyakumari card — the two fenugreeks stay DISTINCT: unqualified 'fenugreek' resolves to the whole seed (tadka), 'fenugreek powder' to the powder canonical"
+  ],
+  "sections": {
+    "dictionary": [
+      { "canonical_name": "shallots", "description": "Shallots (small red onion)" },
+      { "canonical_name": "curry_leaves", "description": "Curry leaves (karuveppilai)" }
+    ],
+    "aliases": [
+      { "ingredient_canonical_name": "drumstick", "alias_text": "moringa", "language": "en" },
+      { "ingredient_canonical_name": "drumstick", "alias_text": "drumstick", "language": "en", "requires_confirmation": true },
+      { "ingredient_canonical_name": "fenugreek_seed", "alias_text": "fenugreek", "language": "en" },
+      { "ingredient_canonical_name": "fenugreek_seed", "alias_text": "uluva", "language": "ml" },
+      { "ingredient_canonical_name": "fenugreek_seed", "alias_text": "vendhayam", "language": "ta" },
+      { "ingredient_canonical_name": "shallots", "alias_text": "chinna vengayam", "language": "ta" },
+      { "ingredient_canonical_name": "shallots", "alias_text": "cheriya ulli", "language": "ml" },
+      { "ingredient_canonical_name": "curry_leaves", "alias_text": "karuveppilai", "language": "ta" }
+    ]
+  }
+}

@@ -2565,11 +2565,12 @@ execution output; Git: not available / not authorized throughout.
   success** on `efb480e` (D-24 implementation) and run **34930324926 =
   success** on `de47634` (docs SHA fill) — full cumulative suite + gates +
   migrate + MinIO + integration + build on Ubuntu, green on both.
-- Resume point: H-24 done criteria met (acceptance-scene cook step + multiple
-  logs + library last-cooked + privacy). Next per dispatcher: A-24 audit
-  (AUDIT.md) — the audit should re-execute the story_d24 suite and the live
-  cook journey, and confirm the cook one-writer gate fires on a planted
-  violation.
+- Resume point: **A-24 = PASS-WITH-FINDINGS (2026-09-15, no defects)** — the audit
+  re-executed story_d24 7/7, the cook one-writer fire proof, the live cook journey
+  (three distinct DB rows, DOM-proven recall above the analysis), INV-17/malformed-id
+  404s, historical-row byte-identity, and reopen recall — all passed; two MINOR
+  findings recorded (QG4 upload cell deferred with F5/D-31; builder-session audit).
+  Verdict block in AUDIT_LOG.md. Next per dispatcher: D-25 or D-26 dispatch.
 
 ### H-25 — D-25 Aliases, tags, edit + re-analyse
 

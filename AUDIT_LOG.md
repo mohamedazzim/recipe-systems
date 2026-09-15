@@ -160,3 +160,65 @@ envelope canonical, no "safe" in print output.
 - The canonical independence constraint (fresh independent agent) could not be honored
   in-session; the audit ran with read-only intent — findings only, no fixes during
   re-execution.
+
+
+## A-24 — Audit: Cook loop (D-24)
+
+- **Date / audit agent:** 2026-09-15 · DeepSeek V4 Pro (builder session, read-only
+  audit intent — independence caveat recorded as F-2 below).
+- **Audited commits:** `efb480e` (D-24 feature) + `de47634`/`7043e03` (docs: SHA fill +
+  CI evidence). Base `6cb5dfb`. Tree clean at audit time.
+- **Scope:** DISPATCH D-24 (P6-1) done criteria; F1/F2/F6; AUDIT.md A-24 attack vectors.
+
+### Verdict: PASS-WITH-FINDINGS
+
+No BLOCKER or MAJOR. Every done criterion and attack vector re-executed 2026-09-15:
+
+- **Acceptance-scene re-run (live, internal browser):** opened the saved golden recipe
+  → logged a cook (date defaulted today, editable form) → rated 4 with the canonical
+  note (history row) → reload → library row `Cooked 9/15/2026` → reopen → recall strip
+  `Last cooked 9/15/2026 · Rating N/5` + note at the TOP, DOM-proven above the
+  Analysis result (section order: Cook log → Save → Delete → Review ingredients →
+  Method → Shopping list → Analysis). Garlic still absent; print list button present;
+  "Analysis complete." unchanged (no re-analysis fired).
+- **F1 semantics:** three DISTINCT cook_log rows proven in Postgres (different UUIDs,
+  ratings 3/5/4, notes intact, newest first) — no upsert-over-log.
+- **F2:** rating 1 and 5 accepted, 0/6/1.5 rejected at the boundary (400
+  INVALID_COOK_LOG) AND at the DB CHECK (direct rating-6 insert throws); note persists
+  across reopen; PATCH partial + explicit-null clear verified.
+- **Privacy / INV-17:** cross-account POST/GET/PATCH → canonical 404s; malformed and
+  missing log/recipe ids → canonical 404s (RECIPE_NOT_FOUND / COOK_LOG_NOT_FOUND);
+  guest own-session works, foreign guest refused.
+- **Historical data:** story_d24 proves analysis/shopping/ingredient rows are
+  byte-identical after logging + PATCH (JSON round-trip equality).
+- **Reopen recall:** reload → reopen shows the NEWEST log's date/rating/note every time.
+- **Suites:** `story_d24_cook_log` 7/7 on real Postgres (re-run this session) ·
+  `qg2_gates` 18/18 incl. the cook one-writer fire proof and the real-tree pass ·
+  API 258/258 with coverage 75.59% lines ≥ QG1 75% floor (cook.service.ts 100%) ·
+  CI runs 34930312273 + 34930324926 both success (full cumulative suite + gates).
+- **Conformance spot-checks:** one-writer — application writes to `cook_log` exist ONLY
+  in `apps/api/src/modules/cook` (gate 2e armed; `tests/integration` fixtures/cleanup
+  are outside the gate's application scan scope, same pattern as D-22/D-30); no new
+  DDL (no migrations in the diff); `next_time_instruction` has NO write path in D-24
+  (reads/surface only — F4 honestly deferred); wire is snake_case per API doc §8.
+- **Drift:** 22 files, all in D-24 scope. `docs/` edits (HANDOFF H-24, CHANGE_LOG,
+  API doc §8 annotation) were dispatch-ordered ("Update: HANDOFF H-24, CHANGE_LOG,
+  relevant audit evidence"; the API doc §8 endpoints are specified BY D-24).
+- **OPEN DECISION hygiene:** no silent register change; Q1/Q5/Q9/Q10/Q11 labeled
+  untouched; F3/F4/F5 labeled deferred (D-26/D-31).
+
+### Findings
+
+**F-1 (MINOR — deferred, not a D-24 defect): the QG4 P6 fault cell "object upload
+failure" was not demonstrated.**
+- The cell belongs to the plate-photo upload (F5), which D-24 does not ship
+  (DISPATCH NON-GOAL; D-31). The pre-existing D-10 upload-failure cell is untouched.
+  Recorded so the cell is not forgotten when D-31 lands.
+
+**F-2 (MINOR — process note): audit executed in the builder's session.**
+- Same independence caveat as A-23 F-3: read-only intent, findings only, nothing fixed
+  during re-execution.
+
+**Recommendation for the next dispatch:** proceed to D-25 / D-26 per the dispatcher;
+when D-26 ships, A-24's F-1 cell plus the F4 `next_time` write path become its audit
+targets (D-24 already surfaces both correctly).

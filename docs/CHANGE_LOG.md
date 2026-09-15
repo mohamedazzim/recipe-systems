@@ -46,7 +46,9 @@
   library "Cooked" row → reopen recall + note; second log (5/5) listed in
   history; shopping have/need state, station card, print and the existing
   analysis all unchanged (no re-analysis).
-- Commit(s): `efb480e` (D-24; CI run recorded in HANDOFF H-24).
+- Commit(s): `efb480e` (D-24) + `de47634`/`7043e03` (docs). **A-24 audit
+  (2026-09-15): PASS-WITH-FINDINGS** — no defects; two MINOR notes (QG4 upload
+  cell deferred with F5/D-31; builder-session audit). Verdict in AUDIT_LOG.md.
 
 ## 2026-09-11 — D-23 Track P5-2: printable shopping list, station card, and PDF
 

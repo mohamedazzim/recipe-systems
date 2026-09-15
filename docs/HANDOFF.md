@@ -2510,8 +2510,7 @@ execution output; Git: not available / not authorized throughout.
 
 ### H-24 — D-24 Cook loop
 
-- BASE_SHA / COMMIT_SHA: base `6cb5dfb` (A-23 closeout) / final commit recorded
-  in CHANGE_LOG (D-24 commit pending CI — filled at push).
+- BASE_SHA / COMMIT_SHA: base `6cb5dfb` (A-23 closeout) / **`efb480e`** (D-24).
 - Date / agent session: 2026-09-14/15 · DeepSeek V4 Pro (VS Code) D-24 dispatch.
 - Status: **DONE — F1 cook log, F2 rating/note, F6 reopen surface shipped.**
 - Preflight: GO recorded in HANDOFF §0 (D-24A..E) before any code — scope

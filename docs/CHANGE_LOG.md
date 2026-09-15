@@ -46,7 +46,7 @@
   library "Cooked" row → reopen recall + note; second log (5/5) listed in
   history; shopping have/need state, station card, print and the existing
   analysis all unchanged (no re-analysis).
-- Commit(s): pending CI (filled at push).
+- Commit(s): `efb480e` (D-24; CI run recorded in HANDOFF H-24).
 
 ## 2026-09-11 — D-23 Track P5-2: printable shopping list, station card, and PDF
 

@@ -22,7 +22,14 @@ export interface WireLine {
   is_header: boolean;
   needs_review: boolean;
   ocr_confidence: number | null;
-  source_tag: 'CARD' | 'OCR' | null;
+  source_tag:
+    | 'CARD'
+    | 'METHOD'
+    | 'INFERRED'
+    | 'ABSENT'
+    | 'UNKNOWN'
+    | 'ASSUMED'
+    | null;
   updated_at: string;
   /** D-25 B6: the resolved canonical ingredient (dictionary/alias path) and the
    *  ambiguity flag. Present on the current API wire; optional here so older
@@ -38,6 +45,21 @@ export interface ParseTextResponse {
     lines: WireLine[];
     flags: string[];
   };
+}
+
+/** D-11 (B2): POST /recipes/upload wire (photo → OCR). `lines` is populated on
+ *  a completed OCR pass; empty for the `disabled` case. On `pending`/`unreadable`
+ *  the endpoint returns 503/422 instead (the photo + input stay durable). */
+export interface UploadResponse {
+  recipe_id: string;
+  image_id: string;
+  file_key: string;
+  ocr: {
+    status: 'complete' | 'disabled';
+    draft_line_count: number;
+    flagged_count: number;
+  };
+  lines: WireLine[];
 }
 
 /** API doc §4 method wire shape (D-13). */

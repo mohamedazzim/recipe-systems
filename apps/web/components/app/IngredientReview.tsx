@@ -476,6 +476,25 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
                           {line.canonical_name.replace(/_/g, ' ')}
                         </span>
                       )}
+                      {line.ocr_confidence != null && (
+                        <span
+                          className={
+                            line.ocr_confidence < 0.9
+                              ? 'inline-flex items-center gap-1 rounded-full border border-gold/60 bg-gold/10 px-2 py-0.5 text-caption font-semibold text-[#8A6516] dark:text-gold'
+                              : 'inline-flex items-center rounded-full border border-border bg-background px-2 py-0.5 text-caption text-muted'
+                          }
+                        >
+                          {line.ocr_confidence < 0.9 && (
+                            <Warning size={12} aria-hidden="true" weight="bold" />
+                          )}
+                          {Math.round(line.ocr_confidence * 100)}% confident
+                        </span>
+                      )}
+                      {line.source_tag && (
+                        <span className="inline-flex items-center rounded-full border border-border bg-background px-2 py-0.5 text-caption text-faint">
+                          from {line.source_tag.toLowerCase()}
+                        </span>
+                      )}
                     </div>
                     {line.requires_confirmation && line.confirmed_sense === null && line.canonical_name && (
                       <div className="mt-2 rounded-md border border-gold/60 bg-gold/10 p-3">

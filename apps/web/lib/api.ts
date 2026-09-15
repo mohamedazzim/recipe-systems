@@ -62,3 +62,32 @@ export function readCookie(name: string): string | undefined {
     .find((c) => c.startsWith(`${name}=`));
   return match ? decodeURIComponent(match.slice(name.length + 1)) : undefined;
 }
+
+/** D-11 (B2): multipart upload helper. FormData needs no Content-Type (the
+ *  browser sets the boundary); CSRF + cookie credentials ride exactly like `api`. */
+export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
+  const headers: Record<string, string> = {};
+  const csrf = readCookie('recipe_csrf');
+  if (csrf) headers['X-CSRF-Token'] = csrf;
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'POST',
+    headers,
+    body: form,
+    credentials: 'include',
+  });
+  if (!res.ok) {
+    let code = 'HTTP_ERROR';
+    let message = res.statusText;
+    try {
+      const body = (await res.json()) as { error?: { code?: string; message?: string } };
+      if (body?.error) {
+        code = body.error.code ?? code;
+        message = body.error.message ?? message;
+      }
+    } catch {
+      // non-JSON error body — keep defaults
+    }
+    throw new ApiError(res.status, code, message);
+  }
+  return (await res.json()) as T;
+}

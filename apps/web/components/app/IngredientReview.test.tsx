@@ -67,6 +67,30 @@ describe('IngredientReview (D-12 actions)', () => {
     expect(screen.getByRole('button', { name: 'Clear review' })).toBeInTheDocument();
   });
 
+  it('D-11: shows OCR confidence and visibly marks a low-confidence line', async () => {
+    (globalThis.fetch as jest.Mock).mockResolvedValue(
+      listResponse([
+        line({ display_name: 'Fish - 500g', ocr_confidence: 0.98 }),
+        line({ id: 'l2', line_no: 2, display_name: 'Fenugreek Powder - 1/2 Tsp', ocr_confidence: 0.45, needs_review: true }),
+      ]),
+    );
+    render(<IngredientReview {...props()} />);
+    expect(await screen.findByText('Fish - 500g')).toBeInTheDocument();
+    expect(screen.getByText('98% confident')).toBeInTheDocument();
+    // low confidence is visibly marked: the confidence chip + the review flag
+    expect(screen.getByText('45% confident')).toBeInTheDocument();
+    expect(screen.getByText('Review required')).toBeInTheDocument();
+  });
+
+  it('D-11: shows the source provenance tag for card-derived lines', async () => {
+    (globalThis.fetch as jest.Mock).mockResolvedValue(
+      listResponse([line({ display_name: 'Fish - 500g', source_tag: 'CARD', ocr_confidence: 0.98 })]),
+    );
+    render(<IngredientReview {...props()} />);
+    expect(await screen.findByText('Fish - 500g')).toBeInTheDocument();
+    expect(screen.getByText('from card')).toBeInTheDocument();
+  });
+
   it('edit saves with the stale-edit token (expected_updated_at)', async () => {
     (globalThis.fetch as jest.Mock).mockResolvedValue(listResponse(LINES));
     render(<IngredientReview {...props()} />);

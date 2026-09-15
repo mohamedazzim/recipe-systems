@@ -155,6 +155,7 @@ export default function Home() {
           accountId={user?.id ?? null}
           onBack={() => setView({ name: 'home' })}
           onParsed={(recipeId, lines) => setView({ name: 'workspace', recipeId, initialLines: lines })}
+          onUploaded={(recipeId, lines) => setView({ name: 'workspace', recipeId, initialLines: lines })}
         />
       )}
       {view.name === 'workspace' && (

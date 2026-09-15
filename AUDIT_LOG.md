@@ -600,3 +600,20 @@ Then A-11 closes. Q10 remains the gate for D-28.
   non-destructive steps all ran green and CI runs the full pipeline.
 - **Q10 still OPEN; D-28 still BLOCKED.** No provider selection, no credentials, no
   real-card benchmark claim.
+
+### D-11 frontend upload — shipped post-A-11 (2026-09-15, builder-verified; not an audit verdict)
+
+- `apps/web/components/app/CreateView.tsx` photo upload (file picker + preview +
+  client type/size gate + loading + Retry) → existing `POST /recipes/upload`
+  (`apiUpload` helper). `IngredientReview` renders per-line OCR confidence +
+  provenance. API `WireLine` gains `ocr_confidence` + `source_tag`; upload returns
+  `lines` on a complete pass (guest-uploader parity with parse-text).
+- Live internal-browser (chef@recipesystems.test, `OCR_PROVIDER=stub`): upload →
+  11 OCR draft lines each with confidence + "from card" → the 0.45 line flagged
+  "Review required" and analysis blocked (INV-05) → Clear review → "Ready to
+  analyse". No second OCR API; no vendor fields leaked; Intake stays the sole
+  writer. Web 150/150 · API 312/312 · integration 151/151 · gates/lint/typecheck
+  green.
+- **Q10 still OPEN; D-28 still BLOCKED.** Real PaddleOCR runtime + provenance-valid
+  golden photo + manifest remain absent; the frontend path is verified against the
+  deterministic stub only (no benchmark, no latency/accuracy claim).

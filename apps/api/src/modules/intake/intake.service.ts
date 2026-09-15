@@ -65,6 +65,12 @@ export interface WireLine {
   /** D-14C surface (QA-B6 fix): the web renders the Review-required badge and the
    *  canonical Clear-review action off this flag — it must ride the wire. */
   needs_review: boolean;
+  /** D-11 (B2): the OCR confidence for card-derived lines (0–1, or null when the
+   *  line did not come from OCR / the provider exposed no confidence). */
+  ocr_confidence: number | null;
+  /** Provenance tag (six-value vocabulary: CARD/METHOD/INFERRED/ABSENT/UNKNOWN/
+   *  ASSUMED). OCR-derived lines carry CARD. */
+  source_tag: string | null;
   updated_at: string;
 }
 
@@ -96,6 +102,8 @@ export function toWireLine(line: RecipeIngredientLine): WireLine {
     include_on_list: line.includeOnList,
     confirmed_sense: line.confirmedSense,
     needs_review: line.needsReview,
+    ocr_confidence: line.ocrConfidence != null ? Number(line.ocrConfidence) : null,
+    source_tag: line.sourceTag ?? null,
     updated_at: line.updatedAt.toISOString(),
   };
 }

@@ -20,6 +20,31 @@
 
 **Rule:** a change that alters any Q1–Q18 row must say so in its entry. The register (SCAFFOLD §7) is the single source of truth for open decisions; this log records the history of how the register changed. No Q-row changes in D-13.
 
+## 2026-09-15 — D-11 frontend: photo upload + OCR review user path
+
+- Author / session: DeepSeek V4 Pro (VS Code) D-11 frontend (post-A-11).
+- What changed: `apps/web/components/app/CreateView.tsx` — the "Photo capture"
+  card becomes a functional upload (file picker `image/jpeg,image/png`, 10 MB cap,
+  image preview, client type/size gate, "Uploading photo & reading the card…"
+  state, Retry on error) that POSTs `FormData.file` to the existing
+  `POST /recipes/upload` via a new `apiUpload` helper (`apps/web/lib/api.ts`, no
+  Content-Type, CSRF + cookies). `apps/web/components/app/IngredientReview.tsx`
+  renders per-line OCR confidence (low-confidence < 0.9 amber-marked) and provenance
+  ("from card") beside the existing Review-required / canonical chips.
+  API: `WireLine` gains `ocr_confidence` + `source_tag`; `POST /recipes/upload`
+  returns `lines` on a completed OCR pass (guest uploaders can render the draft
+  without the Bearer-only GET /lines). `apps/web/lib/types.ts` adds
+  `UploadResponse` and widens `source_tag` to the six-value vocabulary.
+- Why: complete the real end-to-end OCR user path (UI upload → OCR → draft → review
+  → readiness → analysis), reusing the existing Intake/IngredientReview surface.
+- Register impact: **Q10 stays OPEN**; **D-28 stays BLOCKED**. No provider change,
+  no benchmark run, no latency/accuracy claim.
+- Verification: web 150/150 · API 312/312 · integration 151/151 · lint 0 · typecheck
+  0 · build OK (api) · regression-gates PASS · contract-check OK. Live internal
+  browser (stub): upload → 11 draft lines with confidence + provenance → low-confidence
+  line flagged and analysis blocked (INV-05) → Clear review → ready.
+- Commit(s): `<sha>` (D-11 frontend).
+
 ## 2026-09-15 — D-11 follow-up: A-11 F-1/F-2 remediation (benchmark seam + gate 3b hardening)
 
 - Author / session: DeepSeek V4 Pro (VS Code) D-11 follow-up (A-11 findings only).

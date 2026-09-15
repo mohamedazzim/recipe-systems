@@ -1,18 +1,20 @@
 'use client';
 
-// Create recipe: the text/paste intake path (the only live input channel —
-// OCR/Q10 deferred). Photo is shown as a clearly disabled "coming soon" card,
-// never presented as functional.
+// Create recipe: text/paste AND photo upload intake. The photo path posts the
+// card image to POST /recipes/upload (Intake photo → OCR → draft); OCR runs
+// behind the provider-neutral ocr-adapter (Q10 stays OPEN). The returned draft
+// lines carry ocr_confidence + needs_review so the review surface can flag
+// low-confidence lines before analysis.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowLeft, Camera } from '@phosphor-icons/react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Field } from '@/components/ui/Field';
 import { Textarea } from '@/components/ui/Input';
 import { Heading, Text } from '@/components/ui/Typography';
-import { api, ApiError } from '@/lib/api';
-import type { ParseTextResponse, WireLine } from '@/lib/types';
+import { api, apiUpload, ApiError } from '@/lib/api';
+import type { ParseTextResponse, UploadResponse, WireLine } from '@/lib/types';
 import { previewOf, recordSessionRecipe } from '@/lib/flow';
 
 export interface CreateViewProps {
@@ -21,12 +23,29 @@ export interface CreateViewProps {
   accountId: string | null;
   onBack: () => void;
   onParsed: (recipeId: string, lines: WireLine[]) => void;
+  /** D-11 (B2): navigate after a completed photo upload, with the OCR draft. */
+  onUploaded: (recipeId: string, lines: WireLine[]) => void;
 }
 
-export function CreateView({ signedIn, accountId, onBack, onParsed }: CreateViewProps) {
+const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png'];
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+
+export function CreateView({ signedIn, accountId, onBack, onParsed, onUploaded }: CreateViewProps) {
   const [text, setText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Photo upload state (D-11 B2).
+  const [file, setFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
   const submit = async (): Promise<void> => {
     if (text.trim().length === 0) return;
@@ -51,6 +70,54 @@ export function CreateView({ signedIn, accountId, onBack, onParsed }: CreateView
     }
   };
 
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    const selected = e.target.files?.[0] ?? null;
+    if (!selected) return;
+    setUploadError(null);
+    if (!ACCEPTED_IMAGE_TYPES.includes(selected.type)) {
+      setFile(null);
+      setPreviewUrl(null);
+      setUploadError('Only JPEG or PNG images are accepted.');
+      return;
+    }
+    if (selected.size > MAX_IMAGE_BYTES) {
+      setFile(null);
+      setPreviewUrl(null);
+      setUploadError('The image is larger than 10 MB.');
+      return;
+    }
+    setFile(selected);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(URL.createObjectURL(selected));
+  };
+
+  const upload = async (): Promise<void> => {
+    if (!file) return;
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const result = await apiUpload<UploadResponse>('/recipes/upload', form);
+      recordSessionRecipe(
+        result.recipe_id,
+        `Photo: ${file.name}`,
+        signedIn && accountId ? { kind: 'user', accountId } : { kind: 'guest' },
+        result.lines,
+      );
+      onUploaded(result.recipe_id, result.lines);
+    } catch (err) {
+      // The uploaded photo + input row stay durable on OCR failure (503/422) —
+      // keep the selected file so Retry re-POSTs it. Map to a plain message.
+      setUploadError(
+        err instanceof ApiError
+          ? err.message
+          : 'The server could not be reached. Check your connection and try again.',
+      );
+      setUploading(false);
+    }
+  };
+
   return (
     <div className="mx-auto max-w-3xl">
       <button
@@ -66,8 +133,8 @@ export function CreateView({ signedIn, accountId, onBack, onParsed }: CreateView
         Add a recipe
       </Heading>
       <Text className="mt-2 text-muted">
-        Paste the recipe text. The original stays preserved exactly as you entered it; the
-        structured lines are extracted for review next.
+        Paste the recipe text, or upload a photo of a card. The original stays preserved
+        exactly as you entered it; the structured lines are extracted for review next.
       </Text>
 
       {error && (
@@ -109,21 +176,67 @@ export function CreateView({ signedIn, accountId, onBack, onParsed }: CreateView
         </form>
 
         <aside aria-label="Other input options">
-          <div
-            className="rounded-lg border border-border p-5 opacity-70"
-            aria-disabled="true"
-          >
-            <Camera size={22} aria-hidden="true" className="text-muted" />
-            <p className="mt-3 font-semibold text-ink">Photo capture</p>
-            <p className="mt-1 text-small text-muted">Coming soon.</p>
+          <div className="rounded-lg border border-border p-5">
+            <div className="flex items-center gap-2">
+              <Camera size={22} aria-hidden="true" className="text-muted" />
+              <p className="font-semibold text-ink">Photo capture</p>
+            </div>
+            <p className="mt-1 text-small text-muted">
+              Upload a photo of a handwritten or printed recipe card. JPEG or PNG, up to 10 MB.
+            </p>
+
+            {previewUrl && (
+              <div className="mt-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={previewUrl}
+                  alt="Selected recipe card"
+                  className="max-h-48 w-full rounded-md border border-border bg-background object-contain"
+                />
+                <p className="mt-1 truncate text-caption text-muted">{file?.name}</p>
+              </div>
+            )}
+
+            <input
+              id="recipe-photo"
+              type="file"
+              accept="image/jpeg,image/png"
+              aria-label="Choose recipe photo"
+              onChange={onFileChange}
+              disabled={uploading}
+              className="mt-3 block w-full text-small text-body file:mr-3 file:rounded-md file:border file:border-border-strong file:bg-background file:px-3 file:py-1.5 file:text-small file:font-semibold file:text-ink"
+            />
+
+            {uploadError && (
+              <div className="mt-3">
+                <Alert tone="error" title="Could not read the photo">
+                  {uploadError}
+                </Alert>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void upload()}
+                  disabled={uploading || !file}
+                  className="mt-2"
+                >
+                  Retry
+                </Button>
+              </div>
+            )}
+
+            <div className="mt-4">
+              <Button onClick={() => void upload()} disabled={uploading || !file} size="sm">
+                {uploading ? 'Uploading photo & reading the card…' : 'Upload photo'}
+              </Button>
+            </div>
           </div>
         </aside>
       </div>
 
       {!signedIn && (
         <p className="mt-8 text-small text-muted">
-          As a guest you can paste and see the parsed lines. Reviewing and analysing need an
-          account: sign up and your guest recipes are claimed automatically.
+          As a guest you can paste or upload a photo and see the extracted lines. Reviewing and
+          analysing need an account: sign up and your guest recipes are claimed automatically.
         </p>
       )}
     </div>

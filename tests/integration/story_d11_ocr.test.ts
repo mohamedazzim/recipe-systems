@@ -68,6 +68,15 @@ describe('D-11 — OCR draft pipeline on real Postgres', () => {
     expect(flagged[0].displayName).toContain('Fenugreek Powder');
     expect(flagged[0].ocrConfidence).not.toBeNull();
 
+    // D-11 frontend wire: resolveWireLines carries OCR confidence + provenance
+    // so the review surface can flag low-confidence lines without a second API.
+    const wire = await intake.resolveWireLines(lines);
+    expect(wire.every((l) => l.source_tag === 'CARD')).toBe(true);
+    const flaggedWire = wire.find((l) => l.display_name.includes('Fenugreek Powder'))!;
+    expect(flaggedWire.needs_review).toBe(true);
+    expect(flaggedWire.ocr_confidence).toBeCloseTo(0.45, 2);
+    expect(wire.find((l) => l.display_name.includes('Fish'))!.ocr_confidence).toBeCloseTo(0.98, 2);
+
     // INV-05: the flagged line blocks analysis enqueue.
     const readiness = await intake.getEnqueueState(actor, recipe.id);
     expect(readiness.can_enqueue).toBe(false);

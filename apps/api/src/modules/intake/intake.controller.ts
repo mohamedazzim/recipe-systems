@@ -183,6 +183,15 @@ export class IntakeController {
       });
     }
 
+    // D-11 frontend: on a completed OCR pass, the draft lines ride the response so
+    // both signed-in AND guest uploaders can render the review surface immediately
+    // (mirrors POST /recipes/parse-text). Guests can never call the Bearer-only
+    // GET /recipes/:id/lines, so this is their only copy of the draft.
+    const lines =
+      ocr.status === 'complete'
+        ? await this.intake.resolveWireLines(await this.intake.listDraftLines(actor, recipeId!))
+        : [];
+
     return {
       recipe_id: recipeId,
       image_id: input!.id,
@@ -192,6 +201,7 @@ export class IntakeController {
         draft_line_count: ocr.draft_line_count,
         flagged_count: ocr.flagged_count,
       },
+      lines,
     };
   }
 

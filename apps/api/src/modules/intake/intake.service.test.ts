@@ -273,6 +273,8 @@ describe('toWireLine (API §3 wire shape + D-12B)', () => {
       is_header: false, // headers never appear in the corrected object (D-12C)
       include_on_list: true,
       confirmed_sense: 'fish',
+      ocr_confidence: null,
+      source_tag: null,
       updated_at: '2026-09-09T10:00:00.000Z',
     });
   });

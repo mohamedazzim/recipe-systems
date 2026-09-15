@@ -2202,6 +2202,47 @@ execution output; Git: not available / not authorized throughout.
   and fires on an unguarded `updateMany` or any `updateMany` outside Intake; two new
   fire proofs in `qg2_gates.test.ts` (26/26). Q10 still OPEN; D-28 still BLOCKED.
 
+#### D-11 FRONTEND — photo upload user path (shipped 2026-09-15, post-A-11)
+
+- **CreateView photo upload** (`apps/web/components/app/CreateView.tsx`): the
+  "Photo capture — Coming soon" card is replaced with a functional upload — a file
+  picker (`accept="image/jpeg,image/png"`, 10 MB cap mirroring `IMAGE_CONTENT_TYPES`
+  / `MAX_IMAGE_BYTES`), a selected-image preview (`URL.createObjectURL`), a client
+  type/size gate, and a loading state "Uploading photo & reading the card…". The
+  upload POSTs `FormData.file` to the EXISTING `POST /recipes/upload` (new
+  `apiUpload` helper — no Content-Type, CSRF + cookie credentials ride like `api`).
+  Errors map to the existing Alert UX with a Retry that re-POSTs the SAME selected
+  file (the backend keeps photo + input durable on OCR failure). `onUploaded`
+  navigates to the workspace with the returned draft lines (mirrors `onParsed`).
+- **Wire shape** (`apps/api/src/modules/intake/intake.service.ts`): `WireLine` now
+  carries `ocr_confidence` (0–1, or null) and `source_tag` (six-value vocabulary;
+  OCR lines = `CARD`) — so the review surface can show confidence + provenance
+  without a second API. `POST /recipes/upload` now returns `lines` on a completed
+  OCR pass (mirrors parse-text) so GUEST uploaders (who can never call the
+  Bearer-only `GET /recipes/:id/lines`) still render the draft read-only.
+- **Review UI** (`apps/web/components/app/IngredientReview.tsx`): each OCR line
+  shows its confidence ("98% confident"; low-confidence < 0.9 gets the amber
+  Warning treatment) and provenance ("from card") beside the existing
+  Review-required / Sense-confirmed / canonical chips. Low-confidence lines remain
+  visibly marked and analysis stays blocked (INV-05) until the flag is cleared.
+- **Live internal-browser (2026-09-15, chef@recipesystems.test, API
+  `OCR_PROVIDER=stub`):** Create recipe → Choose photo → preview (`card.jpg`) →
+  Upload → workspace `Photo: card.jpg` with **11 OCR draft lines**, each showing
+  confidence (98% … 45%) + "from card"; canonical resolution rendered
+  ("Fish - 500g" → fish; "Drumstick - 1 Nos" → drumstick with the confirm prompt).
+  Analysis section read "Review required — 1 line needs your attention:
+  Fenugreek Powder - 1/2 Tsp" (INV-05 blocked); after Clear review it flipped to
+  "Ready to analyse. All lines are confirmed." (blocked → ready).
+- **Tests:** web 150/150 (CreateView upload/validation/loading/retry/error; IngredientReview
+  confidence + provenance) · API 312/312 · integration 151/151 (story_d11 wire
+  assertions: `source_tag`/`ocr_confidence`) · lint/typecheck/build/gates/contract
+  green. `verify-local` destructive steps (`npm ci`, root `next build`) skipped
+  locally (live dev servers) — CI runs the full pipeline.
+- **Q10 still OPEN; D-28 still BLOCKED.** PaddleOCR runtime + provenance-valid
+  golden photo + manifest remain absent (see Q10 preflight); no benchmark run, no
+  latency/accuracy claim. The frontend path is verified against the deterministic
+  stub only.
+
 ### H-12 — D-12 Parse review
 
 - BASE_SHA / COMMIT_SHA: **BASE `93cc8e8` · COMMIT `8bd7708`** (full `8bd770884b3cab0422d27ffbe08540bff529cfd3`) — D-12 checkpoint pushed to `github.com/mohamedazzim/recipe-systems` branch `main` (2026-09-09, owner-authorized; parent verified `93cc8e8`).

@@ -3025,7 +3025,13 @@ execution output; Git: not available / not authorized throughout.
   (the veto stays on the vetoed analysis). No pilot execution beyond the canonical veto test.
 - **Register:** Q6/Q11/Q15/Q12 remain OPEN (unchanged, labeled); Q1/Q5/Q10 untouched; DeepSeek
   provider unchanged; D-23/D-24/D-25/D-26 behavior preserved.
-- **Resume point:** A-27 audit (separate agent), then D-28. HARD STOP before D-28.
+- **Resume point:** A-27 audit complete — **PASS-WITH-FINDINGS** (2026-09-15):
+  veto BLOCKER re-executed live (both reviewer slots; payload/recipe untouched;
+  idempotent; re-analysis fresh); Q6/Q11/Q15/Q12 OPEN and labeled; cleanup QG4 cell +
+  claimed/unexpired preservation re-run green (`story_d27` 5/5 · qg2_gates 22/22).
+  Findings (AUDIT_LOG A-27): F-1 MINOR — gate 2h whitelist is prefix-matching
+  (`analysisView.updateMany` would evade); F-2 MINOR — builder-session audit caveat.
+  Next per dispatcher: D-28.
 
 ### H-28 — D-28 Week-12 pilot gate
 

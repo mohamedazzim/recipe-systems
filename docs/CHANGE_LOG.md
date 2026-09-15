@@ -46,6 +46,11 @@
   View 5 vetoed → "View 5 is incomplete" (payload intact, other views intact),
   persists on reload, re-analysis produces a fresh analysis.
 - Commit(s): `<sha>` (D-27).
+- Audit: A-27 PASS-WITH-FINDINGS (2026-09-15) — veto BLOCKER re-executed live (both
+  reviewer slots; payload/recipe untouched; idempotent; re-analysis fresh); Q6/Q11/
+  Q15/Q12 OPEN and labeled; cleanup QG4 cell green. Findings (AUDIT_LOG A-27):
+  F-1 MINOR — gate 2h whitelist is prefix-matching (`analysisView.updateMany` would
+  evade the gate, empirically shown); F-2 MINOR — builder-session audit caveat.
 
 ## 2026-09-15 — D-25 F-1 closure: B6 + D3 web surfaces (A-25 remediation)
 

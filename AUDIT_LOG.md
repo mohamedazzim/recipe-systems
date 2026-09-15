@@ -412,21 +412,68 @@ stands.** D-25 is now fully complete including the user-facing B6/D3 surfaces.
 
 ## A-27 — Audit: regional veto + retention/ops (D-27)
 
-- **Date / audit agent:** 2026-09-15 · implementation complete (DeepSeek V4 Pro, D-27
-  dispatch session). **Independent audit verdict: PENDING** — this block records the
-  implementation surface the audit will attack; the verdict is appended by the A-27
-  audit agent (AUDIT.md pairing contract).
-- **Audited commit:** `<sha>` (D-27 — filled at push; CI run recorded in CHANGE_LOG).
-- **Attack surface (from AUDIT.md A-27):** veto BLOCKER class (veto → blocked from
-  live views immediately; both regional reviewers configured; a veto that leaves the
-  sentence live anywhere is a BLOCKER); Q6 hygiene (publishable-state home = labeled
-  working assumption; a silently invented status column is a BLOCKER); cleanup jobs
-  (expired unclaimed guests removed — QG4 cell; Q11/Q15 labeled with register IDs);
-  ops docs present (runbook/backup/restore/upgrade/monitoring — missing backup doc is
-  a MAJOR).
-- **Implementation evidence (for the audit to re-execute):** `apps/api/src/modules/reviews/`
-  (veto endpoint + env reviewer slots); `apps/api/src/modules/cleanup/`
-  (`cleanupExpiredGuests` + scheduled runner); QG2 gate 2h + fire proofs
-  (`scripts/regression-gates.sh`, `tests/integration/qg2_gates.test.ts`);
-  `tests/integration/story_d27_veto_retention.test.ts`; `docs/ops/runbook.md`;
-  HANDOFF H-27 + CHANGE_LOG entries.
+- **Date / audit agent:** 2026-09-15 · DeepSeek V4 Pro (builder session, read-only
+  audit intent — independence caveat recorded as F-2 below).
+- **Audited commit:** `691a55f` (D-27). CI run 34967842614 = success on this SHA.
+
+### Verdict: PASS-WITH-FINDINGS
+
+No BLOCKER, no failure-class finding. Every A-27 vector re-executed 2026-09-15:
+
+- **Veto (BLOCKER class) — live + integration:** on the golden recipe, reviewer slot 1
+  (chef@recipesystems.test) vetoed the current analysis `4f918c62` View 5:
+  `COMPLETE → INCOMPLETE` (200, `vetoed:true`); the View 5 payload JSON is byte-identical
+  (family/architecture/not_this/needs_review/tag untouched), View 1 stays COMPLETE, and
+  the recipe row is unchanged. Repeat veto → 200 `already_vetoed:true` (idempotent).
+  Re-analysis (integration `story_d27`) produces a FRESH analysis whose View 5 is
+  COMPLETE again while the vetoed analysis stays INCOMPLETE. `story_d27_veto_retention`
+  5/5 re-run green.
+- **Reviewer authorization:** both slots work — reviewer slot 1 and slot 2
+  (demo@recipesystems.test, `REVIEWER_EMAILS` comma-separated) both return 200;
+  unauthenticated → 401 `UNAUTHENTICATED` (no guest bypass — JwtAuthGuard only);
+  malformed id → 404 `ANALYSIS_NOT_FOUND` before Prisma; non-reviewer → 403
+  (`story_d27` + unit). No cross-account owner data leaks in the response
+  (analysis_id + view_number + status only).
+- **Q6 hygiene:** no `publishable`/status column was added (schema.prisma unchanged);
+  the publishable-state home rides the pre-existing `analysis_view.status` (labeled
+  working assumption, Q6 OPEN). The review module's only `analysis_*` write is
+  `analysisView.update({status:'INCOMPLETE'})`. QG2 gate 2h + fire proofs re-run 22/22.
+- **Retention/cleanup:** `story_d27` proves an expired UNCLAIMED guest session + its
+  recipe + cascaded `recipe_input` are removed and the storage keys are passed to the
+  compensating cleanup; claimed + unexpired sessions and their recipes are preserved.
+  `CleanupRunner` clears its timers on shutdown (no open handle). Schedule/TTL stay
+  Q11-labeled (`GUEST_TTL_SECONDS` 86400, `CLEANUP_INTERVAL_SECONDS` 3600).
+- **Q15:** photo/account retention remains labeled pilot defaults (reuses D-22
+  compensating storage cleanup); no silent permanent retention decision. Q15 OPEN.
+- **Q12:** RPO/RTO remain UNSET in `docs/ops/runbook.md` (ADR §17 forbids inventing
+  numbers). Q12 OPEN.
+- **Ops:** `docs/ops/runbook.md` contains backup/restore (Postgres PITR + Keycloak
+  realm export + object-storage restore validation), upgrade windows, monitoring
+  (Tech Stack §17), veto ops, and retention; reviewer identities are env slots, not
+  fabricated names.
+- **Regression:** `regression-gates.sh` re-run PASS; grep confirms NO `analysis_*`
+  write outside `apps/analysis-worker/` except `apps/api/src/modules/reviews/`.
+  D-23/D-24/D-25/D-26 behavior untouched; no provider/OCR/Q-resolution changes.
+
+### Findings
+
+**F-1 (MINOR — gate-hardening gap, empirically demonstrated):** QG2 gate 2h's whitelist
+is prefix-matching — `bad=$(echo "$hits" | grep -vE "prisma\.analysisView\.update")`
+also whitelists `prisma.analysisView.updateMany(...)`. Planted
+`prisma.analysisView.updateMany({ where: {}, data: { status: 'INCOMPLETE' } })` in
+`apps/api/src/modules/reviews/` → the gate reports `[gate:ok]` (no fire), contradicting
+the gate's own comment ("updateMany … fires"). The shipped code uses only `.update`, so
+there is NO live defect, but the gate does not enforce its stated boundary. Fix later
+(not here): add a word boundary — e.g. `grep -vE "prisma\.analysisView\.update\b"`.
+
+**F-2 (MINOR — process note):** audit executed in the builder's session (same
+independence caveat as A-23 F-3 / A-24 F-2 / A-25 F-2 / A-26 F-3). Read-only intent;
+findings only; nothing fixed during re-execution. Q6/Q11/Q15/Q12 left OPEN.
+
+**Observation (not a finding):** the veto endpoint accepts any analysis id, including a
+non-current (historical) analysis — vetoing a historical View 5 has no live effect (the
+"blocked from live views" guarantee holds for the current analysis). Benign for the
+pilot; ADR §8 "block a live sentence" is satisfied.
+
+**Recommendation for the next dispatch:** proceed to D-28 (D-27 is otherwise fit).
+Carry F-1 into a future gate-hardening pass (or fold into D-28's closing sweep hygiene).

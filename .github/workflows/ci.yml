@@ -64,6 +64,10 @@ jobs:
         working-directory: packages/rendering
         run: npm run build
 
+      - name: "OCR-adapter build (D-11: api imports @recipe-systems/ocr-adapter via dist)"
+        working-directory: packages/ocr-adapter
+        run: npm run build
+
       # D-23: story_d23_print launches REAL headless Chromium through the
       # Playwright runtime — the runner image ships no browsers, so install
       # the pinned Chromium (and its system libraries) before integration.

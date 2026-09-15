@@ -572,3 +572,31 @@ commit (`docs/HANDOFF.md`) — benign process note.
 sweep) to make `scripts/ocr-benchmark.js` consume `resolveOcrAdapter` /
 `StubOcrAdapter` / `PaddleOcrAdapter` and tighten gate 3b to require `ocrText: null`.
 Then A-11 closes. Q10 remains the gate for D-28.
+
+### Remediation (2026-09-15) — F-1 + F-2 CLOSED
+
+- **F-1 CLOSED.** `scripts/ocr-benchmark.js` now `require('@recipe-systems/ocr-adapter')`
+  and consumes the production seam: `paddleProvider()` builds the adapter via
+  `resolveOcrAdapter({ ...process.env, OCR_PROVIDER: PADDLE_OCR_PROVIDER })` and calls
+  `adapter.recognize(bytes, 'image/jpeg')`; `runGoldenStub()` calls `new
+  StubOcrAdapter().recognize(...)`. The duplicated HTTP/normalization logic and the
+  inline `isItem()` copy are deleted. Evidence: `--self-test` PASS and `--golden-stub`
+  PASS (11/11 preserved, `garlicAbsent`, `bothFenugreeksDistinct`) with the adapter
+  as the only implementation.
+- **F-2 CLOSED.** `scripts/regression-gates.sh` gate 3b now partitions: any
+  non-`updateMany` `recipeInput` write fires; an `updateMany` is whitelisted only
+  when the file is under `apps/api/src/modules/intake/` AND contains the canonical
+  `updateMany({` … `ocrText: null` guard (multiline-capable `grep -Pzo`; only the
+  WRITE form `updateMany(` is considered, so test mocks/assertions are not writes).
+  Fire proofs added in `tests/integration/qg2_gates.test.ts`: `updateMany` in Intake
+  WITHOUT the guard → FIRES; `updateMany` OUTSIDE Intake → FIRES; the canonical
+  multi-line guard → PASS. `qg2_gates` 26/26 · real-tree `regression-gates.sh` PASS.
+- **Verification (2026-09-15):** full unit suite green (worker 64 · API 312 · web 144 ·
+  database 3 · domain 1 · llm-adapter 123 · ocr-adapter 13 · rendering 15 · schemas
+  112) · integration 151/151 (23 suites) · `regression-gates.sh` PASS ·
+  `contract-check` OK · lint 0 · typecheck 0 · build OK (ocr-adapter + api +
+  database). `verify-local`'s destructive steps (`npm ci`, root `npm run build`) were
+  NOT run locally (live dev servers; `next build` clobbers `.next`) — the equivalent
+  non-destructive steps all ran green and CI runs the full pipeline.
+- **Q10 still OPEN; D-28 still BLOCKED.** No provider selection, no credentials, no
+  real-card benchmark claim.

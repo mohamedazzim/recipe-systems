@@ -309,10 +309,37 @@ describe('QG2 static gates fire on real violations (D-01 criterion)', () => {
   it('D-11 P1: the Intake recipeInput.updateMany write-once OCR path does NOT fire', () => {
     const s = makeScratch();
     try {
-      s.write('apps/api/src/modules/intake/service.ts', 'prisma.recipeInput.updateMany({ where: { id: "x", ocrText: null }, data: { ocrText: "y" } });\n');
+      // Production shape: the guard (`ocrText: null`) sits on a SEPARATE line.
+      s.write('apps/api/src/modules/intake/service.ts', 'await tx.recipeInput.updateMany({\n  where: { id: "x", ocrText: null },\n  data: { ocrText: "y" },\n});\n');
       const result = runGates(s.dir);
       expect(result.exit).toBe(0);
       expect(result.out).toContain('only the Intake OCR updateMany-with-null-guard path');
+    } finally {
+      s.cleanup();
+    }
+  });
+
+  it('A-11 F-2: a recipeInput.updateMany in Intake WITHOUT the ocrText:null guard FIRES', () => {
+    const s = makeScratch();
+    try {
+      s.write('apps/api/src/modules/intake/service.ts', 'prisma.recipeInput.updateMany({ where: { id: "x" }, data: { ocrText: "y" } });\n');
+      const result = runGates(s.dir);
+      expect(result.exit).toBe(1);
+      expect(result.out).toContain('recipe_input must be immutable');
+      expect(result.out).toContain('without the ocrText:null guard');
+    } finally {
+      s.cleanup();
+    }
+  });
+
+  it('A-11 F-2: a recipeInput.updateMany OUTSIDE the Intake module FIRES', () => {
+    const s = makeScratch();
+    try {
+      s.write('apps/web/app/page.tsx', 'prisma.recipeInput.updateMany({ where: { id: "x", ocrText: null }, data: { ocrText: "y" } });\n');
+      const result = runGates(s.dir);
+      expect(result.exit).toBe(1);
+      expect(result.out).toContain('recipe_input must be immutable');
+      expect(result.out).toContain('outside the Intake module');
     } finally {
       s.cleanup();
     }

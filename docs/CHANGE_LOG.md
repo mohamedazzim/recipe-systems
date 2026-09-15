@@ -20,6 +20,30 @@
 
 **Rule:** a change that alters any Q1–Q18 row must say so in its entry. The register (SCAFFOLD §7) is the single source of truth for open decisions; this log records the history of how the register changed. No Q-row changes in D-13.
 
+## 2026-09-15 — D-11 follow-up: A-11 F-1/F-2 remediation (benchmark seam + gate 3b hardening)
+
+- Author / session: DeepSeek V4 Pro (VS Code) D-11 follow-up (A-11 findings only).
+- What changed: `scripts/ocr-benchmark.js` now `require('@recipe-systems/ocr-adapter')`
+  and consumes the production seam — `paddleProvider()` via
+  `resolveOcrAdapter({...env, OCR_PROVIDER:'paddle'})` + `adapter.recognize(bytes,
+  'image/jpeg')`; `runGoldenStub()` via `new StubOcrAdapter().recognize(...)`; the
+  duplicated PaddleOCR HTTP/normalization and inline `isItem()` are deleted (F-1).
+  `scripts/regression-gates.sh` gate 3b now requires the canonical `updateMany({` …
+  `ocrText: null` guard (multiline `grep -Pzo`, write-form only) and fires on an
+  unguarded `updateMany` or any `updateMany` outside Intake (F-2). Two new fire proofs
+  in `tests/integration/qg2_gates.test.ts` (unguarded-in-Intake FIRES; outside-Intake
+  FIRES) and the PASS proof updated to the production multi-line form.
+- Why: A-11 PASS-WITH-FINDINGS — F-1 MAJOR (harness did not consume the adapter seam),
+  F-2 MINOR (gate 3b did not verify the null guard).
+- Register impact: **Q10 stays OPEN**; **D-28 stays BLOCKED**. No provider selection,
+  no credentials, no real-card benchmark claim.
+- Verification: `--self-test` + `--golden-stub` PASS (11/11, garlicAbsent,
+  bothFenugreeksDistinct) · `qg2_gates` 26/26 · full unit suite green (worker 64 · API
+  312 · web 144 · database 3 · domain 1 · llm-adapter 123 · ocr-adapter 13 · rendering
+  15 · schemas 112) · integration 151/151 (23 suites) · `regression-gates.sh` PASS ·
+  `contract-check` OK · lint 0 · typecheck 0 · build OK (ocr-adapter + api + database).
+- Commit(s): `<sha>` (D-11 follow-up).
+
 ## 2026-09-15 — D-11 OCR adapter + low-confidence flagging (PaddleOCR behind the seam)
 
 - Author / session: DeepSeek V4 Pro (VS Code) D-11 implementation (dispatcher-authorized

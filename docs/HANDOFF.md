@@ -2193,8 +2193,14 @@ execution output; Git: not available / not authorized throughout.
   whitelists `recipeInput.updateMany` without verifying the `ocrText: null` guard;
   F-3 MINOR — builder-session audit caveat. Golden-photo BLOCKER vector stays
   deferred to Q10 (no Python runtime / provenance-valid photo / credentials). Q10
-  OPEN; D-28 still BLOCKED. Recommended follow-up: wire the harness to the adapter
-  seam + tighten gate 3b (or fold into the D-28 closing sweep).
+  OPEN; D-28 still BLOCKED.
+- **A-11 remediation (2026-09-15) — F-1 + F-2 CLOSED.** `scripts/ocr-benchmark.js`
+  now consumes the production seam (`resolveOcrAdapter` / `PaddleOcrAdapter` /
+  `StubOcrAdapter` — duplicated HTTP/normalization + inline `isItem` deleted);
+  `--self-test` + `--golden-stub` still PASS. Gate 3b now requires the canonical
+  `updateMany({` … `ocrText: null` guard (multiline `grep -Pzo`, write-form only)
+  and fires on an unguarded `updateMany` or any `updateMany` outside Intake; two new
+  fire proofs in `qg2_gates.test.ts` (26/26). Q10 still OPEN; D-28 still BLOCKED.
 
 ### H-12 — D-12 Parse review
 

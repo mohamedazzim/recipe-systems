@@ -39,6 +39,12 @@
 const fs = require('fs');
 const https = require('https');
 
+// A-11 F-1 remediation: the benchmark consumes the SAME provider-neutral adapter
+// seam as production (packages/ocr-adapter). No vendor HTTP/normalization logic
+// is duplicated here — `paddle` goes through PaddleOcrAdapter and `stub` through
+// StubOcrAdapter, exactly as the API's Intake module does.
+const { resolveOcrAdapter, StubOcrAdapter, PADDLE_OCR_PROVIDER } = require('@recipe-systems/ocr-adapter');
+
 // ---------------------------------------------------------------------------
 // Normalization — comparison tolerance, NOT silent error erasure. Every
 // normalization is recorded in the report so real errors stay visible.
@@ -208,51 +214,18 @@ function gcvProvider(imagePath) {
   });
 }
 
-// PaddleOCR local serving (D-11 decision): POST base64 to OCR_PADDLE_ENDPOINT and
-// normalize the vendor response (v2 [box,[text,conf]] / flattened [box,text,conf] /
-// {rec_text,rec_score}) into the same {lines, confidences} contract every provider
-// uses. No credentials; the endpoint is the local serving URL.
-function paddleProvider(imagePath) {
-  const endpoint = process.env.OCR_PADDLE_ENDPOINT || 'http://localhost:8866/predict/ocr_system';
+// PaddleOCR local serving — goes through the production PaddleOcrAdapter (no
+// duplicated HTTP/normalization logic). The adapter normalizes the vendor response
+// into the OcrResult contract; the harness maps it to {lines, confidences}.
+async function paddleProvider(imagePath) {
+  const adapter = resolveOcrAdapter({ ...process.env, OCR_PROVIDER: PADDLE_OCR_PROVIDER });
+  if (!adapter) throw new Error('PaddleOcrAdapter unavailable (ocr-adapter not built?)');
   const imageBytes = fs.readFileSync(imagePath);
-  const body = JSON.stringify({ images: [imageBytes.toString('base64')] });
-  return new Promise((resolve, reject) => {
-    const url = new URL(endpoint);
-    const mod = url.protocol === 'https:' ? require('https') : require('http');
-    const req = mod.request(
-      { hostname: url.hostname, port: url.port || (url.protocol === 'https:' ? 443 : 80),
-        path: url.pathname, method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } },
-      (res) => {
-        let data = '';
-        res.on('data', (c) => (data += c));
-        res.on('end', () => {
-          if (res.statusCode !== 200) return reject(new Error(`PaddleOCR HTTP ${res.statusCode}: ${data.slice(0, 300)}`));
-          const json = JSON.parse(data);
-          let list = json?.result ?? json?.results?.[0] ?? json;
-          if (Array.isArray(list) && list.length === 1 && Array.isArray(list[0]) && !isItem(list[0]) && isItem(list[0][0])) list = list[0];
-          const lines = [];
-          const confidences = [];
-          for (const item of list || []) {
-            if (Array.isArray(item)) {
-              const second = item[1];
-              if (Array.isArray(second) && typeof second[0] === 'string') { lines.push(second[0].trim()); confidences.push(typeof second[1] === 'number' ? second[1] : null); }
-              else if (typeof second === 'string') { lines.push(second.trim()); confidences.push(typeof item[2] === 'number' ? item[2] : null); }
-            } else if (item && typeof item === 'object') {
-              const t = typeof item.rec_text === 'string' ? item.rec_text : item.text;
-              if (typeof t === 'string' && t.trim()) { lines.push(t.trim()); confidences.push(typeof item.rec_score === 'number' ? item.rec_score : null); }
-            }
-          }
-          resolve({ lines, confidences });
-        });
-      }
-    );
-    req.on('error', reject);
-    req.write(body);
-    req.end();
-  });
-}
-function isItem(x) {
-  return Array.isArray(x) && (Array.isArray(x[1]) ? typeof x[1][0] === 'string' : typeof x[1] === 'string');
+  const result = await adapter.recognize(imageBytes, 'image/jpeg');
+  return {
+    lines: result.lines.map((l) => l.text),
+    confidences: result.lines.map((l) => (typeof l.confidence === 'number' ? l.confidence : null)),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -270,17 +243,14 @@ const GOLDEN_CARD_REFERENCE = [
 ];
 const GOLDEN_CARD_CRITICAL = [9, 10]; // both fenugreek lines are golden-card critical
 
-function runGoldenStub() {
-  const stub = {
-    lines: ['Fish - 500g', 'Drumstick - 1 Nos', 'Mango - 1/2 Nos', 'Grated Coconut - Half Shell',
-      'Coconut Oil - For Tempering', 'Chilli - 5 Nos', 'Chilli Powder - 2 Tsp',
-      'Coriander Powder - 1 Tsp', 'Tamarind - A Lemon Size', 'Fenugreek Powder - 1/2 Tsp',
-      'Fenugreek - 1/4 Tsp'],
-    confidences: [0.98, 0.96, 0.95, 0.94, 0.93, 0.92, 0.91, 0.9, 0.94, 0.45, 0.93],
-  };
+async function runGoldenStub() {
+  const adapter = new StubOcrAdapter();
+  const ocr = await adapter.recognize(new Uint8Array([1]), 'image/jpeg');
+  const lines = ocr.lines.map((l) => l.text);
+  const confidences = ocr.lines.map((l) => (typeof l.confidence === 'number' ? l.confidence : null));
   const r = evaluate({ imageId: 'golden-card', referenceLines: GOLDEN_CARD_REFERENCE,
-    ocrLines: stub.lines, confidences: stub.confidences, latencyMs: 0, critical: GOLDEN_CARD_CRITICAL });
-  const hasGarlic = stub.lines.some((l) => /garlic/i.test(l));
+    ocrLines: lines, confidences, latencyMs: 0, critical: GOLDEN_CARD_CRITICAL });
+  const hasGarlic = lines.some((l) => /garlic/i.test(l));
   console.log(JSON.stringify({
     generatedAt: new Date().toISOString(),
     provider: 'stub (golden-card-deterministic, CI tier — NOT a real-card result)',
@@ -349,7 +319,7 @@ async function runManifest(manifestPath) {
 
 const [, , cmd, arg] = process.argv;
 if (cmd === '--self-test') runSelfTest();
-else if (cmd === '--golden-stub') runGoldenStub();
+else if (cmd === '--golden-stub') runGoldenStub().catch((e) => { console.error(e); process.exit(1); });
 else if (cmd === '--manifest' && arg) runManifest(arg);
 else {
   console.log('Usage:\n  node scripts/ocr-benchmark.js --self-test\n  node scripts/ocr-benchmark.js --golden-stub\n  node scripts/ocr-benchmark.js --manifest <manifest.json>');

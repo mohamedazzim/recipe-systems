@@ -148,14 +148,44 @@ fi
 
 # --- 3b. recipe_input immutability (D-10 done criterion; Q4 Intake write-once) ------------------
 # D-11 (P2-2) P1 amendment: the ONE permitted write is Intake's write-once OCR path
-# (`recipeInput.updateMany` guarded by `ocrText: null`). A singular `recipeInput.update`
-# ANYWHERE, any write outside the intake module, or upsert/delete/deleteMany still fires.
-echo "-- immutability: recipe_input write-once (only the Intake OCR updateMany path may write)"
+# (`recipeInput.updateMany` guarded by `where: { id, ocrText: null }`). A singular
+# `recipeInput.update` ANYWHERE, any write outside the intake module, or
+# upsert/delete/deleteMany still fires — and an `updateMany` that is NOT protected
+# by the canonical null-guard fires too (A-11 F-2 hardening).
+echo "-- immutability: recipe_input write-once (only the Intake OCR updateMany-with-null-guard path)"
 pat='recipeInput\.(update|updateMany|upsert|delete|deleteMany)|\b(UPDATE|DELETE FROM)\s+recipe_input'
 hits=$(grep -rInE "$pat" "$SCAN/apps" "$SCAN/packages" --include="*.ts" --include="*.tsx" --include="*.sql" \
   --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.next --exclude-dir=generated 2>/dev/null \
   | grep -vE "packages/database/prisma/migrations/" || true)
-outside=$(echo "$hits" | grep -vE "apps/api/src/modules/intake/.*recipeInput\.updateMany" || true)
+
+# (a) Any recipeInput write that is NOT an updateMany is never whitelisted.
+non_um=$(echo "$hits" | grep -vE "recipeInput\.updateMany" || true)
+
+# (b) A recipeInput.updateMany is whitelisted ONLY when it sits inside the Intake
+# module AND carries the canonical write-once guard (`ocrText: null`). Only the
+# WRITE form (`updateMany(`) is considered — a test mock/assertion
+# (`recipeInput.updateMany)`) is not a write. File lists (grep -rIlE) are used so
+# scratch-tree Windows paths (containing `C:`) never break the per-file loop.
+um_files=$(grep -rIlE "recipeInput\.updateMany\(" "$SCAN/apps" "$SCAN/packages" \
+  --include="*.ts" --include="*.tsx" --include="*.sql" \
+  --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.next --exclude-dir=generated 2>/dev/null || true)
+
+unguarded=""
+for f in $um_files; do
+  case "$f" in
+    "$SCAN/apps/api/src/modules/intake/"*) ;;
+    *) unguarded="$unguarded
+$f  [recipeInput.updateMany outside the Intake module]"; continue ;;
+  esac
+  # Multiline-capable guard check: `updateMany({` followed (within 120 chars) by
+  # `ocrText: null`. The canonical form spans lines (where: { id, ocrText: null }).
+  if ! grep -Pzo "recipeInput\.updateMany\(\{[\s\S]{0,120}?ocrText\s*:\s*null" "$f" >/dev/null 2>&1; then
+    unguarded="$unguarded
+$f  [recipeInput.updateMany without the ocrText:null guard]"
+  fi
+done
+
+outside="${non_um}${unguarded}"
 if [ -z "$hits" ]; then note "recipe_input is write-once (no update/delete references, D-10)"; else
   if [ -z "$outside" ]; then note "recipe_input write-once (only the Intake OCR updateMany-with-null-guard path)"; else fire "recipe_input must be immutable (outside the Intake OCR write-once path):"; echo "$outside"; fi
 fi

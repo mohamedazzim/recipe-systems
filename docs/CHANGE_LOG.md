@@ -48,7 +48,15 @@
   next-time note in the recall + station-card print tagged COOK LOG; applied
   swap rewrote the card line via Intake; per-bowl band (183–259 kcal, a band
   never a point); reload/reopen persistence.
-- Commit(s): pending CI (filled at push).
+- Commit(s): `e687c4e` — CI run 34936562239 success.
+- Audit: A-26 PASS-WITH-FINDINGS (2026-09-15) — all five attack vectors
+  re-executed green (story_d26_hardening 6/6 · qg2_gates 19/19 · rendering
+  15/15 · conformance greps clean; Q14 left OPEN, no persisted portion
+  column). Findings (all MINOR): F-1 latent FK `ON DELETE SET NULL` × CHECK
+  `allergen_id IS NOT NULL` interaction on `account_restriction_item` (migration
+  002, pre-existing — recommend RESTRICT for D-29); F-2 test fixture truncates
+  definitions without clearing profile items (order-dependent on a pristine
+  DB); F-3 builder-session independence caveat. See AUDIT_LOG A-26.
 
 ## 2026-09-14/15 — D-24 P6-1: cook loop (F1, F2, F6)
 

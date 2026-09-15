@@ -222,3 +222,85 @@ failure" was not demonstrated.**
 **Recommendation for the next dispatch:** proceed to D-25 / D-26 per the dispatcher;
 when D-26 ships, A-24's F-1 cell plus the F4 `next_time` write path become its audit
 targets (D-24 already surfaces both correctly).
+
+## A-26 — Audit: profiles, swaps, next-time, I3/I4 (D-26)
+
+- **Date / audit agent:** 2026-09-15 · DeepSeek V4 Pro (builder session, read-only
+  audit intent — independence caveat recorded as F-3 below).
+- **Audited commit:** `e687c4e` (D-26 feature, HEAD = `origin/main`). CI run
+  `34936562239` = success. Tree clean at audit time except the never-commit prompt
+  artifact `packages/llm-adapter/src/prompts/South Indian Coconut Tamarind Fish Curry.md`.
+- **Scope:** DISPATCH D-26 (P7-2) done criteria; F3/F4/H1/H3/H5/I3/I4; AUDIT.md A-26
+  attack vectors (profile semantics BLOCKER, swap immutability BLOCKER, next-time COOK
+  LOG tagging, I3/Q14 BLOCKER-class seam, I4 band tightening).
+
+### Verdict: PASS-WITH-FINDINGS
+
+No BLOCKER or MAJOR in D-26's shipped paths. Every attack vector re-executed
+2026-09-15:
+
+- **Profile semantics (BLOCKER):** `story_d26_hardening` 6/6 on real Postgres — H1
+  strict canonical validation (unknown code → 400 INVALID_RESTRICTION_PROFILE) + account
+  isolation + never auto-deletes recipes (recipe count unchanged after PUT); H3 conflicts
+  first, unknown never a pass, absent-from-card listed with no pass claim, cross-account
+  highlight → canonical 404.
+- **Swap immutability (BLOCKER):** F3/H5 in the story — reduced-not-applied leaves the
+  card byte-identical; applied routes through Intake (`amount_text` edit / soft-delete);
+  three immutable `cook_log_swap` rows; cross-account recording → 404. Conformance grep:
+  no `cookLogSwap.update/updateMany/delete/deleteMany/upsert` anywhere in `apps/*` or
+  `packages/*` (silent card rewrite is impossible by construction).
+- **Next-time tagging (F4):** story F4 proves POST + PATCH persistence, the station-card
+  print carries `Next time:` + `COOK LOG`, and the next-time block never carries a CARD
+  tag; clearing `next_time` removes the block. `packages/rendering` 15/15 incl. the
+  never-CARD provenance test; template grep confirms the `COOK LOG` tag.
+- **I3/Q14 (BLOCKER class):** story I3 proves `per_portion` is null before portions are
+  set (I3 TC-01), fills only after a portions recompute, the whole-pot band is unchanged,
+  and sodium stays unknown. Conformance grep: zero `portion` hits in
+  `packages/database/prisma` (schema + migrations) — no persisted portion column shipped;
+  Q14 REMAINS OPEN with the labeled `per_portion` seam (HANDOFF H-26).
+- **I4:** story I4 proves naming the fish / weighing the coconut / measuring the oil
+  narrows the energy band without collapsing it to a point (INV-14).
+- **One-writer gate:** `qg2_gates` 19/19 on real Postgres incl. the cook and restriction
+  fire proofs and the real-tree pass. Conformance grep: `accountRestrictionItem` /
+  `accountRestrictionProfile` referenced only in
+  `apps/api/src/modules/restrictions/restriction.service.ts` (+ its `.test.ts`) — the
+  API restriction module is the sole application writer.
+- **Live journey:** verified end-to-end during the D-26 session (profile → View 8
+  conflicts-first → applied swap DB-proven → next-time COOK LOG print → portions 4
+  "Per bowl" → reload persistence; evidence in H-26). Not re-run in this audit session
+  (dev stack torn down); the underlying DB effects are independently re-proven by
+  `story_d26_hardening` + `qg2_gates` above.
+
+### Findings
+
+**F-1 (MINOR — latent data-integrity interaction, pre-existing, not a D-26 defect):**
+`account_restriction_item.allergen_id` is wired `ON DELETE SET NULL` (migration 002,
+line 404) while CHECK `chk_restriction_item_type_matches_value` requires
+`allergen_id IS NOT NULL` for `restriction_type = 'allergen'` (migration 002, line 599).
+Deleting any `dietary_allergen_definition` row that a household profile references
+therefore always fails with Postgres 23514 rather than a clean RESTRICT or cascade.
+- Not triggered by D-26's shipped paths: the restriction module never deletes
+  definitions, and the only definition-delete path (admin reference data) is D-29
+  scope. Pre-existing in the schema; D-26 is merely the first feature that writes
+  `account_restriction_item`, making the interaction observable.
+- Recommendation (D-29 / hygiene backlog, not this audit): align the FK action to
+  `RESTRICT` (or explicitly clear `account_restriction_item` before definition
+  deletes) so the failure mode is intentional, not a 500.
+
+**F-2 (MINOR — test-isolation fragility):** `story_d26_hardening.test.ts` (and any test
+reusing `truncateReferenceTables`) does not clear `account_restriction_item` before
+truncating `dietary_allergen_definition`; on a non-pristine DB with any live profile row,
+the truncate throws 23514 (F-1 above) and the whole suite fails before a test runs.
+- Observed this audit: the leftover chef profile from the D-26 live journey blocked the
+  suite; after removing that verification artifact the suite ran 6/6 green.
+- Recommendation: have the fixture clear profile items (or delete profiles) before
+  truncating reference tables. Deferred — no test edits made in an audit.
+
+**F-3 (MINOR — process note): audit executed in the builder's session.**
+- Same independence caveat as A-23 F-3 / A-24 F-2: read-only intent, findings only,
+  nothing fixed during re-execution. Q14 left OPEN (no decision made here).
+
+**Recommendation for the next dispatch:** proceed to D-25 / D-27+ per the dispatcher.
+D-26 is fit for the next unit; carry F-1/F-2 into the D-29 reference-data work (or a
+hygiene backlog item) so the definition-delete path and the test fixture are hardened
+together.

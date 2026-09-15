@@ -2674,10 +2674,15 @@ execution output; Git: not available / not authorized throughout.
   items in scope (diet-pattern vocabulary, label-pack precedence) handled as
   LABELED PILOT WORKING ASSUMPTIONS (D-26E/D-26F). ADR §7 amended (next-time
   print source). Q1/Q5/Q9/Q10/Q11 untouched; DeepSeek config untouched.
-- Resume point: H-26 done criteria met. Next per dispatcher: A-26 audit
-  (AUDIT.md) — re-execute story_d26_hardening, the restriction one-writer fire
-  proof, the F4 COOK LOG print tag, the Q14 seam (no persisted portion column),
-  and the live cook/profile journey.
+- Resume point: H-26 done criteria met; A-26 audit complete — **PASS-WITH-FINDINGS**
+  (2026-09-15): story_d26_hardening 6/6 · qg2_gates 19/19 (restriction one-writer
+  fire proof) · rendering 15/15 (F4 COOK LOG tag) · conformance greps clean (no
+  cookLogSwap mutation; no ingredient-line writer outside Intake; restriction
+  module is the sole `account_restriction_*` writer; no portion column — Q14
+  stays OPEN). Findings (MINOR, in AUDIT_LOG A-26): F-1 FK SET NULL × CHECK
+  interaction on `account_restriction_item.allergen_id` (pre-existing, carry into
+  D-29); F-2 test fixture truncation order (clear profile items before reference
+  tables); F-3 builder-session audit caveat. Next per dispatcher: D-25 / D-27+.
 
 ### H-27 — D-27 Regional veto + retention/ops
 

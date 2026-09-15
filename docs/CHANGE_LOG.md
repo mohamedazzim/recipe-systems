@@ -40,7 +40,7 @@
   "1"→"I"; Ginger→"Ginqer"; Salt→"Salf") while the model stayed ≥ 0.9-confident.
 - Register impact: **Q10 stays OPEN**; **D-28 stays BLOCKED** — this is TECHNICAL
   validation only and does NOT satisfy the canonical real-world provenance gate.
-- Commit(s): `<sha>` (Q10 technical benchmark).
+- Commit(s): `739d93b` (Q10 technical benchmark).
 
 ## 2026-09-15 — Q10 corpus determination: `ocr_sample_pics` (no benchmark run)
 

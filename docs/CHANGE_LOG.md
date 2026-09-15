@@ -38,7 +38,7 @@
   critical-line assertion fails. Remediation: a handwriting-capable model/config
   (documented PP-OCRv4 / paddleocr-3.x, or handwriting-oriented recognition), then
   re-benchmark.
-- Commit(s): `<sha>` (Q10 real-card benchmark).
+- Commit(s): `c517b92` (Q10 real-card benchmark).
 
 ## 2026-09-15 — Q10 technical benchmark: synthetic fixture through real PaddleOCR
 

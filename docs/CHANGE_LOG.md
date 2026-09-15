@@ -43,7 +43,7 @@
   0 · build OK (api) · regression-gates PASS · contract-check OK. Live internal
   browser (stub): upload → 11 draft lines with confidence + provenance → low-confidence
   line flagged and analysis blocked (INV-05) → Clear review → ready.
-- Commit(s): `<sha>` (D-11 frontend).
+- Commit(s): `d06c484` (D-11 frontend).
 
 ## 2026-09-15 — D-11 follow-up: A-11 F-1/F-2 remediation (benchmark seam + gate 3b hardening)
 

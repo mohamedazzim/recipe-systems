@@ -1,0 +1,57 @@
+{
+  "dataset_id": "q10-real-golden-kanyakumari-v1",
+  "fixture_status": "real_handwritten_benchmark_card",
+  "recipe_name": "Kanyakumari Meen Kuzhambu",
+  "image_file": "kanyakumari_meen_kuzhambu.png",
+  "reference_lines": [
+    "Kanyakumari Meen Kuzhambhu",
+    "Fish - 500 g",
+    "Drumstick - 1",
+    "Raw Mango - 1/2",
+    "Grated Coconut - 1/2 shell",
+    "Red Chillies - 5",
+    "Chilli Powder - 2 tsp",
+    "Coriander Powder - 1 tsp",
+    "Turmeric Powder - 1 tsp",
+    "Mustard Seeds - 1 tsp",
+    "Fenugreek Seeds - 1/4 tsp",
+    "Fenugreek Powder - 1/2 tsp",
+    "Tamarind - 1 Lemon - Sized ball",
+    "Coconut Oil - 2 tbsp",
+    "Curry Leaves - 10",
+    "Small Onion - 1",
+    "Ginger - 1 inch",
+    "Salt - to taste",
+    "Fresh Coriander - 2 tbsp",
+    "METHOD:",
+    "Soak tamarind and extract the juice.",
+    "Heat coconut oil and temper mustard, fenugreek seeds and curry leaves.",
+    "Add onion, ginger and spices.",
+    "Add drumstick, mango and tamarind water.",
+    "Simmer, then add fish and cook gently.",
+    "Finish with grated coconut and coriander."
+  ],
+  "critical_lines": [
+    "Fish - 500 g",
+    "Drumstick - 1",
+    "Raw Mango - 1/2",
+    "Grated Coconut - 1/2 shell",
+    "Fenugreek Seeds - 1/4 tsp",
+    "Fenugreek Powder - 1/2 tsp"
+  ],
+  "forbidden_terms": [
+    "garlic",
+    "Garlic"
+  ],
+  "duplicate_sensitive_groups": [
+    [
+      "Fenugreek Seeds - 1/4 tsp",
+      "Fenugreek Powder - 1/2 tsp"
+    ]
+  ],
+  "notes": {
+    "source": "Benchmark-owner handwritten golden card; ground truth = independent transcription by the audit agent (read from the image, NOT from PaddleOCR output).",
+    "provenance": "real_handwritten_card",
+    "capture_conditions": "Lined notebook page, blue ink, two-column ingredient list, method below; clear and legible handwriting."
+  }
+}

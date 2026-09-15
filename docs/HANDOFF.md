@@ -2271,6 +2271,22 @@ execution output; Git: not available / not authorized throughout.
   while the model stayed ≥ 0.9-confident — the EN model over-confides on these.
   **This is TECHNICAL validation only — it does NOT satisfy the canonical real-card
   provenance requirement. Q10 stays OPEN; D-28 stays BLOCKED.**
+- **Q10 REAL golden-card benchmark (2026-09-15) — FAILED; Q10 stays OPEN.** The
+  benchmark owner's real handwritten card `ocr_q10/golden/kanyakumari_meen_kuzhambu.png`
+  (SHA256 `6989C633…43214C78`, lined notebook page, blue ink) was transcribed
+  independently into `kanyakumari_meen_kuzhambu.manifest.json` (26 reference lines;
+  critical = fish/drumstick/mango/coconut/both fenugreeks; forbidden = garlic) and
+  run through the SAME production adapter (paddleocr 2.6.1.0, PP-OCRv3 EN). Result:
+  **7/26 lines preserved (26.92%), 0/6 critical lines recognized** — the EN
+  PP-OCRv3 model garbled the cursive handwriting (`Fish - 500 g`→`Fi$h+50og`,
+  `Fenugreek Seeds - 1/4 tsp`→`FenugreakSeed-1/9tsp`, …), ~6.97 s latency, garlic
+  absent, 24 low-confidence lines. Live browser: 26 draft lines, 24 flagged
+  `needs_review`, analysis correctly BLOCKED ("24 lines need your attention") — the
+  INV-04/INV-05 safety net works, but the OCR itself fails the canonical critical-
+  line assertion. **Q10 = OPEN; D-28 = BLOCKED** (real-card benchmark not met;
+  photo→first-analysis cannot complete while review is blocked). Remediation: a
+  handwriting-capable model/config (documented PP-OCRv4 / paddleocr-3.x, or a
+  handwriting-oriented recognition model) — re-benchmark after.
 
 ### H-12 — D-12 Parse review
 

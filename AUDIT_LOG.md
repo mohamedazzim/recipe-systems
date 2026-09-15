@@ -665,3 +665,28 @@ Then A-11 closes. Q10 remains the gate for D-28.
 - **Decision:** TECHNICAL validation only. **Q10 stays OPEN; D-28 stays BLOCKED** —
   the canonical real-world provenance requirement is NOT satisfied by this
   synthetic fixture.
+
+### Q10 REAL golden-card benchmark (2026-09-15) — FAILED
+
+- **Card:** `ocr_q10/golden/kanyakumari_meen_kuzhambu.png` — the benchmark owner's
+  REAL handwritten card (lined notebook page, blue ink). SHA256 `6989C633F8ABDBECE5
+  5B3D714B63EE5BEE0686D2D5FE5E5CE866928943214C78`. Ground truth = independent
+  transcription by the audit agent (from the image, NOT PaddleOCR), recorded in
+  `kanyakumari_meen_kuzhambu.manifest.json` (26 reference lines; 6 critical; garlic
+  forbidden).
+- **Run:** production adapter unchanged — `resolveOcrAdapter → PaddleOcrAdapter`
+  (runtime paddleocr 2.6.1.0, PP-OCRv3 EN). Metrics: **7/26 reference lines
+  (26.92%); 0/6 critical lines**; garlic absent; 24 low-confidence lines; ~6.97 s
+  latency; `pass: false`.
+- **Failure evidence:** the cursive handwriting was garbled — `Fish - 500 g` →
+  `Fi$h+50og`, `Drumstick - 1` → `Dxwmstick-|1`, `Fenugreek Seeds - 1/4 tsp` →
+  `FenugreakSeed-1/9tsp`, `Fenugreek Powder - 1/2 tsp` → `FenugreokPowde-1tsp`,
+  `Grated Coconut - 1/2 shell` → `GratelLoconut-1l/2shell`.
+- **Safety net (correct behavior):** live browser upload → 26 draft lines, 24
+  flagged `needs_review`, analysis BLOCKED ("24 lines need your attention") —
+  INV-04 (flagged, never dropped) + INV-05 (block enqueue) hold even on bad OCR.
+- **Decision:** the canonical golden-card critical-line assertion FAILS.
+  **Q10 = OPEN; D-28 = BLOCKED.** photo→first-analysis not measurable (review
+  blocks analysis). Remediation: a handwriting-capable model/config (documented
+  PP-OCRv4 / paddleocr-3.x, or a handwriting-oriented recognition model) — then
+  re-run this same benchmark.

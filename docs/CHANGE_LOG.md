@@ -20,6 +20,26 @@
 
 **Rule:** a change that alters any Q1–Q18 row must say so in its entry. The register (SCAFFOLD §7) is the single source of truth for open decisions; this log records the history of how the register changed. No Q-row changes in D-13.
 
+## 2026-09-15 — Q10 real golden-card benchmark: FAILED (Q10 stays OPEN)
+
+- Author / session: DeepSeek V4 Pro (VS Code) Q10 real-card benchmark execution.
+- What changed: independent ground-truth manifest `ocr_q10/golden/
+  kanyakumari_meen_kuzhambu.manifest.json` (26 reference lines; 6 critical; garlic
+  forbidden) transcribed from the benchmark-owner's handwritten card
+  `kanyakumari_meen_kuzhambu.png` (SHA256 `6989C633F8ABDBECE55B3D714B63EE5BEE0686D2D5FE5E5CE866928943214C78`).
+  Ran through the production adapter (paddleocr 2.6.1.0, PP-OCRv3 EN, `--q10-fixture`).
+- Result: **7/26 reference lines preserved (26.92%); 0/6 critical lines** — the EN
+  PP-OCRv3 model garbled the cursive notebook handwriting (Fish→`Fi$h+50og`,
+  Fenugreek Seeds→`FenugreakSeed-1/9tsp`). Garlic absent; 24 low-confidence lines;
+  ~6.97 s latency. Live browser: 26 draft lines, 24 `needs_review`, analysis
+  correctly BLOCKED (INV-04/INV-05 hold). photo→first-analysis not measurable —
+  review blocks analysis.
+- Register impact: **Q10 stays OPEN; D-28 stays BLOCKED** — the canonical real-card
+  critical-line assertion fails. Remediation: a handwriting-capable model/config
+  (documented PP-OCRv4 / paddleocr-3.x, or handwriting-oriented recognition), then
+  re-benchmark.
+- Commit(s): `<sha>` (Q10 real-card benchmark).
+
 ## 2026-09-15 — Q10 technical benchmark: synthetic fixture through real PaddleOCR
 
 - Author / session: DeepSeek V4 Pro (VS Code) Q10 technical validation.

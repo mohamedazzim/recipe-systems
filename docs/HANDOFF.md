@@ -2121,6 +2121,8 @@ execution output; Git: not available / not authorized throughout.
 
 #### D-11 IMPLEMENTATION — shipped (2026-09-15, dispatcher-authorized)
 
+- **Commit:** `1b1ab77` (D-11, pushed to `main`; CI run 34976615556 in progress at
+  record time). BASE `a8c08e1` (A-27 docs).
 - **Provider-neutral seam** (`packages/ocr-adapter/src/index.ts` rewritten): the
   `OcrAdapter` interface is now `recognize(image: Uint8Array, contentType: string):
   Promise<OcrResult>` (the image bytes cross the seam — never a URI). Exports

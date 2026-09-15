@@ -51,7 +51,7 @@
   Live (API `OCR_PROVIDER=stub`): upload → 11 draft lines, 1 flagged; enqueue-state
   blocked on the low-confidence line (INV-05). PaddleOCR latency = "not measured" (no
   Python runtime; real benchmark deferred to Q10).
-- Commit(s): `<sha>` (D-11).
+- Commit(s): `1b1ab77` (D-11).
 
 ## 2026-09-15 — D-27 P7-3: regional veto (G2) + retention/cleanup + ops
 

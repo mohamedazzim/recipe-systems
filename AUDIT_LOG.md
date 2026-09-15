@@ -484,7 +484,7 @@ Carry F-1 into a future gate-hardening pass (or fold into D-28's closing sweep h
   verdict. The A-11 paired audit will re-execute the D-11 done criteria and append its
   own verdict. Per AUDIT.md contract, claims below are hypotheses until audited.
 - **Date / evidence session:** 2026-09-15 · DeepSeek V4 Pro (VS Code) D-11 implementation.
-- **Audited tree:** uncommitted D-11 changes (HANDOFF H-11 implementation record).
+- **Audited tree:** commit `1b1ab77` (D-11, pushed to `main`; CI run 34976615556).
 
 ### Evidence collected (for the paired audit to re-execute)
 

@@ -2186,8 +2186,15 @@ execution output; Git: not available / not authorized throughout.
   **D-28 stays BLOCKED** on Q10 (real-card path). Q1/Q5/Q6/Q11/Q12/Q14/Q15 untouched;
   Q9 (DeepSeek) unaffected. PaddleOCR latency = "not measured" (no Python runtime);
   stub latency = 0 ms.
-- **Resume point:** A-11 paired audit (golden-photo BLOCKER vector remains deferred to
-  Q10 — record as such in AUDIT_LOG A-11; seam/INV-04/QG4 vectors are audit-ready now).
+- **Resume point:** A-11 audit complete — **PASS-WITH-FINDINGS** (2026-09-15).
+  Findings (AUDIT_LOG A-11): F-1 MAJOR — `scripts/ocr-benchmark.js` duplicates the
+  adapter logic instead of consuming `@recipe-systems/ocr-adapter` (Q10 benchmark
+  would exercise a different code path than the shipped adapter); F-2 MINOR — gate 3b
+  whitelists `recipeInput.updateMany` without verifying the `ocrText: null` guard;
+  F-3 MINOR — builder-session audit caveat. Golden-photo BLOCKER vector stays
+  deferred to Q10 (no Python runtime / provenance-valid photo / credentials). Q10
+  OPEN; D-28 still BLOCKED. Recommended follow-up: wire the harness to the adapter
+  seam + tighten gate 3b (or fold into the D-28 closing sweep).
 
 ### H-12 — D-12 Parse review
 

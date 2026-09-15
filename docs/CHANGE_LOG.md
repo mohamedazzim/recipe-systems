@@ -52,6 +52,12 @@
   blocked on the low-confidence line (INV-05). PaddleOCR latency = "not measured" (no
   Python runtime; real benchmark deferred to Q10).
 - Commit(s): `1b1ab77` (D-11).
+- Audit: A-11 PASS-WITH-FINDINGS (2026-09-15) — INV-04 / seam / QG4 / golden-stub /
+  QG2-ownership / Q10-hygiene / D-12 / regression vectors re-executed green.
+  Findings (AUDIT_LOG A-11): F-1 MAJOR — `scripts/ocr-benchmark.js` duplicates the
+  adapter logic instead of consuming `@recipe-systems/ocr-adapter`; F-2 MINOR — gate
+  3b whitelists `recipeInput.updateMany` without verifying the `ocrText: null` guard;
+  F-3 MINOR — builder-session audit caveat. Q10 OPEN; D-28 still BLOCKED.
 
 ## 2026-09-15 — D-27 P7-3: regional veto (G2) + retention/cleanup + ops
 

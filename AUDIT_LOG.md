@@ -478,33 +478,97 @@ pilot; ADR §8 "block a live sentence" is satisfied.
 **Recommendation for the next dispatch:** proceed to D-28 (D-27 is otherwise fit).
 Carry F-1 into a future gate-hardening pass (or fold into D-28's closing sweep hygiene).
 
-## A-11 — Audit: OCR adapter + low-confidence flagging (D-11) — builder evidence, paired audit pending
+## A-11 — Audit: OCR adapter + low-confidence flagging (D-11)
 
-- **Note:** this block is **builder-recorded evidence**, NOT the independent audit
-  verdict. The A-11 paired audit will re-execute the D-11 done criteria and append its
-  own verdict. Per AUDIT.md contract, claims below are hypotheses until audited.
-- **Date / evidence session:** 2026-09-15 · DeepSeek V4 Pro (VS Code) D-11 implementation.
-- **Audited tree:** commit `1b1ab77` (D-11, pushed to `main`; CI run 34976615556).
+- **Date / audit agent:** 2026-09-15 · DeepSeek V4 Pro (builder session, read-only
+  audit intent — independence caveat recorded as F-3 below).
+- **Audited commits:** `1b1ab77` (D-11) + `001b0d7` (docs SHA/CI record). CI run
+  34976615556. BASE `a8c08e1` (A-27 docs).
 
-### Evidence collected (for the paired audit to re-execute)
+### Verdict: PASS-WITH-FINDINGS
 
-- **INV-04 (BLOCKER class):** low-confidence lines are flagged, never dropped —
-  `intake.service.test` OCR cases (complete/persist+flag, missing-confidence→flagged)
-  green; live upload (stub) produced 11/11 lines with exactly one `needs_review=true`
-  (the 0.45-confidence line), zero dropped.
-- **Adapter seam (MAJOR):** `OcrAdapter.recognize(Uint8Array, contentType)` — vendor
-  fields never leak past `packages/ocr-adapter` (paddle response normalization unit
-  tests cover v2 / flattened / object / single-page shapes).
-- **Golden photo (BLOCKER, DEFERRED to Q10):** stub + real-card benchmark — the STUB
-  golden (`--golden-stub`) asserts Fish 500g / Drumstick 1 / Mango 1/2 / Half Shell
-  coconut / both fenugreeks / no garlic and passes; the REAL-card photo benchmark is
-  NOT executed (no Python runtime, no provenance-valid golden photo, no provider
-  credentials) — this vector stays OPEN with Q10.
-- **QG4 cells:** timeout/down → `OCR_UNAVAILABLE` 503 with photo + input row durable
-  (intake.service provider-failure→pending + `story_d11_ocr` provider-failure case);
-  unreadable → 422 `OCR_UNREADABLE` (empty→unreadable case). No-adapter → `disabled`.
-- **Q10 hygiene:** no provider selection claimed — PaddleOCR is a config-gated
-  concrete adapter, Q10 OPEN; D-28 remains BLOCKED on Q10.
-- **Regression:** `regression-gates.sh` PASS (gate 3b immutability amendment permits
-  only the Intake OCR `updateMany` null-guard path); `contract-check` OK; lint 0;
-  typecheck 0; build OK; API 312/312; integration 149/149; qg2_gates 24/24.
+No BLOCKER. Every A-11 vector re-executed 2026-09-15 (fresh runs, not HANDOFF claims):
+
+- **INV-04 (BLOCKER class):** `IntakeService.persistOcrDraft` maps EVERY line in the
+  normalized `OcrResult` with `low = confidence === undefined || confidence < 0.9`
+  and no filtering — all N low-confidence lines flagged, zero dropped by
+  construction. Empirical: `story_d11_ocr` (real Postgres + `StubOcrAdapter`) → 11/11
+  lines, 1 flagged (`Fenugreek Powder - 1/2 Tsp`, 0.45), `getEnqueueState` blocks
+  (`can_enqueue:false`, blocker named). Unit cases: complete/persist+flag (N=1 low),
+  missing-confidence→flagged (undefined→flagged, never invented). Re-run green:
+  `story_d11_ocr` 2/2 · `intake.service` 40/40.
+- **Adapter seam:** `OcrAdapter.recognize(Uint8Array, contentType)` is the only
+  contract the API sees (`resolveOcrAdapter` selects paddle/stub/null). Grep for
+  vendor field names (`rec_text|rec_score|paddle|PaddleOCR|PADDLE`) across
+  `apps/api/src`, `packages/domain`, `packages/schemas` → zero matches. No DB write
+  in `packages/ocr-adapter` (grep prisma/database/transaction → zero). `OCR_ADAPTER`
+  token consumed only by `IntakeService`. `ocr-adapter` 13/13.
+- **OCR failure / QG4:** provider throw → `pending` (nothing OCR-specific persisted;
+  photo + `recipe_input` row already durable; retry = re-POST); empty result →
+  `unreadable` (422); no adapter → `disabled`. Controller: `pending` → 503
+  `OCR_UNAVAILABLE`, `unreadable` → 422 `OCR_UNREADABLE`. `persistOcrDraft` runs
+  `updateMany` + `createMany` in one `$transaction` — atomic, no partial silent
+  persistence. Re-run: unit provider-failure→pending, empty→unreadable,
+  no-adapter→disabled green; `story_d11` provider-failure case green (durable input,
+  `ocr_text` null, 0 lines).
+- **Golden stub:** `stub.ts` `GOLDEN_OCR_LINES` = 11 lines, both fenugreeks distinct,
+  no garlic, exactly one low-confidence (0.45). `ocr-benchmark.js --golden-stub`
+  → 11/11 preserved, `criticalMissing:[]`, `lowConfidenceCount:1`, `garlicAbsent:true`,
+  `bothFenugreeksDistinct:true`, pass (exit 0). `--self-test` PASS.
+- **QG2 / ownership:** no unauthorized writer introduced — `recipe_ingredient_line`
+  writes live only in `apps/api/src/modules/intake/` (grep outside intake → only the
+  Prisma generated `.d.ts`). No `analysis_*` write outside the worker. `qg2_gates`
+  24/24 incl. the two D-11 immutability fire proofs. INV-17 untouched.
+- **Q10 hygiene:** `resolveOcrAdapter` treats `paddle` as config-gated (no
+  credentials, no selection claim); Q10 OPEN; no fabricated latency/accuracy claim
+  (PaddleOCR = "not measured"; stub = 0 ms). D-28 stays BLOCKED.
+- **D-12 compatibility:** OCR draft lines ride the Intake boundary (`sourceTag:'CARD'`,
+  `needsReview` per line); `recipe_input.ocr_text` = normalized `recognized_text`
+  (paste raw_text untouched); enqueue/parse-preview blocked while any `needs_review`
+  line is active (INV-05, D-14 suite green). No auto-analysis path.
+- **Regression:** `git diff --name-only a8c08e1..001b0d7` = 17 files, all in-scope
+  (intake / ocr / ocr-adapter / scripts / tests / evidence docs) — zero out-of-scope
+  (worker, llm-adapter, schemas, domain, reference-data, database, rendering).
+  `regression-gates.sh` PASS · `contract-check` OK (previous run) · lint 0 ·
+  typecheck 0 · build OK. DeepSeek/LLM unchanged.
+
+### Findings
+
+**F-1 (MAJOR — benchmark harness does not consume the adapter seam):**
+`scripts/ocr-benchmark.js` duplicates the adapter logic instead of importing
+`@recipe-systems/ocr-adapter`: `paddleProvider()` re-implements the PaddleOCR HTTP +
+vendor-response normalization inline (a second copy of `paddle.ts`), and
+`runGoldenStub()` hardcodes the 11 golden lines inline (a second copy of
+`stub.ts`/`GOLDEN_OCR_LINES`). Evidence: `Select-String scripts/ocr-benchmark.js
+-Pattern "ocr-adapter|StubOcrAdapter|resolveOcrAdapter|OcrAdapter|normalizePaddle"`
+→ zero matches; its only `require()`s are `fs`/`https`. Impact: A-11 vector 4/6
+("benchmark harness consumes the adapter seam") is not met — the Q10 real-card
+benchmark would exercise a DIFFERENT code path than the API's shipped adapter, so a
+drift/bug in `paddle.ts`/`stub.ts` would not be caught and the benchmark's
+provider-selection evidence value is compromised. No live product defect (the API
+uses the real adapter; CI green).
+
+**F-2 (MINOR — gate 3b does not verify the `ocrText: null` guard):**
+`scripts/regression-gates.sh:158` whitelists via
+`grep -vE "apps/api/src/modules/intake/.*recipeInput\.updateMany"` — any
+`recipeInput.updateMany` under the intake module passes, regardless of the write-once
+`ocrText: null` guard the gate's own comment claims to enforce. Evidence: probing
+`prisma.recipeInput.updateMany({ where: { id: "x" }, data: { ocrText: "y" } })` (no
+null guard) under `apps/api/src/modules/intake/` → the gate does NOT fire. No live
+defect (the shipped `persistOcrDraft` HAS the guard); same class as A-27 F-1
+(prefix-matching).
+
+**F-3 (MINOR — process note):** audit executed in the builder's session (same
+independence caveat as A-23 F-3 / A-24 F-2 / A-25 F-2 / A-26 F-3 / A-27 F-2).
+Read-only intent; findings only; nothing fixed during re-execution.
+
+**Observation (not a finding):** the golden-photo BLOCKER vector (real-card
+benchmark) remains DEFERRED to Q10 — no Python runtime, no provenance-valid golden
+photo, no provider credentials (environment/tooling limitation, not a product defect,
+and no evidence fabricated). The H-28 STOP preflight entry rode along in the D-11
+commit (`docs/HANDOFF.md`) — benign process note.
+
+**Recommendation:** dispatch a small D-11 follow-up (or fold into the D-28 closing
+sweep) to make `scripts/ocr-benchmark.js` consume `resolveOcrAdapter` /
+`StubOcrAdapter` / `PaddleOcrAdapter` and tighten gate 3b to require `ocrText: null`.
+Then A-11 closes. Q10 remains the gate for D-28.

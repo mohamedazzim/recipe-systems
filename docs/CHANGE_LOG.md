@@ -20,6 +20,33 @@
 
 **Rule:** a change that alters any Q1–Q18 row must say so in its entry. The register (SCAFFOLD §7) is the single source of truth for open decisions; this log records the history of how the register changed. No Q-row changes in D-13.
 
+## 2026-09-15 — D-27 P7-3: regional veto (G2) + retention/cleanup + ops
+
+- Author / session: DeepSeek V4 Pro (VS Code) D-27 dispatch (preflight GO recorded
+  in HANDOFF H-27 before code).
+- What changed: NEW API `reviews` module — `POST /api/v1/analysis/:analysisId/view-5/veto`
+  (Bearer + CSRF, env-configured `REVIEWER_EMAILS` slots, no fabricated identities).
+  A veto is the review module's SOLE `analysis_*` write: View 5
+  `COMPLETE → INCOMPLETE` (payload/recipe/recipe_input never touched; repeat veto
+  idempotent; review event = governance log, no review table, no publishable
+  column). NEW API `cleanup` module — `cleanupExpiredGuests()` removes expired
+  UNCLAIMED guest sessions + owned recipes (DB cascade + D-22 compensating storage
+  cleanup; claimed/unexpired never swept) with a scheduled runner
+  (`CLEANUP_INTERVAL_SECONDS`, Q11-labeled 86400s TTL). QG2 gate 1 refined to exempt
+  the review module; NEW gate **2h** (review module writes only the View-5 veto) +
+  fire proofs. NEW `docs/ops/runbook.md` (backup/restore/upgrade/monitoring; Q12
+  RPO/RTO labeled UNSET).
+- Why: DISPATCH D-27 (P7-3) — G2 story + operational tail (BUILD_PLAN P7-3).
+- Register impact: none resolved. Q6 (publishable state home), Q11 (guest TTL +
+  schedule), Q15 (erasure/photo retention), Q12 (RPO/RTO) stay OPEN and explicitly
+  labeled; Q1/Q5/Q10 untouched; DeepSeek unchanged; D-23/D-24/D-25/D-26 preserved.
+- Verification: worker 64/64 · API 307/307 · web 144/144 · integration 145/145
+  (story_d27 5/5) · qg2_gates 22/22 (incl. 2h fire proofs) · regression gates PASS ·
+  contract-check OK · lint 0 · typecheck 0 · build OK. Live browser: golden recipe
+  View 5 vetoed → "View 5 is incomplete" (payload intact, other views intact),
+  persists on reload, re-analysis produces a fresh analysis.
+- Commit(s): `<sha>` (D-27).
+
 ## 2026-09-15 — D-25 F-1 closure: B6 + D3 web surfaces (A-25 remediation)
 
 - Author / session: DeepSeek V4 Pro (VS Code) D-25 F-1 completeness fix

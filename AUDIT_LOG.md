@@ -409,3 +409,24 @@ snapshot chain, one-writer gates, and explicit-re-run behavior are sound). Fold 
 
 **A-25 final: PASS-WITH-FINDINGS → F-1 CLOSED (2026-09-15); F-2 (process note)
 stands.** D-25 is now fully complete including the user-facing B6/D3 surfaces.
+
+## A-27 — Audit: regional veto + retention/ops (D-27)
+
+- **Date / audit agent:** 2026-09-15 · implementation complete (DeepSeek V4 Pro, D-27
+  dispatch session). **Independent audit verdict: PENDING** — this block records the
+  implementation surface the audit will attack; the verdict is appended by the A-27
+  audit agent (AUDIT.md pairing contract).
+- **Audited commit:** `<sha>` (D-27 — filled at push; CI run recorded in CHANGE_LOG).
+- **Attack surface (from AUDIT.md A-27):** veto BLOCKER class (veto → blocked from
+  live views immediately; both regional reviewers configured; a veto that leaves the
+  sentence live anywhere is a BLOCKER); Q6 hygiene (publishable-state home = labeled
+  working assumption; a silently invented status column is a BLOCKER); cleanup jobs
+  (expired unclaimed guests removed — QG4 cell; Q11/Q15 labeled with register IDs);
+  ops docs present (runbook/backup/restore/upgrade/monitoring — missing backup doc is
+  a MAJOR).
+- **Implementation evidence (for the audit to re-execute):** `apps/api/src/modules/reviews/`
+  (veto endpoint + env reviewer slots); `apps/api/src/modules/cleanup/`
+  (`cleanupExpiredGuests` + scheduled runner); QG2 gate 2h + fire proofs
+  (`scripts/regression-gates.sh`, `tests/integration/qg2_gates.test.ts`);
+  `tests/integration/story_d27_veto_retention.test.ts`; `docs/ops/runbook.md`;
+  HANDOFF H-27 + CHANGE_LOG entries.

@@ -9,6 +9,8 @@ import { ShoppingModule } from './modules/shopping/shopping.module';
 import { PrintModule } from './modules/print/print.module';
 import { CookModule } from './modules/cook/cook.module';
 import { RestrictionsModule } from './modules/restrictions/restriction.module';
+import { ReviewsModule } from './modules/reviews/reviews.module';
+import { CleanupModule } from './modules/cleanup/cleanup.module';
 import { HealthController } from './health/health.controller';
 
 @Module({
@@ -29,6 +31,8 @@ import { HealthController } from './health/health.controller';
     PrintModule,
     CookModule,
     RestrictionsModule,
+    ReviewsModule,
+    CleanupModule,
   ],
   controllers: [HealthController],
 })

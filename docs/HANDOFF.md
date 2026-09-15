@@ -2878,7 +2878,154 @@ execution output; Git: not available / not authorized throughout.
 
 ### H-27 — D-27 Regional veto + retention/ops
 
-☐ No entry yet.
+- **Status: DONE (2026-09-15) — implementation shipped; A-27 audit pending.** The
+  preflight (GO) was recorded below BEFORE code; the implementation followed it exactly.
+- **Date / agent session:** 2026-09-15 · DeepSeek V4 Pro (VS Code) D-27 implementation.
+
+#### Preflight trace (recorded before code — unchanged)
+- **Verdict: GO** (no BLOCKER; Q6/Q11/Q15/Q12 built to labeled working assumptions).
+
+#### Scope (DISPATCH D-27 = BUILD_PLAN P7-3 = story G2 + ops tail)
+1. **Veto workflow (G2):** a regional reviewer can block a live View 5 regional
+   sentence; pilot = one Tamil Nadu/Kanyakumari reviewer + one Kerala reviewer on the
+   fish-curry cluster; blocked sentences leave live views immediately (G2 TC-01/TC-02).
+2. **Retention/cleanup jobs:** guest-session expiry cleanup (Q11 pilot default from
+   D-08); photo/account retention per Q15's pilot defaults (labeled — do not decide Q15).
+3. **Ops docs:** runbook, backup/restore, upgrade windows, monitoring (BUILD_PLAN §5
+   "Ops burden" row; Tech Stack §17).
+- **NON-GOALS:** pilot execution itself (D-28); printing (D-23); profiles/swaps (D-26).
+
+#### Dependencies
+- D-25 (depends-on per DISPATCH table) — **DONE** (`6f38689`, CI green).
+- D-08 guest TTL — **DONE** (`GUEST_TTL_SECONDS` default 86400, Q11-labeled; `guest_session.expires_at`
+  application-enforced). No cleanup job shipped yet (D-08 "Expiry cleanup job — PENDING").
+- D-22 D6 delete + `StorageService.tryDeleteObject` compensating photo cleanup — **DONE** (reuse for
+  the Q15 photo-retention path).
+- D-26 / D-30 / Q2 (RESOLVED) — **DONE**, no interaction with the veto (Q2 is print-only).
+- D-04 reviewer roster — **DONE as process**: "record slots/process if the people are not yet
+  signed; do not fabricate reviewer names." → D-27 configures reviewer SLOTS (env), never invents names.
+
+#### APIs / tables / UI
+- **Reuse (existing):** `analysis_view` (view_number=5, status COMPLETE/INCOMPLETE, payload Json,
+  `uq_analysis_view`); View 5 payload `{family, architecture, confidence, not_this[{variant,key_difference}],
+  needs_review: literal true, tag: 'INFERRED'}`; `analysis_claim`; `guest_session`
+  (expires_at/claimed_at); `recipe` (account XOR guest_session, FK cascades); web renders
+  INCOMPLETE views already (`AnalysisViews.tsx` + `identificationFrom(view5)`).
+- **New (D-27):**
+  - Veto endpoint — Bearer-only, reviewer-authorized (e.g. `POST /api/v1/analysis/:analysisId/view-5/veto`
+    or a `reviews` module route). Reviewer authorization = env-configured regional reviewer email slots.
+  - Optional reviewer queue read (pilot may be external per ADR §11 "G2 = External/admin workflow").
+  - Cleanup sweep — scheduled (API interval or worker); deletes expired unclaimed guest sessions and
+    their orphaned recipe/analysis/object aggregates; photo retention per Q15 labeled defaults.
+  - UI: veto affordance is minimal/optional for the pilot (ADR §11 classifies G2 as an external/admin
+    workflow; the live-view BLOCKING is the runtime must, not a rich reviewer UI).
+
+#### Writer / gate model (INV-03 + QG2)
+- Existing QG2 gate 1: "`analysis_*` written only by `apps/analysis-worker`" (`scripts/regression-gates.sh`
+  lines 21–30). The veto must NOT silently rewrite the analysis (ADR §8).
+- **Q6 working assumption to record (build to it, do NOT decide Q6):** the publishable-state home for the
+  pilot = `analysis_view.status`. A veto sets the affected View 5 `status = 'INCOMPLETE'` (ADR §8's
+  explicit second mechanism: "…or the affected View 5 is marked incomplete according to the review
+  policy"). The review EVENT (who vetoed which sentence, when) is recorded OUTSIDE the canonical
+  recipe (ops-level log / minimal record) — the ADR deliberately keeps the review-event table out of
+  ERD v13 for the pilot.
+- Consequence: QG2 gate 1 must be refined (new gate, e.g. **2h**): the ONLY permitted `analysis_*`
+  write outside the worker is the review module setting `analysis_view.status = 'INCOMPLETE'` for
+  View 5 (veto), with a fire proof in `tests/integration/qg2_gates.test.ts`. Every other `analysis_*`
+  write outside the worker keeps firing.
+- Alternative considered (rejected as pilot default, recorded): a separate `review_event` table + a
+  read-time projection that drops vetoed sentences (keeps worker-only intact but adds a new product
+  table requiring an ERD amendment that ADR §8 explicitly defers).
+
+#### Veto state machine + invariants
+- **States (per View 5):** `live` (analysis_view.status = COMPLETE, no veto) →
+  `vetoed` (status = INCOMPLETE + review event recorded).
+- **Transition:** `COMPLETE --reviewer veto--> INCOMPLETE` (irreversible for the pilot; a re-analysis
+  (D-25/D5) generates a NEW analysis whose View 5 is fresh — it does not resurrect the vetoed one).
+- **Invariants:**
+  - A veto never mutates `recipe`, `recipe_input`, or the View 5 `payload` JSON (no silent rewrite — ADR §8).
+  - Blocked sentences leave live views immediately (status change + existing INCOMPLETE rendering).
+  - Only a configured regional reviewer can veto (authorization); the event records reviewer + sentence + time.
+  - `needs_review: true` is the View 5 schema invariant (human review ALWAYS required — product rule G2).
+  - Approve/leave-live is the DEFAULT (no action); there is no separate "approve" write for the pilot.
+
+#### Open decisions / Q-gates / pilot assumptions (record with register IDs, do NOT resolve)
+- **Q6** (publishable state home, ADR §8): OPEN — build to the labeled assumption above.
+- **Q11** (guest TTL + cleanup schedule, ERD §15.12/ADR §24.7): OPEN — pilot default 86400s already
+  labeled in `GUEST_TTL_SECONDS`; cleanup schedule = labeled pilot default (e.g. daily sweep).
+- **Q15** (account erasure / photo retention, ERD §15.11): OPEN — labeled pilot defaults only.
+- **Q12** (RPO/RTO, ADR §17): OPEN — ops docs label "not set"; ADR §17 forbids inventing numbers.
+- **Q1/Q5/Q10:** untouched (hard constraint). **Q13** (retry/backoff): pilot defaults already at D-17.
+- **Reviewer identity:** not fabricated (D-04 rule) — env slots for the two regional reviewers.
+
+#### A-27 audit vectors (from AUDIT.md A-27)
+- Veto workflow (BLOCKER): veto → blocked from live views immediately; both reviewers configured on
+  the fish-curry cluster; a veto that leaves the sentence live anywhere = BLOCKER.
+- Q6 hygiene (BLOCKER): the publishable-state home is a labeled working assumption; a silently
+  invented status column = BLOCKER.
+- Cleanup jobs (QG4 cell): expired unclaimed guests removed; Q11/Q15 pilot defaults labeled with
+  register IDs in HANDOFF.
+- Ops docs (MAJOR if missing): runbook, backup/restore, upgrade windows, monitoring (Tech Stack §17).
+
+#### GO / STOP
+- **VERDICT: GO** — no BLOCKER, no missing code dependency, no hard contradiction found.
+  - D-25 (the declared dependency) is DONE; D-08/D-22 seams to reuse exist.
+  - Q6/Q11/Q15/Q12 are OPEN but the dispatch explicitly directs "build to the labeled working
+    assumption, do not decide" — they are recorded assumptions, not STOP conditions.
+  - The `analysis_*` one-writer vs veto-write tension is resolved by ADR §8's own authorization
+    ("mark View 5 incomplete") — implemented as the Q6-labeled mechanism + a narrow QG2 gate 2h.
+
+#### Exact implementation resume point
+1. (this entry) — H-27 preflight recorded in HANDOFF.md.
+2. Veto workflow: new API review surface (Bearer-only, env-configured reviewer emails) → set
+   `analysis_view.status='INCOMPLETE'` for View 5 + record the review event outside the canonical
+   recipe; reviewer slots via env (no fabricated identities).
+3. QG2: refine gate 1 / add gate 2h (review-module View-5 INCOMPLETE veto only) + fire proof.
+4. Cleanup jobs: scheduled sweep (expired unclaimed guests + orphaned aggregates + compensating
+   storage cleanup) using Q11 default + Q15 labeled retention defaults.
+5. Ops docs: `docs/ops/runbook.md` (backup/restore via Postgres PITR + realm export; upgrade
+   windows; monitoring per Tech Stack §17; Q12 labeled unset).
+6. Tests: `tests/integration/story_d27*.test.ts` (veto TC-01/TC-02 + cleanup QG4 cell) +
+   `qg2_gates.test.ts` gate-2h fire proof + unit suites; then lint/typecheck/build/verify-local.
+7. Docs (CHANGE_LOG/AUDIT_LOG A-27) + commit + push + CI. HARD STOP before D-28.
+
+#### Implementation — shipped (2026-09-15)
+- **G2 veto:** NEW `apps/api/src/modules/reviews/` (`reviews.module.ts` /
+  `reviews.controller.ts` / `reviews.service.ts`) — `POST /api/v1/analysis/:analysisId/view-5/veto`
+  (JwtAuthGuard + CsrfGuard, Bearer-only — no guest bypass). Reviewer authorization =
+  env-configured `REVIEWER_EMAILS` slots (no fabricated identities). Veto = the review module's
+  SOLE analysis_* write: `analysisView.update({ status: 'INCOMPLETE' })` for View 5 only; the
+  payload JSON / recipe / recipe_input are never touched. Repeat veto = idempotent
+  (`already_vetoed: true`). Review event = structured governance log (outside the canonical
+  recipe; no review table, no publishable column). Re-analysis (D-25/D5) is a fresh analysis.
+- **Retention/cleanup:** NEW `apps/api/src/modules/cleanup/` (`cleanup.module.ts` /
+  `cleanup.service.ts` / `cleanup.runner.ts`) — `CleanupService.cleanupExpiredGuests()` removes
+  expired UNCLAIMED guest sessions + their owned recipes (DB cascade + compensating storage
+  cleanup via `RecipeService.deleteRecipeInternal`, the D-22 D6 path) — Q11-labeled default
+  86400s TTL / `CLEANUP_INTERVAL_SECONDS` 3600s sweep (Q15 stays OPEN). Claimed + unexpired
+  sessions are never swept. `CleanupRunner` schedules the sweep and clears timers on shutdown.
+- **QG2:** gate 1 refined to exempt the review module; NEW gate **2h** ("the review module writes
+  ONLY `analysis_view.status` — the View 5 veto") + two scratch-tree fire proofs in
+  `tests/integration/qg2_gates.test.ts` (a beyond-veto write fires; the permitted
+  `analysisView.update` does not).
+- **Ops docs:** NEW `docs/ops/runbook.md` — backup/restore (Postgres PITR + Keycloak realm export +
+  object-storage restore validation), upgrade windows, monitoring (Tech Stack §17), veto ops,
+  retention. Q12 (RPO/RTO) labeled UNSET (ADR §17 forbids inventing numbers).
+- **Tests:** unit `reviews.service.test.ts` (+6) + `cleanup.service.test.ts` (+3);
+  integration `story_d27_veto_retention.test.ts` (+5: veto transition + payload/recipe/other-view
+  integrity, repeat veto, reviewer auth + malformed 404, fresh re-analysis, retention sweep with
+  claimed/unexpired preservation + storage compensation) — plus `qg2_gates` 22/22.
+- **Verification:** worker 64/64 · API 307/307 · web 144/144 · llm-adapter 123/123 · schemas
+  112/112 · rendering 15/15 · integration 145/145 (22 suites incl. story_d27 5/5) · qg2_gates
+  22/22 · regression gates PASS · contract-check OK · lint 0 · typecheck 0 · build OK.
+- **Live internal-browser (Keycloak, chef@recipesystems.test as the configured reviewer slot):**
+  golden recipe analysis `0dda7f25` View 5 COMPLETE → veto (POST 200, `vetoed:true`) → View 5
+  INCOMPLETE (payload unchanged, View 1 intact) → web renders "View 5 is incomplete" → reload
+  persists → re-analyse (worker stub) → fresh analysis `4f918c62` with View 5 COMPLETE again
+  (the veto stays on the vetoed analysis). No pilot execution beyond the canonical veto test.
+- **Register:** Q6/Q11/Q15/Q12 remain OPEN (unchanged, labeled); Q1/Q5/Q10 untouched; DeepSeek
+  provider unchanged; D-23/D-24/D-25/D-26 behavior preserved.
+- **Resume point:** A-27 audit (separate agent), then D-28. HARD STOP before D-28.
 
 ### H-28 — D-28 Week-12 pilot gate
 

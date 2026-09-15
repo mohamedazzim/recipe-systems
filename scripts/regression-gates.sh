@@ -22,10 +22,14 @@ echo "== QG2 static gates (TEST_PLAN §2) =="
 echo "-- one-writer: analysis_* written only by apps/analysis-worker"
 # Prisma model style (prisma.analysis.update / prisma.analysisView.create) and raw-SQL style
 # (INSERT INTO analysis_view ...) — both must be caught.
+# D-27 (P7-3): the review module (apps/api/src/modules/reviews) is the ONE
+# deliberate exception — it may write ONLY the View-5 veto transition
+# (analysisView.update → status INCOMPLETE), checked by gate 2h below. Every
+# other analysis_* write outside the worker still fires this gate.
 pat='prisma\.(analysis|analysis[A-Z][A-Za-z]*|analysis_[a-z_]+)\.(create|upsert|delete|update|updateMany|createMany|deleteMany)|\b(INSERT INTO|UPDATE|DELETE FROM)\s+analysis_?[A-Za-z_]+'
 hits=$(grep -rInE "$pat" "$SCAN/apps" "$SCAN/packages" --include="*.ts" --include="*.tsx" --include="*.sql" \
   --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.next --exclude-dir=generated 2>/dev/null \
-  | grep -vE "^\S+/analysis-worker/" || true)
+  | grep -vE "^\S+/analysis-worker/|apps/api/src/modules/reviews/" || true)
 if [ -z "$hits" ]; then trivial "one-writer analysis_* (no write references outside the worker yet)"; else
   fire "analysis_* write-context reference outside apps/analysis-worker:"; echo "$hits"
 fi
@@ -119,6 +123,18 @@ hits=$(grep -rInE "$pat" "$SCAN/apps" "$SCAN/packages" --include="*.ts" --includ
 outside=$(echo "$hits" | grep -vE "apps/api/src/modules/recipes" || true)
 if [ -z "$hits" ]; then trivial "recipe_tag one-writer (no write references yet)"; else
   if [ -z "$outside" ]; then note "recipe_tag writes confined to the API recipes module"; else fire "recipe_tag write outside the API recipes module:"; echo "$outside"; fi
+fi
+
+# --- 2h. Review-module veto one-writer (D-27) ----------------------------------------------------
+echo "-- one-writer: the review module writes ONLY analysis_view.status (View 5 veto, D-27)"
+# The review module's permitted analysis_* write is EXACTLY prisma.analysisView.update
+# (the COMPLETE → INCOMPLETE veto). Any other analysis_* write there — create/delete/
+# upsert/updateMany, a different model, or raw SQL — fires.
+pat='prisma\.(analysis|analysisView|analysisClaim|analysisStationCard)[A-Za-z]*\.(create|upsert|delete|update|updateMany|createMany|deleteMany)|\b(INSERT INTO|UPDATE|DELETE FROM)\s+analysis_?[A-Za-z_]+'
+hits=$(grep -rInE "$pat" "$SCAN/apps/api/src/modules/reviews" --include="*.ts" 2>/dev/null || true)
+if [ -z "$hits" ]; then trivial "review-module veto one-writer (no analysis_* write in the review module yet)"; else
+  bad=$(echo "$hits" | grep -vE "prisma\.analysisView\.update" || true)
+  if [ -z "$bad" ]; then note "review module writes only the analysis_view veto transition"; else fire "review module analysis_* write beyond the View-5 veto transition:"; echo "$bad"; fi
 fi
 
 # --- 3. DDL outside Prisma migrations (SCAFFOLD §2) --------------------------------------------

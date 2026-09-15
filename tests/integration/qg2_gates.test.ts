@@ -321,6 +321,30 @@ describe('QG2 static gates fire on real violations (D-01 criterion)', () => {
     }
   });
 
+  it('D-27 2h: an analysis_* write beyond the veto transition in the review module fires', () => {
+    const s = makeScratch();
+    try {
+      s.write('apps/api/src/modules/reviews/service.ts', 'prisma.analysisView.create({ data: {} });\n');
+      const result = runGates(s.dir);
+      expect(result.exit).toBe(1);
+      expect(result.out).toContain('review module analysis_* write beyond the View-5 veto transition');
+    } finally {
+      s.cleanup();
+    }
+  });
+
+  it('D-27 2h: the permitted veto transition (analysisView.update only) does NOT fire', () => {
+    const s = makeScratch();
+    try {
+      s.write('apps/api/src/modules/reviews/service.ts', "prisma.analysisView.update({ where: { id: 'v' }, data: { status: 'INCOMPLETE' } });\n");
+      const result = runGates(s.dir);
+      expect(result.exit).toBe(0);
+      expect(result.out).toContain('review module writes only the analysis_view veto transition');
+    } finally {
+      s.cleanup();
+    }
+  });
+
   it('the REAL repository tree still passes every gate (no accidental drift)', () => {
     const result = runGates(ROOT.replace(/\\/g, '/'));
     expect(result.exit).toBe(0);

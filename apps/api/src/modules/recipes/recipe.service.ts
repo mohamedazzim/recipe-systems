@@ -285,21 +285,32 @@ export class RecipeService {
    */
   async deleteRecipe(actor: Actor, recipeId: string): Promise<void> {
     await this.assertOwned(actor, recipeId);
+    await this.deleteRecipeInternal(recipeId);
+  }
+
+  /**
+   * D-27 (P7-3): the SAME DB-first cascade + compensating storage cleanup as
+   * deleteRecipe, WITHOUT the actor gate — callable only by the scheduled
+   * guest-expiry sweep (never an HTTP surface). Returns the storage keys that
+   * could not be confirmed deleted (retry-safe residue, already logged).
+   * Q11 pilot default labels the TTL; Q15 photo retention stays OPEN.
+   */
+  async deleteRecipeInternal(recipeId: string): Promise<string[]> {
     const keys = await this.collectAssetKeys(recipeId);
     await this.prisma.recipe.delete({ where: { id: recipeId } });
-    if (this.storage) {
-      const failed: string[] = [];
-      for (const key of keys) {
-        const ok = await this.storage.tryDeleteObject(key);
-        if (!ok) failed.push(key);
-      }
-      if (failed.length > 0) {
-        // Observable residue (ADR §16): retry-safe orphans, never silent.
-        this.logger.warn(
-          `recipe ${recipeId} deleted; storage cleanup residue remains (retry-safe): ${failed.join(', ')}`,
-        );
-      }
+    if (!this.storage) return [];
+    const failed: string[] = [];
+    for (const key of keys) {
+      const ok = await this.storage.tryDeleteObject(key);
+      if (!ok) failed.push(key);
     }
+    if (failed.length > 0) {
+      // Observable residue (ADR §16): retry-safe orphans, never silent.
+      this.logger.warn(
+        `recipe ${recipeId} deleted; storage cleanup residue remains (retry-safe): ${failed.join(', ')}`,
+      );
+    }
+    return failed;
   }
 
   /** Asset keys owned by the recipe subtree — recipe photo, raw-input photos,

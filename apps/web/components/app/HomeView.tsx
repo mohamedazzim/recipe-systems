@@ -5,12 +5,13 @@
 // empty state when they don't, and the guest band as a secondary strip.
 
 import { useState } from 'react';
-import { ArrowRight, CookingPot } from '@phosphor-icons/react';
+import { ArrowRight, CookingPot, MagnifyingGlass, X } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Alert } from '@/components/ui/Alert';
 import { Heading, Text } from '@/components/ui/Typography';
 import { isOwnedBy, listSessionRecipes, sessionRecipeLines } from '@/lib/flow';
+import { api, ApiError } from '@/lib/api';
 import { GuestNotice } from '@/components/app/GuestNotice';
 import { ProfileEditor } from '@/components/app/ProfileEditor';
 import type { LibraryRecipe, WireLine } from '@/lib/types';
@@ -47,10 +48,44 @@ export function HomeView({
   onSignOut,
 }: HomeViewProps) {
   const [guestNoticeDismissed, setGuestNoticeDismissed] = useState(false);
+  /** D-25 (D3): library search — account-scoped GET /recipes?q=. Non-null means
+   *  results are showing and the full library list is hidden. */
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<LibraryRecipe[] | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const recipes = listSessionRecipes();
   const owner = signedIn && accountId ? { kind: 'user' as const, accountId } : { kind: 'guest' as const };
   const mine = recipes.filter((r) => isOwnedBy(r, owner));
   const others = recipes.filter((r) => !isOwnedBy(r, owner));
+
+  const runSearch = async (q: string): Promise<void> => {
+    const value = q.trim();
+    if (value === '') {
+      setResults(null);
+      setSearchError(null);
+      return;
+    }
+    setSearching(true);
+    setSearchError(null);
+    try {
+      const result = await api<{ recipes: LibraryRecipe[] }>(
+        `/recipes?q=${encodeURIComponent(value)}`,
+      );
+      setResults(result.recipes);
+    } catch (err) {
+      setResults([]);
+      setSearchError(err instanceof ApiError ? err.message : 'Search failed. Please try again.');
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const clearSearch = (): void => {
+    setQuery('');
+    setResults(null);
+    setSearchError(null);
+  };
 
   return (
     <div>
@@ -89,6 +124,43 @@ export function HomeView({
             </h2>
             <span className="text-caption text-faint">saved to your account</span>
           </div>
+
+          {/* D-25 (D3): search the account library by name, ingredient, or tag. */}
+          <form
+            role="search"
+            className="mt-5 flex flex-wrap items-center gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void runSearch(query);
+            }}
+          >
+            <input
+              aria-label="Search your library"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by name, ingredient, or tag"
+              maxLength={100}
+              className="min-w-64 max-w-full flex-1 rounded-md border border-border-strong bg-background px-3 py-2 text-body focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+            />
+            <Button size="sm" type="submit" disabled={searching || query.trim() === ''}>
+              <MagnifyingGlass size={14} aria-hidden="true" weight="bold" />
+              {searching ? 'Searching…' : 'Search'}
+            </Button>
+            {results !== null && (
+              <Button size="sm" variant="ghost" onClick={clearSearch} type="button">
+                <X size={14} aria-hidden="true" weight="bold" />
+                Clear
+              </Button>
+            )}
+          </form>
+          {searchError && (
+            <div className="mt-3">
+              <Alert tone="error" title="Search needs attention">
+                {searchError}
+              </Alert>
+            </div>
+          )}
+
           {library.length === 0 ? (
             <div className="mt-6">
               <EmptyState
@@ -98,7 +170,7 @@ export function HomeView({
             </div>
           ) : (
             <ul className="mt-6 divide-y divide-border rounded-lg border border-border bg-surface">
-              {library.map((recipe) => (
+              {(results ?? library).map((recipe) => (
                 <li key={recipe.recipe_id}>
                   <button
                     type="button"
@@ -134,6 +206,14 @@ export function HomeView({
                 </li>
               ))}
             </ul>
+          )}
+          {results !== null && results.length === 0 && !searching && library.length > 0 && (
+            <div className="mt-6">
+              <EmptyState
+                title="No matches"
+                description={`Nothing in your library matches “${query.trim()}”.`}
+              />
+            </div>
           )}
         </section>
       )}

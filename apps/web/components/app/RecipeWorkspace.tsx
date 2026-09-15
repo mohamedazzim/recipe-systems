@@ -17,6 +17,7 @@ import { MethodSection } from '@/components/app/MethodSection';
 import { ShoppingSection } from '@/components/app/ShoppingSection';
 import { CookSection } from '@/components/app/CookSection';
 import { SwapSection } from '@/components/app/SwapSection';
+import { TagsSection } from '@/components/app/TagsSection';
 import { ReadinessPanel } from '@/components/app/ReadinessPanel';
 import { AnalysisPanel } from '@/components/app/AnalysisPanel';
 
@@ -230,6 +231,10 @@ export function RecipeWorkspace({
           </div>
         )}
       </section>
+
+      {/* D-25 (D3): free-text tags — display, add, remove (recipes module is the
+          sole recipe_tag writer; Bearer-only surface). */}
+      <TagsSection recipeId={recipeId} signedIn={signedIn} />
 
       {signedIn && (
         <section aria-labelledby="delete-heading" className="mt-6 rounded-lg border border-negative/40 bg-negative/8 p-5">

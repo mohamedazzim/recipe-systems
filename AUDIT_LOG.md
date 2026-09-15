@@ -381,3 +381,31 @@ not shipped.**
 **Recommendation for the next dispatch:** proceed to D-27 (D-25 is otherwise fit; the
 snapshot chain, one-writer gates, and explicit-re-run behavior are sound). Fold F-1
 (the B6/D3 web surfaces) into a scoped follow-up alongside D-27 or a UI pass.
+
+### F-1 closure (2026-09-15)
+
+- **Status: CLOSED.** Dispatcher shipped the scoped follow-up: B6 + D3 web surfaces
+  only (HARD STOP before D-27). No audit-side fix was applied — closure is by
+  dispatcher work, verified below.
+- **B6:** `IngredientReview` renders the resolved canonical chip and a
+  confirmation banner for `requires_confirmation && confirmed_sense === null`;
+  Accept records `confirmed_sense = canonical_name` and never rewrites
+  `display_name`. `WireLine` carries `canonical_name` + `requires_confirmation`.
+- **D3:** `TagsSection` (GET/PUT `/recipes/:recipeId/tags` — chips/add/remove,
+  Bearer-only) in `RecipeWorkspace`; `HomeView` search box over the
+  account-scoped GET `/recipes?q=` (name/ingredient/tag; Clear restores).
+- **Automated evidence:** web 144/144 (B6 +5, TagsSection +4, search +3) ·
+  integration 138/138 · qg2_gates 20/20 · regression gates PASS · contract-check
+  OK · lint 0 · typecheck 0 · build OK.
+- **Live-browser evidence:** drumstick confirmation + Accept (display_name
+  unchanged; `confirmed_sense=drumstick`); canonical chips incl. the two fenugreeks
+  distinct (`fenugreek_powder` vs `fenugreek_seed`); tags add/remove round-trip;
+  search by tag (1 hit) / ingredient / name; account isolation —
+  demo@recipesystems.test empty library + zero tag hits.
+- **Reference-data note:** the dev DB's `ingredient_dictionary`/`ingredient_alias`
+  were empty; the already-approved imports were re-applied via the D-29 admin CLI
+  (002 dictionary, 005 B6 aliases, 003 allergen mappings, 004 nutrition) — data
+  only, no new sign-off.
+
+**A-25 final: PASS-WITH-FINDINGS → F-1 CLOSED (2026-09-15); F-2 (process note)
+stands.** D-25 is now fully complete including the user-facing B6/D3 surfaces.

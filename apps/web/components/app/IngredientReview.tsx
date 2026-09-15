@@ -180,6 +180,30 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
     }
   };
 
+  /** D-25 B6: accept the resolved canonical for an ambiguous line. Records the
+   *  canonical in confirmed_sense and NEVER rewrites display_name — the original
+   *  captured text stays preserved. */
+  const confirmSense = async (line: WireLine, canonical: string): Promise<void> => {
+    setSaving(true);
+    setNotice(null);
+    try {
+      await api(`/recipes/${recipeId}/lines/${line.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ confirmed_sense: canonical, expected_updated_at: line.updated_at }),
+      });
+      await refresh();
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'STALE_EDIT') {
+        await refresh();
+        setError('This line changed elsewhere. The list has been reloaded.');
+      } else {
+        setError(err instanceof ApiError ? err.message : 'Could not confirm the ingredient.');
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const removeLine = async (line: WireLine): Promise<void> => {
     setSaving(true);
     setNotice(null);
@@ -446,7 +470,38 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
                           Sense confirmed
                         </span>
                       )}
+                      {line.canonical_name && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-caption text-muted">
+                          <Check size={12} aria-hidden="true" weight="bold" />
+                          {line.canonical_name.replace(/_/g, ' ')}
+                        </span>
+                      )}
                     </div>
+                    {line.requires_confirmation && line.confirmed_sense === null && line.canonical_name && (
+                      <div className="mt-2 rounded-md border border-gold/60 bg-gold/10 p-3">
+                        <p className="text-small text-body">
+                          We read{' '}
+                          <span className="font-semibold text-ink">{line.display_name}</span> as{' '}
+                          <span className="font-semibold text-ink">
+                            {line.canonical_name.replace(/_/g, ' ')}
+                          </span>
+                          . Is that right?
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => void confirmSense(line, line.canonical_name!)}
+                            disabled={saving}
+                          >
+                            <Check size={14} aria-hidden="true" weight="bold" />
+                            Accept
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => beginEdit(line)} disabled={saving}>
+                            Edit instead
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                     <p className="mt-0.5 text-small tabular text-muted">
                       {line.amount || 'No amount'}
                       {line.unit ? ` ${line.unit}` : ''}

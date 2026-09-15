@@ -24,6 +24,11 @@ export interface WireLine {
   ocr_confidence: number | null;
   source_tag: 'CARD' | 'OCR' | null;
   updated_at: string;
+  /** D-25 B6: the resolved canonical ingredient (dictionary/alias path) and the
+   *  ambiguity flag. Present on the current API wire; optional here so older
+   *  fixtures and the parse-text path (which may omit them) stay valid. */
+  canonical_name?: string | null;
+  requires_confirmation?: boolean;
 }
 
 export interface ParseTextResponse {

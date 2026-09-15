@@ -2770,6 +2770,40 @@ execution output; Git: not available / not authorized throughout.
   F-2 MINOR — builder-session audit caveat. Next per dispatcher: D-27 (D-25 is
   otherwise fit; fold F-1 into a scoped UI follow-up).
 
+### F-1 remediation — shipped (2026-09-15)
+
+- **Status:** F-1 CLOSED — the B6 + D3 web surfaces are shipped and live-verified.
+  D-27 NOT started (HARD STOP honored).
+- **B6 web surface (`IngredientReview`):** `WireLine` gained `canonical_name` +
+  `requires_confirmation`. Each resolved line shows a canonical chip (underscores
+  → spaces). A `requires_confirmation && confirmed_sense === null` line shows a
+  confirmation banner ("We read X as Y — Accept / Edit instead"); Accept PATCHes
+  `{confirmed_sense: canonical_name, expected_updated_at}` and NEVER rewrites
+  `display_name` (original capture preserved — B6 AC-2/TC-02).
+- **D3 tags (`TagsSection`, NEW):** canonical GET/PUT `/recipes/:recipeId/tags`
+  (chips + add + remove + error, Bearer-only), rendered in `RecipeWorkspace`
+  after Save. **D3 search (`HomeView`):** account-scoped GET `/recipes?q=` search
+  box (name/ingredient/tag axes); empty query = full library; Clear restores.
+- **Local reference-data note:** the dev DB had empty
+  `ingredient_dictionary`/`ingredient_alias` (B6 resolution returned null). The
+  already-approved imports were re-applied via the D-29 admin CLI (002 dictionary,
+  005 B6 aliases, 003 allergen mappings, 004 nutrition) — data only, no new
+  sign-off, no code change.
+- **Live browser (Keycloak, chef@recipesystems.test):** drumstick line renders the
+  confirmation banner + canonical chip; Accept → `confirmed_sense = drumstick`,
+  `display_name` unchanged, banner hidden. Canonical chips render for all resolved
+  lines (the two fenugreeks stay DISTINCT: `fenugreek_powder` vs
+  `fenugreek_seed`). Tags: add + remove round-trip. Search: tag → 1 hit, ingredient
+  "fenugreek" → 34 hits, name axis OK. Account isolation:
+  demo@recipesystems.test sees an empty library and zero hits for chef's tag.
+- **Verification:** web 144/144 · API 297/297 · worker 64/64 · llm-adapter 123/123
+  · schemas 112/112 · rendering 15/15 · integration 138/138 (21 suites) ·
+  qg2_gates 20/20 · regression gates PASS · contract-check OK · lint 0 ·
+  typecheck 0 · build OK. Commit + CI SHA recorded in CHANGE_LOG.
+- **Resume point:** D-27 (D-25 is now fully complete including the A-25 F-1 web
+  surfaces). Q5/C7 remain OPEN/deferred as before; D-23/D-24/D-26/DeepSeek
+  preserved.
+
 ### H-26 — D-26 Profiles, swaps, next-time, I3/I4
 
 - BASE_SHA / COMMIT_SHA: base `cc5fb88` (D-26 preflight) / final commit recorded

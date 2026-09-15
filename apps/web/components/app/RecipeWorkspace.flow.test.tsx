@@ -11,6 +11,9 @@ import type { WireLine } from '@/lib/types';
 jest.mock('@/components/app/MethodSection', () => ({
   MethodSection: () => <p>Method section</p>,
 }));
+jest.mock('@/components/app/TagsSection', () => ({
+  TagsSection: () => <p>Tags section</p>,
+}));
 jest.mock('@/components/app/ReadinessPanel', () => ({
   ReadinessPanel: () => <p>Readiness section</p>,
 }));

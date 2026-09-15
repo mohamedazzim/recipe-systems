@@ -254,3 +254,102 @@ describe('IngredientReview (D-12 actions)', () => {
     expect(screen.queryByText('Loading ingredients...')).not.toBeInTheDocument();
   });
 });
+
+describe('IngredientReview (D-25 B6 — canonical + confirmation)', () => {
+  beforeEach(() => {
+    (globalThis as unknown as { fetch: unknown }).fetch = jest.fn();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  function props(overrides: Partial<Parameters<typeof IngredientReview>[0]> = {}) {
+    return { recipeId: 'r1', signedIn: true, title: 'Meen Kuzhambu', initialLines: null, ...overrides };
+  }
+
+  it('renders the canonical chip when the backend resolves a line', async () => {
+    (globalThis.fetch as jest.Mock).mockResolvedValue(
+      listResponse([line({ canonical_name: 'fish_fillet' })]),
+    );
+    render(<IngredientReview {...props()} />);
+    expect(await screen.findByText('fish fillet')).toBeInTheDocument();
+    expect(screen.queryByText(/We read/)).not.toBeInTheDocument();
+  });
+
+  it('shows a confirmation prompt only when requires_confirmation and not yet confirmed', async () => {
+    (globalThis.fetch as jest.Mock).mockResolvedValue(
+      listResponse([
+        line({
+          id: 'drumstick',
+          display_name: 'Drumstick 1 Nos',
+          canonical_name: 'drumstick',
+          requires_confirmation: true,
+        }),
+      ]),
+    );
+    render(<IngredientReview {...props()} />);
+    expect(await screen.findByText(/We read/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Accept' })).toBeInTheDocument();
+  });
+
+  it('accepting records confirmed_sense = canonical and never rewrites display_name', async () => {
+    const target = line({
+      id: 'drumstick',
+      display_name: 'Drumstick 1 Nos',
+      canonical_name: 'drumstick',
+      requires_confirmation: true,
+    });
+    (globalThis.fetch as jest.Mock).mockResolvedValue(listResponse([target]));
+    render(<IngredientReview {...props()} />);
+    await screen.findByText(/We read/);
+
+    (globalThis.fetch as jest.Mock).mockResolvedValueOnce(okResponse(target));
+    (globalThis.fetch as jest.Mock).mockResolvedValue(
+      listResponse([{ ...target, confirmed_sense: 'drumstick' }]),
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'Accept' }));
+
+    const patchCalls = (globalThis.fetch as jest.Mock).mock.calls.filter((c) => {
+      const [url, init] = c as [string, RequestInit];
+      return url.includes('/lines/drumstick') && init.method === 'PATCH';
+    });
+    expect(patchCalls.length).toBeGreaterThanOrEqual(1);
+    const body = JSON.parse((patchCalls[0] as [string, RequestInit])[1].body as string);
+    expect(body.confirmed_sense).toBe('drumstick');
+    expect(body).not.toHaveProperty('display_name');
+    expect(body.expected_updated_at).toBe('2026-09-09T10:00:00.000Z');
+  });
+
+  it('hides the confirmation prompt once confirmed_sense is set', async () => {
+    (globalThis.fetch as jest.Mock).mockResolvedValue(
+      listResponse([
+        line({
+          id: 'drumstick',
+          display_name: 'Drumstick 1 Nos',
+          canonical_name: 'drumstick',
+          requires_confirmation: true,
+          confirmed_sense: 'drumstick',
+        }),
+      ]),
+    );
+    render(<IngredientReview {...props()} />);
+    expect(await screen.findByText('drumstick')).toBeInTheDocument();
+    expect(screen.queryByText(/We read/)).not.toBeInTheDocument();
+  });
+
+  it('keeps the two fenugreek lines distinct by their distinct canonical names', async () => {
+    (globalThis.fetch as jest.Mock).mockResolvedValue(
+      listResponse([
+        line({ id: 'fen-seed', display_name: 'Fenugreek seeds 1 tsp', canonical_name: 'fenugreek_seed' }),
+        line({ id: 'fen-powder', display_name: 'Fenugreek powder ½ tsp', canonical_name: 'fenugreek_powder' }),
+      ]),
+    );
+    render(<IngredientReview {...props()} />);
+    expect(await screen.findByText('fenugreek seed')).toBeInTheDocument();
+    expect(screen.getByText('fenugreek powder')).toBeInTheDocument();
+    expect(screen.getByText('Fenugreek seeds 1 tsp')).toBeInTheDocument();
+    expect(screen.getByText('Fenugreek powder ½ tsp')).toBeInTheDocument();
+  });
+});

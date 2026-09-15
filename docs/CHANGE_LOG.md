@@ -20,6 +20,52 @@
 
 **Rule:** a change that alters any Q1–Q18 row must say so in its entry. The register (SCAFFOLD §7) is the single source of truth for open decisions; this log records the history of how the register changed. No Q-row changes in D-13.
 
+## 2026-09-15 — D-25 F-1 closure: B6 + D3 web surfaces (A-25 remediation)
+
+- Author / session: DeepSeek V4 Pro (VS Code) D-25 F-1 completeness fix
+  (dispatcher: scoped UI follow-up for A-25 F-1 — B6 + D3 web only; HARD STOP
+  before D-27).
+- What changed:
+  - `apps/web/lib/types.ts` — `WireLine` gained `canonical_name` +
+    `requires_confirmation` (optional, mirroring the API wire).
+  - `apps/web/components/app/IngredientReview.tsx` — B6 surface: resolved
+    canonical chip per line (underscores → spaces display) and a confirmation
+    banner ("We read X as Y — Accept / Edit instead") for
+    `requires_confirmation && confirmed_sense === null`. Accept PATCHes
+    `{confirmed_sense: canonical_name, expected_updated_at}` and NEVER rewrites
+    `display_name` (original capture preserved).
+  - `apps/web/components/app/TagsSection.tsx` (NEW) — D3 tag editor over the
+    canonical GET/PUT `/recipes/:recipeId/tags` (chips, add, remove, error state,
+    Bearer-only). Rendered in `RecipeWorkspace` after Save.
+  - `apps/web/components/app/HomeView.tsx` — D3 search box over the
+    account-scoped GET `/recipes?q=` (name/ingredient/tag axes); empty query =
+    full library; Clear restores.
+  - `apps/web/test/phosphor-mock.tsx` — added `Tag` + `MagnifyingGlass` stubs.
+  - Tests: `IngredientReview.test.tsx` (+5 B6), `TagsSection.test.tsx` (NEW, +4),
+    `HomeView.test.tsx` (+3 search); `RecipeWorkspace.test.tsx` /
+    `RecipeWorkspace.flow.test.tsx` mock the new TagsSection.
+- Why: A-25 F-1 (MAJOR) — backend correct but no web rendering for B6/D3.
+  F-1 closure gate (all 8 conditions): B6 confirmation end-to-end; canonical from
+  the backend response; original capture unchanged; tags add/remove; search by
+  name + ingredient + tag; account isolation; automated tests; live browser.
+- Register impact: none resolved. Q5 stays OPEN (dictionary/alias admin-module
+  working assumption; the web surface is read-only). C7 stays deferred; D-23/D-24/
+  D-26/DeepSeek preserved.
+- Live reference-data note: the local dev DB was missing the dictionary/alias
+  rows (`ingredient_dictionary`/`ingredient_alias` empty → B6 resolution returned
+  null). Re-applied the already-approved imports through the D-29 admin path
+  (`R-2026-09-09-002` dictionary, `R-2026-09-15-005` B6 aliases, `R-2026-09-09-003`
+  allergen mappings, `R-2026-09-09-004` nutrition) — no code change, no new
+  sign-off.
+- Verification: web 144/144 · API 297/297 · worker 64/64 · llm-adapter 123/123 ·
+  schemas 112/112 · rendering 15/15 · integration 138/138 · qg2_gates 20/20 ·
+  regression gates PASS · contract-check OK · lint 0 · typecheck 0 · build OK.
+  Live browser (Keycloak): B6 drumstick confirmation + accept (display_name
+  unchanged, confirmed_sense=drumstick) + canonical chips (fenugreek_powder vs
+  fenugreek_seed distinct) · tags add/remove · search by tag/ingredient/name ·
+  account isolation (demo@recipesystems.test: empty library, no chef tag hits).
+- Commit(s): `<sha>` (F-1 closure).
+
 ## 2026-09-15 — D-25 P7-1: aliases, tags, edit + re-analyse (B6/C6/D3/D4/D5)
 
 - Author / session: DeepSeek V4 Pro (VS Code) D-25 dispatch (preflight GO recorded

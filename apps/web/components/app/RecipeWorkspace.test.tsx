@@ -20,6 +20,9 @@ jest.mock('@/lib/api', () => ({
 jest.mock('@/components/app/IngredientReview', () => ({
   IngredientReview: ({ title }: { title: string }) => <p>Review: {title}</p>,
 }));
+jest.mock('@/components/app/TagsSection', () => ({
+  TagsSection: () => <p>Tags section</p>,
+}));
 jest.mock('@/components/app/MethodSection', () => ({
   MethodSection: () => <p>Method section</p>,
 }));

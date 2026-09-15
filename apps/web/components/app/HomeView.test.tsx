@@ -149,3 +149,105 @@ describe('HomeView — D-22 library (D2)', () => {
     expect(screen.getByText('Recipe deleted.')).toBeInTheDocument();
   });
 });
+
+describe('HomeView — D-25 D3 library search', () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    (globalThis as unknown as { fetch: unknown }).fetch = jest.fn();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  function props(overrides: Partial<Parameters<typeof HomeView>[0]> = {}) {
+    return {
+      signedIn: true,
+      accountId: 'acc-1',
+      library: [
+        {
+          recipe_id: 'r1',
+          name: 'Meen Kuzhambu',
+          date: '2026-09-10T11:00:00.000Z',
+          family: 'Meen Kuzhambu',
+          has_cook_log: false,
+          last_cooked_at: null,
+        },
+      ],
+      onCreate: jest.fn(),
+      onOpenRecipe: jest.fn(),
+      onSignUp: jest.fn(),
+      onSignOut: jest.fn(),
+      ...overrides,
+    };
+  }
+
+  /** Route fetches by URL fragment. Everything unmatched (the signed-in
+   *  ProfileEditor's two mount fetches) fails gracefully so it stays in its
+   *  loading state and never crashes the tree. */
+  function routeFetch(routes: Record<string, unknown>): void {
+    (globalThis.fetch as jest.Mock).mockImplementation(async (url: string) => {
+      for (const [fragment, body] of Object.entries(routes)) {
+        if (url.includes(fragment)) {
+          return { ok: true, status: 200, json: async () => body };
+        }
+      }
+      return {
+        ok: false,
+        status: 401,
+        json: async () => ({ error: { code: 'UNAUTHORIZED', message: 'n/a' } }),
+      };
+    });
+  }
+
+  it('sends the query to the account-scoped search endpoint and renders the results', async () => {
+    routeFetch({
+      '/recipes?q=': {
+        recipes: [
+          {
+            recipe_id: 'r9',
+            name: 'Coconut Fish Curry',
+            date: '2026-09-09T11:00:00.000Z',
+            family: 'Coconut Fish Curry',
+            has_cook_log: false,
+            last_cooked_at: null,
+          },
+        ],
+      },
+    });
+    render(<HomeView {...props()} />);
+    await userEvent.type(screen.getByLabelText('Search your library'), 'coconut');
+    await userEvent.click(screen.getByRole('button', { name: 'Search' }));
+
+    const calls = (globalThis.fetch as jest.Mock).mock.calls.filter((c) =>
+      (c as [string, RequestInit])[0].includes('/recipes?q='),
+    );
+    expect(calls.length).toBeGreaterThanOrEqual(1);
+    expect((calls[0] as [string, RequestInit])[0]).toContain('/recipes?q=coconut');
+    expect(await screen.findByText('Coconut Fish Curry')).toBeInTheDocument();
+    expect(screen.queryByText('Meen Kuzhambu')).not.toBeInTheDocument();
+  });
+
+  it('clearing the search restores the full library', async () => {
+    routeFetch({});
+    render(<HomeView {...props()} />);
+    expect(screen.getByText('Meen Kuzhambu')).toBeInTheDocument();
+
+    routeFetch({ '/recipes?q=': { recipes: [] } });
+    await userEvent.type(screen.getByLabelText('Search your library'), 'nope');
+    await userEvent.click(screen.getByRole('button', { name: 'Search' }));
+    expect(await screen.findByText('No matches')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    expect(screen.getByText('Meen Kuzhambu')).toBeInTheDocument();
+    expect(screen.queryByText('No matches')).not.toBeInTheDocument();
+  });
+
+  it('renders the no-matches state when the account has no hits', async () => {
+    routeFetch({ '/recipes?q=': { recipes: [] } });
+    render(<HomeView {...props()} />);
+    await userEvent.type(screen.getByLabelText('Search your library'), 'biriyani');
+    await userEvent.click(screen.getByRole('button', { name: 'Search' }));
+    expect(await screen.findByText('No matches')).toBeInTheDocument();
+  });
+});

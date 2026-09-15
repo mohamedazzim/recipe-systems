@@ -294,6 +294,30 @@ describe('QG2 static gates fire on real violations (D-01 criterion)', () => {
     }
   });
 
+  it('D-11 P1: a singular recipeInput.update in the Intake module STILL fires (only updateMany is the OCR path)', () => {
+    const s = makeScratch();
+    try {
+      s.write('apps/api/src/modules/intake/service.ts', 'prisma.recipeInput.update({ where: { id: "x" }, data: { ocrText: "y" } });\n');
+      const result = runGates(s.dir);
+      expect(result.exit).toBe(1);
+      expect(result.out).toContain('recipe_input must be immutable');
+    } finally {
+      s.cleanup();
+    }
+  });
+
+  it('D-11 P1: the Intake recipeInput.updateMany write-once OCR path does NOT fire', () => {
+    const s = makeScratch();
+    try {
+      s.write('apps/api/src/modules/intake/service.ts', 'prisma.recipeInput.updateMany({ where: { id: "x", ocrText: null }, data: { ocrText: "y" } });\n');
+      const result = runGates(s.dir);
+      expect(result.exit).toBe(0);
+      expect(result.out).toContain('only the Intake OCR updateMany-with-null-guard path');
+    } finally {
+      s.cleanup();
+    }
+  });
+
   it('INV-05: a shadow readiness column in schema.prisma fires (A-14 drift MAJOR)', () => {
     const s = makeScratch();
     try {

@@ -1,11 +1,12 @@
 import { Module, OnModuleInit } from '@nestjs/common';
 import { RecipesModule } from '../recipes/recipes.module';
+import { OcrModule } from '../ocr/ocr.module';
 import { IntakeController } from './intake.controller';
 import { IntakeService } from './intake.service';
 import { StorageService } from './storage.service';
 
 @Module({
-  imports: [RecipesModule],
+  imports: [RecipesModule, OcrModule],
   controllers: [IntakeController],
   providers: [IntakeService, StorageService],
   exports: [IntakeService, StorageService],

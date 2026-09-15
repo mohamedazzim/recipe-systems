@@ -171,8 +171,7 @@ function gcvProvider(imagePath) {
   const key = process.env.VISION_API_KEY;
   if (!key) {
     throw new Error('BLOCKED: VISION_API_KEY not set (GCV credentials live OUTSIDE the repo).');
-  }
-  const imageBytes = fs.readFileSync(imagePath);
+  }  const imageBytes = fs.readFileSync(imagePath);
   const body = JSON.stringify({
     requests: [{ image: { content: imageBytes.toString('base64') }, features: [{ type: 'DOCUMENT_TEXT_DETECTION' }] }],
   });
@@ -207,6 +206,89 @@ function gcvProvider(imagePath) {
     req.write(body);
     req.end();
   });
+}
+
+// PaddleOCR local serving (D-11 decision): POST base64 to OCR_PADDLE_ENDPOINT and
+// normalize the vendor response (v2 [box,[text,conf]] / flattened [box,text,conf] /
+// {rec_text,rec_score}) into the same {lines, confidences} contract every provider
+// uses. No credentials; the endpoint is the local serving URL.
+function paddleProvider(imagePath) {
+  const endpoint = process.env.OCR_PADDLE_ENDPOINT || 'http://localhost:8866/predict/ocr_system';
+  const imageBytes = fs.readFileSync(imagePath);
+  const body = JSON.stringify({ images: [imageBytes.toString('base64')] });
+  return new Promise((resolve, reject) => {
+    const url = new URL(endpoint);
+    const mod = url.protocol === 'https:' ? require('https') : require('http');
+    const req = mod.request(
+      { hostname: url.hostname, port: url.port || (url.protocol === 'https:' ? 443 : 80),
+        path: url.pathname, method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) } },
+      (res) => {
+        let data = '';
+        res.on('data', (c) => (data += c));
+        res.on('end', () => {
+          if (res.statusCode !== 200) return reject(new Error(`PaddleOCR HTTP ${res.statusCode}: ${data.slice(0, 300)}`));
+          const json = JSON.parse(data);
+          let list = json?.result ?? json?.results?.[0] ?? json;
+          if (Array.isArray(list) && list.length === 1 && Array.isArray(list[0]) && !isItem(list[0]) && isItem(list[0][0])) list = list[0];
+          const lines = [];
+          const confidences = [];
+          for (const item of list || []) {
+            if (Array.isArray(item)) {
+              const second = item[1];
+              if (Array.isArray(second) && typeof second[0] === 'string') { lines.push(second[0].trim()); confidences.push(typeof second[1] === 'number' ? second[1] : null); }
+              else if (typeof second === 'string') { lines.push(second.trim()); confidences.push(typeof item[2] === 'number' ? item[2] : null); }
+            } else if (item && typeof item === 'object') {
+              const t = typeof item.rec_text === 'string' ? item.rec_text : item.text;
+              if (typeof t === 'string' && t.trim()) { lines.push(t.trim()); confidences.push(typeof item.rec_score === 'number' ? item.rec_score : null); }
+            }
+          }
+          resolve({ lines, confidences });
+        });
+      }
+    );
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+function isItem(x) {
+  return Array.isArray(x) && (Array.isArray(x[1]) ? typeof x[1][0] === 'string' : typeof x[1] === 'string');
+}
+
+// ---------------------------------------------------------------------------
+// Golden-card stub benchmark (CI tier) — the adapter seam's deterministic stub,
+// NOT a real-card result. Verifies the golden invariant lines (both fenugreeks
+// distinct, no garlic, drumstick/mango/coconut present) and low-confidence
+// flagging. The REAL-card benchmark still requires provenance-valid photos +
+// manifest (Q10 OPEN).
+// ---------------------------------------------------------------------------
+const GOLDEN_CARD_REFERENCE = [
+  'Fish - 500g', 'Drumstick - 1 Nos', 'Mango - 1/2 Nos', 'Grated Coconut - Half Shell',
+  'Coconut Oil - For Tempering', 'Chilli - 5 Nos', 'Chilli Powder - 2 Tsp',
+  'Coriander Powder - 1 Tsp', 'Tamarind - A Lemon Size', 'Fenugreek Powder - 1/2 Tsp',
+  'Fenugreek - 1/4 Tsp',
+];
+const GOLDEN_CARD_CRITICAL = [9, 10]; // both fenugreek lines are golden-card critical
+
+function runGoldenStub() {
+  const stub = {
+    lines: ['Fish - 500g', 'Drumstick - 1 Nos', 'Mango - 1/2 Nos', 'Grated Coconut - Half Shell',
+      'Coconut Oil - For Tempering', 'Chilli - 5 Nos', 'Chilli Powder - 2 Tsp',
+      'Coriander Powder - 1 Tsp', 'Tamarind - A Lemon Size', 'Fenugreek Powder - 1/2 Tsp',
+      'Fenugreek - 1/4 Tsp'],
+    confidences: [0.98, 0.96, 0.95, 0.94, 0.93, 0.92, 0.91, 0.9, 0.94, 0.45, 0.93],
+  };
+  const r = evaluate({ imageId: 'golden-card', referenceLines: GOLDEN_CARD_REFERENCE,
+    ocrLines: stub.lines, confidences: stub.confidences, latencyMs: 0, critical: GOLDEN_CARD_CRITICAL });
+  const hasGarlic = stub.lines.some((l) => /garlic/i.test(l));
+  console.log(JSON.stringify({
+    generatedAt: new Date().toISOString(),
+    provider: 'stub (golden-card-deterministic, CI tier — NOT a real-card result)',
+    model: 'PP-OCRv4 (documented config)', version: 'paddleocr-3.x (documented config)',
+    note: 'Real-card benchmark still blocked: no provenance-valid golden photo + manifest + local PaddleOCR runtime.',
+    result: { ...r, garlicAbsent: !hasGarlic, bothFenugreeksDistinct: r.preservedCount >= 11 },
+  }, null, 2));
+  process.exit(r.pass && !hasGarlic ? 0 : 1);
 }
 
 // ---------------------------------------------------------------------------
@@ -256,7 +338,9 @@ async function runManifest(manifestPath) {
     const t0 = Date.now();
     const out = provider === 'mock'
       ? { lines: m.mock_lines, confidences: m.mock_confidences }
-      : await gcvProvider(m.image);
+      : provider === 'paddle'
+        ? await paddleProvider(m.image)
+        : await gcvProvider(m.image);
     results.push(evaluate({ imageId: m.id, referenceLines: m.reference_lines, ocrLines: out.lines,
       confidences: out.confidences, latencyMs: Date.now() - t0, critical: m.critical || [] }));
   }
@@ -265,8 +349,9 @@ async function runManifest(manifestPath) {
 
 const [, , cmd, arg] = process.argv;
 if (cmd === '--self-test') runSelfTest();
+else if (cmd === '--golden-stub') runGoldenStub();
 else if (cmd === '--manifest' && arg) runManifest(arg);
 else {
-  console.log('Usage:\n  node scripts/ocr-benchmark.js --self-test\n  node scripts/ocr-benchmark.js --manifest <manifest.json>');
+  console.log('Usage:\n  node scripts/ocr-benchmark.js --self-test\n  node scripts/ocr-benchmark.js --golden-stub\n  node scripts/ocr-benchmark.js --manifest <manifest.json>');
   process.exit(1);
 }

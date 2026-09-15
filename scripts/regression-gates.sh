@@ -147,13 +147,17 @@ if [ -z "$hits" ]; then note "no DDL outside packages/database/prisma/migrations
 fi
 
 # --- 3b. recipe_input immutability (D-10 done criterion; Q4 Intake write-once) ------------------
-echo "-- immutability: recipe_input has no UPDATE/DELETE path anywhere"
+# D-11 (P2-2) P1 amendment: the ONE permitted write is Intake's write-once OCR path
+# (`recipeInput.updateMany` guarded by `ocrText: null`). A singular `recipeInput.update`
+# ANYWHERE, any write outside the intake module, or upsert/delete/deleteMany still fires.
+echo "-- immutability: recipe_input write-once (only the Intake OCR updateMany path may write)"
 pat='recipeInput\.(update|updateMany|upsert|delete|deleteMany)|\b(UPDATE|DELETE FROM)\s+recipe_input'
 hits=$(grep -rInE "$pat" "$SCAN/apps" "$SCAN/packages" --include="*.ts" --include="*.tsx" --include="*.sql" \
   --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.next --exclude-dir=generated 2>/dev/null \
   | grep -vE "packages/database/prisma/migrations/" || true)
+outside=$(echo "$hits" | grep -vE "apps/api/src/modules/intake/.*recipeInput\.updateMany" || true)
 if [ -z "$hits" ]; then note "recipe_input is write-once (no update/delete references, D-10)"; else
-  fire "recipe_input must be immutable:"; echo "$hits"
+  if [ -z "$outside" ]; then note "recipe_input write-once (only the Intake OCR updateMany-with-null-guard path)"; else fire "recipe_input must be immutable (outside the Intake OCR write-once path):"; echo "$outside"; fi
 fi
 
 # --- 4. Provenance tags (SCAFFOLD §6) ----------------------------------------------------------

@@ -16,6 +16,8 @@ import {
   Patch,
   Post,
   Req,
+  ServiceUnavailableException,
+  UnprocessableEntityException,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -144,14 +146,14 @@ export class IntakeController {
     const stored = await this.storage.uploadImage(file.buffer, contentType);
 
     // Persist: recipe row (Web API domain, carries photo_uri) + raw input row (Intake).
-    // Compensation on DB failure: remove the just-uploaded object (no orphan) and, if no
-    // intake row attached, the empty recipe row (D-10K).
+    // Compensation on DB failure only: remove the just-uploaded object (no orphan) and,
+    // if no intake row attached, the empty recipe row (D-10K).
     let recipeId: string | null = null;
+    let input: { id: string } | null = null;
     try {
       const recipe = await this.recipes.createForIntake(actor, { photoUri: stored.uri });
       recipeId = recipe.id;
-      const input = await this.intake.recordPhoto(actor, recipe.id, stored.uri);
-      return { recipe_id: recipe.id, image_id: input.id, file_key: stored.key };
+      input = await this.intake.recordPhoto(actor, recipe.id, stored.uri);
     } catch (err) {
       await this.storage.deleteObject(stored.key);
       if (recipeId) {
@@ -163,6 +165,34 @@ export class IntakeController {
       }
       throw err;
     }
+
+    // D-11: run OCR (Intake-orchestrated) and persist the OCR draft. On provider
+    // failure the photo + input row stay DURABLE (no compensation here — nothing
+    // OCR-specific was persisted); retry = re-POST.
+    const ocr = await this.intake.ocrPhoto(actor, recipeId!, input!.id, file.buffer, contentType);
+    if (ocr.status === 'pending') {
+      throw new ServiceUnavailableException({
+        code: 'OCR_UNAVAILABLE',
+        message: 'OCR is unavailable; the photo was saved. Retry the upload.',
+      });
+    }
+    if (ocr.status === 'unreadable') {
+      throw new UnprocessableEntityException({
+        code: 'OCR_UNREADABLE',
+        message: 'No readable recipe text was found in this image.',
+      });
+    }
+
+    return {
+      recipe_id: recipeId,
+      image_id: input!.id,
+      file_key: stored.key,
+      ocr: {
+        status: ocr.status,
+        draft_line_count: ocr.draft_line_count,
+        flagged_count: ocr.flagged_count,
+      },
+    };
   }
 
   // ─────────────────────────────────────────────────────────────────────────────

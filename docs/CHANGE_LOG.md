@@ -20,6 +20,39 @@
 
 **Rule:** a change that alters any Q1–Q18 row must say so in its entry. The register (SCAFFOLD §7) is the single source of truth for open decisions; this log records the history of how the register changed. No Q-row changes in D-13.
 
+## 2026-09-15 — D-11 OCR adapter + low-confidence flagging (PaddleOCR behind the seam)
+
+- Author / session: DeepSeek V4 Pro (VS Code) D-11 implementation (dispatcher-authorized
+  after the STOP preflight in HANDOFF H-11; Q10 stays OPEN).
+- What changed: `packages/ocr-adapter` — `OcrAdapter.recognize(image: Uint8Array,
+  contentType)` seam (image bytes, not URI) + `OcrProviderError`/`OcrTimeoutError` +
+  `resolveOcrAdapter(env)`; NEW `stub.ts` (deterministic 11-line golden card, one
+  low-confidence line) and `paddle.ts` (HTTP base64 → `OCR_PADDLE_ENDPOINT`, default
+  `http://localhost:8866/predict/ocr_system`, timeout 30s, PP-OCRv4 / paddleocr-3.x,
+  multi-shape response normalization). API: NEW `OcrModule` (@Global, `OCR_ADAPTER`
+  token); `IntakeService.ocrPhoto` + `persistOcrDraft` (write-once
+  `recipeInput.updateMany({where:{id, ocrText:null}})` null-guard — P1 immutability
+  amendment — then `createMany` `sourceTag:'CARD'` draft lines with `ocrConfidence`
+  and `needsReview` < 0.9; missing confidence → flagged); `IntakeController.upload`
+  runs OCR after `recordPhoto` → 503 `OCR_UNAVAILABLE` (photo/input durable, retry =
+  re-POST) or 422 `OCR_UNREADABLE`. `scripts/regression-gates.sh` gate 3b amended to
+  permit only the Intake OCR updateMany null-guard path. `scripts/ocr-benchmark.js`
+  gains `paddleProvider` + `--golden-stub`. Tests: `ocr-adapter` 13/13, `intake.service`
+  40/40 (+5 OCR), `story_d11_ocr` 2/2, `qg2_gates` 24/24 (+2 immutability fire proofs).
+- Why: DISPATCH D-11 (P2-2, story B2 OCR intake) — provider-neutral OCR adapter +
+  low-confidence flagging (INV-04) + QG4 error cells, with PaddleOCR as the concrete
+  config-gated provider (documented, not a Q10 selection).
+- Register impact: **Q10 stays OPEN** (PaddleOCR is an adapter, not a benchmark-backed
+  provider decision); **D-28 stays BLOCKED on Q10** (real-card path); Q1/Q5/Q6/Q11/Q12/
+  Q14/Q15 untouched; Q9 (DeepSeek) unaffected.
+- Verification: API 312/312 (28 suites) · integration 149/149 (23 suites) · lint 0 ·
+  typecheck 0 · build OK (ocr-adapter + api + database) · contract-check OK ·
+  regression-gates PASS · `ocr-benchmark.js --self-test` + `--golden-stub` PASS.
+  Live (API `OCR_PROVIDER=stub`): upload → 11 draft lines, 1 flagged; enqueue-state
+  blocked on the low-confidence line (INV-05). PaddleOCR latency = "not measured" (no
+  Python runtime; real benchmark deferred to Q10).
+- Commit(s): `<sha>` (D-11).
+
 ## 2026-09-15 — D-27 P7-3: regional veto (G2) + retention/cleanup + ops
 
 - Author / session: DeepSeek V4 Pro (VS Code) D-27 dispatch (preflight GO recorded

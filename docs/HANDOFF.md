@@ -2025,7 +2025,167 @@ execution output; Git: not available / not authorized throughout.
 
 ### H-11 — D-11 OCR adapter + low-confidence flagging
 
-☐ No entry yet.
+- **Status: DONE — CI tier shipped (2026-09-15); A-11 audit pending.** The STOP
+  preflight below is superseded by an explicit dispatcher authorization (2026-09-15)
+  to implement D-11 with **PaddleOCR** as the concrete provider behind the existing
+  provider-neutral `ocr-adapter` seam. Q10 stays OPEN (no provider selection claimed);
+  D-28 stays blocked (see H-28 — the §14 photo go-metric needs the real-card path, not
+  the stub). The implementation record follows the preflight trace.
+- **Date / agent session:** 2026-09-15 · DeepSeek V4 Pro (VS Code) — D-11 preflight
+  (STOP) + D-11 implementation (dispatcher-authorized).
+
+#### Verdict: STOP — missing provenance evidence (golden photo fixture + provider credentials)
+- D-11 deliverable #3 requires a **golden PHOTO fixture** ("Fish 500g, Drumstick 1,
+  Mango 1/2, Half Shell coconut, both fenugreeks, no garlic") asserted against OCR
+  output with the **real-card corpus (D-04) in the benchmark harness** — plus a
+  "real provider behind the adapter".
+- **That evidence is missing and must NOT be fabricated** (hard constraint):
+  - No provenance-valid golden recipe-card IMAGE exists in the repo (the golden
+    fixture is JSON text; `tests/fixtures/corpus_images/` = 15 generic EN/FR cards,
+    zero D-04 corpus correspondence, no manifest, provenance unverifiable — CHANGE_LOG
+    2026-09-09 Q10 attempts #1/#2 both BLOCKED on exactly this).
+  - No OCR provider credentials exist on the machine (credential sweep recorded).
+- Consequence: D-11's benchmark-tier done criteria are unsatisfiable without that
+  external evidence; A-11's "golden-OCR assertion" requires the real-card benchmark
+  in addition to the stub.
+- **Buildable subset (recorded for the dispatcher):** the CI tier is NOT blocked —
+  the provider-neutral seam (`packages/ocr-adapter` already has the interface) + a
+  deterministic OCR stub (CI) + the Intake photo→OCR→draft pipeline + `needs_review`
+  flagging (INV-04) + QG4 error cells (timeout/down → preserve + retryable) are all
+  stub-testable with no provider and no photo.
+
+#### D-11 scope (DISPATCH D-11 = P2-2 = story B2 OCR intake)
+1. Provider-neutral OCR adapter package (`packages/ocr-adapter`) — vendor responses
+   normalized before the domain; real provider behind the seam, deterministic stub in CI.
+2. OCR draft visible before analysis (B2 TC-02): `ocr_text` on draft lines;
+   low-confidence lines `needs_review = TRUE`, never dropped (INV-04).
+3. Golden photo fixture (B2 TC-03) asserted in the benchmark harness only.
+- **NON-GOALS:** parse-review editing (D-12), analysis, provider selection (Q10).
+
+#### Provider / adapter decision requirements
+- Tech Stack §11: provider-neutral OCR adapter; **Google Cloud Vision = initial
+  candidate** (not a final selection). The final provider is a Q10 benchmark decision
+  (real-card dataset: handwriting, poor lighting, multilingual/vernacular terms).
+- Q10 must stay OPEN; GCV is implemented behind the seam as the documented candidate
+  (config-gated, no credentials committed) — NOT a silent selection.
+- Confidence: if a provider exposes no reliable confidence, use a conservative review
+  policy (flag more), never invent a score.
+
+#### Integration points (existing code to extend)
+- `POST /recipes/upload` (IntakeController) — currently stores the image + creates
+  recipe/recipe_input; D-11 adds: OCR call → `recipe_input.ocr_text` + draft lines
+  with `source_tag`/`ocr_confidence` + `needs_review = TRUE` for low-confidence.
+- `recipe_input.ocr_text` / `recipe_ingredient_line.needs_review` /
+  `ocr_confidence` (ERD §5) already exist in the schema (no migration needed).
+- Intake is the sole writer of `recipe_input` + `recipe_ingredient_line` (Q4 resolved);
+  `packages/ocr-adapter` stays a read-only, provider-neutral package (no DB writes).
+
+#### Writers / gates
+- No new writer: OCR draft lines ride the Intake boundary (Q4). `packages/ocr-adapter`
+  must contain no database writes (QG2 render/read-only-style check if asserted).
+- QG4 cells to add: OCR timeout/down → `recipe_input` + photo preserved, intake
+  retryable; OCR low-confidence → `needs_review = TRUE`, analysis blocked (INV-05).
+- QG2: a benchmark harness consumes the SAME adapter seam (its absence is a MAJOR at
+  A-11; `scripts/ocr-benchmark.js` exists, self-test-only).
+
+#### Privacy / retention
+- ADR §20: photos are private object-storage objects; OCR text is untrusted input
+  treated as raw `recipe_input.ocr_text` (never confirmed recipe truth — P-11).
+- OCR provider receives ONLY the minimum image required (ADR §19 trust boundary);
+  no private data beyond the card image. Retention rides the existing recipe-delete /
+  guest-expiry compensating cleanup (D-22/D-27).
+
+#### Open decisions (record with register IDs — do NOT resolve)
+- **Q10** (final OCR provider) — OPEN/BLOCKED (the gating gap; real-card benchmark
+  prerequisite). Q3 (Worker→OCR diagram edge) is a diagram patch, confirm before P2.
+- Q1/Q5/Q6/Q11/Q12/Q14/Q15 — untouched. Q9 (LLM) resolved — not affected.
+
+#### A-11 audit vectors (from AUDIT.md A-11)
+- INV-04 (BLOCKER): low-confidence N lines → all N flagged, zero dropped.
+- Adapter seam: vendor field names never leak past the adapter (MAJOR).
+- Golden photo: stub + real-card benchmark both assert Fish 500g / Drumstick 1 /
+  Mango 1/2 / Half Shell coconut / both fenugreeks / no garlic (missing = BLOCKER).
+- QG4 cells: OCR timeout/down → preserved + retryable (kill the mock mid-intake).
+- Q10 hygiene: no provider selection in this unit; benchmark harness interface exists.
+
+#### Exact implementation resume point
+1. Dispatcher provides the missing external evidence — a provenance-valid golden card
+   PHOTO + ground-truth manifest + OCR provider credentials (outside the repo) — OR
+   records an explicit, dated scope decision to ship D-11's CI tier only (seam + stub +
+   pipeline + flagging + error cells) with the golden-photo benchmark deferred to Q10.
+2. Then D-11: seam + deterministic stub (CI) + GCV candidate behind the seam (config-
+   gated) · Intake photo→OCR→draft pipeline · INV-04 flagging · QG4 error cells ·
+   `scripts/ocr-benchmark.js` consuming the seam.
+3. D-28 remains blocked on Q10 (the §14 photo→first-analysis metric needs the REAL
+   path, not the stub) — D-11 alone does not unblock D-28.
+
+#### D-11 IMPLEMENTATION — shipped (2026-09-15, dispatcher-authorized)
+
+- **Provider-neutral seam** (`packages/ocr-adapter/src/index.ts` rewritten): the
+  `OcrAdapter` interface is now `recognize(image: Uint8Array, contentType: string):
+  Promise<OcrResult>` (the image bytes cross the seam — never a URI). Exports
+  `OcrProviderError`, `OcrTimeoutError`, and `resolveOcrAdapter(env)` which selects
+  `paddle` → `PaddleOcrAdapter`, `stub` → `StubOcrAdapter`, otherwise `null` (OCR
+  disabled). No vendor field name leaks past the adapter.
+- **Deterministic stub (CI)** (`packages/ocr-adapter/src/stub.ts`): `GOLDEN_OCR_LINES`
+  = 11 golden-card lines (Fish 500g, Drumstick 1, Mango 1/2, Grated Coconut Half Shell,
+  Coconut Oil, Chilli 5, Chilli Powder 2, Coriander Powder 1, Tamarind, Fenugreek
+  Powder 1/2 [conf 0.45 → LOW], Fenugreek 1/4) — both fenugreeks distinct, garlic
+  absent. One deliberate low-confidence line exercises INV-04 (flagged, never dropped).
+- **PaddleOCR adapter** (`packages/ocr-adapter/src/paddle.ts`): `PaddleOcrAdapter`
+  POSTs base64 image bytes to `OCR_PADDLE_ENDPOINT` (default
+  `http://localhost:8866/predict/ocr_system`), `AbortController` timeout
+  `OCR_PADDLE_TIMEOUT_MS` (default 30000), model `PP-OCRv4`, version `paddleocr-3.x`.
+  `normalizePaddleResponse` normalizes v2 `[box,[text,conf]]`, flattened
+  `[box,text,conf]`, object `{rec_text,rec_score}`, and single-page wrappers; empty
+  results return a valid empty `OcrResult` (unreadable, not thrown); HTTP/non-array →
+  `OcrProviderError`; abort → `OcrTimeoutError`.
+- **API OCR pipeline** (`apps/api/src/modules/ocr/ocr.module.ts` NEW @Global module
+  with `OCR_ADAPTER` token via `resolveOcrAdapter(process.env)`; `IntakeModule`
+  imports `OcrModule`). `IntakeService`: `OCR_CONFIDENCE_THRESHOLD = 0.9`,
+  `ocrPhoto(actor, recipeId, inputId, image, contentType)` →
+  `{status:'complete'|'pending'|'unreadable'|'disabled', draft_line_count,
+  flagged_count, source_metadata}`; `persistOcrDraft` writes `recipe_input.ocr_text`
+  via the **write-once** `updateMany({where:{id, ocrText:null}})` null-guard (P1
+  immutability amendment) then `createMany` draft lines with `sourceTag:'CARD'`,
+  `ocrConfidence`, and `needsReview` for confidence < 0.9 (missing confidence → flagged).
+  `IntakeController.upload` calls `ocrPhoto` after `recordPhoto`: `pending` → 503
+  `OCR_UNAVAILABLE` (photo + input row stay DURABLE — no OCR compensation; retry =
+  re-POST); `unreadable` → 422 `OCR_UNREADABLE`.
+- **Immutability gate P1 amendment** (`scripts/regression-gates.sh` gate 3b): the
+  recipe_input write-once grep now permits ONLY the Intake OCR
+  `recipeInput.updateMany` null-guard path (any other recipe_input write still fires).
+- **Benchmark harness** (`scripts/ocr-benchmark.js`): `paddleProvider(imagePath)` +
+  `GOLDEN_CARD_REFERENCE` / `GOLDEN_CARD_CRITICAL` + `runGoldenStub()` + `--golden-stub`
+  CLI. Self-test + golden-stub both PASS (11/11 preserved, bothFenugreeksDistinct,
+  garlicAbsent, 1 lowConf). Real PaddleOCR benchmark NOT executed (no Python on the
+  machine; no provenance-valid golden photo) — Q10 prerequisite unchanged.
+- **Tests:** `ocr-adapter` 13/13 (resolve, stub golden, paddle normalize shapes,
+  mocked fetch success/timeout/non-200/rejection, env helpers; coverage floor 75%);
+  `intake.service.test` 40/40 (+5 OCR: complete/persist+flag, missing-confidence→flagged,
+  provider-failure→pending, empty→unreadable, no-adapter→disabled);
+  `story_d11_ocr.test` 2/2 (photo→OCR→ocr_text+draft+flag+INV-05 block; provider
+  failure→pending with durable input row); `qg2_gates` 24/24 (+2 D-11 P1 fire proofs:
+  `recipeInput.update` fires, the Intake `updateMany` null-guard does NOT).
+- **Verification (all re-run 2026-09-15):** API 312/312 (28 suites) · integration
+  149/149 (23 suites incl. story_d11) · lint 0 (api + ocr-adapter) · typecheck 0 ·
+  build OK (ocr-adapter + api + database) · `contract-check` OK ·
+  `regression-gates.sh` PASS · `ocr-benchmark.js --self-test` + `--golden-stub` PASS.
+- **Live journey (API with `OCR_PROVIDER=stub`, real Postgres/MinIO):** guest session →
+  `POST /api/v1/recipes/upload` (JPEG) → `{ocr:{status:'complete', draft_line_count:11,
+  flagged_count:1}}`; DB shows `recipe_input.ocr_text` = 11 lines (photo URI in MinIO)
+  and 11 `recipe_ingredient_line` rows all `source_tag='CARD'` with line 10
+  "Fenugreek Powder - 1/2 Tsp" `ocr_confidence=0.45` + `needs_review=true` (all others
+  ≥ 0.9); after claiming the guest session onto chef@recipesystems.test,
+  `GET /recipes/:id/enqueue-state` → `{can_enqueue:false, blockers:[{"display_name":
+  "Fenugreek Powder - 1/2 Tsp"}]}` (INV-05 block verified live).
+- **Register / open decisions:** **Q10 stays OPEN** (PaddleOCR is a config-gated
+  concrete adapter, NOT a provider selection — no benchmark verdict, no credentials).
+  **D-28 stays BLOCKED** on Q10 (real-card path). Q1/Q5/Q6/Q11/Q12/Q14/Q15 untouched;
+  Q9 (DeepSeek) unaffected. PaddleOCR latency = "not measured" (no Python runtime);
+  stub latency = 0 ms.
+- **Resume point:** A-11 paired audit (golden-photo BLOCKER vector remains deferred to
+  Q10 — record as such in AUDIT_LOG A-11; seam/INV-04/QG4 vectors are audit-ready now).
 
 ### H-12 — D-12 Parse review
 
@@ -3035,7 +3195,67 @@ execution output; Git: not available / not authorized throughout.
 
 ### H-28 — D-28 Week-12 pilot gate
 
-☐ No entry yet.
+- **Status: PREFLIGHT ONLY (2026-09-15) — STOP.** No implementation. This entry
+  records the dispatch-required preflight trace (before any code, per DISPATCH D-28).
+- **Date / agent session:** 2026-09-15 · DeepSeek V4 Pro (VS Code) D-28 preflight.
+
+#### Verdict: STOP — missing dependency (D-11 / Q10 OCR) for the §14 photo go-metric
+- D-28's done criteria (DISPATCH + BUILD_PLAN P7 exit) include the §14 go-metric
+  **"photo→first analysis under 2 minutes including parse correction"**, and §14's
+  **no-go line is "a beautiful analyser that cannot ingest a photograph."**
+- That metric requires the B2 **photo → OCR draft → parse correction** pipeline, i.e.
+  **D-11 (OCR adapter + low-confidence flagging)**.
+- **D-11 is NOT shipped:** `H-11 = "No entry yet"`; `packages/ocr-adapter` is an
+  interface-only seam (`Q10 OPEN — benchmark wks 1–4`); `D-12` shipped text scope
+  only (its photo-path criteria are deferred until D-11 lands).
+- **Q10 (OCR provider) is OPEN/BLOCKED** (SCAFFOLD §7 Q10; CHANGE_LOG 2026-09-09):
+  no OCR provider credentials on the machine; the 15 `tests/fixtures/corpus_images/`
+  JPGs fail provenance (generic EN/FR cards, no manifest, zero D-04 corpus
+  correspondence); `scripts/ocr-benchmark.js` is self-test-only (PASS 3/3 harness,
+  no provider run).
+- Consequence: the photo go-metric **cannot be re-executed** — and A-28 declares
+  "go metrics (BLOCKER class, re-executed, not read)". An unmeasurable photo metric
+  is a BLOCKER at A-28, so D-28 cannot proceed as specified.
+
+#### What IS ready (recorded, for the dispatcher)
+- Dependencies D-24 (cook loop) + D-27 (veto/retention/ops) — DONE.
+- `tests/fixtures/messy_20/` — the twenty messy week-12 recipes EXIST (20 synthetic
+  JSON fixtures, `provenance.synthetic:true`, QG5 named set).
+- Golden fixture + 8 CI invariants (G1) — green in CI.
+- Prints (D-23 E4/E5 one-page), cook log + note recall (D-24 F1/F2/F6), save/list/log
+  (D-22), veto (D-27 G2), restriction profiles (D-26), aliases/tags (D-25) — DONE.
+- Reviewer ROSTER SLOTS (`tests/fixtures/reviewers.json`): two regional slots
+  (tn_kanyakumari + kerala), identities OUTSIDE the repo (not fabricated) — G2 done;
+  G3's chef pass is a product adversarial pass (culinary editor/chef), not the
+  regional reviewers.
+
+#### Open decisions / assumptions that MUST remain unresolved (record with register IDs)
+- Q10 (OCR provider) — OPEN/BLOCKED (the gating gap above).
+- Q1/Q5/Q6/Q11/Q12/Q14/Q15 — OPEN; none may be resolved here.
+- Q7 (cloud vendor), Q13 (retry values pilot defaults at D-17) — untouched.
+- A-27 F-1 (MINOR: gate 2h prefix-match) — carried forward; NOT silently closed.
+
+#### A-28 audit vectors (for when D-28 is dispatched)
+- Go metrics (BLOCKER class, re-executed not read): zero invented on golden; three
+  curries separable in chef mode; prints one page; photo→first analysis < 2 min;
+  no "safe"; no point-kcal.
+- §14 go line: Must stories on golden + 20 messy; View 5 not vetoed wholesale;
+  cooks used save + list + log without coaching (pilot log evidence).
+- Blocker regression sweep: re-run every prior audit's BLOCKER checks on the pilot
+  commit (one-writer greps, INV-04/05/10/12/13/14, two-fenugreeks, XOR/claim,
+  ownership escape, golden suite in CI).
+- §15 acceptance scene end-to-end (Priya's walk, unassisted).
+- OPEN DECISION register diff (Q1–Q7, Q9–Q17) — none silently resolved.
+
+#### Exact implementation resume point (after the dispatcher unblocks)
+1. Dispatcher either (a) dispatches D-11/Q10 (OCR provider + adapter + golden photo
+   fixture with provenance) BEFORE D-28, or (b) records a dated, explicit D-28 scope
+   reduction excluding the photo go-metric (with the no-go line re-examined).
+2. Then D-28: pilot protocol (20 users; golden + messy_20; §14 metrics recorded with
+   go/no-go recommendation) · G3 chef pass (Kumari / inland Tamil / Kerala kudampuli
+   separable, zero invented, no "safe"/point-kcal) · TEST_PLAN mechanism-5 closing
+   sweep (every prior BLOCKER re-run + §15 acceptance scene) · HANDOFF evidence set.
+3. HARD STOP before D-31.
 
 ### H-29 — D-29 Track R reference data
 

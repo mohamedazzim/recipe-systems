@@ -17,11 +17,29 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { Prisma, PrismaClient, RecipeIngredientLine, RecipeInput } from '@recipe-systems/database';
+import { OcrAdapter, OcrResult } from '@recipe-systems/ocr-adapter';
 import type { Actor } from '../../common/guards/guest-or-jwt.guard';
 import { RecipeService } from '../recipes/recipe.service';
+import { OCR_ADAPTER } from '../ocr/ocr.module';
+
+/** D-11 (P2-2): conservative low-confidence threshold (0–1). Missing confidence
+ *  is always flagged (Tech Stack §11: never invent a score). Not canonical — a
+ *  named pilot constant. */
+export const OCR_CONFIDENCE_THRESHOLD = 0.9;
+
+/** D-11: the OCR intake outcome. `pending` = provider failure (503 retryable);
+ *  `unreadable` = valid provider result with no text (422); `disabled` = no
+ *  adapter configured (no draft lines produced). */
+export interface OcrIntakeResult {
+  status: 'complete' | 'pending' | 'unreadable' | 'disabled';
+  draft_line_count: number;
+  flagged_count: number;
+  source_metadata: Record<string, unknown> | null;
+}
 
 /**
  * Wire shape per API doc §3 + D-12B: `id` and `updated_at` added for line addressing and
@@ -183,6 +201,9 @@ export class IntakeService {
   constructor(
     @Inject('PRISMA') private readonly prisma: PrismaClient,
     private readonly recipes: RecipeService,
+    /** D-11: the OCR adapter (null = OCR disabled). Intake remains the sole
+     *  writer of recipe_input / recipe_ingredient_line; the adapter is read-only. */
+    @Optional() @Inject(OCR_ADAPTER) private readonly ocr?: OcrAdapter | null,
   ) {}
 
   /** INV-17 + D-10 ownership enforcement: intake never writes rows for a recipe the
@@ -209,6 +230,86 @@ export class IntakeService {
     return this.prisma.recipeInput.create({
       data: { recipeId, inputType: 'photo', photoUri },
     });
+  }
+
+  /**
+   * D-11 (P2-2): run OCR over an uploaded card image and persist the OCR draft.
+   * OCR is orchestrated by Intake (ADR §2 Decision 3) — the adapter is read-only.
+   *
+   * Failure contract (QG4 + pre-flight 2026-09-08):
+   *  - provider timeout/down/malformed → `pending` (503 retryable; the uploaded
+   *    photo + recipe_input row are already durable, nothing OCR-specific persisted);
+   *  - valid provider result with no text → `unreadable` (422 OCR_UNREADABLE);
+   *  - no adapter configured → `disabled` (no draft lines produced).
+   */
+  async ocrPhoto(
+    actor: Actor,
+    recipeId: string,
+    inputId: string,
+    image: Uint8Array,
+    contentType: string,
+  ): Promise<OcrIntakeResult> {
+    await this.assertOwned(actor, recipeId);
+    if (!this.ocr) {
+      return { status: 'disabled', draft_line_count: 0, flagged_count: 0, source_metadata: null };
+    }
+
+    let result: OcrResult;
+    try {
+      result = await this.ocr.recognize(image, contentType);
+    } catch {
+      return { status: 'pending', draft_line_count: 0, flagged_count: 0, source_metadata: null };
+    }
+
+    if (result.lines.length === 0) {
+      return { status: 'unreadable', draft_line_count: 0, flagged_count: 0, source_metadata: null };
+    }
+
+    const { draftCount, flaggedCount } = await this.persistOcrDraft(inputId, recipeId, result);
+    return {
+      status: 'complete',
+      draft_line_count: draftCount,
+      flagged_count: flaggedCount,
+      source_metadata: result.source_metadata,
+    };
+  }
+
+  /** D-11: persist the OCR draft — write-once `ocr_text` (P1 immutability
+   *  amendment: updateMany guarded by `ocrText: null`) + one draft line per OCR
+   *  line, low-confidence lines flagged (INV-04: never dropped). */
+  private async persistOcrDraft(
+    inputId: string,
+    recipeId: string,
+    result: OcrResult,
+  ): Promise<{ draftCount: number; flaggedCount: number }> {
+    const threshold = this.ocrConfidenceThreshold();
+    return this.prisma.$transaction(async (tx) => {
+      await tx.recipeInput.updateMany({
+        where: { id: inputId, ocrText: null },
+        data: { ocrText: result.recognized_text },
+      });
+
+      const data = result.lines.map((line, index) => {
+        const low = line.confidence === undefined || line.confidence < threshold;
+        return {
+          recipeId,
+          shoppingKey: randomUUID(),
+          lineNo: index + 1,
+          displayName: line.text, // the card's own words as OCR'd (sourceTag CARD)
+          sourceTag: 'CARD',
+          ocrConfidence: line.confidence ?? null,
+          needsReview: low,
+          includeOnList: true,
+        };
+      });
+      const created = await tx.recipeIngredientLine.createMany({ data });
+      return { draftCount: created.count, flaggedCount: data.filter((d) => d.needsReview).length };
+    });
+  }
+
+  /** D-11: the conservative low-confidence threshold (named pilot constant). */
+  ocrConfidenceThreshold(): number {
+    return OCR_CONFIDENCE_THRESHOLD;
   }
 
   /** B5 form: same persisted object as paste/photo (ERD chk_recipe_input_type).

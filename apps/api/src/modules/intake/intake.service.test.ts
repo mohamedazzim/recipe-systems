@@ -670,3 +670,93 @@ describe('IntakeService — D-14 needs_review enqueue gate (INV-05)', () => {
     expect(data.needsReview).toBeUndefined();
   });
 });
+
+describe('IntakeService — D-11 OCR draft (INV-04)', () => {
+  function ocrPrisma() {
+    const prisma: any = {
+      recipeInput: {
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      recipeIngredientLine: {
+        createMany: jest.fn().mockResolvedValue({ count: 3 }),
+      },
+      $transaction: jest.fn(async (fn: any) => fn(prisma)),
+    };
+    const recipes = { assertOwned: jest.fn().mockResolvedValue({ id: 'r1' }) };
+    return { prisma, recipes };
+  }
+
+  const stub = {
+    recognize: jest.fn().mockResolvedValue({
+      recognized_text: 'Fish - 500g\nDrumstick - 1 Nos\nFenugreek - 1/4 Tsp',
+      lines: [
+        { text: 'Fish - 500g', confidence: 0.98 },
+        { text: 'Drumstick - 1 Nos', confidence: 0.95 },
+        { text: 'Fenugreek - 1/4 Tsp', confidence: 0.44 },
+      ],
+      source_metadata: { provider: 'stub' },
+    }),
+  };
+
+  it('persists ocr_text write-once and flags only low-confidence lines (INV-04: none dropped)', async () => {
+    const { prisma, recipes } = ocrPrisma();
+    const svc = new IntakeService(prisma, recipes as never, stub as never);
+    const result = await svc.ocrPhoto(userActor, 'r1', 'in-1', new Uint8Array([1]), 'image/jpeg');
+
+    expect(result.status).toBe('complete');
+    expect(result.draft_line_count).toBe(3);
+    expect(result.flagged_count).toBe(1);
+    expect(prisma.recipeInput.updateMany).toHaveBeenCalledWith({
+      where: { id: 'in-1', ocrText: null },
+      data: { ocrText: 'Fish - 500g\nDrumstick - 1 Nos\nFenugreek - 1/4 Tsp' },
+    });
+    const data = prisma.recipeIngredientLine.createMany.mock.calls[0][0].data;
+    expect(data).toHaveLength(3); // all three lines persisted, none dropped
+    expect(data[2]).toMatchObject({ displayName: 'Fenugreek - 1/4 Tsp', needsReview: true, sourceTag: 'CARD' });
+    expect(data[0].needsReview).toBe(false);
+    expect(data.every((d: { ocrConfidence: number | null }) => d.ocrConfidence !== null)).toBe(true);
+  });
+
+  it('missing confidence → flagged (conservative policy, never invented)', async () => {
+    const { prisma, recipes } = ocrPrisma();
+    const noConf = {
+      recognize: jest.fn().mockResolvedValue({
+        recognized_text: 'Fish - 500g',
+        lines: [{ text: 'Fish - 500g' }],
+        source_metadata: { provider: 'stub' },
+      }),
+    };
+    const svc = new IntakeService(prisma, recipes as never, noConf as never);
+    await svc.ocrPhoto(userActor, 'r1', 'in-1', new Uint8Array([1]), 'image/jpeg');
+    const data = prisma.recipeIngredientLine.createMany.mock.calls[0][0].data;
+    expect(data[0].needsReview).toBe(true);
+    expect(data[0].ocrConfidence).toBeNull();
+  });
+
+  it('provider failure → pending (nothing persisted), retryable', async () => {
+    const { prisma, recipes } = ocrPrisma();
+    const failing = { recognize: jest.fn().mockRejectedValue(new Error('ECONNREFUSED')) };
+    const svc = new IntakeService(prisma, recipes as never, failing as never);
+    const result = await svc.ocrPhoto(userActor, 'r1', 'in-1', new Uint8Array([1]), 'image/jpeg');
+    expect(result.status).toBe('pending');
+    expect(prisma.recipeInput.updateMany).not.toHaveBeenCalled();
+    expect(prisma.recipeIngredientLine.createMany).not.toHaveBeenCalled();
+  });
+
+  it('empty provider result → unreadable (422), nothing persisted', async () => {
+    const { prisma, recipes } = ocrPrisma();
+    const blank = { recognize: jest.fn().mockResolvedValue({ recognized_text: '', lines: [], source_metadata: {} }) };
+    const svc = new IntakeService(prisma, recipes as never, blank as never);
+    const result = await svc.ocrPhoto(userActor, 'r1', 'in-1', new Uint8Array([1]), 'image/jpeg');
+    expect(result.status).toBe('unreadable');
+    expect(prisma.recipeIngredientLine.createMany).not.toHaveBeenCalled();
+  });
+
+  it('no adapter configured → disabled (no draft lines)', async () => {
+    const { prisma, recipes } = ocrPrisma();
+    const svc = new IntakeService(prisma, recipes as never, null as never);
+    const result = await svc.ocrPhoto(userActor, 'r1', 'in-1', new Uint8Array([1]), 'image/jpeg');
+    expect(result.status).toBe('disabled');
+    expect(prisma.recipeIngredientLine.createMany).not.toHaveBeenCalled();
+  });
+});

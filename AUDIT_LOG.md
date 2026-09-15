@@ -477,3 +477,34 @@ pilot; ADR §8 "block a live sentence" is satisfied.
 
 **Recommendation for the next dispatch:** proceed to D-28 (D-27 is otherwise fit).
 Carry F-1 into a future gate-hardening pass (or fold into D-28's closing sweep hygiene).
+
+## A-11 — Audit: OCR adapter + low-confidence flagging (D-11) — builder evidence, paired audit pending
+
+- **Note:** this block is **builder-recorded evidence**, NOT the independent audit
+  verdict. The A-11 paired audit will re-execute the D-11 done criteria and append its
+  own verdict. Per AUDIT.md contract, claims below are hypotheses until audited.
+- **Date / evidence session:** 2026-09-15 · DeepSeek V4 Pro (VS Code) D-11 implementation.
+- **Audited tree:** uncommitted D-11 changes (HANDOFF H-11 implementation record).
+
+### Evidence collected (for the paired audit to re-execute)
+
+- **INV-04 (BLOCKER class):** low-confidence lines are flagged, never dropped —
+  `intake.service.test` OCR cases (complete/persist+flag, missing-confidence→flagged)
+  green; live upload (stub) produced 11/11 lines with exactly one `needs_review=true`
+  (the 0.45-confidence line), zero dropped.
+- **Adapter seam (MAJOR):** `OcrAdapter.recognize(Uint8Array, contentType)` — vendor
+  fields never leak past `packages/ocr-adapter` (paddle response normalization unit
+  tests cover v2 / flattened / object / single-page shapes).
+- **Golden photo (BLOCKER, DEFERRED to Q10):** stub + real-card benchmark — the STUB
+  golden (`--golden-stub`) asserts Fish 500g / Drumstick 1 / Mango 1/2 / Half Shell
+  coconut / both fenugreeks / no garlic and passes; the REAL-card photo benchmark is
+  NOT executed (no Python runtime, no provenance-valid golden photo, no provider
+  credentials) — this vector stays OPEN with Q10.
+- **QG4 cells:** timeout/down → `OCR_UNAVAILABLE` 503 with photo + input row durable
+  (intake.service provider-failure→pending + `story_d11_ocr` provider-failure case);
+  unreadable → 422 `OCR_UNREADABLE` (empty→unreadable case). No-adapter → `disabled`.
+- **Q10 hygiene:** no provider selection claimed — PaddleOCR is a config-gated
+  concrete adapter, Q10 OPEN; D-28 remains BLOCKED on Q10.
+- **Regression:** `regression-gates.sh` PASS (gate 3b immutability amendment permits
+  only the Intake OCR `updateMany` null-guard path); `contract-check` OK; lint 0;
+  typecheck 0; build OK; API 312/312; integration 149/149; qg2_gates 24/24.

@@ -229,6 +229,23 @@ async function paddleProvider(imagePath) {
   };
 }
 
+// Provider-neutral recognition for the Q10 fixture benchmark: the adapter is
+// selected by the OCR_PROVIDER env var (paddle | deepseek) — the SAME seam the
+// API's Intake module uses. No OCR logic is duplicated here.
+async function recognizeViaProvider(imagePath) {
+  const provider = process.env.OCR_PROVIDER || PADDLE_OCR_PROVIDER;
+  const adapter = resolveOcrAdapter(process.env);
+  if (!adapter) throw new Error(`No OCR adapter resolved for OCR_PROVIDER=${provider}`);
+  const imageBytes = fs.readFileSync(imagePath);
+  const result = await adapter.recognize(imageBytes, 'image/png');
+  return {
+    provider,
+    source_metadata: result.source_metadata,
+    lines: result.lines.map((l) => l.text),
+    confidences: result.lines.map((l) => (typeof l.confidence === 'number' ? l.confidence : null)),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Golden-card stub benchmark (CI tier) — the adapter seam's deterministic stub,
 // NOT a real-card result. Verifies the golden invariant lines (both fenugreeks
@@ -319,13 +336,11 @@ async function runManifest(manifestPath) {
 }
 
 // ---------------------------------------------------------------------------
-// Q10 synthetic-fixture benchmark (TECHNICAL OCR validation only).
-// The supplied manifest declares `fixture_status = synthetic_benchmark_fixture`
-// and `provenance = synthetic` — this is NOT a real-card benchmark and must never
-// be cited as satisfying the canonical Q10 / D-28 real-world provenance gate.
-// The image runs through the production adapter seam (paddleProvider →
-// resolveOcrAdapter → PaddleOcrAdapter) and is evaluated against the manifest's
-// reference / critical / forbidden / duplicate-sensitive fields.
+// Q10 fixture benchmark (synthetic OR real-card, per the manifest's fixture_status).
+// The image runs through the production adapter seam (recognizeViaProvider →
+// resolveOcrAdapter → PaddleOcrAdapter | DeepSeekVisionOcrAdapter, selected by
+// OCR_PROVIDER) and is evaluated against the manifest's reference / critical /
+// forbidden / duplicate-sensitive fields.
 // ---------------------------------------------------------------------------
 async function runQ10Fixture(manifestPath) {
   const m = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
@@ -340,7 +355,7 @@ async function runQ10Fixture(manifestPath) {
     .filter((i) => i >= 0);
 
   const t0 = Date.now();
-  const out = await paddleProvider(imagePath); // production adapter seam
+  const out = await recognizeViaProvider(imagePath); // production adapter seam
   const latencyMs = Date.now() - t0;
 
   const r = evaluate({
@@ -374,7 +389,8 @@ async function runQ10Fixture(manifestPath) {
     dataset_id: m.dataset_id ?? null,
     image_file: m.image_file,
     image_sha256: null, // filled by the caller if desired (hash not required here)
-    ocr_provider: 'paddle (production adapter seam)',
+    ocr_provider: `${out.provider} (production adapter seam)`,
+    ocr_source_metadata: out.source_metadata,
     latency_ms: latencyMs,
     result: {
       reference_count: r.referenceCount,

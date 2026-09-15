@@ -9,6 +9,7 @@
 
 import { PaddleOcrAdapter, PADDLE_OCR_PROVIDER } from './paddle';
 import { StubOcrAdapter, STUB_OCR_PROVIDER } from './stub';
+import { DeepSeekVisionOcrAdapter, DEEPSEEK_OCR_PROVIDER } from './deepseek';
 
 export interface OcrLine {
   text: string;
@@ -27,36 +28,28 @@ export interface OcrAdapter {
   recognize(image: Uint8Array, contentType: string): Promise<OcrResult>;
 }
 
-/** A provider failure that the intake flow surfaces as retryable (503). */
-export class OcrProviderError extends Error {
-  constructor(message: string, readonly cause?: unknown) {
-    super(message);
-    this.name = 'OcrProviderError';
-  }
-}
-
-/** A provider timeout — retryable, photo/input preserved (QG4 cell). */
-export class OcrTimeoutError extends OcrProviderError {
-  constructor(message: string) {
-    super(message);
-    this.name = 'OcrTimeoutError';
-  }
-}
+// Re-export the error taxonomy from its own module (avoids a circular import:
+// providers extend these classes at load time, and `index.ts` imports them).
+export { OcrProviderError, OcrTimeoutError } from './errors';
 
 export const OCR_ADAPTER_SEAM = 'provider-neutral (Tech Stack §11; Q10 OPEN — real-card benchmark)';
 
 /**
  * Select the OCR adapter from the environment.
- *  - OCR_PROVIDER=paddle → the local PaddleOCR adapter (config-gated; no credentials).
- *  - OCR_PROVIDER=stub   → the deterministic golden-card stub (CI / local dev).
- *  - anything else       → null (OCR disabled — no draft lines are produced).
+ *  - OCR_PROVIDER=paddle   → the local PaddleOCR adapter (config-gated; no credentials).
+ *  - OCR_PROVIDER=deepseek → the DeepSeek Vision adapter (server-side key; no per-line
+ *                            confidence → conservative needs_review policy).
+ *  - OCR_PROVIDER=stub     → the deterministic golden-card stub (CI / local dev).
+ *  - anything else         → null (OCR disabled — no draft lines are produced).
  */
 export function resolveOcrAdapter(env: Record<string, string | undefined>): OcrAdapter | null {
   const provider = env.OCR_PROVIDER;
   if (provider === PADDLE_OCR_PROVIDER) return new PaddleOcrAdapter(env);
+  if (provider === DEEPSEEK_OCR_PROVIDER) return new DeepSeekVisionOcrAdapter(env);
   if (provider === STUB_OCR_PROVIDER) return new StubOcrAdapter();
   return null;
 }
 
 export { PaddleOcrAdapter, PADDLE_OCR_PROVIDER } from './paddle';
 export { StubOcrAdapter, STUB_OCR_PROVIDER } from './stub';
+export { DeepSeekVisionOcrAdapter, DEEPSEEK_OCR_PROVIDER, DEEPSEEK_OCR_PROMPT, normalizeDeepSeekResponse } from './deepseek';

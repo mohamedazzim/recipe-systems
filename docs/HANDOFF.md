@@ -2288,6 +2288,67 @@ execution output; Git: not available / not authorized throughout.
   handwriting-capable model/config (documented PP-OCRv4 / paddleocr-3.x, or a
   handwriting-oriented recognition model) — re-benchmark after.
 
+#### Q10 RESOLVED — DeepSeek Vision adapter (2026-09-15, dispatcher-authorized second provider)
+
+- **Code:** NEW `packages/ocr-adapter/src/deepseek.ts` (`DeepSeekVisionOcrAdapter`,
+  `DEEPSEEK_OCR_PROMPT`, `normalizeDeepSeekResponse`, `DEEPSEEK_OCR_PROVIDER='deepseek'`,
+  `deepseekModel`/`deepseekBaseUrl`/`deepseekTimeoutMs`/`deepseekMaxRetries`/
+  `deepseekOcrMaxTokens`/`deepseekOcrMaxTokensCap`) · NEW
+  `packages/ocr-adapter/src/errors.ts` (`OcrProviderError`/`OcrTimeoutError` moved
+  out of `index.ts` so providers can extend them at load time without a circular
+  import; paddle/deepseek now import `./errors`, `index.ts` re-exports) · NEW
+  `packages/ocr-adapter/src/deepseek.test.ts` (9 tests) · `index.ts` +
+  `index.test.ts` updated (resolveOcrAdapter deepseek case). No API/web changes —
+  Intake/review/readiness are downstream and unchanged.
+- **Adapter contract:** sends the image (base64 data URI) to
+  `POST {DEEPSEEK_BASE_URL}/chat/completions` (`model=DEEPSEEK_MODEL`, temperature 0,
+  `max_tokens=DEEPSEEK_OCR_MAX_TOKENS` default 8192) with the transcription prompt
+  (preserve wording/quantities/units; Fenugreek Seeds vs Powder distinct; no
+  inference/correction/recipe knowledge; `[unreadable]` for illegible; output only
+  lines). Uses ONLY `message.content` — `reasoning_content` is NEVER the
+  transcription. No per-line confidence → lines carry NO confidence → Intake flags
+  every line `needs_review` (Tech Stack §11: never invent a score).
+- **Token-budget fix (the live 422 root cause, fixed + regression-tested):**
+  `deepseek-flash` is a reasoning model whose `max_tokens` covers BOTH
+  `reasoning_content` and `content`. At 4096 the chain-of-thought could exhaust the
+  budget and return `content:""` (`finish_reason=length`) — surfaced as a false
+  `OCR_UNREADABLE` (422). Default raised to `DEEPSEEK_OCR_MAX_TOKENS=8192`
+  (`DEEPSEEK_OCR_MAX_TOKENS_CAP=32768`); on empty-content-with-non-empty-reasoning
+  the adapter doubles the budget and retries (a `DeepSeekTruncationError`, never a
+  false unreadable). Verified live: 4096 → empty content; 8192/16000/32768 →
+  `finish_reason=stop` with the full transcription.
+- **Canonical benchmark (`scripts/ocr-benchmark.js --q10-fixture`, production seam,
+  `OCR_PROVIDER=deepseek` + DEEPSEEK env from .env):** **26/26 reference lines
+  (100%), 6/6 critical lines, 0 char-errors, garlic absent, both fenugreeks
+  distinct, no fabricated lines, `confidence_available:false` (26 lines flagged),
+  `pass:true`, latency ~14.7 s** (run-to-run 9.3–25.6 s).
+- **Live internal-browser (chef, API `OCR_PROVIDER=deepseek`):** upload golden card
+  → workspace `Photo: kanyakumari_meen_kuzhambu.png` with **26 OCR draft lines**,
+  every line "from card" + "Review required" (no confidence → conservative policy),
+  garlic absent, Fenugreek Seeds/Powder distinct, METHOD + 6 steps preserved.
+  Analysis section: "26 lines need your attention before analysis can begin"
+  (INV-05 blocked) → cleared all 26 → "Ready to analyse. All lines are confirmed."
+  → pasted the method → Analyse → worker (DeepSeek LLM, views 1–7 parse/grounding
+  ok + deterministic views 8/9) → **"Analysis complete"** (`mode home`, `prompt v2`,
+  `model deepseek:deepseek-flash`) with the station card rendering all 26 CARD
+  lines. photo→OCR→review→analysis path VERIFIED end-to-end.
+- **PaddleOCR regression:** adapter still functional (`OCR_PROVIDER=paddle` returns
+  normalized lines + confidence); still FAILS the handwritten golden card (7/26,
+  0/6 critical) as documented — no regression introduced by the seam changes.
+- **Tests / verification (all re-run 2026-09-15):** `ocr-adapter` 24/24 (deepseek
+  normalize + env + mocked fetch success/401/abort/truncation-retry/no-reasoning;
+  paddle + stub) · `story_d11_ocr` + `qg2_gates` 28/28 on real Postgres ·
+  `regression-gates.sh` PASS (8/8 golden invariants) · `ocr-benchmark.js
+  --self-test` + `--golden-stub` PASS · lint/typecheck/build green (ocr-adapter +
+  api + web; api/web unchanged).
+- **Register:** **Q10 = RESOLVED (DeepSeek Vision, `deepseek-flash`)** — every
+  acceptance criterion met (6/6 critical, garlic absent, fenugreeks distinct, no
+  fabrication, safety gates intact, benchmark pass, live browser success, latency
+  recorded, provenance recorded). **D-28 = UNBLOCKED (NOT implemented — next
+  dispatch).** PaddleOCR stays available behind the seam but is NOT the selected
+  provider. `.env` default remains `OCR_PROVIDER=disabled` (provider is env-selected;
+  the live run sets `OCR_PROVIDER=deepseek`).
+
 ### H-12 — D-12 Parse review
 
 - BASE_SHA / COMMIT_SHA: **BASE `93cc8e8` · COMMIT `8bd7708`** (full `8bd770884b3cab0422d27ffbe08540bff529cfd3`) — D-12 checkpoint pushed to `github.com/mohamedazzim/recipe-systems` branch `main` (2026-09-09, owner-authorized; parent verified `93cc8e8`).

@@ -8,7 +8,7 @@
 // provider decision. The real-card benchmark (provenance-valid photos + manifest)
 // must still pass before Q10 can be closed. No credentials are hardcoded.
 
-import { OcrProviderError, OcrTimeoutError } from './index';
+import { OcrProviderError, OcrTimeoutError } from './errors';
 import type { OcrAdapter, OcrLine, OcrResult } from './index';
 
 export const PADDLE_OCR_PROVIDER = 'paddle';

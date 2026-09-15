@@ -690,3 +690,30 @@ Then A-11 closes. Q10 remains the gate for D-28.
   blocks analysis). Remediation: a handwriting-capable model/config (documented
   PP-OCRv4 / paddleocr-3.x, or a handwriting-oriented recognition model) — then
   re-run this same benchmark.
+
+### Q10 RESOLVED — DeepSeek Vision adapter (2026-09-15, dispatcher-authorized)
+
+- **Change:** second provider behind the seam — `packages/ocr-adapter/src/deepseek.ts`
+  (`DeepSeekVisionOcrAdapter`, `OCR_PROVIDER=deepseek`) + `errors.ts` (error taxonomy
+  extracted from `index.ts` to break the provider↔registry circular import) +
+  `deepseek.test.ts`. `index.ts`/`paddle.ts`/`scripts/ocr-benchmark.js` touch only the
+  seam/imports. No API/web/Intake change.
+- **Root cause fixed before the pass:** `deepseek-flash` is a reasoning model;
+  `max_tokens` covers reasoning + answer. 4096 → empty `content` (false
+  `OCR_UNREADABLE` 422). Default `DEEPSEEK_OCR_MAX_TOKENS=8192` (cap 32768) +
+  truncation→doubled-budget retry (never a false unreadable).
+- **Canonical benchmark (production seam, `OCR_PROVIDER=deepseek`):** **26/26
+  reference, 6/6 critical, 0 char-errors, garlic absent, fenugreeks distinct, no
+  fabrication, `confidence_available:false`, `pass:true`, ~14.7 s latency.**
+- **Live browser (chef, API `OCR_PROVIDER=deepseek`, worker DeepSeek):** upload →
+  26 "from card" draft lines, ALL flagged `needs_review` (conservative
+  no-confidence policy), analysis blocked → cleared 26 flags → "Ready to analyse" →
+  method pasted → Analyse → **"Analysis complete"** (`deepseek:deepseek-flash`) with
+  the station card rendered (26 CARD lines). INV-04/INV-05 safety net verified live.
+- **PaddleOCR regression:** still functional; still fails the handwritten card as
+  previously recorded — no seam regression.
+- **Verification:** `ocr-adapter` 24/24 · `story_d11_ocr` + `qg2_gates` 28/28 ·
+  `regression-gates.sh` PASS · `--self-test`/`--golden-stub` PASS · lint/typecheck/
+  build green.
+- **Decision:** **Q10 = RESOLVED (DeepSeek Vision); D-28 = UNBLOCKED (not
+  implemented).** PaddleOCR remains available behind the seam, not selected.

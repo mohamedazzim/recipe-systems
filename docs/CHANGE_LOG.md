@@ -20,6 +20,56 @@
 
 **Rule:** a change that alters any Q1–Q18 row must say so in its entry. The register (SCAFFOLD §7) is the single source of truth for open decisions; this log records the history of how the register changed. No Q-row changes in D-13.
 
+## 2026-09-15 — Q10 RESOLVED: DeepSeek Vision as the OCR provider (canonical golden card PASS)
+
+- Author / session: DeepSeek V4 Pro (VS Code) — Q10 closing benchmark (dispatcher
+  authorized a SECOND provider behind the seam after PaddleOCR failed the real card).
+- What changed (files + substance):
+  - NEW `packages/ocr-adapter/src/deepseek.ts` — `DeepSeekVisionOcrAdapter` behind the
+    EXISTING provider-neutral seam (`resolveOcrAdapter` gains `OCR_PROVIDER=deepseek`).
+    Sends the card image (base64 data URI) to `chat/completions` with the
+    `DEEPSEEK_OCR_PROMPT` transcription contract (preserve wording/quantities/units,
+    Fenugreek Seeds vs Powder kept distinct, no recipe knowledge/inference/correction,
+    `[unreadable]` for illegible, output only lines). Uses ONLY `message.content`
+    (never `reasoning_content`). No per-line confidence → the conservative
+    `needs_review` policy (Intake flags missing-confidence lines; never invents a score).
+  - Token-budget fix (critical): `deepseek-flash` is a reasoning model whose
+    `max_tokens` covers BOTH `reasoning_content` and `content`. At 4096 the
+    chain-of-thought could exhaust the budget and return empty `content`
+    (`finish_reason=length`) — a false "unreadable". Default raised to
+    `DEEPSEEK_OCR_MAX_TOKENS=8192` (cap 32768); on empty-content-with-reasoning the
+    adapter retries with a doubled budget instead of surfacing a false 422.
+  - NEW `packages/ocr-adapter/src/errors.ts` — `OcrProviderError`/`OcrTimeoutError`
+    moved out of `index.ts` so providers can `extend` them at load time without a
+    circular import (paddle/deepseek import `./errors`; `index.ts` re-exports).
+  - NEW `packages/ocr-adapter/src/deepseek.test.ts` (9 tests) + `index.test.ts`
+    updated (`resolveOcrAdapter` deepseek case). `scripts/ocr-benchmark.js` already
+    consumed the production seam (`recognizeViaProvider`).
+- Why: PaddleOCR (PP-OCRv3 EN) FAILED the canonical handwritten card (7/26, 0/6
+  critical — evidence preserved in the prior entry). DeepSeek Vision was authorized
+  as a second provider and now satisfies every Q10 acceptance criterion.
+- Benchmark (canonical `ocr_q10/golden/kanyakumari_meen_kuzhambu.png` + committed
+  manifest, production seam, `OCR_PROVIDER=deepseek`): **26/26 reference lines
+  (100%), 6/6 critical lines, 0 char-errors, garlic absent, both fenugreeks
+  distinct, no fabricated lines, `confidence_available:false` (26 lines flagged
+  `needs_review` by the conservative policy), `pass:true`, ~14.7 s latency**.
+- Live browser (chef@recipesystems.test, API `OCR_PROVIDER=deepseek`, real
+  Postgres/MinIO/Keycloak + worker `MODEL_PROVIDER=deepseek`): photo upload → 26 OCR
+  draft lines all "from card" + "Review required" (no confidence) → cleared all 26
+  flags → "Ready to analyse" → pasted method → analysis ran through the DeepSeek
+  worker (views 1–7 LLM + views 8/9 deterministic, all parse/grounding ok) →
+  **"Analysis complete"** with `model = deepseek:deepseek-flash` and the station card
+  rendered (26 CARD lines). photo→OCR→review→analysis path verified end-to-end.
+- Verification: `ocr-adapter` 24/24 unit · `story_d11_ocr` + `qg2_gates` 28/28
+  integration · `regression-gates.sh` PASS (8/8 golden invariants) ·
+  `ocr-benchmark.js --self-test` + `--golden-stub` PASS · PaddleOCR adapter
+  regression (still functional; still fails the handwritten card as documented) ·
+  lint/typecheck/build green (ocr-adapter + api + web).
+- Register impact: **Q10 = RESOLVED (DeepSeek Vision, `deepseek-flash`)**
+  **D-28 = UNBLOCKED (not implemented — next dispatch).** PaddleOCR remains
+  available behind the seam (`OCR_PROVIDER=paddle`) but is NOT the selected provider.
+- Commit(s): uncommitted (this change).
+
 ## 2026-09-15 — Q10 real golden-card benchmark: FAILED (Q10 stays OPEN)
 
 - Author / session: DeepSeek V4 Pro (VS Code) Q10 real-card benchmark execution.

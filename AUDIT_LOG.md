@@ -618,6 +618,45 @@ Then A-11 closes. Q10 remains the gate for D-28.
   golden photo + manifest remain absent; the frontend path is verified against the
   deterministic stub only (no benchmark, no latency/accuracy claim).
 
+## A-28 readiness audit — preparation run (not the final human-pilot verdict)
+
+- **Date:** 2026-09-16.
+- **Scope:** D-28 pilot-readiness preparation under the zero-API-cost constraint.
+- **Important boundary:** this is not a completed A-28 closing-sweep verdict. No
+  participants, human completion records, human timings, reviewer actions, or fake
+  pilot outcomes were created.
+
+### Classification
+
+- READY: canonical participant scenarios, §14 metrics, §15 acceptance scene, G3/G2
+  criteria, `messy_20`, reviewer slots, deterministic persistence paths, and evidence
+  categories.
+- MISSING HUMAN EVIDENCE: 20-user uncoached records, three-curry chef pass, real
+  reviewer assignment/veto, and human save/list/log observations.
+- BLOCKED: new photo-to-first-analysis timing and live AI-dependent execution because
+  DeepSeek credits are exhausted. The historical timing remains historical evidence.
+
+### Evidence re-executed
+
+- `node scripts/golden-check.js` -> `8/8` invariants pass.
+- `node scripts/corpus-check.js --corpus tests/fixtures/corpus --messy tests/fixtures/messy_20 --reviewers tests/fixtures/reviewers.json` -> corpus-check OK; 50 corpus + 20 messy; reviewer references resolve.
+- Corpus/golden integration -> 2 suites, 25 tests passed.
+- D-27 veto + D-22 save/library + D-24 cook-log integration -> 3 suites, 17 tests passed.
+- Deterministic web readiness/review/method/library/cook-log tests -> 6 suites, 69 tests passed.
+- `scripts/regression-gates.sh` -> `RESULT: regression gates PASS`.
+- Safety configuration used: `OCR_PROVIDER=disabled`, `LLM_PROVIDER=disabled`,
+  `MODEL_PROVIDER=disabled`. No DeepSeek or other external AI request was made.
+
+### Findings and decision
+
+- The repository is pilot-ready for deterministic setup and local rehearsal.
+- The actual pilot environment is BLOCKED until the live AI prerequisite is available;
+  PaddleOCR was not selected as an unapproved substitute.
+- D-28 remains **PENDING HUMAN PILOT**, not PASS.
+- Q10 remains resolved and was not reopened.
+- Exact resume point: obtain/run the real 20-user uncoached pilot and reviewer/
+  persistence scenarios when API access is available, then execute A-28.
+
 ### Q10 corpus determination — `ocr_sample_pics/` (2026-09-15)
 
 - **Inventory:** 15 JPEGs `card-001..015.jpg` (~274×237 px). Content = generic

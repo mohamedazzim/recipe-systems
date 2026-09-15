@@ -1,3 +1,19 @@
+## 2026-09-16 — D-28 pilot-readiness preparation (zero API cost)
+
+- Audited the canonical D-28 dispatch, §14 metrics, §15 acceptance scene, G2/G3
+  stories, QG5 fixture contract, and A-28 audit vectors.
+- Recorded in HANDOFF H-28 and the audit log: deterministic preparation is ready;
+  real 20-user uncoached evidence, the three-curry chef pass, real reviewer actions,
+  and human save/list/log observations remain pending.
+- Re-ran zero-cost evidence only: golden `8/8`, corpus-check OK (50 corpus + 20
+  messy fixtures), corpus/golden `25/25`, D-27/D-22/D-24 `17/17`, deterministic web
+  readiness/persistence `69/69`, and regression gates PASS.
+- Provider safety: tests used disabled OCR/LLM/model provider settings; no DeepSeek
+  or other external AI request was made. No product behavior, OCR implementation,
+  fixture data, or participant data was changed.
+- D-28 remains **PENDING HUMAN PILOT**. New AI timing was not re-run; the previously
+  recorded live timing remains historical evidence only.
+
 # Recipe Systems — Change Log
 
 **Status:** v1.2 · 2026-09-07 · Chronological project memory. Every entry records what changed, why, and its effect on the OPEN DECISION register (SCAFFOLD §7). Newest first.

@@ -3355,6 +3355,44 @@ execution output; Git: not available / not authorized throughout.
   (`analysisView.updateMany` would evade); F-2 MINOR — builder-session audit caveat.
   Next per dispatcher: D-28.
 
+### H-28 current status — pilot readiness (2026-09-16)
+
+- **Status: PILOT READINESS AUDIT COMPLETE — PENDING HUMAN EVIDENCE.** The earlier
+  H-28 preflight below is historical; this update supersedes its Q10-blocked wording
+  because Q10 is now resolved. No participant data, human result, reviewer action,
+  or new AI timing was created.
+- **READY:** canonical participant/scenario structure, §14 metrics, §15 acceptance
+  scene, G2/G3 criteria, `messy_20`, reviewer slots, deterministic persistence paths,
+  and evidence categories.
+- **MISSING HUMAN EVIDENCE:** real 20-user uncoached records, the three-curry chef
+  pass, real reviewer assignment/veto, and human save/list/log observations.
+- **BLOCKED:** new photo-to-first-analysis timing and live AI execution while DeepSeek
+  credits are exhausted. PaddleOCR was not selected as a substitute.
+- **Offline evidence:** golden `8/8`; corpus-check OK (50 corpus + 20 messy); selected
+  integration `42/42`; selected web tests `69/69`; regression gates PASS. Tests used
+  `OCR_PROVIDER=disabled`, `LLM_PROVIDER=disabled`, `MODEL_PROVIDER=disabled`.
+
+#### Minimum uncoached pilot procedure
+
+Participants receive only the canonical task. The facilitator records observations and
+does not explain the click path or correct decisions during the run.
+
+1. Enter the assigned recipe through the assigned intake path; record completion or abandonment.
+2. Review and correct the parse; verify `needs_review` is visible and readiness is blocked until cleared.
+3. Supply or accept the method; record `METHOD` or named-source `INFERRED` provenance.
+4. Analyse only when the interface exposes the action; record the explicit status/result.
+5. Save, leave, reopen from the library, and find the shopping list; record persistence.
+6. Log the cook with rating 4 and the canonical note; reload/reopen and record recall.
+7. Have the assigned regional reviewer veto one live View 5 sentence; record authorization,
+   `COMPLETE -> INCOMPLETE`, payload preservation, and idempotency.
+8. Run the G3 chef pass on Kumari, inland Tamil, and Kerala kudampuli; record distinct
+   identifications, zero invention, runnable cards, no `safe`, and no point-kcal claims.
+
+#### Exact resume point
+
+Obtain/run the real 20-user uncoached pilot and reviewer/persistence scenarios when API
+access is available, then execute A-28 and record the go/no-go decision. HARD STOP before D-31.
+
 ### H-28 — D-28 Week-12 pilot gate
 
 - **Status: PREFLIGHT ONLY (2026-09-15) — STOP.** No implementation. This entry

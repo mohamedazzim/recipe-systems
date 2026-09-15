@@ -60,7 +60,7 @@ Rules that apply to **every** unit (the prompts assume them):
 | D-25 | P7-1 | P7 — Hardening & pilot | B6, C6, C7, D3, D4, D5 | D-24, D-29 | ✅ below | ☐ |
 | D-26 | P7-2 | P7 | F3, F4, H1, H3, H5, I3, I4 | D-24 | ✅ below | ☐ |
 | D-27 | P7-3 | P7 | G2 (veto workflow) | D-25 | ✅ below | ☐ |
-| D-28 | P7-4 | P7 | G3 (pilot gate) | D-24, D-27 | ✅ below | ☐ |
+| D-28 | P7-4 | P7 | G3 (pilot gate) | D-24, D-27 | ✅ below | ⏸ PENDING HUMAN EVIDENCE |
 | D-29 | Track R | Track R — Reference data | H7, I7 | D-01 (runs wks 1–8) | ✅ below | ☐ |
 | D-30 | Track S | Track S — Shopping data | E1, E2, E3 | D-14 (runs wks 8–9, feeds P5) | ✅ below | ☐ |
 | D-31 | P7 could-haves | P7 tail (conditional) | E6, F5, I5 | D-23, D-24, D-26 (dispatch only if Must on weeks 9–10 is stable — Recipe_Systems §13) | ✅ below | ☐ |

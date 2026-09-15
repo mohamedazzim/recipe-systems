@@ -49,6 +49,7 @@ describe('CookController (D-24 HTTP boundary)', () => {
       cookDate: '2026-09-12',
       rating: 4,
       note: 'fish held',
+      nextTime: null,
     });
     expect(out.cook_log_id).toBe(LOG_ID);
   });
@@ -61,6 +62,7 @@ describe('CookController (D-24 HTTP boundary)', () => {
       cookDate: undefined,
       rating: null,
       note: null,
+      nextTime: null,
     });
     await controller.logCook({ actor: userActor } as any, RECIPE_ID, {
       rating: null,
@@ -70,6 +72,7 @@ describe('CookController (D-24 HTTP boundary)', () => {
       cookDate: undefined,
       rating: null,
       note: null,
+      nextTime: null,
     });
   });
 
@@ -82,10 +85,10 @@ describe('CookController (D-24 HTTP boundary)', () => {
       { rating: 1.5 },
       { cook_date: '14/09/2026' }, // wrong format
       { cook_date: '2026-02-31' }, // impossible calendar date
-      { next_time: 'less chilli' }, // F4/D-26 — not this unit
-      { swaps: [{ action: 'swapped' }] }, // F3/D-26 — not this unit
+      { swaps: [{ action: 'swapped' }] }, // swaps ride POST /cook-logs/:cookLogId/swaps
       { note: 42 }, // wrong type
       { rating: '4' }, // wrong type
+      { next_time: 42 }, // wrong type
     ];
     for (const body of badBodies) {
       await expect(controller.logCook({ actor: userActor } as any, RECIPE_ID, body)).rejects.toMatchObject({
@@ -130,7 +133,11 @@ describe('CookLogController (D-24 PATCH boundary)', () => {
       LOG_ID,
       { rating: 5 },
     );
-    expect(svc.updateCookLog).toHaveBeenCalledWith(userActor, LOG_ID, { rating: 5, note: undefined });
+    expect(svc.updateCookLog).toHaveBeenCalledWith(userActor, LOG_ID, {
+      rating: 5,
+      note: undefined,
+      nextTime: undefined,
+    });
     expect(out.rating).toBe(5);
   });
 
@@ -138,21 +145,50 @@ describe('CookLogController (D-24 PATCH boundary)', () => {
     const svc = mockCook();
     const controller = new CookLogController(svc as any);
     await controller.updateCookLog({ actor: userActor } as any, LOG_ID, { note: '  x  ' });
-    expect(svc.updateCookLog).toHaveBeenLastCalledWith(userActor, LOG_ID, { rating: undefined, note: 'x' });
+    expect(svc.updateCookLog).toHaveBeenLastCalledWith(userActor, LOG_ID, {
+      rating: undefined,
+      note: 'x',
+      nextTime: undefined,
+    });
     await controller.updateCookLog({ actor: userActor } as any, LOG_ID, { note: '   ' });
-    expect(svc.updateCookLog).toHaveBeenLastCalledWith(userActor, LOG_ID, { rating: undefined, note: null });
+    expect(svc.updateCookLog).toHaveBeenLastCalledWith(userActor, LOG_ID, {
+      rating: undefined,
+      note: null,
+      nextTime: undefined,
+    });
     await controller.updateCookLog({ actor: userActor } as any, LOG_ID, { note: null });
-    expect(svc.updateCookLog).toHaveBeenLastCalledWith(userActor, LOG_ID, { rating: undefined, note: null });
+    expect(svc.updateCookLog).toHaveBeenLastCalledWith(userActor, LOG_ID, {
+      rating: undefined,
+      note: null,
+      nextTime: undefined,
+    });
   });
 
-  it('PATCH refuses non-canonical fields (next_time is F4/D-26) with 400 INVALID_COOK_LOG', async () => {
+  it('PATCH forwards the F4 next-time edit (RS-US-34, D-26) with trim + null clear', async () => {
+    const svc = mockCook();
+    const controller = new CookLogController(svc as any);
+    await controller.updateCookLog({ actor: userActor } as any, LOG_ID, { next_time: '  less chilli  ' });
+    expect(svc.updateCookLog).toHaveBeenLastCalledWith(userActor, LOG_ID, {
+      rating: undefined,
+      note: undefined,
+      nextTime: 'less chilli',
+    });
+    await controller.updateCookLog({ actor: userActor } as any, LOG_ID, { next_time: null });
+    expect(svc.updateCookLog).toHaveBeenLastCalledWith(userActor, LOG_ID, {
+      rating: undefined,
+      note: undefined,
+      nextTime: null,
+    });
+  });
+
+  it('PATCH refuses non-canonical fields with 400 INVALID_COOK_LOG', async () => {
     const svc = mockCook();
     const controller = new CookLogController(svc as any);
     for (const body of [
-      { next_time: 'less chilli' },
       { rating: 6 },
       { cook_date: '2026-09-12' },
       { unknown: true },
+      { swaps: [] },
     ]) {
       await expect(controller.updateCookLog({ actor: userActor } as any, LOG_ID, body)).rejects.toMatchObject({
         constructor: BadRequestException,
@@ -169,6 +205,58 @@ describe('CookLogController (D-24 PATCH boundary)', () => {
     expect(svc.updateCookLog).toHaveBeenCalledWith(userActor, LOG_ID, {
       rating: undefined,
       note: undefined,
+      nextTime: undefined,
+    });
+  });
+
+  describe('POST /cook-logs/:cookLogId/swaps (D-26 F3/H5)', () => {
+    it('forwards the canonical swap body (201 + wire)', async () => {
+      const svc = {
+        ...mockCook(),
+        recordSwap: jest.fn().mockResolvedValue({
+          swap_id: 's1',
+          cook_log_id: LOG_ID,
+          line_id: null,
+          ingredient_name_snapshot: 'Chilli',
+          action: 'reduced',
+          swapped_to: '3 Nos',
+          reason: 'restriction',
+          applied_to_card: false,
+          created_at: '2026-09-12T11:00:00.000Z',
+        }),
+      };
+      const controller = new CookLogController(svc as any);
+      const out = await controller.recordSwap({ actor: userActor } as any, LOG_ID, {
+        action: 'reduced',
+        swapped_to: '3 Nos',
+        reason: 'restriction',
+        applied_to_card: false,
+      });
+      expect(svc.recordSwap).toHaveBeenCalledWith(userActor, LOG_ID, {
+        lineId: undefined,
+        action: 'reduced',
+        swappedTo: '3 Nos',
+        reason: 'restriction',
+        appliedToCard: false,
+      });
+      expect(out.swap_id).toBe('s1');
+    });
+
+    it('refuses non-canonical swap bodies (400 INVALID_SWAP)', async () => {
+      const svc = { ...mockCook(), recordSwap: jest.fn() };
+      const controller = new CookLogController(svc as any);
+      for (const body of [
+        { action: 'changed' }, // not a canonical record type
+        { action: 'swapped', swapped_to: 42 },
+        { action: 'skipped', unknown: true },
+        {},
+      ]) {
+        await expect(controller.recordSwap({ actor: userActor } as any, LOG_ID, body)).rejects.toMatchObject({
+          constructor: BadRequestException,
+          response: { code: 'INVALID_SWAP' },
+        });
+      }
+      expect(svc.recordSwap).not.toHaveBeenCalled();
     });
   });
 });

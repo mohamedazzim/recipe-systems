@@ -97,6 +97,18 @@ describe('QG2 static gates fire on real violations (D-01 criterion)', () => {
     }
   });
 
+  it('one-writer: an account_restriction write outside the restrictions module fires (D-26)', () => {
+    const s = makeScratch();
+    try {
+      s.write('apps/web/app/page.tsx', 'prisma.accountRestrictionProfile.upsert({ where: {}, create: {}, update: {} });\n');
+      const result = runGates(s.dir);
+      expect(result.exit).toBe(1);
+      expect(result.out).toContain('account_restriction_* write outside the API restrictions module');
+    } finally {
+      s.cleanup();
+    }
+  });
+
   it('render read-only: a database write in packages/rendering fires', () => {
     const s = makeScratch();
     try {

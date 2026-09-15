@@ -121,6 +121,7 @@ const CARD: StationCardPrintData = {
   doNots: [{ item: 'garlic', note: 'Confirmed absent at review — do not add.' }],
   productYieldHold: null,
   allergenLine: 'Contains: Fish, Coconut, Fenugreek. Notes: Fish species unknown.',
+  nextTimeLine: null,
 };
 
 describe('stationCardHtml (E5)', () => {
@@ -161,6 +162,20 @@ describe('stationCardHtml (E5)', () => {
     const html = stationCardHtml({ ...CARD, allergenLine: null });
     expect(html).not.toContain('Allergen line');
     expect(html).not.toContain(H6_DISCLAIMER);
+  });
+
+  it('D-26 F4: the next-time line is tagged COOK LOG, never CARD, and omitted when absent', () => {
+    expect(stationCardHtml(CARD)).not.toContain('Next time');
+    const html = stationCardHtml({
+      ...CARD,
+      nextTimeLine: '2 green chillies, fenugreek powder off heat',
+    });
+    expect(html).toContain('Next time:');
+    expect(html).toContain('2 green chillies, fenugreek powder off heat');
+    expect(html).toContain('COOK LOG');
+    // the next-time block never claims a card provenance
+    const nextTimeBlock = html.slice(html.indexOf('Next time:'));
+    expect(nextTimeBlock).not.toContain('>CARD<');
   });
 });
 

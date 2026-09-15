@@ -295,7 +295,16 @@ export class AnalysisJobHandler {
     });
     const current = existing ? overridesFromPayload(existing.payload) : DEFAULT_OVERRIDES;
     const merged = mergeOverrides(current, data.delta);
-    const payload = await computeView9(this.prisma, data.captured, merged);
+    // D-26 I3 / Q14 seam: portions persist ONLY in the payload's per_portion.
+    // An assumption-only recompute carries the last portion count forward (the
+    // payload convention); a portions delta overwrites it. No column exists.
+    const priorPortions =
+      existing &&
+      existing.payload &&
+      typeof existing.payload === 'object' &&
+      (existing.payload as { per_portion?: { portions?: number } | null }).per_portion?.portions;
+    const portions = data.delta.portions ?? (priorPortions === 3 || priorPortions === 4 ? priorPortions : undefined);
+    const payload = await computeView9(this.prisma, data.captured, merged, portions);
     // A-19 correction: never overwrite a valid persisted payload with an
     // invalid one — a producer bug throws (pg-boss retries per the Q13-labeled
     // defaults) and the existing payload stays intact.

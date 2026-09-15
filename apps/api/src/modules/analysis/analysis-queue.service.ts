@@ -48,7 +48,9 @@ export interface AnalysisJobPayload {
   captured: StructuredRecipeInput;
 }
 
-/** D-19 (P4-1): RS-US-45 assumption edit — recompute View 9 only. */
+/** D-19 (P4-1): RS-US-45 assumption edit — recompute View 9 only. D-26 I3
+ *  adds the Q14 seam: `portions` (RS-US-46, 3|4) rides the job payload and
+ *  persists ONLY in the View 9 payload's per_portion — no column. */
 export interface View9RecomputePayload {
   analysis_id: string;
   recipe_id: string;
@@ -56,6 +58,7 @@ export interface View9RecomputePayload {
     fish_class?: 'lean' | 'oily';
     coconut_grams?: number;
     oil_tbsp?: number;
+    portions?: 3 | 4;
   };
   captured: StructuredRecipeInput;
 }

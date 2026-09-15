@@ -16,6 +16,7 @@ import { Field } from '@/components/ui/Field';
 import { Input } from '@/components/ui/Input';
 import { api, ApiError } from '@/lib/api';
 import { StationCard, NoStationCard } from '@/components/app/StationCard';
+import { RestrictionHighlight } from '@/components/app/RestrictionHighlight';
 import {
   displayDuration,
   identificationFrom,
@@ -91,7 +92,12 @@ export function AnalysisViews({
     {
       id: 'view-8',
       label: '8 · Dietary',
-      content: renderView8(view(8)),
+      content: (
+        <>
+          <RestrictionHighlight analysisId={analysis.analysis_id} signedIn={signedIn} />
+          {renderView8(view(8))}
+        </>
+      ),
     },
     {
       id: 'view-9',
@@ -536,6 +542,16 @@ function renderView9(
         </dl>
         <p className="mt-3 text-small font-semibold text-body">Sodium: Unknown</p>
       </div>
+      {payload.per_portion !== null && (
+        <div className="mt-4 rounded-lg border border-border bg-surface p-4">
+          <p className="eyebrow">Per bowl — {payload.per_portion.portions} portions</p>
+          <p className="mt-1 font-display text-h2 text-ink">
+            {payload.per_portion.energy_kcal_min.toLocaleString()}–
+            {payload.per_portion.energy_kcal_max.toLocaleString()} kcal
+          </p>
+          <p className="mt-1 text-caption text-muted">A band, never a point.</p>
+        </div>
+      )}
       <div className="mt-4">
         <p className="text-small font-semibold text-ink">Assumptions</p>
         <ul className="mt-2 space-y-1 text-small text-body">
@@ -556,6 +572,11 @@ function renderView9(
       <View9AssumptionEditor
         analysisId={analysisId}
         payload={payload}
+        signedIn={signedIn}
+        onRefresh={onRefresh}
+      />
+      <View9PortionsEditor
+        analysisId={analysisId}
         signedIn={signedIn}
         onRefresh={onRefresh}
       />
@@ -680,6 +701,88 @@ function View9AssumptionEditor({
       {error && (
         <div className="mt-3">
           <Alert tone="error" title="Could not recompute the band">
+            {error}
+          </Alert>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** D-26 (P7-2) I3 / Q14 seam: set portions → per-bowl band. No persisted column
+ *  — the count rides the View 9 payload's per_portion. */
+function View9PortionsEditor({
+  analysisId,
+  signedIn,
+  onRefresh,
+}: {
+  analysisId: string;
+  signedIn: boolean;
+  onRefresh: () => Promise<void>;
+}) {
+  const [portions, setPortions] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [queued, setQueued] = useState(false);
+
+  if (!signedIn) {
+    return null;
+  }
+
+  const submit = async (): Promise<void> => {
+    if (portions === '') return;
+    setSaving(true);
+    setError(null);
+    try {
+      await api<unknown>(`/analysis/${analysisId}/view-9/portions`, {
+        method: 'PATCH',
+        body: JSON.stringify({ portions: Number(portions) }),
+      });
+      setQueued(true);
+      const timer = setTimeout(() => void onRefresh(), 1500);
+      const timer2 = setTimeout(() => void onRefresh(), 3500);
+      const timer3 = setTimeout(() => void onRefresh(), 6000);
+      void timer;
+      void timer2;
+      void timer3;
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not set portions.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="mt-5 rounded-lg border border-border bg-surface p-4">
+      <p className="text-small font-semibold text-ink">Portions</p>
+      <p className="mt-1 text-caption text-muted">
+        Set portions to see the per-bowl band (a band, never a point).
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <Field htmlFor="view9-portions" label="Portions">
+          <select
+            id="view9-portions"
+            className="w-full rounded-md border border-border-strong bg-surface px-3 py-2 text-small"
+            value={portions}
+            onChange={(e) => setPortions(e.target.value)}
+          >
+            <option value="">Whole pot</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+          </select>
+        </Field>
+        <Button onClick={() => void submit()} disabled={saving || portions === ''}>
+          {saving ? 'Saving...' : 'Set portions'}
+        </Button>
+        {queued && !error && (
+          <span className="text-small text-muted" aria-live="polite">
+            Recompute queued — the per-bowl band updates in a moment.
+          </span>
+        )}
+      </div>
+      {error && (
+        <div className="mt-3">
+          <Alert tone="error" title="Could not set portions">
             {error}
           </Alert>
         </div>

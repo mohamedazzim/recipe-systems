@@ -16,6 +16,7 @@ import type { WireLine } from '@/lib/types';
 import { MethodSection } from '@/components/app/MethodSection';
 import { ShoppingSection } from '@/components/app/ShoppingSection';
 import { CookSection } from '@/components/app/CookSection';
+import { SwapSection } from '@/components/app/SwapSection';
 import { ReadinessPanel } from '@/components/app/ReadinessPanel';
 import { AnalysisPanel } from '@/components/app/AnalysisPanel';
 
@@ -120,6 +121,17 @@ export function RecipeWorkspace({
     }
   };
 
+  /** D-26 (F3): an applied swap routes through the Intake surface — reload the
+   *  corrected lines so the workspace reflects the rewritten card. */
+  const reloadLines = async (): Promise<void> => {
+    try {
+      const wire = await api<{ items: WireLine[] }>(`/recipes/${recipeId}/lines`);
+      setLines(wire.items);
+    } catch {
+      // the review surface re-reads on its own schedule; a failed reload is not fatal
+    }
+  };
+
   useEffect(() => {
     const record = listSessionRecipes().find((r) => r.recipe_id === recipeId);
     // D-22: the saved DB name (library row) wins over the session preview —
@@ -179,6 +191,9 @@ export function RecipeWorkspace({
           top of the workspace (F6 AC-1) and the note stays above the analysis
           (F2 AC-3) — CookSection renders before every analysis surface. */}
       <CookSection recipeId={recipeId} />
+
+      {/* D-26 (F3/H5): record what was actually used against the latest cook log. */}
+      <SwapSection recipeId={recipeId} lines={lines} onApplied={() => void reloadLines()} />
 
       <section aria-labelledby="save-heading" className="mt-6 rounded-lg border border-border bg-surface p-5">
         <h2 id="save-heading" className="text-small font-semibold text-ink">

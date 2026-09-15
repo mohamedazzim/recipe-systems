@@ -270,10 +270,43 @@ describe('D-19 deterministic View 9 (golden band)', () => {
     ).toBe('lean');
   });
 
+  it('D-26 I4: weighing the coconut and measuring the oil narrow the band', async () => {
+    const prisma = referencePrisma();
+    const broad = await computeView9(prisma as never, goldenCapture(), DEFAULT_OVERRIDES);
+    const tightened = await computeView9(prisma as never, goldenCapture(), {
+      fish_class: 'both',
+      coconut_grams: [175, 175], // weighed, not estimated
+      oil_tbsp: [1.5, 1.5], // measured, not "for tempering"
+    });
+    const broadWidth = broad.band.energy_kcal_max - broad.band.energy_kcal_min;
+    const tightWidth = tightened.band.energy_kcal_max - tightened.band.energy_kcal_min;
+    expect(tightWidth).toBeLessThan(broadWidth);
+    // still a band, never a point (other lines still carry ranges)
+    expect(tightened.band.energy_kcal_min).toBeLessThan(tightened.band.energy_kcal_max);
+    expect(tightened.sodium).toBe('unknown');
+  });
+
+  it('D-26 I3 / Q14: per_portion appears ONLY when portions are set and stays a band', async () => {
+    const prisma = referencePrisma();
+    const whole = await computeView9(prisma as never, goldenCapture());
+    expect(whole.per_portion).toBeNull(); // I3 TC-01 — no portions, no per-bowl number
+
+    const forFour = await computeView9(prisma as never, goldenCapture(), DEFAULT_OVERRIDES, 4);
+    expect(forFour.per_portion).toEqual({
+      portions: 4,
+      energy_kcal_min: Math.round(forFour.band.energy_kcal_min / 4),
+      energy_kcal_max: Math.round(forFour.band.energy_kcal_max / 4),
+    });
+    // per-bowl is a BAND, never a fabricated point; sodium stays Unknown
+    expect(forFour.per_portion!.energy_kcal_min).toBeLessThan(forFour.per_portion!.energy_kcal_max);
+    expect(forFour.sodium).toBe('unknown');
+    // the whole-pot band is untouched by the per-bowl projection
+    expect(forFour.band).toEqual(whole.band);
+  });
+
   it('INV-14 runtime check has teeth: a planted point-kcal payload is rejected by the frozen schema', async () => {
     const prisma = referencePrisma();
     const payload = await computeView9(prisma as never, goldenCapture());
-    // A-21 plant: collapse the band into a point value.
     const planted = {
       ...payload,
       band: { ...payload.band, energy_kcal_min: 1800, energy_kcal_max: 1800 },

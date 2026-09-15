@@ -78,6 +78,7 @@ describe('CookSection (D-24 F1/F2/F6)', () => {
         cook_date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
         rating: 4,
         note: 'fish held',
+        next_time: null,
       });
     });
   });
@@ -102,6 +103,7 @@ describe('CookSection (D-24 F1/F2/F6)', () => {
         cook_date: '2026-09-01',
         rating: null,
         note: null,
+        next_time: null,
       });
     });
   });

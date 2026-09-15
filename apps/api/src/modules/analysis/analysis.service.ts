@@ -22,11 +22,14 @@ import { IntakeService } from '../intake/intake.service';
 import { RecipeService } from '../recipes/recipe.service';
 import { AnalysisQueueService, QueueUnavailableError } from './analysis-queue.service';
 
-/** D-19 (P4-1): the RS-US-45 assumption-edit body (View 9 recompute). */
+/** D-19 (P4-1): the RS-US-45 assumption-edit body (View 9 recompute). D-26 I3
+ *  adds the Q14 seam: `portions` (RS-US-46, 3|4) — persisted ONLY in the View 9
+ *  payload's per_portion (no column; Q14 stays OPEN). */
 export interface View9AssumptionDelta {
   fish_class?: 'lean' | 'oily';
   coconut_grams?: number;
   oil_tbsp?: number;
+  portions?: 3 | 4;
 }
 
 @Injectable()

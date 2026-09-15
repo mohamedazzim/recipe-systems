@@ -44,6 +44,9 @@ const view9AssumptionsSchema = z
   .refine((value) => Object.keys(value).length > 0, {
     message: 'at least one assumption (fish_class, coconut_grams, oil_tbsp) is required',
   });
+// D-26 (P7-2): RS-US-46 portions body (I3 / Q14 seam — 3|4 only, no persistence
+// column; the count lives in the View 9 payload's per_portion).
+const portionsSchema = z.object({ portions: z.union([z.literal(3), z.literal(4)]) }).strict();
 const UUID_RE =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
@@ -166,6 +169,34 @@ export class AnalysisController {
     }
     const actor: Actor = { kind: 'user', user: req.user! };
     return this.analysis.recomputeView9(actor, analysisId, parsed.data);
+  }
+
+  /**
+   * D-26 (P7-2) RS-US-46 (I3 / Q14 seam): set portions → per-bowl band. The
+   * portion count persists ONLY in the View 9 payload's per_portion (the
+   * frozen View9PayloadSchema) — NO persisted column; Q14 stays OPEN (ERD
+   * §15.6/§17; BUILD_PLAN §7.8). Auth: Bearer; API enqueues only.
+   */
+  @Patch('analysis/:analysisId/view-9/portions')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard, CsrfGuard)
+  async patchView9Portions(
+    @Req() req: AuthedRequest,
+    @Param('analysisId') analysisId: string,
+    @Body() body: unknown,
+  ) {
+    if (!UUID_RE.test(analysisId)) {
+      throw new NotFoundException({ code: 'ANALYSIS_NOT_FOUND', message: 'Analysis not found' });
+    }
+    const parsed = portionsSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException({
+        code: 'INVALID_PORTIONS',
+        message: 'body must be { portions: 3 | 4 }',
+      });
+    }
+    const actor: Actor = { kind: 'user', user: req.user! };
+    return this.analysis.recomputeView9(actor, analysisId, { portions: parsed.data.portions });
   }
 
   /** Read-only status + views of one analysis (INV-17: 404 for missing AND foreign). */

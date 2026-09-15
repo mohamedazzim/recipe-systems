@@ -283,6 +283,12 @@ Return last-cook summary (date, rating, next-time) for reopen (F6). **Auth:** Be
 
 ## 9. Restriction profile (View 8)
 
+> **D-26 (2026-09-15) ships H1/H3** — GET/PUT /me/restriction-profile (strict
+> canonical validation: allergen codes vs `dietary_allergen_definition`; labeled
+> PILOT diet-pattern vocabulary `vegetarian|vegan|gluten-free`), the read-only
+> /restriction-vocabulary, and GET /analysis/:analysisId/restriction-highlight
+> (conflicts first; unknown never a pass; not-flagged carries no pass claim).
+
 ### GET /me/restriction-profile
 Get the user's restriction profile. **Auth:** Bearer. **Story:** RS-US-37.
 - 200: `{ "profile_id", "allergens": [], "diet_patterns": [], "label_pack": "EU"|"US" }`
@@ -307,6 +313,10 @@ Versioned allergen mapping table. **Auth:** Bearer or guest. **Story:** RS-US-43
 ---
 
 ## 10. Nutrition bands (View 9)
+
+> **D-26 (2026-09-15) ships I3** — PATCH /view-9/portions (RS-US-46): the portion
+> count persists ONLY in the View 9 payload's `per_portion` (Q14 seam — no
+> column). PATCH /view-9/assumptions (RS-US-45, I2/I4) existed from D-19.
 
 ### GET /analysis/:analysisId/view-9
 Return View 9 as a band. **Auth:** Bearer or guest. **Story:** RS-US-44.

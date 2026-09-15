@@ -2614,7 +2614,70 @@ execution output; Git: not available / not authorized throughout.
 
 ### H-26 — D-26 Profiles, swaps, next-time, I3/I4
 
-☐ No entry yet.
+- BASE_SHA / COMMIT_SHA: base `cc5fb88` (D-26 preflight) / final commit recorded
+  in CHANGE_LOG (D-26 commit pending CI — filled at push).
+- Date / agent session: 2026-09-15 · DeepSeek V4 Pro (VS Code) D-26 dispatch.
+- Status: **DONE — F3 swaps, F4 next-time, H1/H3/H5 restriction profile,
+  I3 portions (Q14 seam), I4 band tightening shipped.**
+- Summary: new API `restrictions` module (sole writer of `account_restriction_*`,
+  new QG2 gate 2f + fire proof) — GET/PUT `/me/restriction-profile` (strict
+  canonical validation: allergen codes vs definitions, labeled PILOT
+  diet-pattern vocabulary vegetarian/vegan/gluten-free, US|EU pack),
+  GET `/restriction-vocabulary`, GET `/analysis/:analysisId/restriction-highlight`
+  (conflicts-first projection over the FROZEN View 8 payload + profile rows;
+  unknown never a pass; not-flagged carries no pass claim). Cook module gained
+  `next_time` on POST/PATCH (RS-US-34) and POST `/cook-logs/:cookLogId/swaps`
+  (F3/H5 — historical + immutable; `applied_to_card` routes through the Intake
+  line surface: skipped → soft-delete, reduced/increased/swapped → amount_text
+  edit). Station-card print surfaces the LATEST `cook_log.next_time_instruction`
+  tagged COOK LOG (ADR §7 amendment 2026-09-15). Analysis gained
+  PATCH `/analysis/:analysisId/view-9/portions` (RS-US-46) → view9-recompute;
+  the worker fills `per_portion` in the frozen View 9 payload ONLY when portions
+  are set (Q14 stays OPEN — no persisted column). Web: ProfileEditor (HomeView
+  account section), RestrictionHighlight (top of View 8), SwapSection
+  (workspace), next-time input in the cook form, per-bowl band + portions
+  editor in View 9.
+- Files changed: `apps/api/src/modules/restrictions/**`,
+  `apps/api/src/modules/cook/*` (next_time + swaps), `apps/api/src/modules/
+  analysis/*` (portions), `apps/api/src/modules/print/print.service.ts`,
+  `apps/api/src/app.module.ts`, `apps/analysis-worker/src/deterministic-views.ts`
+  + `analysis-job.handler.ts`, `packages/rendering/src/templates/station-card.ts`,
+  `scripts/regression-gates.sh`, `tests/integration/qg2_gates.test.ts`,
+  `tests/integration/story_d26_hardening.test.ts`,
+  `apps/web/components/app/{ProfileEditor,RestrictionHighlight,SwapSection,
+  CookSection,AnalysisViews,HomeView,RecipeWorkspace}.tsx`,
+  `apps/web/lib/types.ts`, `docs/Recipe_Systems_Architecture_Decision_FINAL_V5.md`
+  (ADR §7 amendment), `docs/Recipe_Systems_API.md` §8/§9/§10 annotations, and the
+  unit test files for every touched surface.
+- Test results: API 283/283 (26 suites, coverage 78.44% lines ≥ QG1 75%) ·
+  web 132/132 (19 suites) · worker 63/63 (5 suites) · rendering 15/15 (1 suite,
+  incl. COOK LOG tagging) · integration 131/131 (19 suites; story_d26_hardening
+  6/6 on real Postgres: profile CRUD + isolation + never-auto-deletes; conflicts
+  first + unknown-not-a-pass; swap immutability + Intake-routed application +
+  cross-account 404s; next_time POST/PATCH + COOK LOG print tag; per_portion
+  only when set + whole-pot band unchanged + sodium Unknown; coconut weighing
+  narrows the band) · typecheck 0 · lint 0 · regression gates PASS (restriction
+  gate 2f armed: writes confined to the restrictions module) · contract-check OK
+  · verify-local ALL STEPS PASSED.
+- Live internal-browser evidence (seeded chef, golden recipe): set profile
+  (Fish + vegan + US) → saved; opened View 8 → "Against your restriction
+  profile" with "Conflicts first: Fish" + diet-pattern/label-pack notes;
+  logged a cook with the next-time line "2 green chillies, fenugreek powder off
+  heat" → recall strip shows it; recorded a reduced Chilli swap (applied) →
+  DB shows amount_text '3 Nos' + applied_to_recipe true; station-card print HTML
+  contains "Next time:" + COOK LOG and no CARD tag in the next-time block; set
+  portions 4 → live "Per bowl — 4 portions · 183–259 kcal · A band, never a
+  point"; reload → profile, recall and next-time persist.
+- Q14 treatment: REMAINS OPEN — portions persist ONLY in the View 9 payload's
+  `per_portion` (the frozen schema), no column; the recompute carries the last
+  portion count forward on assumption-only edits (labeled seam). ERD §15 open
+  items in scope (diet-pattern vocabulary, label-pack precedence) handled as
+  LABELED PILOT WORKING ASSUMPTIONS (D-26E/D-26F). ADR §7 amended (next-time
+  print source). Q1/Q5/Q9/Q10/Q11 untouched; DeepSeek config untouched.
+- Resume point: H-26 done criteria met. Next per dispatcher: A-26 audit
+  (AUDIT.md) — re-execute story_d26_hardening, the restriction one-writer fire
+  proof, the F4 COOK LOG print tag, the Q14 seam (no persisted portion column),
+  and the live cook/profile journey.
 
 ### H-27 — D-27 Regional veto + retention/ops
 

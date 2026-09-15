@@ -8,6 +8,7 @@ import { ReferenceDataModule } from './admin/reference-data.module';
 import { ShoppingModule } from './modules/shopping/shopping.module';
 import { PrintModule } from './modules/print/print.module';
 import { CookModule } from './modules/cook/cook.module';
+import { RestrictionsModule } from './modules/restrictions/restriction.module';
 import { HealthController } from './health/health.controller';
 
 @Module({
@@ -21,6 +22,7 @@ import { HealthController } from './health/health.controller';
     ShoppingModule,
     PrintModule,
     CookModule,
+    RestrictionsModule,
   ],
   controllers: [HealthController],
 })

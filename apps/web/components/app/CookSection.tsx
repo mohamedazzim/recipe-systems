@@ -41,6 +41,7 @@ export function CookSection({ recipeId }: { recipeId: string }) {
   const [cookDate, setCookDate] = useState(() => localToday());
   const [rating, setRating] = useState('');
   const [note, setNote] = useState('');
+  const [nextTime, setNextTime] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -79,11 +80,13 @@ export function CookSection({ recipeId }: { recipeId: string }) {
           cook_date: cookDate,
           rating: rating === '' ? null : Number(rating),
           note: note.trim() === '' ? null : note.trim(),
+          next_time: nextTime.trim() === '' ? null : nextTime.trim(),
         }),
       });
       setOpen(false);
       setRating('');
       setNote('');
+      setNextTime('');
       setCookDate(localToday());
       await load();
     } catch (err) {
@@ -169,6 +172,18 @@ export function CookSection({ recipeId }: { recipeId: string }) {
             rows={3}
             maxLength={10_000}
             placeholder="What happened? What would you change next time?"
+            className="mt-1 w-full rounded-md border border-border-strong bg-background px-3 py-2 text-body focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+          />
+          <label className="mt-3 block text-caption font-semibold text-ink" htmlFor="cook-next-time">
+            Next time (optional — prints on the station card, tagged COOK LOG)
+          </label>
+          <input
+            id="cook-next-time"
+            aria-label="Next time"
+            value={nextTime}
+            onChange={(e) => setNextTime(e.target.value)}
+            maxLength={1_000}
+            placeholder="e.g. 2 green chillies, fenugreek powder off heat"
             className="mt-1 w-full rounded-md border border-border-strong bg-background px-3 py-2 text-body focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
           />
           <div className="mt-3 flex flex-wrap items-center gap-2">

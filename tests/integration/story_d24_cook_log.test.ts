@@ -38,7 +38,7 @@ const { CookController, CookLogController } = require('../../apps/api/src/module
 
 const recipes = new RecipeService(prisma);
 const intake = new IntakeService(prisma, recipes as any);
-const cook = new CookService(prisma, recipes as any);
+const cook = new CookService(prisma, recipes as any, intake as any);
 const controller = new CookController(cook as any);
 const logController = new CookLogController(cook as any);
 

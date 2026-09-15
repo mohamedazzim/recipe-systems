@@ -250,3 +250,51 @@ describe('AnalysisController.patchView9Assumptions (D-19 RS-US-45)', () => {
     expect(analysis.recomputeView9).not.toHaveBeenCalled();
   });
 });
+
+describe('AnalysisController.patchView9Portions (D-26 RS-US-46 / Q14 seam)', () => {
+  const analysis = { recomputeView9: jest.fn() };
+  const controller = new AnalysisController(analysis as never, {} as never, {} as never);
+  const user = { accountId: 'acc-1', email: 'c@t.dev', sub: 's' };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('valid body {portions: 4} → recompute_queued with the portions delta', async () => {
+    analysis.recomputeView9.mockResolvedValue({
+      analysis_id: 'a-1',
+      status: 'recompute_queued',
+      assumptions: { portions: 4 },
+    });
+    const result = await controller.patchView9Portions(
+      { user } as never,
+      'aaaaaaaa-0000-4000-8000-000000000001',
+      { portions: 4 },
+    );
+    expect(analysis.recomputeView9).toHaveBeenCalledWith(
+      { kind: 'user', user },
+      'aaaaaaaa-0000-4000-8000-000000000001',
+      { portions: 4 },
+    );
+    expect(result.status).toBe('recompute_queued');
+  });
+
+  it('non-canonical bodies → 400 INVALID_PORTIONS (5, 0, missing, extra)', async () => {
+    for (const body of [{ portions: 5 }, { portions: 0 }, {}, { portions: 3, extra: true }]) {
+      await expect(
+        controller.patchView9Portions(
+          { user } as never,
+          'aaaaaaaa-0000-4000-8000-000000000001',
+          body,
+        ),
+      ).rejects.toMatchObject({ response: { code: 'INVALID_PORTIONS' } });
+    }
+    expect(analysis.recomputeView9).not.toHaveBeenCalled();
+  });
+
+  it('malformed analysis id → canonical 404 ANALYSIS_NOT_FOUND', async () => {
+    await expect(
+      controller.patchView9Portions({ user } as never, 'not-a-uuid', { portions: 3 }),
+    ).rejects.toMatchObject({ response: { code: 'ANALYSIS_NOT_FOUND' } });
+  });
+});

@@ -51,6 +51,7 @@ function service(overrides: { runtime?: PdfRuntime } = {}) {
     },
     analysis: { findFirst: jest.fn(async () => ({ id: 'analysis-1', family: 'Coastal Tamil fish curry' })) },
     analysisStationCard: { findUnique: jest.fn(async () => cardRow) },
+    cookLog: { findFirst: jest.fn(async () => null) },
     ingredientShoppingState: {
       // Current ticking overrides the frozen stateAtGeneration (E2 AC-2):
       // Fish is ticked HAVE now even though the snapshot said need.
@@ -160,5 +161,21 @@ describe('PrintService (D-23)', () => {
     await expect(svc.stationCardPrint(actor, UUID, 'pdf')).rejects.toBeInstanceOf(
       NotFoundException,
     );
+  });
+
+  it('D-26 F4: the station-card print carries the LATEST cook-log next-time line tagged COOK LOG', async () => {
+    const { svc, prisma } = service();
+    (prisma.cookLog.findFirst as jest.Mock).mockResolvedValueOnce({
+      nextTimeInstruction: '2 green chillies, fenugreek powder off heat',
+    });
+    const out = await svc.stationCardPrint(actor, UUID, 'html');
+    expect(prisma.cookLog.findFirst).toHaveBeenCalledWith({
+      where: { recipeId: UUID, nextTimeInstruction: { not: null } },
+      orderBy: [{ cookedAt: 'desc' }, { createdAt: 'desc' }],
+      select: { nextTimeInstruction: true },
+    });
+    expect(out.html).toContain('Next time:');
+    expect(out.html).toContain('2 green chillies, fenugreek powder off heat');
+    expect(out.html).toContain('COOK LOG');
   });
 });

@@ -1,15 +1,15 @@
-// D-24 (P6-1) — the cook-log HTTP surface (API doc §8, specified by this unit):
+// D-24/D-26 (P6-1 + P7-2) — the cook-log HTTP surface (API doc §8):
 //
-//   POST   /recipes/:recipeId/cook-logs   log that I cooked it (F1/F2)
+//   POST   /recipes/:recipeId/cook-logs   log that I cooked it (F1/F2/F4)
 //   GET    /recipes/:recipeId/cook-logs   list logs, newest first (F1 AC-2)
 //   GET    /recipes/:recipeId/last-cook   reopen summary (F6)
-//   PATCH  /cook-logs/:cookLogId          edit rating/note (RS-US-32)
+//   PATCH  /cook-logs/:cookLogId          edit rating/note/next-time (RS-US-32/34)
+//   POST   /cook-logs/:cookLogId/swaps    record a swap (F3/H5 — D-26)
 //
 // Writes ride CsrfGuard; reads and writes are GuestOrJwt (the existing
 // ownership/session contract — RecipeService.assertOwned answers the
 // canonical INV-17 404 for missing, foreign and malformed ids). Non-canonical
-// bodies — including `next_time` and `swaps` (F4/F3 → D-26) — are refused at
-// the boundary (strict zod), never silently accepted.
+// bodies are refused at the boundary (strict zod), never silently accepted.
 
 import {
   BadRequestException,
@@ -27,35 +27,52 @@ import {
 import { z } from 'zod';
 import { CsrfGuard } from '../../common/guards/csrf.guard';
 import { ActorRequest, GuestOrJwtGuard } from '../../common/guards/guest-or-jwt.guard';
-import { CookService, NOTE_MAX, parseCookDate } from './cook.service';
+import { CookService, NEXT_TIME_MAX, NOTE_MAX, parseCookDate } from './cook.service';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-// D-24 slice only: no next_time (F4/D-26), no swaps (F3/D-26) — .strict() rejects them.
+// D-24 + D-26 F4: next_time joins the log body; `swaps` still ride their own
+// endpoint (POST /cook-logs/:cookLogId/swaps) — .strict() rejects them here.
 const cookLogCreateSchema = z
   .object({
     cook_date: z.string().regex(DATE_RE).optional(),
     rating: z.number().int().min(1).max(5).nullable().optional(),
     note: z.string().max(NOTE_MAX).nullable().optional(),
+    next_time: z.string().max(NEXT_TIME_MAX).nullable().optional(),
   })
   .strict();
 
-// RS-US-32 slice only: rating + note. next-time editing is RS-US-34 (D-26).
+// RS-US-32 + RS-US-34: rating + note + next-time.
 const cookLogPatchSchema = z
   .object({
     rating: z.number().int().min(1).max(5).nullable().optional(),
     note: z.string().max(NOTE_MAX).nullable().optional(),
+    next_time: z.string().max(NEXT_TIME_MAX).nullable().optional(),
+  })
+  .strict();
+
+// F3/H5 (D-26): the canonical swap record (API doc §8).
+const swapSchema = z
+  .object({
+    line_id: z.string().uuid().optional(),
+    action: z.enum(['skipped', 'reduced', 'increased', 'swapped']),
+    swapped_to: z.string().max(255).nullable().optional(),
+    reason: z.enum(['restriction', 'pantry', 'other']).nullable().optional(),
+    applied_to_card: z.boolean().optional(),
   })
   .strict();
 
 const invalidLog = (message: string) =>
   new BadRequestException({ code: 'INVALID_COOK_LOG', message });
 
+const invalidSwap = (message: string) =>
+  new BadRequestException({ code: 'INVALID_SWAP', message });
+
 @Controller('recipes')
 export class CookController {
   constructor(private readonly cook: CookService) {}
 
-  /** F1/F2 — log that I cooked it. 201 + the wire (API §8). */
+  /** F1/F2/F4 — log that I cooked it. 201 + the wire (API §8). */
   @Post(':recipeId/cook-logs')
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(GuestOrJwtGuard, CsrfGuard)
@@ -67,7 +84,7 @@ export class CookController {
     const parsed = cookLogCreateSchema.safeParse(body);
     if (!parsed.success) {
       throw invalidLog(
-        'Invalid cook log body: cook_date (YYYY-MM-DD, default today), optional rating 1–5, optional note',
+        'Invalid cook log body: cook_date (YYYY-MM-DD, default today), optional rating 1–5, optional note, optional next_time',
       );
     }
     const d = parsed.data;
@@ -75,10 +92,12 @@ export class CookController {
       throw invalidLog('cook_date must be a valid YYYY-MM-DD calendar date');
     }
     const note = d.note?.trim() ?? '';
+    const nextTime = d.next_time?.trim() ?? '';
     return this.cook.logCook(req.actor!, recipeId, {
       cookDate: d.cook_date,
       rating: d.rating ?? null,
       note: note.length > 0 ? note : null,
+      nextTime: nextTime.length > 0 ? nextTime : null,
     });
   }
 
@@ -102,8 +121,8 @@ export class CookController {
 export class CookLogController {
   constructor(private readonly cook: CookService) {}
 
-  /** F2 (RS-US-32) — edit rating / note. Partial body; explicit null clears.
-   *  next_time is F4/D-26 and refused here. */
+  /** F2/F4 (RS-US-32/RS-US-34) — edit rating / note / next-time. Partial body;
+   *  explicit null clears. */
   @Patch(':cookLogId')
   @UseGuards(GuestOrJwtGuard, CsrfGuard)
   async updateCookLog(
@@ -113,13 +132,49 @@ export class CookLogController {
   ) {
     const parsed = cookLogPatchSchema.safeParse(body);
     if (!parsed.success) {
-      throw invalidLog('Invalid cook log update: optional rating 1–5 and/or optional note');
+      throw invalidLog(
+        'Invalid cook log update: optional rating 1–5, optional note and/or optional next_time',
+      );
     }
     const d = parsed.data;
     const note = d.note === undefined || d.note === null ? d.note : d.note.trim() === '' ? null : d.note.trim();
+    const nextTime =
+      d.next_time === undefined || d.next_time === null
+        ? d.next_time
+        : d.next_time.trim() === ''
+          ? null
+          : d.next_time.trim();
     return this.cook.updateCookLog(req.actor!, cookLogId, {
       rating: d.rating,
       note,
+      nextTime,
+    });
+  }
+
+  /** F3/H5 (D-26) — record a swap (historical, immutable). applied_to_card
+   *  applies through the Intake module's line surface. 201 + the wire. */
+  @Post(':cookLogId/swaps')
+  @HttpCode(HttpStatus.CREATED)
+  @UseGuards(GuestOrJwtGuard, CsrfGuard)
+  async recordSwap(
+    @Req() req: ActorRequest,
+    @Param('cookLogId') cookLogId: string,
+    @Body() body: unknown,
+  ) {
+    const parsed = swapSchema.safeParse(body);
+    if (!parsed.success) {
+      throw invalidSwap(
+        'Invalid swap body: line_id (optional uuid), action skipped|reduced|increased|swapped, ' +
+          'swapped_to, reason restriction|pantry|other, applied_to_card',
+      );
+    }
+    const d = parsed.data;
+    return this.cook.recordSwap(req.actor!, cookLogId, {
+      lineId: d.line_id,
+      action: d.action,
+      swappedTo: d.swapped_to ?? null,
+      reason: d.reason ?? null,
+      appliedToCard: d.applied_to_card,
     });
   }
 }

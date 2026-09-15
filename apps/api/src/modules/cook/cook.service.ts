@@ -24,6 +24,7 @@
 import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@recipe-systems/database';
 import type { Actor } from '../../common/guards/guest-or-jwt.guard';
+import { IntakeService } from '../intake/intake.service';
 import { RecipeService } from '../recipes/recipe.service';
 
 const UUID_RE =
@@ -32,7 +33,11 @@ const UUID_RE =
 /** F2 note bound — free text, private, no artificial field invention (ERD §8 TEXT). */
 export const NOTE_MAX = 10_000;
 
-/** API §8 POST body — the D-24 slice: no `next_time` (F4/D-26), no `swaps` (F3/D-26). */
+/** F4 (D-26) next-time bound — a printed station-card line, not prose. */
+export const NEXT_TIME_MAX = 1_000;
+
+/** API §8 POST body — the D-24 slice plus the F4 next-time write (D-26): no
+ *  `swaps` on the log body (swaps ride POST /cook-logs/:cookLogId/swaps). */
 export interface CookLogInput {
   /** YYYY-MM-DD; omitted → today (F1 AC-1, TC-01). */
   cookDate?: string;
@@ -40,12 +45,36 @@ export interface CookLogInput {
   rating?: number | null;
   /** Free text, private (F2 AC-2). */
   note?: string | null;
+  /** F4 dedicated next-time line (tagged COOK LOG on the card, never CARD). */
+  nextTime?: string | null;
 }
 
-/** API §8 PATCH body — rating/note only (RS-US-32). */
+/** API §8 PATCH body — rating/note (RS-US-32) + next-time (RS-US-34, F4). */
 export interface CookLogPatch {
   rating?: number | null;
   note?: string | null;
+  nextTime?: string | null;
+}
+
+/** API §8 swap body (F3/H5). */
+export interface SwapInput {
+  lineId?: string;
+  action: 'skipped' | 'reduced' | 'increased' | 'swapped';
+  swappedTo?: string | null;
+  reason?: 'restriction' | 'pantry' | 'other' | null;
+  appliedToCard?: boolean;
+}
+
+export interface SwapWire {
+  swap_id: string;
+  cook_log_id: string;
+  line_id: string | null;
+  ingredient_name_snapshot: string;
+  action: 'skipped' | 'reduced' | 'increased' | 'swapped';
+  swapped_to: string | null;
+  reason: 'restriction' | 'pantry' | 'other' | null;
+  applied_to_card: boolean;
+  created_at: string;
 }
 
 export interface CookLogWire {
@@ -120,9 +149,10 @@ export class CookService {
   constructor(
     @Inject('PRISMA') private readonly prisma: PrismaClient,
     private readonly recipes: RecipeService,
+    private readonly intake: IntakeService,
   ) {}
 
-  /** F1/F2 — log that I cooked it. A NEW row per session (F1 AC-2: multiple
+  /** F1/F2/F4 — log that I cooked it. A NEW row per session (F1 AC-2: multiple
    *  logs kept, never merged). cook_date defaults to today, editable. */
   async logCook(actor: Actor, recipeId: string, input: CookLogInput): Promise<CookLogWire> {
     await this.recipes.assertOwned(actor, recipeId);
@@ -142,6 +172,7 @@ export class CookService {
         cookedAt: cookedAt ?? parseCookDate(localToday())!,
         rating: input.rating ?? null,
         note: input.note ?? null,
+        nextTimeInstruction: input.nextTime ?? null,
       },
     });
     return toWire(created);
@@ -175,10 +206,10 @@ export class CookService {
     };
   }
 
-  /** F2 (RS-US-32) — edit rating / note on an existing log. Partial body:
-   *  omitted fields stay; explicit null clears. Ownership rides the log's
-   *  recipe through assertOwned — a foreign log is a canonical 404 with no
-   *  existence leak. next_time editing is F4/D-26 (rejected at the boundary). */
+  /** F2/F4 (RS-US-32/RS-US-34) — edit rating / note / next-time on an existing
+   *  log. Partial body: omitted fields stay; explicit null clears. Ownership
+   *  rides the log's recipe through assertOwned — a foreign log is a canonical
+   *  404 with no existence leak. */
   async updateCookLog(actor: Actor, cookLogId: string, patch: CookLogPatch): Promise<CookLogWire> {
     if (!UUID_RE.test(cookLogId)) {
       throw new NotFoundException({ code: 'COOK_LOG_NOT_FOUND', message: 'Cook log not found' });
@@ -190,13 +221,102 @@ export class CookService {
     await this.recipes.assertOwned(actor, log.recipeId);
     // An empty partial body is a canonical no-op — the unchanged log comes
     // back (Prisma forbids an empty update data object).
-    if (patch.rating === undefined && patch.note === undefined) {
+    if (patch.rating === undefined && patch.note === undefined && patch.nextTime === undefined) {
       return toWire(log);
     }
     const data: Prisma.CookLogUpdateInput = {};
     if (patch.rating !== undefined) data.rating = patch.rating ?? null;
     if (patch.note !== undefined) data.note = patch.note ?? null;
+    if (patch.nextTime !== undefined) data.nextTimeInstruction = patch.nextTime ?? null;
     const updated = await this.prisma.cookLog.update({ where: { id: cookLogId }, data });
     return toWire(updated);
+  }
+
+  /**
+   * F3/H5 (D-26) — record a swap against a cook log. The row is a HISTORICAL
+   * RECORD (no update/delete surface exists anywhere — immutability). Recording
+   * NEVER touches the card; `applied_to_card: true` applies through the INTAKE
+   * module's line-edit surface (Q4 one-writer preserved: skipped → soft-delete;
+   * reduced/increased/swapped → amount_text edit with the current updated_at).
+   * D-26G-labeled assumption: an applied `swapped`/`reduced`/`increased` edits
+   * amount_text only — the full swap record rides this row (auditable).
+   */
+  async recordSwap(actor: Actor, cookLogId: string, input: SwapInput): Promise<SwapWire> {
+    if (!UUID_RE.test(cookLogId)) {
+      throw new NotFoundException({ code: 'COOK_LOG_NOT_FOUND', message: 'Cook log not found' });
+    }
+    const log = await this.prisma.cookLog.findUnique({ where: { id: cookLogId } });
+    if (!log) {
+      throw new NotFoundException({ code: 'COOK_LOG_NOT_FOUND', message: 'Cook log not found' });
+    }
+    await this.recipes.assertOwned(actor, log.recipeId);
+
+    let line: { id: string; shoppingKey: string; displayName: string; amountText: string | null; updatedAt: Date } | null = null;
+    if (input.lineId !== undefined) {
+      const row = await this.prisma.recipeIngredientLine.findFirst({
+        where: { id: input.lineId, recipeId: log.recipeId, deletedAt: null },
+        select: { id: true, shoppingKey: true, displayName: true, amountText: true, updatedAt: true },
+      });
+      if (!row) {
+        throw new BadRequestException({
+          code: 'INVALID_SWAP',
+          message: 'line_id must reference a live line of the same recipe',
+        });
+      }
+      line = row;
+    }
+    const swappedTo = input.swappedTo?.trim() || null;
+    const applied = input.appliedToCard === true;
+    if (applied && line === null) {
+      throw new BadRequestException({
+        code: 'INVALID_SWAP',
+        message: 'applied_to_card requires a line_id',
+      });
+    }
+    if (applied && input.action !== 'skipped' && swappedTo === null) {
+      throw new BadRequestException({
+        code: 'INVALID_SWAP',
+        message: 'applied reduced/increased/swapped requires swapped_to',
+      });
+    }
+
+    const created = await this.prisma.cookLogSwap.create({
+      data: {
+        cookLogId: log.id,
+        shoppingKey: line?.shoppingKey ?? null,
+        ingredientNameSnapshot: line?.displayName ?? input.swappedTo?.trim() ?? '',
+        changeType: input.action,
+        originalValue: line?.amountText ?? null,
+        actualValue: swappedTo,
+        appliedToRecipe: applied,
+      },
+    });
+
+    // Apply through Intake (Q4 one-writer) — AFTER the record lands (record-first).
+    if (applied && line) {
+      if (input.action === 'skipped') {
+        await this.intake.softDeleteLine(actor, log.recipeId, line.id);
+      } else {
+        await this.intake.updateLine(
+          actor,
+          log.recipeId,
+          line.id,
+          { amountText: swappedTo },
+          line.updatedAt.toISOString(),
+        );
+      }
+    }
+
+    return {
+      swap_id: created.id,
+      cook_log_id: created.cookLogId,
+      line_id: line?.id ?? null,
+      ingredient_name_snapshot: created.ingredientNameSnapshot,
+      action: created.changeType as SwapWire['action'],
+      swapped_to: created.actualValue,
+      reason: input.reason ?? null,
+      applied_to_card: created.appliedToRecipe,
+      created_at: created.createdAt.toISOString(),
+    };
   }
 }

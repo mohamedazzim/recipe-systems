@@ -105,11 +105,46 @@ export interface CookLog {
   created_at: string;
 }
 
-/** D-24 (F6): GET /recipes/:recipeId/last-cook — the reopen summary. */
+/** D-24 (F1/F2/F6): GET /recipes/:recipeId/last-cook — the reopen summary. */
 export interface LastCook {
   last_cooked_at: string | null;
   rating: number | null;
   next_time: string | null;
+}
+
+/** D-26 (F3/H5): POST /cook-logs/:cookLogId/swaps wire (API §8). */
+export interface SwapRecord {
+  swap_id: string;
+  cook_log_id: string;
+  line_id: string | null;
+  ingredient_name_snapshot: string;
+  action: 'skipped' | 'reduced' | 'increased' | 'swapped';
+  swapped_to: string | null;
+  reason: 'restriction' | 'pantry' | 'other' | null;
+  applied_to_card: boolean;
+  created_at: string;
+}
+
+/** D-26 (H1): GET/PUT /me/restriction-profile wire (API §9). */
+export interface RestrictionProfile {
+  profile_id: string | null;
+  allergens: string[];
+  diet_patterns: string[];
+  label_pack: 'US' | 'EU' | null;
+}
+
+/** D-26 (H1 UI): GET /restriction-vocabulary wire. */
+export interface RestrictionVocabulary {
+  allergens: Array<{ code: string; name: string; label_pack: string | null }>;
+  diet_patterns: string[];
+}
+
+/** D-26 (H3): GET /analysis/:analysisId/restriction-highlight wire. */
+export interface RestrictionHighlight {
+  conflicts: string[];
+  unknown: string[];
+  not_flagged: string[];
+  profile_notes: string[];
 }
 
 /** D-30 (Track S): the canonical five market groups (E3). */

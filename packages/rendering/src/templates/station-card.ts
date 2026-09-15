@@ -3,6 +3,9 @@
 // points, do-nots, product/yield/hold, provenance tags, chef-mode wording and
 // the frozen allergen line (Q2 Option A). Read-only — never regenerates
 // analysis content at print time.
+// D-26 F4: the next-time line rides the LATEST cook_log.next_time_instruction
+// (ADR §7 amendment 2026-09-15 — permitted station-card print source) and is
+// tagged COOK LOG, never CARD.
 
 import { allergenBlock, escapeHtml, pageShell } from './shared';
 
@@ -21,6 +24,8 @@ export interface StationCardPrintData {
   doNots: Array<{ item: string; note: string }>;
   productYieldHold: string | null;
   allergenLine: string | null;
+  /** F4 (D-26): the latest cook-log next-time line — tagged COOK LOG. */
+  nextTimeLine: string | null;
 }
 
 export function stationCardHtml(data: StationCardPrintData): string {
@@ -66,6 +71,12 @@ export function stationCardHtml(data: StationCardPrintData): string {
       ? `<h2>Product · yield · hold</h2><p>${escapeHtml(data.productYieldHold)}</p>`
       : '';
 
+  // F4: the cook's own next-time instruction — provenance-tagged COOK LOG.
+  const nextTime =
+    data.nextTimeLine !== null
+      ? `<div class="allergen"><strong>Next time:</strong> ${escapeHtml(data.nextTimeLine)} <span class="tag">COOK LOG</span></div>`
+      : '';
+
   const body = `<h1>${escapeHtml(data.recipeTitle)}</h1>
 <p class="meta">Chef mode · station card${
     data.family ? ` · ${escapeHtml(data.family)}` : ''
@@ -85,6 +96,7 @@ ${
     : ''
 }
 ${yieldHold}
+${nextTime}
 ${allergenBlock(data.allergenLine)}
 <p class="footer">Untasted briefing. Season after.<br>
 Snapshot-only print: this card was frozen when the analysis completed.</p>`;

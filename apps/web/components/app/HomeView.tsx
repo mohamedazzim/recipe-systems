@@ -12,6 +12,7 @@ import { Alert } from '@/components/ui/Alert';
 import { Heading, Text } from '@/components/ui/Typography';
 import { isOwnedBy, listSessionRecipes, sessionRecipeLines } from '@/lib/flow';
 import { GuestNotice } from '@/components/app/GuestNotice';
+import { ProfileEditor } from '@/components/app/ProfileEditor';
 import type { LibraryRecipe, WireLine } from '@/lib/types';
 
 export interface HomeViewProps {
@@ -223,6 +224,7 @@ export function HomeView({
           <p className="mt-2 max-w-prose text-small text-muted">
             Your work is saved to your account. Sign out from the header when you are done.
           </p>
+          <ProfileEditor />
           <div className="mt-4">
             <Button variant="outline" onClick={onSignOut}>
               Sign out

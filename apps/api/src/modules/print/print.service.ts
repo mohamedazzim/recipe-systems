@@ -151,6 +151,14 @@ export class PrintService {
           .map(([key, value]) => `${key}: ${String(value)}`)
           .join(' · ')
       : null;
+    // D-26 F4 (ADR §7 amendment 2026-09-15): the station-card print surfaces
+    // the LATEST cook-log next-time line, tagged COOK LOG by the template — the
+    // card's own CARD-tagged rows are never touched.
+    const nextTimeLog = await this.prisma.cookLog.findFirst({
+      where: { recipeId: recipe.id, nextTimeInstruction: { not: null } },
+      orderBy: [{ cookedAt: 'desc' }, { createdAt: 'desc' }],
+      select: { nextTimeInstruction: true },
+    });
     const data: StationCardPrintData = {
       recipeTitle: recipe.title,
       family: analysis?.family ?? null,
@@ -171,6 +179,8 @@ export class PrintService {
       productYieldHold: yieldHold,
       // Q2 Option A: the SNAPSHOT value — never the live mapping.
       allergenLine: card.allergenLine,
+      // F4: latest cook-log next-time (COOK LOG), null when never written.
+      nextTimeLine: nextTimeLog?.nextTimeInstruction ?? null,
     };
     const html = stationCardHtml(data);
     return this.finish(html, format, `station-card-${recipe.id}.pdf`);

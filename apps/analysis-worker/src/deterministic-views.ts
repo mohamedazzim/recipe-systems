@@ -219,11 +219,14 @@ export interface View9Overrides {
   oil_tbsp: [number, number];
 }
 
-/** I2 user-editable delta (RS-US-45 body). */
+/** I2 user-editable delta (RS-US-45 body) + the D-26 Q14 seam: `portions`
+ *  (RS-US-46, 3|4) is carried ONLY through the job payload and the frozen
+ *  View 9 `per_portion` — never a persisted column (Q14 stays OPEN). */
 export interface View9AssumptionDelta {
   fish_class?: 'lean' | 'oily';
   coconut_grams?: number;
   oil_tbsp?: number;
+  portions?: 3 | 4;
 }
 
 export const DEFAULT_OVERRIDES: View9Overrides = {
@@ -361,6 +364,7 @@ export async function computeView9(
   prisma: PrismaClient,
   captured: StructuredRecipeInput,
   overrides: View9Overrides = DEFAULT_OVERRIDES,
+  portions?: 3 | 4,
 ): Promise<View9Payload> {
   const ingredients = captured.structured_recipe.ingredients;
   const resolved = await resolveIngredients(prisma, ingredients);
@@ -558,7 +562,17 @@ export async function computeView9(
     },
     sodium: 'unknown',
     assumptions,
-    per_portion: null,
+    // D-26 I3 / Q14 seam: the per-bowl band exists ONLY when portions were set
+    // (I3 TC-01); it is a band (min–max), never a fabricated point number, and
+    // it persists in the View 9 payload convention — no dedicated column.
+    per_portion:
+      portions !== undefined
+        ? {
+            portions,
+            energy_kcal_min: Math.round(energyMin / portions),
+            energy_kcal_max: Math.round(energyMax / portions),
+          }
+        : null,
     tightening_factors: ['Name the fish species', 'Weigh the coconut', 'Measure the tadka oil'],
     disclaimer: I6_DISCLAIMER,
   };

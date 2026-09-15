@@ -20,6 +20,36 @@
 
 **Rule:** a change that alters any Q1–Q18 row must say so in its entry. The register (SCAFFOLD §7) is the single source of truth for open decisions; this log records the history of how the register changed. No Q-row changes in D-13.
 
+## 2026-09-15 — D-26 P7-2: profiles, swaps, next-time, portions (F3/F4/H1/H3/H5/I3/I4)
+
+- Author / session: DeepSeek V4 Pro (VS Code) D-26 dispatch (preflight GO
+  recorded in HANDOFF §0 as D-26A..I before code).
+- What changed: new API restrictions module (sole writer of
+  `account_restriction_*`, QG2 gate 2f + fire proof) shipping GET/PUT
+  /me/restriction-profile, /restriction-vocabulary, and the conflicts-first
+  /restriction-highlight projection (H1/H3). Cook module gained the F4
+  `next_time` write path (POST/PATCH, RS-US-34) and F3/H5 swap recording
+  (POST /cook-logs/:cookLogId/swaps — immutable; applied swaps route through
+  Intake). Station-card print surfaces the latest cook-log next-time line
+  tagged COOK LOG (ADR §7 amendment 2026-09-15). I3 portions: PATCH
+  /view-9/portions → view9-recompute → per_portion in the frozen View 9 payload
+  (Q14 seam — no column). I4 narrowing proven. Web ProfileEditor /
+  RestrictionHighlight / SwapSection / next-time input / per-bowl band.
+- Why: DISPATCH D-26 (P7-2) — F3, F4, H1, H3, H5, I3, I4.
+- Register impact: none resolved. Q14 remains OPEN (labeled seam + HANDOFF
+  label). ERD §15 diet-pattern vocabulary + label-pack precedence handled as
+  LABELED PILOT WORKING ASSUMPTIONS. Q1/Q5/Q9/Q10/Q11 untouched. ADR §7
+  amended (next-time print source) under the same amendment discipline as Q2.
+- Verification: API 283/283 (78.44% lines) · web 132/132 · worker 63/63 ·
+  rendering 15/15 · integration 131/131 (story_d26_hardening 6/6) · typecheck 0
+  · lint 0 · regression gates PASS (restriction one-writer armed) ·
+  contract-check OK · verify-local ALL STEPS PASSED.
+- Live: seeded-chef journey — profile saved; View 8 "Conflicts first: Fish";
+  next-time note in the recall + station-card print tagged COOK LOG; applied
+  swap rewrote the card line via Intake; per-bowl band (183–259 kcal, a band
+  never a point); reload/reopen persistence.
+- Commit(s): pending CI (filled at push).
+
 ## 2026-09-14/15 — D-24 P6-1: cook loop (F1, F2, F6)
 
 - Author / session: DeepSeek V4 Pro (VS Code) D-24 dispatch (preflight GO

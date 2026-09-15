@@ -99,6 +99,17 @@ if [ -z "$hits" ]; then trivial "cook one-writer (no write references yet)"; els
   if [ -z "$outside" ]; then note "cook_log* writes confined to the API cook module"; else fire "cook_log* write outside the API cook module:"; echo "$outside"; fi
 fi
 
+# --- 2f. Restriction one-writer (D-26) -----------------------------------------------------------
+echo "-- one-writer: account_restriction_* written only by the API restrictions module (D-26)"
+pat='\b(prisma|tx)\.(accountRestrictionProfile|accountRestrictionItem)[A-Za-z]*\.(create|upsert|delete|update|updateMany|createMany|deleteMany)|\b(INSERT INTO|UPDATE|DELETE FROM)\s+account_restriction_(profile|item)'
+hits=$(grep -rInE "$pat" "$SCAN/apps" "$SCAN/packages" --include="*.ts" --include="*.tsx" --include="*.sql" \
+  --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.next --exclude-dir=generated 2>/dev/null \
+  | grep -vE "packages/database/prisma/migrations/" || true)
+outside=$(echo "$hits" | grep -vE "apps/api/src/modules/restrictions" || true)
+if [ -z "$hits" ]; then trivial "restriction one-writer (no write references yet)"; else
+  if [ -z "$outside" ]; then note "account_restriction_* writes confined to the API restrictions module"; else fire "account_restriction_* write outside the API restrictions module:"; echo "$outside"; fi
+fi
+
 # --- 3. DDL outside Prisma migrations (SCAFFOLD §2) --------------------------------------------
 echo "-- DDL: no CREATE/ALTER/DROP TABLE outside packages/database/prisma/migrations"
 hits=$(grep -rInE "CREATE TABLE|ALTER TABLE|DROP TABLE" "$SCAN/apps" "$SCAN/packages" --include="*.ts" --include="*.tsx" --include="*.sql" \

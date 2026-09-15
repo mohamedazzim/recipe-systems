@@ -13,7 +13,13 @@ import { HealthController } from './health/health.controller';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    // Env-file resolution is CWD-robust: `npm run dev -w @recipe-systems/api`
+    // runs the app with CWD = apps/api, so the canonical repo-root .env is
+    // reached via the parent path. dotenv uses the FIRST file that exists.
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: ['.env', '../.env', '../../.env'],
+    }),
     AccountModule,
     AuthModule,
     IntakeModule,

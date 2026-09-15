@@ -2739,16 +2739,25 @@ execution output; Git: not available / not authorized throughout.
   foreign/malformed-id 404s) · `story_d17` 4/4 · qg2_gates 20/20 · typecheck 0 ·
   lint 0 · regression gates PASS · contract-check OK · verify-local ALL STEPS
   PASSED.
-- **Live browser journey (caveat):** the saved golden recipe workspace rendered
-  (IngredientReview + Analyse button + cook history "fish held, garlic stayed
-  out" intact), but the sign-in step was blocked by a PRE-EXISTING Keycloak
-  infra drift — `CODE_TO_TOKEN_ERROR` / `invalid_client_credentials`
-  (realm JSON + `.env` both carry `dev-bff-client-secret`, but the running
-  Keycloak H2 holds a different stored secret; realm re-import was skipped at
-  startup). Auth/Keycloak was NOT touched by D-25; the edit→no-auto-analyse→
-  snapshot-chain→cook-preservation effects are integration-proven on real
-  Postgres by `story_d25_session2` above. Recommend a Keycloak re-import (infra,
-  separate from D-25) before the next live browser pass.
+- **Live browser journey (COMPLETE — see infra note):** signed in as
+  chef@recipesystems.test → opened the saved golden recipe → edited the Fish
+  line amount to "450g" → **no auto-analysis** (analysis count stayed 1) →
+  explicit **Analyse recipe** → new analysis `0dda7f25-96dc-4262-b36d-5f0c65ff31d9`
+  completed via DeepSeek → DB-proven: new analysis `is_current=true`,
+  previous `5ed224a6` `is_current=false`, new `snapshot_of_analysis_id =
+  5ed224a6…`, cook logs unchanged (4, "fish held, garlic stayed out" intact) →
+  UI reopened to "Analysis complete" with the new result.
+- **Infra fix (Keycloak 401 root cause):** `GET /auth/callback` returned
+  "identity token exchange failed (401)" because the API run via
+  `npm run dev -w @recipe-systems/api` executes with CWD = `apps/api`, where no
+  `.env` exists — `ConfigModule` loaded no `KEYCLOAK_CLIENT_SECRET` (empty),
+  and Keycloak rejected the code exchange (`CODE_TO_TOKEN_ERROR /
+  invalid_client_credentials`). Fixed permanently in `apps/api/src/app.module.ts`:
+  `ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env','../.env','../../.env'] })`
+  (first-existing wins; reaches the repo-root `.env` from the workspace CWD).
+  The Keycloak container was also recreated (fresh H2 → realm re-import from the
+  current realm JSON) as a belt-and-braces measure; the realm secret was already
+  correct — the empty client secret was the actual fault.
 - **C7:** DEFERRED — §13 weeks-9–10 Must-stability evidence is still not recorded
   in HANDOFF (same gate D-31 carries).
 - **Resume point:** D-25 is COMPLETE. Next per dispatcher: A-25 audit (AUDIT.md) —

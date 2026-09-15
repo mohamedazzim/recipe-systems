@@ -20,6 +20,23 @@
 
 **Rule:** a change that alters any Q1–Q18 row must say so in its entry. The register (SCAFFOLD §7) is the single source of truth for open decisions; this log records the history of how the register changed. No Q-row changes in D-13.
 
+## 2026-09-15 — Q10 corpus determination: `ocr_sample_pics` (no benchmark run)
+
+- Author / session: DeepSeek V4 Pro (VS Code) Q10 evidence-gathering.
+- What changed (no code): inspected `ocr_sample_pics/` — 15 JPEGs (~274×237 px,
+  EN/FR handwritten recipe cards: Spaghetti Bolognese, Chicken Curry, Tomato Soup,
+  Crêpes, Ratatouille, Vegetable Stir-Fry, …), BYTE-IDENTICAL (SHA256) to the
+  existing `tests/fixtures/corpus_images/card-001..015.jpg`. No manifest,
+  transcription, source-of-record, or capture metadata accompanies them.
+- Determination: classified **user-supplied benchmark samples with insufficient
+  provenance**. No manifest built (ground truth cannot be legitimately derived —
+  a model-transcription would be circular self-validation). None of the 15 is the
+  canonical golden card (Kanyakumari Meen Kuzhambu). PaddleOCR runtime still absent
+  (no Python interpreter / paddleocr / serving on :8866) → the real benchmark was
+  NOT run; no latency/accuracy metrics.
+- Register impact: **Q10 stays OPEN**; **D-28 stays BLOCKED**. Nothing fabricated.
+- Commit(s): `<sha>` (Q10 determination docs).
+
 ## 2026-09-15 — D-11 frontend: photo upload + OCR review user path
 
 - Author / session: DeepSeek V4 Pro (VS Code) D-11 frontend (post-A-11).

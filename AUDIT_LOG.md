@@ -617,3 +617,25 @@ Then A-11 closes. Q10 remains the gate for D-28.
 - **Q10 still OPEN; D-28 still BLOCKED.** Real PaddleOCR runtime + provenance-valid
   golden photo + manifest remain absent; the frontend path is verified against the
   deterministic stub only (no benchmark, no latency/accuracy claim).
+
+### Q10 corpus determination — `ocr_sample_pics/` (2026-09-15)
+
+- **Inventory:** 15 JPEGs `card-001..015.jpg` (~274×237 px). Content = generic
+  EN/FR handwritten recipe cards (Spaghetti Bolognese, Chicken Curry, Tomato Soup,
+  Crêpes, Ratatouille, Vegetable Stir-Fry, …). **Byte-identical (SHA256)** to the
+  pre-existing unprovenanced `tests/fixtures/corpus_images/card-001..015.jpg`.
+- **Provenance:** INSUFFICIENT — no manifest, no transcription, no source-of-record,
+  no capture conditions, no reviewer, no D-04 correspondence. Classified as
+  **user-supplied benchmark samples**, NOT provenance-valid evidence. Not silently
+  relabeled.
+- **Manifest:** NOT built — ground truth cannot be legitimately derived without
+  source material or an independently verified transcription (a model reading
+  would be circular).
+- **Golden card:** ABSENT — none of the 15 is the canonical Kanyakumari Meen
+  Kuzhambu card (no fish/drumstick/mango/coconut/fenugreek card). The D-28 golden
+  benchmark cannot be completed from this corpus.
+- **PaddleOCR runtime:** ABSENT (no Python interpreter, no `paddleocr`, no serving
+  on `:8866`) → real benchmark NOT run; no metrics, no latency, no timing.
+- **Decision:** Q10 stays OPEN; D-28 stays BLOCKED. Required to proceed: (1) a real
+  PaddleOCR runtime; (2) provenance metadata or an independently verified
+  transcription for the sample cards; (3) the canonical golden-card photo.

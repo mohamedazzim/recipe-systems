@@ -2242,6 +2242,17 @@ execution output; Git: not available / not authorized throughout.
   golden photo + manifest remain absent (see Q10 preflight); no benchmark run, no
   latency/accuracy claim. The frontend path is verified against the deterministic
   stub only.
+- **Q10 corpus determination (2026-09-15) — `ocr_sample_pics/` classified USER-
+  SUPPLIED, provenance INSUFFICIENT.** The 15 `ocr_sample_pics/card-001..015.jpg`
+  are BYTE-IDENTICAL (SHA256) to the existing `tests/fixtures/corpus_images/`
+  generic EN/FR handwritten cards (Spaghetti Bolognese, Chicken Curry, Tomato Soup,
+  Crêpes, Ratatouille, Vegetable Stir-Fry, …) — NOT the canonical golden card, and
+  NOT provenance-valid: no manifest, no transcription, no source-of-record, no
+  capture conditions, no D-04 correspondence. No manifest was built (ground truth
+  cannot be legitimately derived; a model-transcription would be circular).
+  PaddleOCR runtime still absent (no Python interpreter / paddleocr / serving).
+  → **Q10 stays OPEN; D-28 stays BLOCKED.** Real benchmark not run; no latency /
+  accuracy claim. (See CHANGE_LOG + AUDIT_LOG Q10 determination.)
 
 ### H-12 — D-12 Parse review
 

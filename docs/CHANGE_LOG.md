@@ -35,7 +35,7 @@
   (no Python interpreter / paddleocr / serving on :8866) → the real benchmark was
   NOT run; no latency/accuracy metrics.
 - Register impact: **Q10 stays OPEN**; **D-28 stays BLOCKED**. Nothing fabricated.
-- Commit(s): `<sha>` (Q10 determination docs).
+- Commit(s): `2b6a445` (Q10 determination docs).
 
 ## 2026-09-15 — D-11 frontend: photo upload + OCR review user path
 

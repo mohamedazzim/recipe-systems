@@ -169,7 +169,8 @@ describe('RecipeWorkspace — D-22 Save (D1)', () => {
     render(<RecipeWorkspace {...p} />);
     await userEvent.click(screen.getByRole('button', { name: 'Delete recipe' }));
     await userEvent.click(screen.getByRole('button', { name: 'Delete recipe' }));
-    expect(await screen.findByText('Service unavailable')).toBeInTheDocument();
+    // D-24: the cook surface surfaces the same 503 — one honest error per surface.
+    expect((await screen.findAllByText('Service unavailable')).length).toBeGreaterThan(0);
     expect(p.onDeleted).not.toHaveBeenCalled();
     // the recipe remains: the save surface is still rendered
     expect(screen.getByRole('button', { name: 'Save recipe' })).toBeInTheDocument();

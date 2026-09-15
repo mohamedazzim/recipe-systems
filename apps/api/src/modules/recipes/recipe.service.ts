@@ -53,13 +53,16 @@ export interface SavedRecipeWire {
   };
 }
 
-/** D-22 (D2): one canonical library row (AC-1 fields exactly). */
+/** D-22 (D2): one canonical library row (AC-1 fields exactly). D-24 (F1 AC-3)
+ *  adds `last_cooked_at` — the newest cook_log.cooked_at, date-only, null when
+ *  the recipe has no cook logs. */
 export interface LibraryRecipeRow {
   recipe_id: string;
   name: string;
   date: string;
   family: string | null;
   has_cook_log: boolean;
+  last_cooked_at: string | null;
 }
 
 /**
@@ -329,7 +332,9 @@ export class RecipeService {
    * D-22 (D2): the account library — persisted rows, never browser state.
    * Rows carry exactly the canonical D2 AC-1 fields: name (title), date
    * (created_at), family (identification), has_cook_log (EXISTS on the live
-   * cook_log table). Ordered by the ERD's own index (updated_at DESC).
+   * cook_log table) — plus D-24 F1 AC-3: last_cooked_at (the newest
+   * cook_log.cooked_at, date-only, null when never cooked). Ordered by the
+   * ERD's own index (updated_at DESC).
    * Account-only by construction — INV-17 cross-account isolation holds.
    */
   async listLibrary(actor: Actor): Promise<LibraryRecipeRow[]> {
@@ -340,14 +345,21 @@ export class RecipeService {
       select: { id: true, title: true, createdAt: true },
     });
     return Promise.all(
-      recipes.map(async (recipe) => ({
-        recipe_id: recipe.id,
-        name: recipe.title,
-        date: recipe.createdAt.toISOString(),
-        family: await this.identificationFamily(recipe.id),
-        has_cook_log:
-          (await this.prisma.cookLog.count({ where: { recipeId: recipe.id } })) > 0,
-      })),
+      recipes.map(async (recipe) => {
+        const lastLog = await this.prisma.cookLog.findFirst({
+          where: { recipeId: recipe.id },
+          orderBy: [{ cookedAt: 'desc' }, { createdAt: 'desc' }],
+          select: { cookedAt: true },
+        });
+        return {
+          recipe_id: recipe.id,
+          name: recipe.title,
+          date: recipe.createdAt.toISOString(),
+          family: await this.identificationFamily(recipe.id),
+          has_cook_log: lastLog !== null,
+          last_cooked_at: lastLog ? lastLog.cookedAt.toISOString().slice(0, 10) : null,
+        };
+      }),
     );
   }
 }

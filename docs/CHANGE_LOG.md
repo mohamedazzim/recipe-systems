@@ -20,6 +20,34 @@
 
 **Rule:** a change that alters any Q1–Q18 row must say so in its entry. The register (SCAFFOLD §7) is the single source of truth for open decisions; this log records the history of how the register changed. No Q-row changes in D-13.
 
+## 2026-09-14/15 — D-24 P6-1: cook loop (F1, F2, F6)
+
+- Author / session: DeepSeek V4 Pro (VS Code) D-24 dispatch (preflight GO
+  recorded in HANDOFF §0 as D-24A..E before code).
+- What changed: new API cook module (sole writer of `cook_log` — one-writer,
+  ADR §2) shipping the API-doc §8 slice: POST/GET `/recipes/:recipeId/cook-logs`,
+  GET `/recipes/:recipeId/last-cook`, PATCH `/cook-logs/:cookLogId` (rating/note
+  only; `next_time`/swaps refused → D-26). Library rows gained `last_cooked_at`.
+  Web `CookSection` at the top of the recipe workspace: F6 recall strip (last
+  cooked, rating, note) above the analysis, F1 "I cooked this" form (date
+  defaults today, editable; multiple logs kept, history listed), F2 optional
+  1–5 rating + private note. QG2 gate 2e (cook one-writer) + fire proof;
+  Playwright e2e `cook-log.spec.ts` (fifth critical flow); API doc §8 annotated
+  with the D-24 slice.
+- Why: DISPATCH D-24 (P6-1) — F1 cook log, F2 rating/note, F6 reopen surface;
+  canonical acceptance scene (Recipe_Systems §15).
+- Register impact: none. Q1/Q5/Q9/Q10/Q11 untouched. F3/F4/F5 deferred to
+  D-26/D-31 per DISPATCH NON-GOALS. No provider changes.
+- Verification: API 258/258 · web 123/123 · worker 61/61 · database 3/3 ·
+  domain 1/1 · llm-adapter 123/123 · rendering 14/14 · integration 124/124
+  (story_d24_cook_log 7/7 on real Postgres) · typecheck 0 · lint 0 ·
+  regression gates PASS · contract-check OK · verify-local ALL STEPS PASSED.
+- Live: seeded-chef internal-browser journey — log → rate 4 → note → reload →
+  library "Cooked" row → reopen recall + note; second log (5/5) listed in
+  history; shopping have/need state, station card, print and the existing
+  analysis all unchanged (no re-analysis).
+- Commit(s): pending CI (filled at push).
+
 ## 2026-09-11 — D-23 Track P5-2: printable shopping list, station card, and PDF
 
 - Author / session: DeepSeek V4 Pro (VS Code) D-23 dispatch.

@@ -2510,7 +2510,63 @@ execution output; Git: not available / not authorized throughout.
 
 ### H-24 — D-24 Cook loop
 
-☐ No entry yet.
+- BASE_SHA / COMMIT_SHA: base `6cb5dfb` (A-23 closeout) / final commit recorded
+  in CHANGE_LOG (D-24 commit pending CI — filled at push).
+- Date / agent session: 2026-09-14/15 · DeepSeek V4 Pro (VS Code) D-24 dispatch.
+- Status: **DONE — F1 cook log, F2 rating/note, F6 reopen surface shipped.**
+- Preflight: GO recorded in HANDOFF §0 (D-24A..E) before any code — scope
+  F1/F2/F6 exactly; no migration (`cook_log` shipped in migration 002); API
+  cook module sole writer; renderer read-only; `assertOwned`/INV-17; F2 note
+  carries the next-time text until the F4 field lands (D-26).
+- Summary: new `apps/api/src/modules/cook` (API doc §8 slice) —
+  POST /recipes/:recipeId/cook-logs (cook_date default today, editable;
+  rating 1–5 optional; note optional; `next_time`/`swaps` refused at the
+  boundary → D-26), GET cook-logs (newest first), GET last-cook (F6 reopen
+  summary; `next_time` surfaced when present — only F4/D-26 writes it),
+  PATCH /cook-logs/:cookLogId (rating/note partial; explicit null clears;
+  empty body = canonical no-op). Library row gained `last_cooked_at`
+  (F1 AC-3). Web `CookSection` renders at the top of the workspace: recall
+  strip (last cooked, rating, note) above the analysis, "I cooked this" form
+  (date/rating/note), and the multi-log history. QG2 gate 2e: cook_log*
+  writes confined to the API cook module (+ scratch-tree fire proof in
+  qg2_gates). Playwright e2e `cook-log.spec.ts` covers the fifth critical
+  flow (cook log entry).
+- Files changed: `apps/api/src/modules/cook/**`,
+  `apps/api/src/app.module.ts`, `apps/api/src/modules/recipes/recipe.service.ts`
+  (library last_cooked_at), `apps/web/components/app/CookSection.tsx`,
+  `apps/web/components/app/RecipeWorkspace.tsx`, `apps/web/components/app/
+  HomeView.tsx`, `apps/web/lib/types.ts`, `scripts/regression-gates.sh`,
+  `tests/integration/qg2_gates.test.ts`,
+  `tests/integration/story_d24_cook_log.test.ts`,
+  `tests/e2e/cook-log.spec.ts`, `docs/Recipe_Systems_API.md` §8 annotations,
+  and the unit test files for the touched surfaces.
+- Test results: API 258/258 (24 suites, incl. cook 48 new) · web 123/123
+  (16 suites, incl. CookSection 9) · worker 61/61 · database 3/3 · domain
+  1/1 · llm-adapter 123/123 · rendering 14/14 · integration 124/124
+  (18 suites; story_d24_cook_log 7/7 on real Postgres — default-today date,
+  editable date, multiple logs, library last-cooked, rating CHECK at DB
+  level, PATCH partial/null-clear, cross-account 404s, malformed-id 404s,
+  guest contract, historical rows byte-identical) · typecheck 0 · lint 0 ·
+  regression gates PASS (cook one-writer armed) · contract-check OK ·
+  verify-local ALL STEPS PASSED.
+- Live internal-browser evidence (seeded chef, golden recipe): opened the
+  saved golden recipe → "I cooked this" → date defaulted to today → rated 4 →
+  note "2 green chillies, fenugreek powder off heat" → saved → recall strip
+  "Last cooked 9/15/2026 · Rating 4/5" + note at the top, above the analysis.
+  Reload (browser restart) → library row "Cooked 9/15/2026" → reopen →
+  recall intact. Generated the shopping list (11 rows, five groups, two
+  fenugreek rows, no garlic, allergen line), marked Fish HAVE, logged a
+  SECOND cook (5/5, "perfect with less chilli") → cook history lists both
+  logs → reload → reopen → recall 5/5, Fish still HAVE, "Analysis complete"
+  still showing (model stub-no-provider-q9 — no re-analysis fired), station
+  card + print surfaces unchanged. No provider changes; no new analysis.
+- OPEN DECISION notes: Q1/Q5/Q9/Q10/Q11 untouched. F3/F4/F5 explicitly
+  deferred (D-26/D-31 per DISPATCH). No D-25+ work.
+- Resume point: H-24 done criteria met (acceptance-scene cook step + multiple
+  logs + library last-cooked + privacy). Next per dispatcher: A-24 audit
+  (AUDIT.md) — the audit should re-execute the story_d24 suite and the live
+  cook journey, and confirm the cook one-writer gate fires on a planted
+  violation.
 
 ### H-25 — D-25 Aliases, tags, edit + re-analyse
 

@@ -16,7 +16,7 @@ function mockPrisma() {
     analysis: { findFirst: jest.fn() },
     analysisView: { findUnique: jest.fn() },
     recipeIngredientLine: { count: jest.fn() },
-    cookLog: { count: jest.fn(), findMany: jest.fn() },
+    cookLog: { count: jest.fn(), findMany: jest.fn(), findFirst: jest.fn() },
     cookLogPhoto: { findMany: jest.fn() },
   };
 }
@@ -239,6 +239,7 @@ describe('RecipeService — D-22 save + library (D1/D2)', () => {
       { id: RECIPE_ID, title: 'Untitled recipe', createdAt: new Date('2026-09-10T11:00:00Z') },
     ]);
     prisma.cookLog.count.mockResolvedValue(0);
+    prisma.cookLog.findFirst.mockResolvedValue(null);
     Object.assign(prisma.recipe, overrides.recipe ?? {});
     Object.assign(prisma.analysis, overrides.analysis ?? {});
     Object.assign(prisma.analysisView, overrides.analysisView ?? {});
@@ -308,13 +309,15 @@ describe('RecipeService — D-22 save + library (D1/D2)', () => {
     await expect(svc.saveRecipe(guestActor, RECIPE_ID, {})).rejects.toBeInstanceOf(NotFoundException);
   });
 
-  it('library returns canonical D2 AC-1 rows with the cook-log indicator (EXISTS)', async () => {
+  it('library returns canonical D2 AC-1 rows with the cook-log indicator and D-24 last cooked', async () => {
     const prisma = mockD22();
     prisma.recipe.findMany.mockResolvedValue([
       { id: RECIPE_ID, title: 'Sunday fish curry', createdAt: new Date('2026-09-10T11:00:00Z') },
       { id: '22222222-2222-4222-8222-222222222222', title: FAMILY, createdAt: new Date('2026-09-09T11:00:00Z') },
     ]);
-    prisma.cookLog.count.mockResolvedValueOnce(3).mockResolvedValueOnce(0);
+    prisma.cookLog.findFirst
+      .mockResolvedValueOnce({ cookedAt: new Date('2026-09-12T00:00:00Z') })
+      .mockResolvedValueOnce(null);
     const svc = new RecipeService(prisma);
     const rows = await svc.listLibrary(userActor);
     expect(prisma.recipe.findMany).toHaveBeenCalledWith(
@@ -330,6 +333,7 @@ describe('RecipeService — D-22 save + library (D1/D2)', () => {
         date: '2026-09-10T11:00:00.000Z',
         family: FAMILY,
         has_cook_log: true,
+        last_cooked_at: '2026-09-12',
       },
       {
         recipe_id: '22222222-2222-4222-8222-222222222222',
@@ -337,6 +341,7 @@ describe('RecipeService — D-22 save + library (D1/D2)', () => {
         date: '2026-09-09T11:00:00.000Z',
         family: FAMILY,
         has_cook_log: false,
+        last_cooked_at: null,
       },
     ]);
   });

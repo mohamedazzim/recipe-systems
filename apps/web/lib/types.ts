@@ -83,13 +83,33 @@ export interface SavedRecipe {
   };
 }
 
-/** D-22 (D2): one canonical library row (AC-1 fields exactly). */
+/** D-22 (D2): one canonical library row (AC-1 fields exactly). D-24 (F1 AC-3)
+ *  adds `last_cooked_at` — date-only, null when never cooked. */
 export interface LibraryRecipe {
   recipe_id: string;
   name: string;
   date: string;
   family: string | null;
   has_cook_log: boolean;
+  last_cooked_at: string | null;
+}
+
+/** D-24 (F1/F2/F6): one cook log (API §8 — POST/GET/PATCH wire). */
+export interface CookLog {
+  cook_log_id: string;
+  recipe_id: string;
+  cook_date: string;
+  rating: number | null;
+  note: string | null;
+  next_time: string | null;
+  created_at: string;
+}
+
+/** D-24 (F6): GET /recipes/:recipeId/last-cook — the reopen summary. */
+export interface LastCook {
+  last_cooked_at: string | null;
+  rating: number | null;
+  next_time: string | null;
 }
 
 /** D-30 (Track S): the canonical five market groups (E3). */

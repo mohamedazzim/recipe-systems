@@ -15,6 +15,7 @@ import { IngredientReview } from '@/components/app/IngredientReview';
 import type { WireLine } from '@/lib/types';
 import { MethodSection } from '@/components/app/MethodSection';
 import { ShoppingSection } from '@/components/app/ShoppingSection';
+import { CookSection } from '@/components/app/CookSection';
 import { ReadinessPanel } from '@/components/app/ReadinessPanel';
 import { AnalysisPanel } from '@/components/app/AnalysisPanel';
 
@@ -173,6 +174,11 @@ export function RecipeWorkspace({
           {mode === 'home' ? 'Home explains.' : 'Chef briefs — the station card leads.'}
         </span>
       </div>
+
+      {/* D-24 (F1/F2/F6): the after-cook capture. The reopen recall sits at the
+          top of the workspace (F6 AC-1) and the note stays above the analysis
+          (F2 AC-3) — CookSection renders before every analysis surface. */}
+      <CookSection recipeId={recipeId} />
 
       <section aria-labelledby="save-heading" className="mt-6 rounded-lg border border-border bg-surface p-5">
         <h2 id="save-heading" className="text-small font-semibold text-ink">

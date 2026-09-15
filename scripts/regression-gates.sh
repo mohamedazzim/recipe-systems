@@ -88,6 +88,17 @@ if [ -z "$hits" ]; then note "print path has no live-mapping reads (the persiste
   fire "print must consume the persisted allergen snapshot only:"; echo "$hits"
 fi
 
+# --- 2e. Cook one-writer (D-24) ------------------------------------------------------------------
+echo "-- one-writer: cook_log* written only by the API cook module (D-24)"
+pat='prisma\.(cookLog|cookLogSwap|cookLogPhoto)[A-Za-z]*\.(create|upsert|delete|update|updateMany|createMany|deleteMany)|\b(INSERT INTO|UPDATE|DELETE FROM)\s+cook_log(_swap|_photo)?'
+hits=$(grep -rInE "$pat" "$SCAN/apps" "$SCAN/packages" --include="*.ts" --include="*.tsx" --include="*.sql" \
+  --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=.next --exclude-dir=generated 2>/dev/null \
+  | grep -vE "packages/database/prisma/migrations/" || true)
+outside=$(echo "$hits" | grep -vE "apps/api/src/modules/cook" || true)
+if [ -z "$hits" ]; then trivial "cook one-writer (no write references yet)"; else
+  if [ -z "$outside" ]; then note "cook_log* writes confined to the API cook module"; else fire "cook_log* write outside the API cook module:"; echo "$outside"; fi
+fi
+
 # --- 3. DDL outside Prisma migrations (SCAFFOLD §2) --------------------------------------------
 echo "-- DDL: no CREATE/ALTER/DROP TABLE outside packages/database/prisma/migrations"
 hits=$(grep -rInE "CREATE TABLE|ALTER TABLE|DROP TABLE" "$SCAN/apps" "$SCAN/packages" --include="*.ts" --include="*.tsx" --include="*.sql" \

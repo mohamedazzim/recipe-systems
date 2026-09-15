@@ -85,6 +85,18 @@ describe('QG2 static gates fire on real violations (D-01 criterion)', () => {
     }
   });
 
+  it('one-writer: a cook_log write outside the API cook module fires (D-24)', () => {
+    const s = makeScratch();
+    try {
+      s.write('apps/web/app/page.tsx', 'prisma.cookLog.create({ data: {} });\n');
+      const result = runGates(s.dir);
+      expect(result.exit).toBe(1);
+      expect(result.out).toContain('cook_log* write outside the API cook module');
+    } finally {
+      s.cleanup();
+    }
+  });
+
   it('render read-only: a database write in packages/rendering fires', () => {
     const s = makeScratch();
     try {

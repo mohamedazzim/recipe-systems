@@ -116,7 +116,9 @@ export function HomeView({
                     <span className="flex shrink-0 items-center gap-3">
                       {recipe.has_cook_log ? (
                         <span className="rounded-sm border border-border px-2 py-0.5 text-caption font-semibold text-body">
-                          Cooked
+                          {recipe.last_cooked_at
+                            ? `Cooked ${new Date(`${recipe.last_cooked_at}T12:00:00`).toLocaleDateString()}`
+                            : 'Cooked'}
                         </span>
                       ) : (
                         <span className="text-caption text-faint">No cook log yet</span>

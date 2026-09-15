@@ -246,18 +246,25 @@ Mark a whole group as have. **Auth:** Bearer. **Story:** RS-US-26 AC-4.
 
 ## 8. Cook log (after-cook)
 
+> **D-24 (2026-09-14) ships the F1/F2/F6 slice** — POST /cook-logs, GET /cook-logs,
+> PATCH /cook-logs/:cookLogId (rating/note only), GET /last-cook. Guards follow the
+> existing ownership/session contract (GuestOrJwt + `assertOwned`; writes ride CSRF).
+> Deferred: `next_time` on POST/PATCH (F4) and `/swaps` (F3) → D-26; `/photo` (F5) → D-31.
+
 ### POST /recipes/:recipeId/cook-logs
 Log that I cooked it. **Auth:** Bearer. **Story:** RS-US-31.
-- Body: `{ "cook_date"?: date, "rating"?: 1-5, "note"?: string, "next_time"?: string, "swaps"?: [ swap... ] }`
-- 201: `{ "cook_log_id", "cook_date", ... }`
+- Body (D-24 slice): `{ "cook_date"?: date, "rating"?: 1-5|null, "note"?: string|null }` — `next_time`/`swaps` are D-26 (refused with 400 `INVALID_COOK_LOG`)
+- 201: `{ "cook_log_id", "recipe_id", "cook_date", "rating", "note", "next_time", "created_at" }`
+- `cook_date` defaults to today (F1 AC-1); impossible calendar dates (e.g. `2026-02-31`) → 400
 
 ### GET /recipes/:recipeId/cook-logs
 List cook logs for a recipe. **Auth:** Bearer. **Story:** RS-US-31.
-- 200: `{ "items": [ { "cook_log_id", "cook_date", "rating", "note", "next_time", "created_at" } ] }`
+- 200: `{ "items": [ { "cook_log_id", "recipe_id", "cook_date", "rating", "note", "next_time", "created_at" } ] }` — newest cook first (ix_cook_log_recipe_date)
 
 ### PATCH /cook-logs/:cookLogId
 Edit rating / note / next-time. **Auth:** Bearer. **Story:** RS-US-32, RS-US-34.
-- Body: partial log · 200: updated log
+- Body (D-24 slice): `{ "rating"?: 1-5|null, "note"?: string|null }` — partial; explicit null clears; omitted fields stay. `next_time` editing is RS-US-34 (D-26)
+- 200: updated log · 404 `COOK_LOG_NOT_FOUND` for missing/malformed; foreign log → canonical 404
 
 ### POST /cook-logs/:cookLogId/swaps
 Record a swap / restriction-driven swap. **Auth:** Bearer. **Story:** RS-US-33, RS-US-41.

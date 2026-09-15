@@ -108,6 +108,7 @@ describe('HomeView — D-22 library (D2)', () => {
           date: '2026-09-10T11:00:00.000Z',
           family: 'Coastal Tamil (Kanyakumari) style meen kuzhambu',
           has_cook_log: true,
+          last_cooked_at: '2026-09-12',
         },
         {
           recipe_id: 'r2',
@@ -115,6 +116,7 @@ describe('HomeView — D-22 library (D2)', () => {
           date: '2026-09-09T11:00:00.000Z',
           family: null,
           has_cook_log: false,
+          last_cooked_at: null,
         },
       ],
     });
@@ -122,7 +124,8 @@ describe('HomeView — D-22 library (D2)', () => {
     expect(screen.getByRole('heading', { name: 'Your library' })).toBeInTheDocument();
     const row1 = screen.getByRole('button', { name: /Coastal Tamil/ });
     expect(row1).toBeInTheDocument();
-    expect(screen.getByText('Cooked')).toBeInTheDocument();
+    // D-24 (F1 AC-3): the library row shows the last cooked date.
+    expect(screen.getByText((content) => content.startsWith('Cooked '))).toBeInTheDocument();
     expect(screen.getByText(/Family unknown/)).toBeInTheDocument();
     expect(screen.getByText('No cook log yet')).toBeInTheDocument();
     await userEvent.click(row1);

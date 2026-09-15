@@ -34,6 +34,7 @@ describe('AnalysisController.latestAnalysis (D-18 read route)', () => {
       status: 'complete',
       mode: 'home',
       isCurrent: true,
+      snapshotOfAnalysisId: null,
       promptVersion: 'v2',
       modelVersion: 'stub-no-provider-q9',
       createdAt: new Date('2026-09-09T10:00:00Z'),
@@ -52,8 +53,30 @@ describe('AnalysisController.latestAnalysis (D-18 read route)', () => {
       orderBy: { createdAt: 'desc' },
     });
     expect(result.analysis_id).toBe('a-1');
+    expect(result.snapshot_of_analysis_id).toBeNull(); // D-25 D5 chain
     expect(result.views).toHaveLength(1);
     expect(result.views[0].status).toBe('COMPLETE');
+  });
+
+  it('D-25 D5: exposes the linked previous analysis id when present', async () => {
+    prisma.recipe.findUnique.mockResolvedValue({ id: 'r1', accountId: 'acc-1', guestSessionId: null });
+    prisma.analysis.findFirst.mockResolvedValue({
+      id: 'a-2',
+      status: 'complete',
+      mode: 'home',
+      isCurrent: true,
+      snapshotOfAnalysisId: 'a-1',
+      promptVersion: 'v2',
+      modelVersion: 'stub-no-provider-q9',
+      createdAt: new Date('2026-09-09T10:00:00Z'),
+    });
+    prisma.analysisView.findMany.mockResolvedValue([]);
+
+    const result = await controller.latestAnalysis(
+      { actor } as never,
+      'aaaaaaaa-0000-4000-8000-000000000005',
+    );
+    expect(result.snapshot_of_analysis_id).toBe('a-1');
   });
 
   it('foreign recipe → 404 ANALYSIS_NOT_FOUND (INV-17, no existence leak)', async () => {

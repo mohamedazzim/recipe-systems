@@ -2711,6 +2711,52 @@ execution output; Git: not available / not authorized throughout.
   into `snapshotOfAnalysisId` before the is_current flip) · historical cook-log
   preservation. C7 only with §13 evidence.
 
+### Session 2 — shipped (2026-09-15)
+
+- **Status:** SESSION 2 COMPLETE — C6 explicit re-analysis · D4 saved-recipe edit
+  → parse review (reuses D-12) · D5 snapshot chain. C7 DEFERRED (§13 evidence
+  absent). D-25 COMPLETE (both sessions).
+- **D5 (worker):** `AnalysisJobHandler.finalize` now captures the PREVIOUS current
+  analysis (`findFirst` same recipe, is_current, id≠self, newest) BEFORE the
+  order-safe is_current flip, and persists it as the new analysis's
+  `snapshot_of_analysis_id` (composite self-FK `fk_analysis_snapshot_same_recipe`).
+  First analysis → null. No `cook_log.analysis_id` column (F-2 decision honored).
+- **API wire:** `GET /analysis/:analysisId` + `GET /recipes/:recipeId/analysis`
+  now expose `snapshot_of_analysis_id` (the linked previous analysis; null when
+  none) — "last + current" is reachable from the current analysis.
+- **C6/D4:** no new endpoints — editing a saved recipe reuses the existing D-12
+  parse-review routes (patch/split/merge/delete/review) and never auto-enqueues;
+  re-analysis is the existing explicit `POST /recipes/:recipeId/analyse`.
+- **Snapshot-chain FK note (recorded, not a defect):** `fk_analysis_snapshot_same_recipe`
+  is `NO ACTION` — individual analysis deletes must be newest-first. The only
+  product delete path (D6 recipe delete) cascades ALL analyses in one statement
+  (FK-safe); `story_d17`'s fixture afterAll was reordered recipe-first to match.
+- **Verification:** API 297/297 (26 suites) · worker 64/64 (5 suites) · web 132/132
+  · rendering 15/15 · schemas 112/112 · llm-adapter 123/123 · integration 138/138
+  (21 suites; `story_d25_session2` 3/3 on real Postgres: edit-without-analyse,
+  explicit re-analysis → new current + `snapshot_of_analysis_id` = previous +
+  exactly-one-current + cook note/rating preserved + 9 previous views intact +
+  foreign/malformed-id 404s) · `story_d17` 4/4 · qg2_gates 20/20 · typecheck 0 ·
+  lint 0 · regression gates PASS · contract-check OK · verify-local ALL STEPS
+  PASSED.
+- **Live browser journey (caveat):** the saved golden recipe workspace rendered
+  (IngredientReview + Analyse button + cook history "fish held, garlic stayed
+  out" intact), but the sign-in step was blocked by a PRE-EXISTING Keycloak
+  infra drift — `CODE_TO_TOKEN_ERROR` / `invalid_client_credentials`
+  (realm JSON + `.env` both carry `dev-bff-client-secret`, but the running
+  Keycloak H2 holds a different stored secret; realm re-import was skipped at
+  startup). Auth/Keycloak was NOT touched by D-25; the edit→no-auto-analyse→
+  snapshot-chain→cook-preservation effects are integration-proven on real
+  Postgres by `story_d25_session2` above. Recommend a Keycloak re-import (infra,
+  separate from D-25) before the next live browser pass.
+- **C7:** DEFERRED — §13 weeks-9–10 Must-stability evidence is still not recorded
+  in HANDOFF (same gate D-31 carries).
+- **Resume point:** D-25 is COMPLETE. Next per dispatcher: A-25 audit (AUDIT.md) —
+  re-execute alias resolution (B6, five groups + drumstick confirmation), Q5
+  one-writer, snapshot-chain BLOCKER (re-analyse → previous linked, logs/notes
+  intact), explicit re-run only, and C7 (deferred). Then D-27 (blocked until
+  D-25 completes — now unblocked).
+
 ### H-26 — D-26 Profiles, swaps, next-time, I3/I4
 
 - BASE_SHA / COMMIT_SHA: base `cc5fb88` (D-26 preflight) / final commit recorded

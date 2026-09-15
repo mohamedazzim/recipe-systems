@@ -87,6 +87,7 @@ function jobData(overrides: Partial<AnalysisJobData> = {}): AnalysisJobData {
 interface PrismaMock {
   analysis: {
     findUnique: jest.Mock;
+    findFirst: jest.Mock;
     upsert: jest.Mock;
     update: jest.Mock;
     updateMany: jest.Mock;
@@ -105,6 +106,7 @@ function mockPrisma(): PrismaMock {
   return {
     analysis: {
       findUnique: jest.fn().mockResolvedValue(null),
+      findFirst: jest.fn().mockResolvedValue(null),
       upsert: jest.fn().mockResolvedValue({}),
       update: jest.fn().mockResolvedValue({}),
       updateMany: jest.fn().mockResolvedValue({ count: 0 }),
@@ -147,8 +149,11 @@ describe('D-17 analysis job handler (A-17 contract)', () => {
     expect(prisma.analysis.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ data: { isCurrent: false } }),
     );
+    // D-25 D5: no previous current → the snapshot link is null.
     expect(prisma.analysis.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { status: 'complete', isCurrent: true } }),
+      expect.objectContaining({
+        data: { status: 'complete', isCurrent: true, snapshotOfAnalysisId: null },
+      }),
     );
     expect(prisma.analysis.updateMany.mock.invocationCallOrder[0]).toBeLessThan(
       prisma.analysis.update.mock.invocationCallOrder[0],
@@ -158,6 +163,33 @@ describe('D-17 analysis job handler (A-17 contract)', () => {
     );
     expect(notify).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'complete' }),
+    );
+  });
+
+  it('D-25 D5: re-analysis links the previous current analysis as its snapshot', async () => {
+    const prisma = mockPrisma();
+    prisma.analysis.findFirst.mockResolvedValue({ id: 'previous-analysis-id' });
+    const { handler } = makeHandler(prisma);
+
+    await handler.handle(jobData());
+
+    expect(prisma.analysis.findFirst).toHaveBeenCalledWith({
+      where: {
+        recipeId: '22222222-2222-4222-8222-222222222222',
+        isCurrent: true,
+        id: { not: '11111111-1111-4111-8111-111111111111' },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    });
+    expect(prisma.analysis.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          status: 'complete',
+          isCurrent: true,
+          snapshotOfAnalysisId: 'previous-analysis-id',
+        },
+      }),
     );
   });
 
@@ -199,7 +231,7 @@ describe('D-17 analysis job handler (A-17 contract)', () => {
     // Only the deterministic Views 8/9 are re-upserted; Views 1–7 are kept as-is.
     expect(prisma.analysisView.upsert).toHaveBeenCalledTimes(2);
     expect(prisma.analysis.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { status: 'complete', isCurrent: true } }),
+      expect.objectContaining({ data: { status: 'complete', isCurrent: true, snapshotOfAnalysisId: null } }),
     );
     expect(notify).toHaveBeenCalledWith(expect.objectContaining({ status: 'complete' }));
   });
@@ -229,7 +261,7 @@ describe('D-17 analysis job handler (A-17 contract)', () => {
     expect(adapter.generate).toHaveBeenCalledTimes(7);
     expect(prisma.analysisView.upsert).toHaveBeenCalledTimes(9);
     expect(prisma.analysis.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { status: 'complete', isCurrent: true } }),
+      expect.objectContaining({ data: { status: 'complete', isCurrent: true, snapshotOfAnalysisId: null } }),
     );
   });
 
@@ -346,7 +378,7 @@ describe('D-17 analysis job handler (A-17 contract)', () => {
     expect((view1Upsert?.[0] as { create: { status: string } }).create.status).toBe('INCOMPLETE');
     expect(JSON.stringify(prisma.analysisView.upsert.mock.calls)).not.toContain('UNKNOWN');
     expect(prisma.analysis.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { status: 'complete', isCurrent: true } }),
+      expect.objectContaining({ data: { status: 'complete', isCurrent: true, snapshotOfAnalysisId: null } }),
     );
     expect(notify).toHaveBeenCalledWith(expect.objectContaining({ status: 'complete' }));
   });
@@ -386,7 +418,7 @@ describe('D-17 analysis job handler (A-17 contract)', () => {
     );
     expect((view1Upsert?.[0] as { create: { status: string } }).create.status).toBe('COMPLETE');
     expect(prisma.analysis.update).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { status: 'complete', isCurrent: true } }),
+      expect.objectContaining({ data: { status: 'complete', isCurrent: true, snapshotOfAnalysisId: null } }),
     );
   });
 

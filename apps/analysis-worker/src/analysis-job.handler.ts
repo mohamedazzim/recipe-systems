@@ -389,8 +389,18 @@ export class AnalysisJobHandler {
   }
 
   /** INV-09: exactly one current analysis per recipe — flip others off first
-   *  (order-safe against the partial unique uq_analysis_current), then this on. */
+   *  (order-safe against the partial unique uq_analysis_current), then this on.
+   *  D-25 D5: the snapshot chain is linked HERE — the previous current analysis
+   *  (same recipe) is captured BEFORE the flip and persisted as the new
+   *  analysis's `snapshot_of_analysis_id` (composite self-FK
+   *  fk_analysis_snapshot_same_recipe). No `cook_log.analysis_id` column is
+   *  added — logs stay on recipe_id; the chain makes last + current reachable. */
   private async finalize(analysisId: string, recipeId: string): Promise<void> {
+    const previous = await this.prisma.analysis.findFirst({
+      where: { recipeId, isCurrent: true, id: { not: analysisId } },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    });
     await this.prisma.$transaction([
       this.prisma.analysis.updateMany({
         where: { recipeId, isCurrent: true, id: { not: analysisId } },
@@ -398,7 +408,11 @@ export class AnalysisJobHandler {
       }),
       this.prisma.analysis.update({
         where: { id: analysisId },
-        data: { status: 'complete', isCurrent: true },
+        data: {
+          status: 'complete',
+          isCurrent: true,
+          snapshotOfAnalysisId: previous?.id ?? null,
+        },
       }),
     ]);
   }

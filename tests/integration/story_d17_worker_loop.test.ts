@@ -93,9 +93,12 @@ describe('D-17 analysis worker loop — real Postgres + pg-boss', () => {
   });
 
   afterAll(async () => {
-    for (const id of createdAnalysisIds) {
-      await prisma.analysis.deleteMany({ where: { id } });
-    }
+    // D-25 D5: analyses now carry a composite self-FK snapshot chain
+    // (fk_analysis_snapshot_same_recipe, NO ACTION). Deleting a recipe cascades
+    // ALL its analyses in one statement (order-safe against the self-FK);
+    // individual analysis deletes would need newest-first ordering. Recipe-first
+    // keeps the fixture FK-safe — the production delete path (D6) is the recipe
+    // cascade.
     for (const id of createdRecipeIds) {
       await prisma.recipe.deleteMany({ where: { id } });
     }

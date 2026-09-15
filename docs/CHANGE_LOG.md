@@ -42,7 +42,7 @@
   312 · web 144 · database 3 · domain 1 · llm-adapter 123 · ocr-adapter 13 · rendering
   15 · schemas 112) · integration 151/151 (23 suites) · `regression-gates.sh` PASS ·
   `contract-check` OK · lint 0 · typecheck 0 · build OK (ocr-adapter + api + database).
-- Commit(s): `<sha>` (D-11 follow-up).
+- Commit(s): `dcb60be` (D-11 follow-up).
 
 ## 2026-09-15 — D-11 OCR adapter + low-confidence flagging (PaddleOCR behind the seam)
 

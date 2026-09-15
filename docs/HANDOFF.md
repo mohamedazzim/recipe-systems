@@ -2561,6 +2561,10 @@ execution output; Git: not available / not authorized throughout.
   card + print surfaces unchanged. No provider changes; no new analysis.
 - OPEN DECISION notes: Q1/Q5/Q9/Q10/Q11 untouched. F3/F4/F5 explicitly
   deferred (D-26/D-31 per DISPATCH). No D-25+ work.
+- CI evidence (recorded 2026-09-15): GitHub Actions run **34930312273 =
+  success** on `efb480e` (D-24 implementation) and run **34930324926 =
+  success** on `de47634` (docs SHA fill) — full cumulative suite + gates +
+  migrate + MinIO + integration + build on Ubuntu, green on both.
 - Resume point: H-24 done criteria met (acceptance-scene cook step + multiple
   logs + library last-cooked + privacy). Next per dispatcher: A-24 audit
   (AUDIT.md) — the audit should re-execute the story_d24 suite and the live

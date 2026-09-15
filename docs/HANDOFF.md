@@ -206,37 +206,73 @@
 
 ---
 
-**D-24 PREFLIGHT (2026-09-14, read-only — recorded BEFORE any D-24 code):**
-- Sources read: DISPATCH D-24 (P6-1) · Recipe_Systems §12 F1/F2/F6 + §15 acceptance
-  scene · USER_STORIES F1/F2/F6 · Epic-F_After_Cook.md · ERD §8 cook_log tables +
-  §17 coverage · BUILD_PLAN P6-1 · ADR (Web API owns cook-loop writes; cook notes
-  private) · TEST_PLAN P6 row + §4 time note · AUDIT.md A-24 · HANDOFF ledger ·
-  IMPROVEMENT_PLAN.
-- D-24A (scope): EXACTLY F1 (log cook: `cooked_at` default today editable, multiple
-  logs, library shows last cooked) + F2 (rating 1–5 optional + free-text note,
-  private, visible on reopen above the analysis) + F6 (surface last cooked date,
-  rating, and the next-time line when present). NON-GOALS: F3 swaps, F4 next-time
-  FIELD (write), F5 photos, profiles, D-25+.
-- D-24B (schema): `cook_log` already exists (Prisma + ERD §8) with `cooked_at` DATE,
-  `rating` SMALLINT (CHECK 1–5), `note` TEXT, `next_time_instruction` TEXT — NO
-  migration needed. F6 only SURFACES `next_time_instruction` when a row carries it
-  (F4/D-26 will write it). `cook_log_swap` / `cook_log_photo` untouched.
-- D-24C (ownership): ADR — the Web API owns cook-loop writes. New API cook module is
-  the sole writer of `cook_log` (new QG2 one-writer gate, D-22/D-30 pattern); the
-  worker never writes cook tables; the renderer stays read-only. Library
-  (GET /recipes) extends the D-22 cook indicator with the last cooked date.
-  Ownership via `RecipeService.assertOwned` (INV-17 404s; D-09 cross-account
-  privacy suite re-asserted — ratings/notes return nothing across accounts).
-- D-24D (surface/UX): canonical §15 cook step — “I cooked this” → rate 4 → note
-  “2 green chillies, fenugreek powder off heat” → Sunday reopen shows the note at
-  the top, garlic still absent, list printable. The F2 note carries the next-time
-  text until the dedicated F4 field lands (labeled working assumption, not a silent
-  F4 implementation).
-- D-24E (dependencies/register): D-23 DONE (CI run 69 success 2026-09-14,
-  `f8af600`); no D-29 dependency. Q1/Q5/Q9/Q10/Q11 untouched; no register changes;
-  DeepSeek config untouched; OCR/Q10 untouched.
-- **VERDICT: D-24 = GO** (preflight only — no D-24 code this session; HARD STOP after
-  this trace).
+**D-26 PREFLIGHT (2026-09-15, read-only — recorded BEFORE any D-26 code):**
+- Canonical sources read: DISPATCH D-26 (P7-2; depends on D-24 ONLY; audit A-26) ·
+  BUILD_PLAN P7-2 + §7.8 (I3 defers to the View 9 payload, Q14) · Epic-F F3/F4 ·
+  Epic-H H1/H3/H5 · Epic-I I3/I4 · Recipe_Systems §12 · ERD §5
+  (`account_restriction_profile/item`) + §8 (`cook_log_swap`) + §15.6/§17 (I3 —
+  Q14, honestly open) · ADR (Web API owns account/guest/recipe/tag/restriction/
+  cook-loop writes; I3 persistence location = explicit open decision) · TEST_PLAN
+  P7 row + QG1/QG4/QG5 · AUDIT.md A-26 · API doc §8/§9/§10 · IMPROVEMENT_PLAN
+  P2-1/P2-6 · SCAFFOLD §7 register.
+- D-26A (scope): EXACTLY F3 swaps (record; card rewritten ONLY when applied),
+  F4 dedicated next-time field (PATCH cook-log extension RS-US-34 + station-card
+  print tagged COOK LOG, never CARD), H1 restriction profile (optional; never
+  auto-deletes), H3 conflicts-first + unknown-is-not-a-pass highlighting,
+  H5 restriction-driven swaps (reuse F3 records), I3 per-bowl band only after
+  portions are set (Q14 seam), I4 band tightening (named fish / weighed coconut /
+  measured oil — the D-19 RS-US-45 assumptions surface + a web UI + narrowing
+  proof). NON-GOALS: G2 veto (D-27), pilot gate (D-28), F5 photos (D-31),
+  D-25 items (aliases/tags/edit+re-analyse).
+- D-26B (schema): NO migration needed — `account_restriction_profile/item`,
+  `cook_log_swap`, and `cook_log.next_time_instruction` all exist (migration 002);
+  the frozen `View9PayloadSchema` already carries `per_portion {portions,
+  energy_kcal_min, energy_kcal_max} | null` (the labeled Q14 seam). Frozen D-05
+  schemas are NOT changed: H3 highlighting is a READ-TIME projection over the
+  frozen View 8 payload + profile rows.
+- D-26C (writers, ADR §2): new API restriction module is the sole writer of
+  `account_restriction_*` (new QG2 one-writer gate + fire proof); swaps stay in
+  the cook module (D-24's gate 2e already confines `cookLogSwap` writes);
+  `next_time_instruction` joins the cook module's PATCH (gate 2e covers);
+  applied-swap card updates route through the INTAKE module's line-edit surface
+  (Q4 one-writer preserved — no new line writer); I3/I4 recomputes stay
+  worker-owned via the D-19 view9-recompute queue (API queues, never writes
+  `analysis_*`).
+- D-26D (F4 print integration + ADR §7): the station-card print path currently
+  reads the persisted card snapshot only. The next-time line is written AFTER
+  analysis (post-cook), so analysis-time persistence cannot carry it. ADR §7's
+  permitted-source table gains `cook_log.next_time_instruction` (the LATEST log,
+  surfaced on the station card tagged COOK LOG — never CARD) — recorded as an ADR
+  amendment in the same trace style as the Q2 Option A amendment (D-23B).
+- D-26E (open decisions): Q14 REMAINS OPEN — D-26 builds the per-bowl band to the
+  View 9 payload convention behind the labeled seam, ships NO persisted portion
+  column, and labels the seam in HANDOFF (A-26 BLOCKER class honored). ERD §15
+  open items in D-26's path — diet-pattern vocabulary (H1) and
+  restriction-profile label-pack precedence (H3) — are handled as LABELED PILOT
+  WORKING ASSUMPTIONS with register references (IMPROVEMENT_PLAN P2-6), never
+  silently resolved. Q1/Q5/Q9/Q10/Q11 untouched; Q9 resolved value (DeepSeek)
+  untouched.
+- D-26F (profile semantics, A-26 BLOCKER class): H3 matches profile allergen
+  names against the frozen View 8 `present`/`unknown` NAME strings (the frozen
+  payload carries names only — no id join at read time); conflicts render FIRST;
+  unknown renders as unknown, never a pass; no recipe is ever auto-deleted.
+- D-26G (swap semantics, A-26 BLOCKER class): POST /cook-logs/:cookLogId/swaps
+  records skipped/reduced/increased/swapped (API doc §8 body incl. reason
+  restriction|pantry|other and applied_to_card). Recording never touches the
+  card; `applied_to_card: true` applies via the Intake line-edit path and is
+  recorded on the swap row (auditable); H5 rides the same surface with
+  reason=restriction.
+- D-26H (I3/I4 endpoints): PATCH /analysis/:analysisId/view-9/portions
+  {portions: 3|4} (API doc §10, RS-US-46) queues the view-9 recompute with the
+  portion count; the worker fills `per_portion` in the recomputed View 9 payload;
+  the band WITHOUT portions never shows a per-bowl number (I3 TC-01). PATCH
+  view-9/assumptions (RS-US-45, exists) gets the web tightening UI; the
+  narrowing direction is proven per input (I4 TC-01).
+- D-26I (dependencies/register): D-24 DONE + A-24 PASS (2026-09-15, `6837683`);
+  D-23 print templates present (F4 integration target); D-19 recompute seam
+  present; NO D-25 dependency (DISPATCH table: D-26 depends on D-24 only).
+- **VERDICT: D-26 = GO** (preflight only — no D-26 code this session; HARD STOP
+  after this trace).
 
 ---
 

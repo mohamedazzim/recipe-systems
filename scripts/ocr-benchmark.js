@@ -37,6 +37,7 @@
 // ============================================================================
 
 const fs = require('fs');
+const path = require('path');
 const https = require('https');
 
 // A-11 F-1 remediation: the benchmark consumes the SAME provider-neutral adapter
@@ -317,11 +318,91 @@ async function runManifest(manifestPath) {
   console.log(JSON.stringify({ generatedAt: new Date().toISOString(), provider, results }, null, 2));
 }
 
+// ---------------------------------------------------------------------------
+// Q10 synthetic-fixture benchmark (TECHNICAL OCR validation only).
+// The supplied manifest declares `fixture_status = synthetic_benchmark_fixture`
+// and `provenance = synthetic` — this is NOT a real-card benchmark and must never
+// be cited as satisfying the canonical Q10 / D-28 real-world provenance gate.
+// The image runs through the production adapter seam (paddleProvider →
+// resolveOcrAdapter → PaddleOcrAdapter) and is evaluated against the manifest's
+// reference / critical / forbidden / duplicate-sensitive fields.
+// ---------------------------------------------------------------------------
+async function runQ10Fixture(manifestPath) {
+  const m = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  const imagePath = path.join(path.dirname(path.resolve(manifestPath)), m.image_file);
+  if (!fs.existsSync(imagePath)) {
+    console.log(`BLOCKED: fixture image not found (${imagePath}).`);
+    process.exit(2);
+  }
+  const refs = m.reference_lines || [];
+  const critical = refs
+    .map((r, i) => ((m.critical_lines || []).includes(r) ? i : -1))
+    .filter((i) => i >= 0);
+
+  const t0 = Date.now();
+  const out = await paddleProvider(imagePath); // production adapter seam
+  const latencyMs = Date.now() - t0;
+
+  const r = evaluate({
+    imageId: m.dataset_id || path.basename(manifestPath),
+    referenceLines: refs,
+    ocrLines: out.lines,
+    confidences: out.confidences,
+    latencyMs,
+    critical,
+  });
+
+  const forbiddenHits = (m.forbidden_terms || []).filter((t) =>
+    out.lines.some((l) => l.toLowerCase().includes(t.toLowerCase())),
+  );
+  // Duplicate-sensitive groups use the SAME fuzzy tolerance as evaluate() —
+  // exact string equality would penalize fraction/OCR-orthography drift that
+  // the recall metric already tolerates.
+  const duplicateSensitiveGroups = (m.duplicate_sensitive_groups || []).map((group) => {
+    const present = group.filter((g) => {
+      const gn = normalizeLine(g);
+      const tol = Math.max(2, Math.floor(gn.length * 0.2));
+      return out.lines.some((l) => levenshtein(gn, normalizeLine(l)) <= tol);
+    });
+    return { group, presentCount: present.length, allPresent: present.length === group.length };
+  });
+
+  console.log(JSON.stringify({
+    generatedAt: new Date().toISOString(),
+    fixture_status: m.fixture_status ?? 'unknown',
+    provenance: m.notes?.provenance ?? 'unknown',
+    dataset_id: m.dataset_id ?? null,
+    image_file: m.image_file,
+    image_sha256: null, // filled by the caller if desired (hash not required here)
+    ocr_provider: 'paddle (production adapter seam)',
+    latency_ms: latencyMs,
+    result: {
+      reference_count: r.referenceCount,
+      preserved_count: r.preservedCount,
+      missing_reference_lines: r.missingReferenceLines,
+      critical_count: critical.length,
+      critical_missing: r.criticalMissing,
+      preservation_ratio: r.preservationRatio,
+      char_errors: r.charErrors,
+      confidence_available: r.confidenceAvailable,
+      low_confidence_count: r.lowConfidenceCount,
+      forbidden_hits: forbiddenHits,
+      garlic_absent: forbiddenHits.length === 0,
+      duplicate_sensitive_groups: duplicateSensitiveGroups,
+      pass: r.pass,
+    },
+    ocr_lines: out.lines,
+  }, null, 2));
+
+  process.exit(r.pass && forbiddenHits.length === 0 ? 0 : 1);
+}
+
 const [, , cmd, arg] = process.argv;
 if (cmd === '--self-test') runSelfTest();
 else if (cmd === '--golden-stub') runGoldenStub().catch((e) => { console.error(e); process.exit(1); });
 else if (cmd === '--manifest' && arg) runManifest(arg);
+else if (cmd === '--q10-fixture' && arg) runQ10Fixture(arg).catch((e) => { console.error(e); process.exit(1); });
 else {
-  console.log('Usage:\n  node scripts/ocr-benchmark.js --self-test\n  node scripts/ocr-benchmark.js --golden-stub\n  node scripts/ocr-benchmark.js --manifest <manifest.json>');
+  console.log('Usage:\n  node scripts/ocr-benchmark.js --self-test\n  node scripts/ocr-benchmark.js --golden-stub\n  node scripts/ocr-benchmark.js --manifest <manifest.json>\n  node scripts/ocr-benchmark.js --q10-fixture <manifest.json>');
   process.exit(1);
 }

@@ -2253,6 +2253,24 @@ execution output; Git: not available / not authorized throughout.
   PaddleOCR runtime still absent (no Python interpreter / paddleocr / serving).
   → **Q10 stays OPEN; D-28 stays BLOCKED.** Real benchmark not run; no latency /
   accuracy claim. (See CHANGE_LOG + AUDIT_LOG Q10 determination.)
+- **Q10 TECHNICAL benchmark (2026-09-15) — synthetic fixture `ocr_q10_fixture/`
+  through the REAL PaddleOCR adapter.** Brought up a local PaddleOCR runtime via
+  Docker (`paddlecloud/paddleocr:2.6-cpu-latest`; paddleocr 2.6.1.0 · paddlepaddle
+  2.3.0 · python 3.7.13 · flask 2.2.5 · PP-OCRv3 EN det/rec + ch cls), serving the
+  production `POST /predict/ocr_system` contract on :8866. The synthetic golden
+  card (`kanyakumari_meen_kuzhambu.png`, SHA256 `6E8A5731…D6CE74817`; manifest
+  `C7461476…2E0163F0`, `fixture_status = synthetic_benchmark_fixture`) ran through
+  `resolveOcrAdapter → PaddleOcrAdapter` (new `scripts/ocr-benchmark.js
+  --q10-fixture` mode). Result: 25/26 reference lines preserved (96.15%), **6/6
+  critical lines** (fish/drumstick/mango/coconut/both fenugreeks), garlic absent,
+  both fenugreek lines distinct, 0 low-confidence lines, 20 char-errors, ~4.3 s
+  OCR latency. Live browser (chef, `OCR_PROVIDER=paddle`): upload → 27 draft lines,
+  each "from card" with 90–100% confidence, no garlic, no `needs_review` flags
+  (all ≥ 0.9) → "Ready to analyse". Observed handwriting errors (fractions ¼/½ →
+  '/4, /2; "1" → "I"; Ginger→"Ginqer"; Salt→"Salf"; "Drumstick – 1"→"Drumstick –")
+  while the model stayed ≥ 0.9-confident — the EN model over-confides on these.
+  **This is TECHNICAL validation only — it does NOT satisfy the canonical real-card
+  provenance requirement. Q10 stays OPEN; D-28 stays BLOCKED.**
 
 ### H-12 — D-12 Parse review
 

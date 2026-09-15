@@ -20,6 +20,28 @@
 
 **Rule:** a change that alters any Q1–Q18 row must say so in its entry. The register (SCAFFOLD §7) is the single source of truth for open decisions; this log records the history of how the register changed. No Q-row changes in D-13.
 
+## 2026-09-15 — Q10 technical benchmark: synthetic fixture through real PaddleOCR
+
+- Author / session: DeepSeek V4 Pro (VS Code) Q10 technical validation.
+- What changed: NEW `scripts/ocr-benchmark.js --q10-fixture <manifest>` mode —
+  runs a supplied image through the production seam (`paddleProvider →
+  resolveOcrAdapter → PaddleOcrAdapter`) and evaluates against the manifest's
+  reference/critical/forbidden/duplicate-sensitive fields (fuzzy tolerance shared
+  with `evaluate`). Local PaddleOCR runtime brought up via Docker
+  (`paddlecloud/paddleocr:2.6-cpu-latest`, paddleocr 2.6.1.0, paddlepaddle 2.3.0,
+  python 3.7.13, PP-OCRv3 EN det/rec + ch cls) serving the production
+  `POST /predict/ocr_system` contract on :8866.
+- Benchmark (SYNTHETIC fixture `ocr_q10_fixture/kanyakumari_meen_kuzhambu.png`,
+  manifest `fixture_status = synthetic_benchmark_fixture`, provenance = synthetic):
+  25/26 reference lines (96.15%), 6/6 critical lines, garlic absent, both fenugreek
+  lines distinct, 0 low-confidence, 20 char-errors, ~4.3 s latency. Live browser
+  (chef, `OCR_PROVIDER=paddle`): upload → 27 draft lines, 90–100% confidence, no
+  `needs_review`, "Ready to analyse". Observed handwriting errors (¼/½→'/4,/2;
+  "1"→"I"; Ginger→"Ginqer"; Salt→"Salf") while the model stayed ≥ 0.9-confident.
+- Register impact: **Q10 stays OPEN**; **D-28 stays BLOCKED** — this is TECHNICAL
+  validation only and does NOT satisfy the canonical real-world provenance gate.
+- Commit(s): `<sha>` (Q10 technical benchmark).
+
 ## 2026-09-15 — Q10 corpus determination: `ocr_sample_pics` (no benchmark run)
 
 - Author / session: DeepSeek V4 Pro (VS Code) Q10 evidence-gathering.

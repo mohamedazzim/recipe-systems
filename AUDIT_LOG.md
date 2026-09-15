@@ -639,3 +639,29 @@ Then A-11 closes. Q10 remains the gate for D-28.
 - **Decision:** Q10 stays OPEN; D-28 stays BLOCKED. Required to proceed: (1) a real
   PaddleOCR runtime; (2) provenance metadata or an independently verified
   transcription for the sample cards; (3) the canonical golden-card photo.
+
+### Q10 technical benchmark — synthetic fixture through REAL PaddleOCR (2026-09-15)
+
+- **Runtime (brought up via Docker):** `paddlecloud/paddleocr:2.6-cpu-latest`
+  (paddleocr 2.6.1.0 · paddlepaddle 2.3.0 · python 3.7.13 · flask 2.2.5 ·
+  PP-OCRv3 EN det/rec + ch cls), serving the production `POST /predict/ocr_system`
+  contract on `:8866` — consumed by `PaddleOcrAdapter` (no vendor fields leak).
+- **Fixture (SYNTHETIC, not real provenance):** `ocr_q10_fixture/
+  kanyakumari_meen_kuzhambu.png` (SHA256 `6E8A573115F373F13CC325476F4905B34223
+  8766B64DA7FD6B1CC12D6CE74817`) + manifest `C7461476D4232E703DFE59AE9131BFC806E
+  AF50AEF2A9CA2CA86E8EC2E0163F0` (`fixture_status = synthetic_benchmark_fixture`,
+  `provenance = synthetic`). Run via new `scripts/ocr-benchmark.js --q10-fixture`.
+- **Metrics:** 25/26 reference lines preserved (96.15%) · **6/6 critical lines**
+  (fish/drumstick/mango/coconut/both fenugreeks) · garlic absent · both fenugreek
+  lines distinct · 0 low-confidence · 20 char-errors · ~4.3 s OCR latency ·
+  `pass: true`.
+- **Live browser** (chef, `OCR_PROVIDER=paddle`): upload → 27 draft lines, each
+  "from card" at 90–100% confidence, no garlic, no `needs_review` (all ≥ 0.9) →
+  "Ready to analyse. All lines are confirmed."
+- **Observations:** the EN PP-OCRv3 model stays ≥ 0.9-confident while misreading
+  handwriting (¼/½ → '/4, /2; "1" → "I"; Ginger → "Ginqer"; Salt → "Salf";
+  "Drumstick – 1" → "Drumstick –") — an over-confidence signal relevant to the
+  real-card benchmark and `needs_review` policy.
+- **Decision:** TECHNICAL validation only. **Q10 stays OPEN; D-28 stays BLOCKED** —
+  the canonical real-world provenance requirement is NOT satisfied by this
+  synthetic fixture.

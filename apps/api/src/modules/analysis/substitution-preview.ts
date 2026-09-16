@@ -11,7 +11,8 @@
 //   structural    — the source ingredient's persisted View 1 omission
 //                    consequence states the dish breaks ("different dish or a
 //                    broken one"), or the ingredient sits in a persisted
-//                    View 6 `structural: true` ratio.
+//                    View 6 `structural: true` ratio, or the persisted View 4
+//                    substitution consequence itself states the dish breaks.
 //   modular       — otherwise ("same family" — the neutral, least-claim class).
 //
 // Nothing is invented: when the persisted views carry no structural or
@@ -79,6 +80,14 @@ export function classifySubstitution(input: SubstitutionPreviewInput): Substitut
     if (ratio.structural && (mentioned(ratio.components, ing) || mentioned(ratio.components, sub))) {
       return 'structural';
     }
+  }
+
+  // structural — the persisted View 4 consequence itself states the dish
+  // breaks ("different dish or a broken one"). Grounding uses the SAME
+  // structural vocabulary as View 1's omission consequence, so a like-for-like
+  // swap whose consequence does NOT break the dish stays modular.
+  if (STRUCTURAL_OMISSION.test(norm(input.substitution.consequence))) {
+    return 'structural';
   }
 
   // modular — same-family swap (the neutral, non-invented class).

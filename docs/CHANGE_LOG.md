@@ -1,4 +1,35 @@
-## 2026-09-16 — D-10A EXECUTION (B5 structured form intake)
+## 2026-09-16 — E2E DEFECT REMEDIATION (D-1 · D-2 · D-4; D-3 documented · B2 untouched)
+
+- Remediation of the full E2E audit's four defects — fixes ONLY, no new feature
+  cycle, no full E2E re-run (0 DeepSeek/OCR calls).
+- D-1 (MAJOR): the title/header line is now a reversible flag, not a soft-delete.
+  `recipe_ingredient_line.is_header` (migration 006); `PATCH …/lines/:id`
+  accepts `is_header: false` (unmark) via `IntakeService.unmarkHeader`;
+  `listReviewLines` feeds the review surface while `listDraftLines` (ingredients
+  only) feeds analysis/shopping/print/search/cook-swaps. Web `IngredientReview`
+  gains a Header action + a distinct "Header lines" section with Restore. Raw
+  `recipe_input` stays byte-unchanged.
+- D-2 (MINOR): C7 classifier now also grounds `structural` on the persisted
+  View 4 substitution consequence (same structural vocabulary as View 1); stays
+  deterministic (no LLM/network). Like-for-like fish→firm-white-fish remains
+  `modular`.
+- D-4 (NOTE): `cook-logs` wire carries `has_photo`; `CookSection` skips the
+  expected 404 GET /photo when absent (empty state, no console noise). The
+  canonical 404 `PLATE_PHOTO_NOT_FOUND` API semantics are unchanged.
+- D-3 (NOTE): investigated — root cause is the known amount-parsing gap (paste
+  keeps amounts inside `display_name`; `ingredientMassGrams` reads only
+  `amount_text`/`quantity`) plus dictionary gaps (turmeric/ginger/salt/fresh
+  coriander/small onion/red chillies) and the deliberately-unmapped fenugreek
+  powder. No safe deterministic fix without amount parsing (D-12/D-25) or
+  reference-data review (D-29) — documented, NOT changed.
+- B2 OCR: BLOCKED by `OCR_PROVIDER=disabled` — unchanged, not addressed.
+- D-28 remains PENDING HUMAN EVIDENCE (untouched).
+- Verification: API focused 102/102 · web focused 35/35 · integration
+  `story_b3_parse_review` 8/8 · typecheck 0 · lint 0 · build 0 · migrate
+  applied (006) · `git diff --check` clean with `core.whitespace=cr-at-eol`
+  (three CRLF-convention files carry no trailing spaces).
+
+
 
 - Shipped the last partial development story: B5 (structured form intake, Should)
   as the D-10A continuation (0 DeepSeek/OCR calls).

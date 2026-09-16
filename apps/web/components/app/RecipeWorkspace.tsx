@@ -127,7 +127,8 @@ export function RecipeWorkspace({
   const reloadLines = async (): Promise<void> => {
     try {
       const wire = await api<{ items: WireLine[] }>(`/recipes/${recipeId}/lines`);
-      setLines(wire.items);
+      // D-1: header lines are review-only — the workspace/views read ingredients.
+      setLines(wire.items.filter((l) => !l.is_header));
     } catch {
       // the review surface re-reads on its own schedule; a failed reload is not fatal
     }

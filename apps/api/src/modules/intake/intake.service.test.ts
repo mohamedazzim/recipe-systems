@@ -69,6 +69,7 @@ function mockLine(overrides: Record<string, unknown> = {}) {
     groupName: null,
     confirmedSense: null,
     includeOnList: true,
+    isHeader: false,
     sourceTag: 'CARD',
     needsReview: false,
     ocrConfidence: null,
@@ -289,11 +290,23 @@ describe('IntakeService — D-10 intake', () => {
     expect(prisma.recipeInput).not.toHaveProperty('upsert');
   });
 
-  it('listDraftLines returns non-deleted lines in card order', async () => {
+  it('listDraftLines returns non-deleted INGREDIENT lines in card order (headers excluded)', async () => {
     const { prisma, recipes } = mockPrisma();
     prisma.recipeIngredientLine.findMany.mockResolvedValue([{ id: 'l1' }, { id: 'l2' }]);
     const svc = new IntakeService(prisma, recipes);
     const lines = await svc.listDraftLines(userActor, 'r1');
+    expect(prisma.recipeIngredientLine.findMany).toHaveBeenCalledWith({
+      where: { recipeId: 'r1', deletedAt: null, isHeader: false },
+      orderBy: { lineNo: 'asc' },
+    });
+    expect(lines).toHaveLength(2);
+  });
+
+  it('listReviewLines returns active lines INCLUDING headers (the review surface)', async () => {
+    const { prisma, recipes } = mockPrisma();
+    prisma.recipeIngredientLine.findMany.mockResolvedValue([{ id: 'l1' }, { id: 'h1' }]);
+    const svc = new IntakeService(prisma, recipes);
+    const lines = await svc.listReviewLines(userActor, 'r1');
     expect(prisma.recipeIngredientLine.findMany).toHaveBeenCalledWith({
       where: { recipeId: 'r1', deletedAt: null },
       orderBy: { lineNo: 'asc' },
@@ -490,15 +503,27 @@ describe('IntakeService — D-12 parse review (text scope)', () => {
     expect(prisma.recipeIngredientLine.update).not.toHaveBeenCalled();
   });
 
-  it('markHeader soft-deletes the line (D-12C — no header column; excluded from corrected object)', async () => {
+  it('markHeader flags the line (D-12C/D-1 — header excluded from the corrected object)', async () => {
     const { prisma, recipes } = mockPrisma();
     const line = mockLine({ displayName: 'For the marinade:' });
     prisma.recipeIngredientLine.findFirst.mockResolvedValue(line);
-    prisma.recipeIngredientLine.update.mockResolvedValue({ ...line, deletedAt: new Date() });
+    prisma.recipeIngredientLine.update.mockResolvedValue({ ...line, isHeader: true });
     const svc = new IntakeService(prisma, recipes);
     await svc.markHeader(userActor, 'r1', 'l1', line.updatedAt.toISOString());
     const call = prisma.recipeIngredientLine.update.mock.calls[0][0];
-    expect(call.data.deletedAt).toBeInstanceOf(Date);
+    expect(call.data.isHeader).toBe(true);
+    expect(call.data.deletedAt).toBeUndefined();
+  });
+
+  it('unmarkHeader clears the flag and returns the line to ingredients (D-1 undo)', async () => {
+    const { prisma, recipes } = mockPrisma();
+    const line = mockLine({ displayName: 'For the marinade:', isHeader: true });
+    prisma.recipeIngredientLine.findFirst.mockResolvedValue(line);
+    prisma.recipeIngredientLine.update.mockResolvedValue({ ...line, isHeader: false });
+    const svc = new IntakeService(prisma, recipes);
+    await svc.unmarkHeader(userActor, 'r1', 'l1', line.updatedAt.toISOString());
+    const call = prisma.recipeIngredientLine.update.mock.calls[0][0];
+    expect(call.data.isHeader).toBe(false);
   });
 
   it('softDeleteLine 404s for a missing or foreign line (INV-17 shape)', async () => {

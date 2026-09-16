@@ -104,6 +104,32 @@ describe('classifySubstitution (D-25A C7)', () => {
     ).toBe('structural');
   });
 
+  it('a View 4 consequence that states the dish breaks is structural even without View 1/6', () => {
+    expect(
+      run({
+        substitution: sub('coconut-id', 'Yoghurt', 'Different dish — the coconut body is gone and the stew is broken'),
+        ingredientName: 'Grated Coconut',
+        view1: null,
+        view5: null,
+        view6: null,
+      }),
+    ).toBe('structural');
+  });
+
+  it('a like-for-like fish swap stays modular when no persisted evidence breaks the dish', () => {
+    expect(
+      run({
+        substitution: sub('fish-id', 'Firm white fish', 'Slightly leaner; still a coastal fish curry'),
+        ingredientName: 'Fish',
+        view1: {
+          items: [{ ingredient_id: 'fish-id', job: 'Protein, fat', if_omitted: 'Lighter curry, still this dish', tag: 'CARD' }],
+        },
+        view5: null,
+        view6: null,
+      }),
+    ).toBe('modular');
+  });
+
   it('drumstick is modular — no structural or identity evidence is persisted', () => {
     expect(
       run({

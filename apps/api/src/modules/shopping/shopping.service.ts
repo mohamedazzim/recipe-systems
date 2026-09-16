@@ -161,7 +161,7 @@ export class ShoppingService {
     const recipe = await this.recipes.assertOwned(actor, recipeId);
     const [lines, states] = await Promise.all([
       this.prisma.recipeIngredientLine.findMany({
-        where: { recipeId: recipe.id, deletedAt: null },
+        where: { recipeId: recipe.id, deletedAt: null, isHeader: false },
         orderBy: { lineNo: 'asc' },
       }),
       this.prisma.ingredientShoppingState.findMany({

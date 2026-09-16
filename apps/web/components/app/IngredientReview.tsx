@@ -86,7 +86,8 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
       const result = await api<{ items: WireLine[] }>(`/recipes/${recipeId}/lines`);
       const nextLines = uniqueLines(result.items);
       setLines(nextLines);
-      onLinesLoaded?.(nextLines);
+      // D-1: header lines are lifted out — the views/readiness read ingredients only.
+      onLinesLoaded?.(nextLines.filter((l) => !l.is_header));
       setError(null);
     } catch (err) {
       if (err instanceof ApiError && err.code === 'RECIPE_NOT_FOUND') {
@@ -110,7 +111,8 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
       // routes (API §3). No spinner, no dead request.
       const nextLines = uniqueLines(initialLines ?? []);
       setLines(nextLines);
-      onLinesLoaded?.(nextLines);
+      // D-1: header lines are lifted out — the views/readiness read ingredients only.
+      onLinesLoaded?.(nextLines.filter((l) => !l.is_header));
       setError(null);
       return;
     }
@@ -216,6 +218,29 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
       await refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not remove the line.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /** D-1 (B3/D-12): mark a line as a header (excluded from ingredients) or
+   *  restore it. Reuses the existing PATCH is_header path. */
+  const toggleHeader = async (line: WireLine): Promise<void> => {
+    setSaving(true);
+    setNotice(null);
+    try {
+      await api(`/recipes/${recipeId}/lines/${line.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ is_header: !line.is_header, expected_updated_at: line.updated_at }),
+      });
+      await refresh();
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'STALE_EDIT') {
+        await refresh();
+        setError('This line changed elsewhere. The list has been reloaded.');
+      } else {
+        setError(err instanceof ApiError ? err.message : 'Could not update the line.');
+      }
     } finally {
       setSaving(false);
     }
@@ -341,6 +366,9 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
     );
   }
 
+  const ingredientLines = lines.filter((l) => !l.is_header);
+  const headerLines = lines.filter((l) => l.is_header);
+
   return (
     <section aria-labelledby="ingredients-heading">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
@@ -375,7 +403,7 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
       )}
 
       <ul className="mt-5 divide-y divide-border rounded-lg border border-border bg-surface">
-        {lines.map((line) => {
+        {ingredientLines.map((line) => {
           const isEditing = editingId === line.id;
           const isSplitting = splittingId === line.id;
           return (
@@ -541,6 +569,15 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
                       <Button
                         size="sm"
                         variant="ghost"
+                        onClick={() => void toggleHeader(line)}
+                        disabled={saving}
+                        aria-label={`Mark ${line.display_name} as header`}
+                      >
+                        Header
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
                         onClick={() => {
                           setSplittingId(isSplitting ? null : line.id);
                           setSplitPoint('');
@@ -596,7 +633,33 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
         })}
       </ul>
 
-      {lines.length === 0 && (
+      {headerLines.length > 0 && (
+        <div className="mt-4 rounded-lg border border-dashed border-border bg-background p-4">
+          <h3 className="text-small font-semibold text-muted">
+            Header lines — excluded from ingredients, shopping and print
+          </h3>
+          <ul className="mt-2 divide-y divide-border">
+            {headerLines.map((line) => (
+              <li key={line.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                <span className="text-small text-faint">{line.display_name}</span>
+                {signedIn && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => void toggleHeader(line)}
+                    disabled={saving}
+                    aria-label={`Restore ${line.display_name} as ingredient`}
+                  >
+                    Restore
+                  </Button>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {ingredientLines.length === 0 && (
         <div className="mt-5 rounded-lg border border-border bg-surface px-5 py-8 text-center">
           {!signedIn && initialLines === null ? (
             <p className="text-small text-muted">
@@ -625,8 +688,11 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
       )}
 
       <p className="mt-4 text-caption text-faint">
-        {lines.length} line{lines.length === 1 ? '' : 's'} · the original submission is preserved
-        unchanged.
+        {ingredientLines.length} ingredient{ingredientLines.length === 1 ? '' : 's'}
+        {headerLines.length > 0
+          ? ` · ${headerLines.length} header${headerLines.length === 1 ? '' : 's'}`
+          : ''}{' '}
+        · the original submission is preserved unchanged.
       </p>
     </section>
   );

@@ -44,8 +44,8 @@ export interface OcrIntakeResult {
 /**
  * Wire shape per API doc §3 + D-12B: `id` and `updated_at` added for line addressing and
  * the stale-edit token; `amount` = amount_text (display), `quantity` = parsed amount,
- * `category` = group_name; `canonical_name` stays null until D-29; `is_header` is always
- * false for active lines (headers are excluded from the corrected object — D-12C).
+ * `category` = group_name; `canonical_name` stays null until D-29; `is_header` mirrors the
+ * row's D-1 header flag (headers are excluded from the corrected object — D-12C).
  */
 export interface WireLine {
   id: string;
@@ -118,7 +118,7 @@ export function toWireLine(line: RecipeIngredientLine): WireLine {
     unit: line.unit,
     quantity: line.amount != null ? Number(line.amount) : null,
     category: line.groupName,
-    is_header: false, // headers never appear in the corrected object (D-12C)
+    is_header: line.isHeader ?? false,
     include_on_list: line.includeOnList,
     confirmed_sense: line.confirmedSense,
     needs_review: line.needsReview,
@@ -414,8 +414,20 @@ export class IntakeService {
     return Promise.all(creates);
   }
 
-  /** Non-deleted draft lines in card order. */
+  /** Non-deleted INGREDIENT lines in card order — the corrected object (D-12C):
+   *  header lines (is_header) are excluded from analysis, shopping and print. */
   async listDraftLines(actor: Actor, recipeId: string): Promise<RecipeIngredientLine[]> {
+    await this.assertOwned(actor, recipeId);
+    return this.prisma.recipeIngredientLine.findMany({
+      where: { recipeId, deletedAt: null, isHeader: false },
+      orderBy: { lineNo: 'asc' },
+    });
+  }
+
+  /** D-1 remediation: the parse-review surface — active lines INCLUDING headers,
+   *  so the UI can render them distinctly and offer unmark. The corrected
+   *  object still reads `listDraftLines` (ingredients only). */
+  async listReviewLines(actor: Actor, recipeId: string): Promise<RecipeIngredientLine[]> {
     await this.assertOwned(actor, recipeId);
     return this.prisma.recipeIngredientLine.findMany({
       where: { recipeId, deletedAt: null },
@@ -501,8 +513,9 @@ export class IntakeService {
     return this.prisma.recipeIngredientLine.update({ where: { id: lineId }, data });
   }
 
-  /** B3 AC-2 header marking (D-12C): is_header=true → soft-delete (excluded from the
-   *  corrected object; the raw text stays byte-unchanged in recipe_input). */
+  /** B3 AC-2 header marking (D-12C, D-1 remediation): is_header=true marks the line
+   *  as a header — excluded from the corrected object, shopping and print, but kept
+   *  visible + reversible in review. The raw text stays byte-unchanged in recipe_input. */
   async markHeader(
     actor: Actor,
     recipeId: string,
@@ -513,7 +526,23 @@ export class IntakeService {
     this.assertNotStale(line, expectedUpdatedAt);
     return this.prisma.recipeIngredientLine.update({
       where: { id: lineId },
-      data: { deletedAt: new Date() },
+      data: { isHeader: true },
+    });
+  }
+
+  /** D-1 remediation: undo header marking — the line returns to the ingredient
+   *  set (is_header=false). */
+  async unmarkHeader(
+    actor: Actor,
+    recipeId: string,
+    lineId: string,
+    expectedUpdatedAt: string,
+  ): Promise<RecipeIngredientLine> {
+    const line = await this.getOwnedLine(actor, recipeId, lineId);
+    this.assertNotStale(line, expectedUpdatedAt);
+    return this.prisma.recipeIngredientLine.update({
+      where: { id: lineId },
+      data: { isHeader: false },
     });
   }
 
@@ -595,7 +624,7 @@ export class IntakeService {
     const line = await this.getOwnedLine(actor, recipeId, lineId);
     this.assertNotStale(line, expectedUpdatedAt);
     const next = await this.prisma.recipeIngredientLine.findFirst({
-      where: { recipeId, deletedAt: null, lineNo: { gt: line.lineNo } },
+      where: { recipeId, deletedAt: null, isHeader: false, lineNo: { gt: line.lineNo } },
       orderBy: { lineNo: 'asc' },
     });
     if (!next) {

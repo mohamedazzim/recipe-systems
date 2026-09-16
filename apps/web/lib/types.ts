@@ -129,6 +129,8 @@ export interface CookLog {
   rating: number | null;
   note: string | null;
   next_time: string | null;
+  /** D-4: photo presence — skip the GET /photo 404 when false. */
+  has_photo: boolean;
   created_at: string;
 }
 

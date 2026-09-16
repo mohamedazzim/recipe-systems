@@ -25,7 +25,7 @@ function mockPrisma() {
       update: jest.fn(),
     },
     cookLogSwap: { create: jest.fn() },
-    cookLogPhoto: { findUnique: jest.fn(), upsert: jest.fn() },
+    cookLogPhoto: { findUnique: jest.fn(), findMany: jest.fn().mockResolvedValue([]), upsert: jest.fn() },
     recipeIngredientLine: { findFirst: jest.fn() },
   };
 }
@@ -190,6 +190,22 @@ describe('CookService (D-24 F1/F2/F6)', () => {
     expect(items[0].cook_date).toBe('2026-09-12');
     expect(items[0].note).toBe('2 green chillies, fenugreek powder off heat');
     expect(items[1].rating).toBeNull();
+  });
+
+  it('listCookLogs resolves photo presence — has_photo true only for logs with a photo (D-4)', async () => {
+    const prisma: any = mockPrisma();
+    prisma.recipe.findUnique.mockResolvedValue(ownedRecipe());
+    prisma.cookLog.findMany.mockResolvedValue([
+      logRow({ id: 'a', cookedAt: new Date('2026-09-12T00:00:00Z') }),
+      logRow({ id: 'b', cookedAt: new Date('2026-09-01T00:00:00Z'), rating: null, note: null }),
+    ]);
+    prisma.cookLogPhoto.findMany.mockResolvedValue([{ cookLogId: 'a' }]);
+    const svc = new CookService(prisma, new RecipeService(prisma), intakeMock as unknown as IntakeService);
+    const items = await svc.listCookLogs(userActor, RECIPE_ID);
+    expect(items.map((i) => [i.cook_log_id, i.has_photo])).toEqual([
+      ['a', true],
+      ['b', false],
+    ]);
   });
 
   it('lastCook returns the latest log summary, and the null-safe empty case (F6)', async () => {

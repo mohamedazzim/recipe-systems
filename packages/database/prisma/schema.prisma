@@ -140,6 +140,7 @@ model RecipeIngredientLine {
   groupName      String?   @map("group_name") @db.VarChar(64) // shopping grouping
   confirmedSense String?   @map("confirmed_sense") @db.VarChar(255) // user-confirmed meaning
   includeOnList  Boolean   @default(true) @map("include_on_list")
+  isHeader       Boolean   @default(false) @map("is_header") // D-1: title/header line — excluded from the corrected object (D-12C)
   sourceTag      String    @map("source_tag") @db.VarChar(16) // six-value provenance tag: CARD/METHOD/INFERRED/ABSENT/UNKNOWN/ASSUMED
   needsReview    Boolean   @default(false) @map("needs_review") // C-34: low-confidence OCR lines
   ocrConfidence  Decimal?  @map("ocr_confidence") @db.Decimal(4, 3) // 0–1 (chk_ocr_confidence_range)

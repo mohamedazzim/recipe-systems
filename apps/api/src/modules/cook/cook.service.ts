@@ -92,6 +92,8 @@ export interface CookLogWire {
   rating: number | null;
   note: string | null;
   next_time: string | null;
+  /** D-4: photo presence — lets the UI skip the GET /photo 404 when absent. */
+  has_photo: boolean;
   created_at: string;
 }
 
@@ -137,7 +139,7 @@ type LogRow = {
   createdAt: Date;
 };
 
-function toWire(row: LogRow): CookLogWire {
+function toWire(row: LogRow, hasPhoto = false): CookLogWire {
   return {
     cook_log_id: row.id,
     recipe_id: row.recipeId,
@@ -145,6 +147,7 @@ function toWire(row: LogRow): CookLogWire {
     rating: row.rating,
     note: row.note,
     next_time: row.nextTimeInstruction,
+    has_photo: hasPhoto,
     created_at: row.createdAt.toISOString(),
   };
 }
@@ -197,7 +200,14 @@ export class CookService {
       where: { recipeId },
       orderBy: [{ cookedAt: 'desc' }, { createdAt: 'desc' }],
     });
-    return rows.map(toWire);
+    // D-4: batch-resolve photo presence so the UI renders an empty photo state
+    // instead of issuing a 404 GET per log.
+    const photos = await this.prisma.cookLogPhoto.findMany({
+      where: { cookLogId: { in: rows.map((r) => r.id) } },
+      select: { cookLogId: true },
+    });
+    const withPhoto = new Set(photos.map((p) => p.cookLogId));
+    return rows.map((r) => toWire(r, withPhoto.has(r.id)));
   }
 
   /** F6 — the reopen summary: last cooked date + rating + next-time line
@@ -307,17 +317,18 @@ export class CookService {
       throw new NotFoundException({ code: 'COOK_LOG_NOT_FOUND', message: 'Cook log not found' });
     }
     await this.recipes.assertOwned(actor, log.recipeId);
+    const photo = await this.prisma.cookLogPhoto.findUnique({ where: { cookLogId } });
     // An empty partial body is a canonical no-op — the unchanged log comes
     // back (Prisma forbids an empty update data object).
     if (patch.rating === undefined && patch.note === undefined && patch.nextTime === undefined) {
-      return toWire(log);
+      return toWire(log, photo !== null);
     }
     const data: Prisma.CookLogUpdateInput = {};
     if (patch.rating !== undefined) data.rating = patch.rating ?? null;
     if (patch.note !== undefined) data.note = patch.note ?? null;
     if (patch.nextTime !== undefined) data.nextTimeInstruction = patch.nextTime ?? null;
     const updated = await this.prisma.cookLog.update({ where: { id: cookLogId }, data });
-    return toWire(updated);
+    return toWire(updated, photo !== null);
   }
 
   /**
@@ -342,7 +353,7 @@ export class CookService {
     let line: { id: string; shoppingKey: string; displayName: string; amountText: string | null; updatedAt: Date } | null = null;
     if (input.lineId !== undefined) {
       const row = await this.prisma.recipeIngredientLine.findFirst({
-        where: { id: input.lineId, recipeId: log.recipeId, deletedAt: null },
+        where: { id: input.lineId, recipeId: log.recipeId, deletedAt: null, isHeader: false },
         select: { id: true, shoppingKey: true, displayName: true, amountText: true, updatedAt: true },
       });
       if (!row) {

@@ -297,8 +297,13 @@ export class IntakeController {
     }
 
     if (d.is_header === true) {
-      const deleted = await this.intake.markHeader(actor, recipeId, lineId, d.expected_updated_at);
-      return (await this.intake.resolveWireLines([deleted]))[0]; // D-12C: header marked = excluded from the corrected object
+      const marked = await this.intake.markHeader(actor, recipeId, lineId, d.expected_updated_at);
+      return (await this.intake.resolveWireLines([marked]))[0]; // D-12C: header marked = excluded from the corrected object
+    }
+
+    if (d.is_header === false) {
+      const unmarked = await this.intake.unmarkHeader(actor, recipeId, lineId, d.expected_updated_at);
+      return (await this.intake.resolveWireLines([unmarked]))[0]; // D-1: undo header marking
     }
 
     const patch: LinePatch = {};
@@ -376,11 +381,13 @@ export class IntakeController {
     return (await this.intake.resolveWireLines([line]))[0];
   }
 
-  /** B3: all active lines (200 { items }). */
+  /** B3: all active lines incl. headers (200 { items }) — the review surface.
+   *  D-1: headers ride the wire with is_header=true so the UI can render and
+   *  unmark them; the corrected object (parse-preview) reads ingredients only. */
   @Get(':recipeId/lines')
   @UseGuards(JwtAuthGuard)
   async getLines(@Req() req: AuthedRequest, @Param('recipeId') recipeId: string) {
-    const lines = await this.intake.listDraftLines(this.userActor(req), recipeId);
+    const lines = await this.intake.listReviewLines(this.userActor(req), recipeId);
     return { items: await this.intake.resolveWireLines(lines) };
   }
 

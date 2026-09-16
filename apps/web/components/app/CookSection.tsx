@@ -74,7 +74,9 @@ export function CookSection({ recipeId }: { recipeId: string }) {
       setLast(lastWire);
       const items = Array.isArray(listWire?.items) ? listWire.items : [];
       setLogs(items);
-      await loadPhoto(items[0]?.cook_log_id);
+      // D-4: only fetch the photo when the log actually has one — a missing
+      // photo is an expected empty state, never a 404 GET (no console noise).
+      await loadPhoto(items[0]?.has_photo ? items[0]?.cook_log_id : undefined);
       setError(null);
     } catch (err) {
       // 404 = no logs yet / recipe not found — the workspace owns recipe-level

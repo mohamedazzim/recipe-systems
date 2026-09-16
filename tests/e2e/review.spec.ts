@@ -163,7 +163,7 @@ test.describe('D-12 parse review (signed-in)', () => {
     expect(fresh.status()).toBe(200);
   });
 
-  test('header marking excludes the line; delete removes it from the corrected object (B3 AC-2/AC-1)', async ({ page }) => {
+  test('header marking flags the line (excluded from the corrected object) and unmark restores it (B3 AC-2/D-1)', async ({ page }) => {
     const { req, csrf } = await authedApi(page);
     const text = ['For the marinade:', 'Fish — 500g', 'Fenugreek Powder — 1/2 Tsp', 'Fenugreek — 1/4 Tsp'].join('\n');
     const body = await pasteGolden(req, csrf, text);
@@ -175,6 +175,7 @@ test.describe('D-12 parse review (signed-in)', () => {
       data: { is_header: true, expected_updated_at: header.updated_at },
     });
     expect(marked.status()).toBe(200);
+    expect((await marked.json()).is_header).toBe(true);
 
     const drumstick: WireLine = body.recipe.lines.find((l: WireLine) => l.display_name.includes('Fenugreek Powder'))!;
     const deleted = await req.delete(`${BFF_URL}/recipes/${recipeId}/lines/${drumstick.id}`, {
@@ -182,9 +183,28 @@ test.describe('D-12 parse review (signed-in)', () => {
     });
     expect(deleted.status()).toBe(204);
 
+    // The review surface still lists the header (flagged), while the corrected
+    // object (parse-preview) excludes it.
     const list = await req.get(`${BFF_URL}/recipes/${recipeId}/lines`);
-    const names = (await list.json()).items.map((l: WireLine) => l.display_name);
-    expect(names).toEqual(['Fish — 500g', 'Fenugreek — 1/4 Tsp']);
+    const items: WireLine[] = (await list.json()).items;
+    expect(items.map((l) => l.display_name)).toEqual(['For the marinade:', 'Fish — 500g', 'Fenugreek — 1/4 Tsp']);
+    expect(items.find((l) => l.display_name === 'For the marinade:')?.is_header).toBe(true);
+
+    const preview = await req.get(`${BFF_URL}/recipes/${recipeId}/parse-preview`);
+    const previewNames = (await preview.json()).lines.map((l: WireLine) => l.display_name);
+    expect(previewNames).not.toContain('For the marinade:');
+
+    // Unmark: the header returns to the ingredient set.
+    const current = items.find((l) => l.display_name === 'For the marinade:')!;
+    const unmarked = await req.patch(`${BFF_URL}/recipes/${recipeId}/lines/${current.id}`, {
+      headers: { 'x-csrf-token': csrf, 'Content-Type': 'application/json' },
+      data: { is_header: false, expected_updated_at: current.updated_at },
+    });
+    expect(unmarked.status()).toBe(200);
+    expect((await unmarked.json()).is_header).toBe(false);
+
+    const relist = await req.get(`${BFF_URL}/recipes/${recipeId}/lines`);
+    expect((await relist.json()).items.map((l: WireLine) => l.is_header)).toEqual([false, false, false]);
   });
 
   test('merge recombines the split pair into one line (D-12F)', async ({ page }) => {

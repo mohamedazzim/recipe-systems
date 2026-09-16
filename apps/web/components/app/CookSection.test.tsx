@@ -26,6 +26,7 @@ const LOG: CookLog = {
   rating: 4,
   note: '2 green chillies, fenugreek powder off heat',
   next_time: null,
+  has_photo: false,
   created_at: '2026-09-12T10:00:00.000Z',
 };
 
@@ -184,9 +185,17 @@ describe('CookSection (D-24 F1/F2/F6)', () => {
   });
 
   it('F5: hydrates the attached state from the BFF on reopen', async () => {
-    mockLoad(LAST_COOK, [LOG], { cook_log_id: 'log-1', photo_uri: 's3://recipe-assets/cook/plate.jpg' });
+    mockLoad(LAST_COOK, [{ ...LOG, has_photo: true }], { cook_log_id: 'log-1', photo_uri: 's3://recipe-assets/cook/plate.jpg' });
     render(<CookSection recipeId="r1" />);
     expect(await screen.findByTestId('plate-photo-attached')).toBeInTheDocument();
+  });
+
+  it('D-4: never GETs /photo when the log has no photo — an expected empty state, not a 404', async () => {
+    render(<CookSection recipeId="r1" />);
+    await waitFor(() => expect(api).toHaveBeenCalledWith('/recipes/r1/cook-logs'));
+    const photoCalls = (api as jest.Mock).mock.calls.filter(([path]: [string]) => path.endsWith('/photo'));
+    expect(photoCalls).toHaveLength(0);
+    expect(screen.queryByTestId('plate-photo-attached')).not.toBeInTheDocument();
   });
 
   it('F5: a failed attach surfaces the honest error', async () => {

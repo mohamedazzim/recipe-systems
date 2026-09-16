@@ -5,6 +5,51 @@
 
 ---
 
+## 0a. E2E defect remediation — 2026-09-16 (D-1/D-2/D-4 fixed · D-3 documented · B2 blocked)
+
+Source of truth: the full E2E product audit (HAS DEFECTS — FIX REQUIRED). Fixes only; no
+feature cycle; no full E2E re-run; 0 DeepSeek/OCR calls; D-28 untouched.
+
+- **D-1 (MAJOR) — header/title exclusion.** Root cause: the review UI never exposed the
+  existing `PATCH …/lines/:id { is_header: true }` path, and the backend implemented
+  "header" as an irreversible soft-delete. Fix: `recipe_ingredient_line.is_header` column
+  (migration `006_ingredient_line_is_header`); `IntakeService.markHeader`/`unmarkHeader`
+  toggle the flag; `listReviewLines` (review surface, headers included) vs `listDraftLines`
+  (ingredients only) so the corrected object, shopping, print, library search and cook swaps
+  all exclude headers. Web `IngredientReview`: "Header" action + a distinct "Header lines —
+  excluded from ingredients, shopping and print" section with "Restore" (undo). Raw
+  `recipe_input` byte-unchanged; headers persist + unmark after reload.
+  Evidence: intake service/controller unit tests; web `IngredientReview` header tests; e2e
+  `review.spec.ts` header mark→exclude→unmark; integration `story_b3_parse_review` TC-02 (8/8).
+- **D-2 (MINOR) — C7 classifier grounding.** Root cause: the deterministic classifier
+  consumed View 1/5/6 but not the persisted View 4 consequence. Fix: `classifySubstitution`
+  now returns `structural` when the View 4 consequence itself states the dish breaks (same
+  `STRUCTURAL_OMISSION` vocabulary). Deterministic; no LLM/network; no invention.
+  Evidence: `substitution-preview.test.ts` (structural / modular / identity-shift + the new
+  consequence-grounded and like-for-like cases).
+- **D-3 (NOTE) — View 9 unmapped lines.** Investigated, NOT changed. Root cause: paste
+  intake leaves the amount inside `display_name` (`amount`/`amountText`/`unit` are null) and
+  `ingredientMassGrams` reads only `amount_text`/`quantity` — plus missing dictionary rows
+  (turmeric, ginger, salt, fresh coriander, small onion/onion, red chillies) and the
+  deliberately-unmapped fenugreek powder (no USDA record). A safe deterministic fix requires
+  amount parsing (D-12/D-25) and a reviewed reference-data import (D-29) — out of scope for
+  a NOTE remediation.
+- **D-4 (NOTE) — plate-photo 404 console noise.** Root cause: `CookSection` issued
+  `GET /cook-logs/:id/photo` unconditionally; the canonical 404 `PLATE_PHOTO_NOT_FOUND`
+  surfaced as a browser console error. Fix: the cook-log wire now carries `has_photo`
+  (batched photo-presence lookup in `listCookLogs`); the UI skips the GET when absent and
+  renders the empty state. API 404 semantics unchanged.
+  Evidence: `cook.service.test.ts` has_photo test; `CookSection.test.tsx` no-404 regression.
+- **B2 OCR:** BLOCKED by `OCR_PROVIDER=disabled` — explicitly not addressed (environmental,
+  not a product defect).
+- **Verification:** API focused 102/102 · web focused 35/35 · integration `story_b3` 8/8 ·
+  workspace typecheck 0 · lint 0 · build 0 · migration 006 applied · `git diff --check`
+  clean under `core.whitespace=cr-at-eol` (three CRLF-convention files, no trailing spaces).
+
+
+
+---
+
 ## 0. Session decision trace — 2026-09-11 (Q9 provider switch-back + D-23 preflight)
 
 **Gemini switch-back decision (recorded; history preserved):**

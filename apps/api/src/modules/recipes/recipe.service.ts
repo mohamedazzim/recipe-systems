@@ -243,7 +243,7 @@ export class RecipeService {
     }
     const [lineCount, analysisId, updated] = await Promise.all([
       this.prisma.recipeIngredientLine.count({
-        where: { recipeId, deletedAt: null },
+        where: { recipeId, deletedAt: null, isHeader: false },
       }),
       this.prisma.analysis.findFirst({
         where: { recipeId, isCurrent: true, status: 'complete' },
@@ -412,7 +412,7 @@ export class RecipeService {
           { title: { contains: q, mode: 'insensitive' } },
           {
             lines: {
-              some: { displayName: { contains: q, mode: 'insensitive' }, deletedAt: null },
+              some: { displayName: { contains: q, mode: 'insensitive' }, deletedAt: null, isHeader: false },
             },
           },
           { tags: { some: { tagText: { contains: q, mode: 'insensitive' } } } },

@@ -55,7 +55,7 @@ describe('IngredientReview (D-12 actions)', () => {
     expect(await screen.findByText('Fenugreek seeds 1 tsp')).toBeInTheDocument();
     expect(screen.getByText('Fenugreek leaves, a handful')).toBeInTheDocument();
     expect(screen.getByText('500g')).toBeInTheDocument();
-    expect(screen.getByText(/3 lines/)).toBeInTheDocument();
+    expect(screen.getByText(/3 ingredients/)).toBeInTheDocument();
   });
 
   it('flags review-required lines', async () => {
@@ -219,6 +219,46 @@ describe('IngredientReview (D-12 actions)', () => {
     const body = JSON.parse((clearCalls[0] as [string, RequestInit])[1].body as string);
     expect(body.needs_review).toBe(false);
     expect(body.expected_updated_at).toBe('2026-09-09T10:00:00.000Z');
+  });
+
+  it('D-1: marks a line as header via the existing is_header PATCH path', async () => {
+    const mock = globalThis.fetch as jest.Mock;
+    mock.mockResolvedValueOnce(listResponse(LINES)); // initial load
+    mock.mockResolvedValueOnce(okResponse(line())); // PATCH mark-as-header
+    mock.mockResolvedValue(listResponse(LINES)); // refresh
+
+    render(<IngredientReview {...props()} />);
+    await screen.findByText('Fish — 500g');
+    await userEvent.click(screen.getByRole('button', { name: 'Mark Fish — 500g as header' }));
+
+    const patchCalls = mock.mock.calls.filter((c) => {
+      const [url, init] = c as [string, RequestInit];
+      return url.includes('/lines/l1') && init.method === 'PATCH';
+    });
+    const body = JSON.parse((patchCalls[0] as [string, RequestInit])[1].body as string);
+    expect(body.is_header).toBe(true);
+    expect(body.expected_updated_at).toBe('2026-09-09T10:00:00.000Z');
+  });
+
+  it('D-1: renders header lines in a distinct section and restores via is_header false', async () => {
+    const header = line({ id: 'h1', line_no: 1, display_name: 'Kanyakumari Fish Curry', is_header: true, amount: null });
+    const mock = globalThis.fetch as jest.Mock;
+    mock.mockResolvedValueOnce(listResponse([header, ...LINES])); // initial load
+    mock.mockResolvedValueOnce(okResponse(line({ id: 'h1', is_header: false }))); // PATCH restore
+    mock.mockResolvedValue(listResponse(LINES)); // refresh
+
+    render(<IngredientReview {...props()} />);
+    expect(await screen.findByText('Kanyakumari Fish Curry')).toBeInTheDocument();
+    expect(screen.getByText(/Header lines — excluded from ingredients, shopping and print/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit Kanyakumari Fish Curry' })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Restore Kanyakumari Fish Curry as ingredient' }));
+    const patchCalls = mock.mock.calls.filter((c) => {
+      const [url, init] = c as [string, RequestInit];
+      return url.includes('/lines/h1') && init.method === 'PATCH';
+    });
+    const body = JSON.parse((patchCalls[0] as [string, RequestInit])[1].body as string);
+    expect(body.is_header).toBe(false);
   });
 
   it('stale-edit 409 reloads the list and explains', async () => {

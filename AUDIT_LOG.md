@@ -657,6 +657,23 @@ Then A-11 closes. Q10 remains the gate for D-28.
 - Exact resume point: obtain/run the real 20-user uncoached pilot and reviewer/
   persistence scenarios when API access is available, then execute A-28.
 
+## D-28 final human-pilot gate attempt (2026-09-16)
+
+- **Verdict: PENDING HUMAN EVIDENCE.** A-28 not executed. This is not a fabricated
+  completion; it is the honest determination from the evidence gap matrix.
+- **Live AI usage:** 0 DeepSeek calls, 0 retries, 0 failures. No live analysis, no
+  OCR, no fresh timing run, no exploratory prompts.
+- **Why zero calls:** each remaining criterion requires a real human (the 20-user
+  cohort, the G3 chef reviewer, the two regional reviewers). Model calls cannot
+  convert automated evidence into human evidence and would only consume credits.
+- **Reused evidence:** Q10 golden-card benchmark, prior live photo-to-analysis,
+  historical ~1m40s timing, golden 8/8, corpus 50+20, integration 25/25,
+  D-27/D-22/D-24 17/17, web deterministic 69/69, regression gates PASS.
+- **Open findings:** none new. The blocking gap is unchanged: no real participants
+  are available in this environment to execute the uncoached protocol.
+- **Exact resume point:** obtain and run the real 20-user uncoached pilot, the G3
+  chef pass, and real reviewer/persistence scenarios; then execute the A-28 closing sweep.
+
 ### Q10 corpus determination — `ocr_sample_pics/` (2026-09-15)
 
 - **Inventory:** 15 JPEGs `card-001..015.jpg` (~274×237 px). Content = generic

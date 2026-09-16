@@ -1,3 +1,17 @@
+## 2026-09-16 — D-28 final human-pilot gate attempt (zero AI calls; PENDING)
+
+- Evidence gap matrix built before any AI call. Every remaining D-28 criterion is
+  gated on real human participants, not additional model calls.
+- Live AI usage this run: 0 DeepSeek calls, 0 retries, 0 failures.
+- Decision: no DeepSeek call is justified because each unverified criterion also
+  requires a human (20-user cohort, G3 chef reviewer, regional reviewers). Cost
+  control without reducing canonical coverage.
+- Reused verified evidence: Q10 golden-card benchmark, prior live photo-to-analysis,
+  historical ~1m40s timing, golden 8/8, corpus 50+20, integration 25/25,
+  D-27/D-22/D-24 17/17, web deterministic 69/69, regression gates PASS.
+- D-28 remains PENDING HUMAN EVIDENCE; A-28 not executed. No code, OCR, or product
+  behavior changed; register untouched.
+
 ## 2026-09-16 — D-28 pilot-readiness preparation (zero API cost)
 
 - Audited the canonical D-28 dispatch, §14 metrics, §15 acceptance scene, G2/G3

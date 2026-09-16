@@ -3393,6 +3393,30 @@ does not explain the click path or correct decisions during the run.
 Obtain/run the real 20-user uncoached pilot and reviewer/persistence scenarios when API
 access is available, then execute A-28 and record the go/no-go decision. HARD STOP before D-31.
 
+### H-28 final gate attempt — evidence gap matrix (2026-09-16)
+
+- **Status: PENDING HUMAN EVIDENCE.** DeepSeek credits are available again, but no live
+  AI call was made. Cost control plus the no-fabrication rule together determine the outcome.
+- **Decision:** every remaining unverified D-28 criterion is gated on real human
+  participants, not on model calls. Making live analyses now would consume credits without
+  advancing any single criterion to PASS, because each also requires a human action.
+
+| Criterion | Existing evidence | Fresh human/AI needed | Result |
+|---|---|---|---|
+| Golden no-invention | golden 8/8 + golden fixture 25/25 | No | Reused |
+| Corpus 50 + messy_20 20 | corpus-check OK | No | Reused |
+| Three curries separable (G3) | deterministic family/grounding paths only | Human chef + three live analyses | PENDING (human chef) |
+| Prints fit one page | story_d23_print (real Chromium) | No | Reused |
+| Photo to first analysis < 2 min | historical ~1m40s | Fresh run only at the actual pilot window | Historical reuse |
+| No "safe" / no point-kcal | regression gates + golden | No | Reused |
+| 20-user uncoached cohort | None | 20 real participants | PENDING |
+| View 5 not vetoed wholesale | D-27 implemented + tested | Real regional reviewers | PENDING |
+| Save + list + log without coaching | D-22/D-24 deterministic + prior live | Real uncoached users | PENDING |
+| A-28 blocker sweep + §15 walk | regression gates PASS; prior live walk | Fresh at the pilot commit | Deferred to A-28 |
+
+- **Live AI usage this run:** 0 DeepSeek calls, 0 retries, 0 failures.
+- **D-28 overall: PENDING HUMAN EVIDENCE.** A-28 is NOT executed (D-28 is not complete).
+
 ### H-28 — D-28 Week-12 pilot gate
 
 - **Status: PREFLIGHT ONLY (2026-09-15) — STOP.** No implementation. This entry

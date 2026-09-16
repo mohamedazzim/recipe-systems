@@ -1,3 +1,17 @@
+## 2026-09-16 — D-28 autonomous pilot (0 DeepSeek calls)
+
+- Brought up the full local stack + stub-configured worker; re-ran zero-cost
+  regression (golden 8/8, corpus OK, integration 42/42, web 69/69, gates PASS).
+- 20 autonomous guest sessions via live BFF (AUTONOMOUS-P01..P20): intake, save,
+  cook-log, persistence, isolation — 20/20; guest analyse correctly 422
+  METHOD_REQUIRED.
+- Authenticated browser production path (stub): ingest → review → method →
+  analyse → identification + station card + View 8/9 safeguards → save → library →
+  cook log → reopen persistence, all verified. 0 DeepSeek calls.
+- Finding F-1 (MINOR): dev sign-in credential mismatch in STARTUP.md/dev.sh
+  (`password` vs realm `Password@123`). Not fixed (out of scope).
+- D-28 remains PENDING HUMAN EVIDENCE; A-28 not executed.
+
 ## 2026-09-16 — D-28 final human-pilot gate attempt (zero AI calls; PENDING)
 
 - Evidence gap matrix built before any AI call. Every remaining D-28 criterion is

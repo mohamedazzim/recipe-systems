@@ -674,6 +674,22 @@ Then A-11 closes. Q10 remains the gate for D-28.
 - **Exact resume point:** obtain and run the real 20-user uncoached pilot, the G3
   chef pass, and real reviewer/persistence scenarios; then execute the A-28 closing sweep.
 
+## D-28 autonomous pilot (2026-09-16)
+
+- **Boundary:** autonomous/simulated evidence only; no human evidence claimed.
+- Fresh deterministic regression re-run: golden 8/8, corpus OK, integration 42/42,
+  web 69/69, regression gates PASS.
+- 20-session guest matrix (live BFF): 20/20 complete; guest analyse correctly 422
+  METHOD_REQUIRED; save/cook-log/last-cook persistence green; foreign session →
+  404 (isolation).
+- Authenticated browser flow (stub worker, 0 DeepSeek): full intake → review →
+  method → analysis (complete ~13.8s) → station card + View 8/9 safeguards → save
+  → library → cook log → reopen persistence all verified.
+- Veto: `story_d27` 5/5 fresh; live API has no REVIEWER_EMAILS → veto denied (403).
+- Finding F-1 (MINOR): STARTUP.md/dev.sh dev sign-in credential mismatch
+  (`password` vs realm `Password@123`). Not fixed this run.
+- D-28 remains PENDING HUMAN EVIDENCE. A-28 not executed.
+
 ### Q10 corpus determination — `ocr_sample_pics/` (2026-09-15)
 
 - **Inventory:** 15 JPEGs `card-001..015.jpg` (~274×237 px). Content = generic

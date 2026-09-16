@@ -3417,6 +3417,60 @@ access is available, then execute A-28 and record the go/no-go decision. HARD ST
 - **Live AI usage this run:** 0 DeepSeek calls, 0 retries, 0 failures.
 - **D-28 overall: PENDING HUMAN EVIDENCE.** A-28 is NOT executed (D-28 is not complete).
 
+### H-28 autonomous pilot execution (2026-09-16)
+
+- **Scope:** strongest autonomous validation without fabricating human evidence.
+  Every session is labeled AUTONOMOUS; none is presented as a human participant.
+- **Live stack:** full local stack (Postgres 5433, MinIO, nginx, Keycloak, web 3000,
+  API 3001) + analysis-worker with `ANALYSIS_LLM_STUB=1` (zero API cost).
+
+#### Fresh automated evidence (re-run this session)
+- golden-check 8/8 · corpus-check OK (50 + 20 messy) · integration 42/42 (corpus,
+  golden, D-27 veto, D-22 save, D-24 cook) · web 69/69 · regression gates PASS.
+
+#### Autonomous 20-session guest matrix (live BFF boundary)
+- 20 independent guest sessions (AUTONOMOUS-P01..P20): guest session 200 →
+  parse-text 200 (5–6 lines each) → analyse 422 METHOD_REQUIRED (canonical guest
+  boundary: method attach is Bearer-only) → save 200 → cook-log 201 → last-cook 200
+  rating 4 (persistence). 20/20 complete, 0 failures, ~4.8s total.
+- Cross-session isolation: a foreign guest session reading another session's
+  recipe → canonical 404 (INV-17). No data leak observed.
+
+#### Authenticated production path (real browser, stub worker)
+- Keycloak sign-in → paste 11-line golden-style card → review (canonical chips;
+  Drumstick confirmation accepted; two fenugreeks distinct) → readiness
+  "Ready to analyse" → method paste (Tag METHOD) → analyse → complete in ~13.8s
+  (model `stub-no-provider-q9`) → identification "Coastal Tamil (Kanyakumari) style
+  meen kuzhambu" + station card (both fenugreeks, CARD provenance, "Untasted
+  briefing. Season after.") → View 8 (Contains Fish/Coconut/Fenugreek, H6
+  disclaimer, no "safe") → View 9 (591–768 kcal band, Sodium Unknown, ASSUMED
+  provenance, I6 disclaimer, no point-kcal) → save (family name) → library row +
+  "Cooked 9/16/2026" → cook log rating 4 + note → reload/reopen: name, analysis,
+  method, cook log, and note all persist.
+
+#### G3 chef autonomous simulation
+- NOT performed as a human Chef pass. The workflow was exercised with the
+  deterministic stub (single family). Three-curry separability requires a real
+  human Chef plus the real model; prior 9/15 live evidence already recorded
+  distinct Kerala/Tamil identifications. G3 remains PENDING HUMAN EVIDENCE.
+
+#### Regional reviewer autonomous simulation
+- Deterministic D-27 veto re-run fresh this session (5/5): authorized veto
+  COMPLETE→INCOMPLETE, payload/recipe/other views untouched, idempotency, 403 for
+  non-reviewer, malformed 404, fresh re-analysis. Live API has no REVIEWER_EMAILS
+  configured → no account may veto (403 boundary enforced). Real reviewer actions
+  remain PENDING HUMAN EVIDENCE.
+
+#### Findings
+- F-1 (MINOR, docs): `STARTUP.md` and `scripts/dev.sh` document the seeded sign-in
+  as `chef@recipesystems.test / password`; the Keycloak realm actually seeds
+  `Password@123`. A developer following the docs cannot sign in. Not fixed this
+  run (out of D-28 scope; recorded for the dispatcher).
+
+#### DeepSeek accounting this run
+- 0 calls, 0 retries, 0 failures. All autonomous flows used the deterministic
+  stub; no live model or OCR was invoked.
+
 ### H-28 — D-28 Week-12 pilot gate
 
 - **Status: PREFLIGHT ONLY (2026-09-15) — STOP.** No implementation. This entry

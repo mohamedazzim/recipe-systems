@@ -7,8 +7,8 @@ rem  What it does:
 rem    1. Docker infrastructure (Postgres :5433, MinIO, nginx :8080, Keycloak :8081)
 rem    2. Prisma migrations incl. D-30 shopping + D-23 print columns (packages\database)
 rem    3. NestJS API in its own window (:3001)
-rem    4. Analysis worker in its own window (pg-boss queue; provider per .env,
-rem       deterministic stub default — Q9 RESOLVED: DeepSeek via MODEL_PROVIDER=deepseek)
+rem    4. Analysis worker in its own window (pg-boss queue; DeepSeek drives both
+rem       analysis-view generation and card OCR — provider + keys from .env)
 rem    5. Next.js web in its own window (:3000)
 rem    6. Health-checks everything, then opens the app
 rem
@@ -58,11 +58,17 @@ set "WEB_ORIGIN=http://localhost:3000"
 set "CORS_ORIGINS=http://localhost:3000"
 set "PORT=3001"
 set "NEXT_PUBLIC_API_BASE_URL=http://localhost:3001/api/v1"
-rem Q9 RESOLVED (2026-09-11): the dev worker defaults to the deterministic stub
-rem adapter (ANALYSIS_LLM_STUB=1) unless the local .env selects a real provider
-rem (MODEL_PROVIDER=deepseek | gemini + keys). The stub exercises the full
-rem pipeline incl. the D-16 grounding gate without any provider call.
-if not defined ANALYSIS_LLM_STUB set "ANALYSIS_LLM_STUB=1"
+rem Providers (2026-09-16): DeepSeek drives BOTH analysis-view generation
+rem (MODEL_PROVIDER / LLM_PROVIDER) and card OCR (OCR_PROVIDER). The local .env
+rem supplies the keys (never committed); these defaults only fill the gaps.
+rem With no DEEPSEEK_API_KEY present the view worker falls back to the
+rem deterministic stub (ANALYSIS_LLM_STUB=1) so the pipeline still runs key-free.
+if not defined MODEL_PROVIDER set "MODEL_PROVIDER=deepseek"
+if not defined LLM_PROVIDER set "LLM_PROVIDER=deepseek"
+if not defined OCR_PROVIDER set "OCR_PROVIDER=deepseek"
+if not defined ANALYSIS_LLM_STUB (
+  if defined DEEPSEEK_API_KEY (set "ANALYSIS_LLM_STUB=0") else (set "ANALYSIS_LLM_STUB=1")
+)
 
 rem --- 0. Docker daemon must be running -----------------------------------
 echo [0/6] Checking Docker...
@@ -228,6 +234,7 @@ if "%ANALYSIS_LLM_STUB%"=="1" (
 ) else (
   echo    Worker    : consuming queue "analysis" ^(MODEL_PROVIDER=%MODEL_PROVIDER%^)
 )
+echo    OCR       : %OCR_PROVIDER% ^(DEEPSEEK_MODEL=%DEEPSEEK_MODEL%^)
 echo    Keycloak  : http://localhost:8081  (realm: recipesystems)
 echo    Postgres  : localhost:5433/recipe
 echo    Sign in   : chef@recipesystems.test / password

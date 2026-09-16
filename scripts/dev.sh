@@ -3,10 +3,10 @@
 # Recipe Systems — local dev + test harness (git-bash / MSYS on Windows)
 #
 # Usage:
-#   bash scripts/dev.sh start            # bring up infra + API + web (default)
-#   bash scripts/dev.sh stop             # stop API + web (keeps Docker infra)
-#   bash scripts/dev.sh stop --infra     # stop API + web + Docker stack
-#   bash scripts/dev.sh status           # health-check the four tiers
+#   bash scripts/dev.sh start            # bring up infra + API + web + worker (default)
+#   bash scripts/dev.sh stop             # stop API + web + worker (keeps Docker infra)
+#   bash scripts/dev.sh stop --infra     # stop API + web + worker + Docker stack
+#   bash scripts/dev.sh status           # health-check the four tiers + worker
 #   bash scripts/dev.sh test:unit        # workspace unit tests (jest)
 #   bash scripts/dev.sh test:api         # API unit tests with coverage
 #   bash scripts/dev.sh test:e2e [args]  # Playwright E2E (needs the stack up)
@@ -28,6 +28,17 @@ TMP_DIR="${LOCALAPPDATA:-$HOME/AppData/Local}/Temp/recipe-systems-dev"
 PID_FILE="$TMP_DIR/pids"
 mkdir -p "$TMP_DIR"
 
+# Load the local .env (never committed) if present, so DeepSeek/Gemini keys and
+# provider selections reach the API/worker processes — mirrors start-dev.cmd.
+# `set -a` auto-exports every sourced assignment. The hard-coded dev defaults
+# below still win for infrastructure-critical values (ports, DB, Keycloak, MinIO).
+if [ -f "$REPO_DIR/.env" ]; then
+  set -a
+  # shellcheck disable=SC1091
+  . "$REPO_DIR/.env"
+  set +a
+fi
+
 # --- dev environment (matches .env.example; dev-only values) ---------------
 export DATABASE_URL="postgresql://recipe:recipe_dev_password@localhost:5433/recipe"
 export SESSION_SECRET="dev-session-secret-change-me"
@@ -45,6 +56,20 @@ export AUTH_REDIRECT_BASE="http://localhost:3001"
 export WEB_ORIGIN="http://localhost:3000"
 export CORS_ORIGINS="http://localhost:3000"
 export PORT=3001
+
+# Providers: DeepSeek drives BOTH analysis-view generation and card OCR. The
+# .env (loaded above) supplies the keys; these defaults fill the gaps. With no
+# DEEPSEEK_API_KEY the view worker falls back to the deterministic stub.
+export MODEL_PROVIDER="${MODEL_PROVIDER:-deepseek}"
+export LLM_PROVIDER="${LLM_PROVIDER:-deepseek}"
+export OCR_PROVIDER="${OCR_PROVIDER:-deepseek}"
+if [ -z "${ANALYSIS_LLM_STUB:-}" ]; then
+  if [ -n "${DEEPSEEK_API_KEY:-}" ]; then
+    export ANALYSIS_LLM_STUB=0
+  else
+    export ANALYSIS_LLM_STUB=1
+  fi
+fi
 
 WEB_URL="http://localhost:3000"
 API_URL="http://localhost:3001/api/v1"
@@ -126,6 +151,18 @@ start_web() {
   fi
 }
 
+start_worker() {
+  log "Analysis worker (pg-boss queue; DeepSeek views + OCR)"
+  ( cd "$REPO_DIR/apps/analysis-worker" && exec npx ts-node -T src/main.ts ) >"$TMP_DIR/worker.log" 2>&1 &
+  local pid=$!
+  echo "$pid" >>"$PID_FILE"
+  sleep 5
+  if ! kill -0 "$pid" 2>/dev/null; then
+    fail "worker exited during startup — log tail:"; tail -8 "$TMP_DIR/worker.log"; exit 1
+  fi
+  ok "worker consuming queue \"analysis\" + \"view9-recompute\""
+}
+
 kill_pids() {
   if [ -f "$PID_FILE" ]; then
     while read -r pid; do
@@ -141,6 +178,8 @@ kill_pids() {
       taskkill /PID "$pid" /F >/dev/null 2>&1 || true
     done
   done
+  # The worker listens on no port — sweep its ts-node consumer explicitly.
+  powershell.exe -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { \$_.CommandLine -match 'ts-node' -and \$_.CommandLine -match 'src.main' } | ForEach-Object { Stop-Process -Id \$_.ProcessId -Force -ErrorAction SilentlyContinue }" >/dev/null 2>&1 || true
 }
 
 cmd_start() {
@@ -150,6 +189,7 @@ cmd_start() {
   : >"$PID_FILE"
   start_api
   start_web
+  start_worker
   wait_for "$API_URL/health" "api health"
   wait_for "$WEB_URL" "web"
   echo
@@ -163,7 +203,7 @@ cmd_start() {
 }
 
 cmd_stop() {
-  log "Stopping API + web"
+  log "Stopping API + web + worker"
   kill_pids
   if [ "${1:-}" = "--infra" ]; then
     (cd "$COMPOSE_DIR" && docker compose --profile core --profile identity down)
@@ -177,6 +217,8 @@ cmd_status() {
   curl -sf -o "$probe" "$WEB_URL" 2>/dev/null && ok "web" || fail "web"
   curl -sf -o "$probe" "$API_URL/health" 2>/dev/null && ok "api" || fail "api"
   curl -sf -o "$probe" "$KC_URL" 2>/dev/null && ok "keycloak" || fail "keycloak"
+  worker_count="$(powershell.exe -NoProfile -Command "(Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { \$_.CommandLine -match 'ts-node' -and \$_.CommandLine -match 'src.main' } | Measure-Object).Count" 2>/dev/null | tr -d '\r' || true)"
+  if [ "${worker_count:-0}" -ge 1 ]; then ok "worker"; else fail "worker"; fi
   rm -f "$probe"
   (cd "$COMPOSE_DIR" && docker compose ps --format '{{.Service}} {{.Status}}' | grep -E "postgres|keycloak|minio|nginx")
 }

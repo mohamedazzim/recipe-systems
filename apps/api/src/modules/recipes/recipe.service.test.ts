@@ -418,7 +418,7 @@ describe('RecipeService — D-25 D3 tags + search', () => {
             { title: { contains: 'fish', mode: 'insensitive' } },
             {
               lines: {
-                some: { displayName: { contains: 'fish', mode: 'insensitive' }, deletedAt: null },
+                some: { displayName: { contains: 'fish', mode: 'insensitive' }, deletedAt: null, isHeader: false },
               },
             },
             { tags: { some: { tagText: { contains: 'fish', mode: 'insensitive' } } } },

@@ -62,85 +62,91 @@ export function ReadinessPanel({
   }, [recipeId, signedIn, lines]);
 
   return (
-    <section aria-labelledby="readiness-heading" className="mt-12 border-t border-border pt-8">
+    <section aria-labelledby="readiness-heading" className="mt-6">
       <h2 id="readiness-heading" className="font-display text-h2 text-ink">
         Analysis
       </h2>
-      <p className="mt-1 text-small text-muted">
-        The nine-view analysis runs in the background. Status updates appear below.
-      </p>
 
       {!signedIn ? (
         <p className="mt-4 text-small text-muted">
           Analysis needs an account. Sign in to run it on this recipe.
         </p>
-      ) : state === null && readyError === null ? (
-        <div className="mt-4 flex items-center gap-3 text-small text-muted">
-          <Spinner size="sm" label="Checking readiness" />
-          Checking readiness...
-        </div>
-      ) : (
+      ) : !hasAnalysis || stale ? (
         <>
-          {state && (
-            <div className="mt-4" aria-live="polite">
-              {state.can_enqueue ? (
-                <p className="flex items-center gap-2 text-small font-semibold text-positive">
-                  <CheckCircle size={16} aria-hidden="true" weight="bold" />
-                  Ready to analyse. All lines are confirmed.
-                </p>
-              ) : (
-                <div className="rounded-md border border-gold/60 bg-gold/10 px-4 py-3">
-                  <p className="flex items-center gap-2 text-small font-semibold text-[#8A6516] dark:text-gold">
-                    <Warning size={16} aria-hidden="true" weight="bold" />
-                    Review required
-                  </p>
-                  <p className="mt-1 text-small text-body">
-                    {state.blockers.length} line{state.blockers.length === 1 ? '' : 's'} need
-                    your attention before analysis can begin.
-                  </p>
-                  <ul className="mt-2 list-inside list-disc text-small text-body">
-                    {state.blockers.map((b) => (
-                      <li key={b.line_id}>{b.display_name}</li>
-                    ))}
-                  </ul>
+          {!hasAnalysis && (
+            <p className="mt-1 text-small text-muted">
+              The nine-view analysis runs in the background. Status updates appear below.
+            </p>
+          )}
+          {state === null && readyError === null ? (
+            <div className="mt-4 flex items-center gap-3 text-small text-muted">
+              <Spinner size="sm" label="Checking readiness" />
+              Checking readiness...
+            </div>
+          ) : (
+            <>
+              {state && (
+                <div className="mt-4" aria-live="polite">
+                  {state.can_enqueue ? (
+                    <p className="flex items-center gap-2 text-small font-semibold text-positive">
+                      <CheckCircle size={16} aria-hidden="true" weight="bold" />
+                      Ready to analyse. All lines are confirmed.
+                    </p>
+                  ) : (
+                    <div className="rounded-md border border-gold/60 bg-gold/10 px-4 py-3">
+                      <p className="flex items-center gap-2 text-small font-semibold text-[#8A6516] dark:text-gold">
+                        <Warning size={16} aria-hidden="true" weight="bold" />
+                        Review required
+                      </p>
+                      <p className="mt-1 text-small text-body">
+                        {state.blockers.length} line{state.blockers.length === 1 ? '' : 's'} need
+                        your attention before analysis can begin.
+                      </p>
+                      <ul className="mt-2 list-inside list-disc text-small text-body">
+                        {state.blockers.map((b) => (
+                          <li key={b.line_id}>{b.display_name}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
-          )}
 
-          {stale && hasAnalysis && (
-            <div className="mt-4">
-              <Alert tone="warning" title="Changes need analysis">
-                The recipe changed since your last analysis. Re-analyse to refresh the views.
-              </Alert>
-            </div>
-          )}
+              {stale && hasAnalysis && (
+                <div className="mt-4">
+                  <Alert tone="warning" title="Changes need analysis">
+                    The recipe changed since your last analysis. Re-analyse to refresh the views.
+                  </Alert>
+                </div>
+              )}
 
-          {error && (
-            <div className="mt-4">
-              <Alert tone="error" title="Analysis did not start">
-                {error}
-              </Alert>
-            </div>
-          )}
+              {error && (
+                <div className="mt-4">
+                  <Alert tone="error" title="Analysis did not start">
+                    {error}
+                  </Alert>
+                </div>
+              )}
 
-          <div className="mt-5 flex flex-wrap items-center gap-3">
-            <Button
-              size="lg"
-              onClick={() => void onAnalyse()}
-              disabled={analysing || (state !== null && !state.can_enqueue)}
-            >
-              {analysing ? 'Starting analysis…' : stale ? 'Re-analyze recipe' : 'Analyse recipe'}
-            </Button>
-            {state !== null && !state.can_enqueue && (
-              <span className="inline-flex items-center gap-1.5 text-small text-muted">
-                <XCircle size={14} aria-hidden="true" className="text-negative" />
-                Blocked by the lines above.
-              </span>
-            )}
-          </div>
+              <div className="mt-5 flex flex-wrap items-center gap-3">
+                <Button
+                  size="lg"
+                  onClick={() => void onAnalyse()}
+                  disabled={analysing || (state !== null && !state.can_enqueue)}
+                >
+                  {analysing ? 'Starting analysis…' : stale ? 'Re-analyze recipe' : 'Analyse recipe'}
+                </Button>
+                {state !== null && !state.can_enqueue && (
+                  <span className="inline-flex items-center gap-1.5 text-small text-muted">
+                    <XCircle size={14} aria-hidden="true" className="text-negative" />
+                    Blocked by the lines above.
+                  </span>
+                )}
+              </div>
+            </>
+          )}
         </>
-      )}
+      ) : null}
     </section>
   );
 }

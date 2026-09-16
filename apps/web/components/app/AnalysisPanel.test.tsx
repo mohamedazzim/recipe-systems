@@ -91,13 +91,12 @@ describe('AnalysisPanel (D-17 states + D-18 result)', () => {
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
-  it('stale: shows a changes-need-analysis banner above the views', async () => {
+  it('stale: shows a compact out-of-date tag above the views', async () => {
     (globalThis.fetch as jest.Mock).mockResolvedValue({
       ok: true, status: 200, json: async () => stateOf('complete', []),
     });
     render(<AnalysisPanel {...props({ stale: true })} />);
-    expect(await screen.findByText('Changes need analysis')).toBeInTheDocument();
-    expect(screen.getByText(/before your latest edits/)).toBeInTheDocument();
+    expect(await screen.findByText('Views out of date — re-analyse')).toBeInTheDocument();
   });
 
   it('backend error surfaces the message', async () => {

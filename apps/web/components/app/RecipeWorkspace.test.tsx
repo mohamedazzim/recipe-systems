@@ -37,11 +37,8 @@ jest.mock('@/components/app/ReadinessPanel', () => ({
   ),
 }));
 jest.mock('@/components/app/AnalysisPanel', () => ({
-  AnalysisPanel: ({ analysisId, stale }: { analysisId: string | null; stale?: boolean }) => (
-    <p>
-      Panel: {analysisId ?? 'none'}
-      {stale ? ' (stale)' : ''}
-    </p>
+  AnalysisPanel: ({ analysisId }: { analysisId: string | null }) => (
+    <p>Panel: {analysisId ?? 'none'}</p>
   ),
 }));
 
@@ -96,7 +93,6 @@ describe('RecipeWorkspace', () => {
     // the user edits a line — no auto re-enqueue, just a stale marker
     await userEvent.click(screen.getByRole('button', { name: 'Simulate edit' }));
     expect(await screen.findByRole('button', { name: 'Re-analyse now' })).toBeInTheDocument();
-    expect(screen.getByText(/Panel: a-1/)).toHaveTextContent('(stale)');
     // editing never POSTs /analyse automatically
     const analyseCalls = (api as jest.Mock).mock.calls.filter(
       ([p]: [string]) => String(p).endsWith('/analyse'),

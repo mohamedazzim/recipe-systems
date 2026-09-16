@@ -346,29 +346,27 @@ export function RecipeWorkspace({
 
         {/* PRIMARY pane — analysis status + views, immediately visible. */}
         <div className={`min-w-0 ${analysisId !== null ? 'order-1' : 'order-2'} lg:order-2`}>
-          <div className="lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
-            <ReadinessPanel
-        recipeId={recipeId}
-        signedIn={signedIn}
-        lines={lines}
-        onAnalyse={runAnalysis}
-        analysing={analysing}
-        error={analyseError}
-        hasAnalysis={analysisId !== null}
-        stale={analysisStale}
-      />
+          <ReadinessPanel
+            recipeId={recipeId}
+            signedIn={signedIn}
+            lines={lines}
+            onAnalyse={runAnalysis}
+            analysing={analysing}
+            error={analyseError}
+            hasAnalysis={analysisId !== null}
+            stale={analysisStale}
+          />
 
-      <AnalysisPanel
-        analysisId={analysisId}
-        recipeId={recipeId}
-        lines={lines}
-        methodState={methodState}
-        signedIn={signedIn}
-        mode={mode}
-        stale={analysisStale}
-        onRetry={runAnalysis}
-      />
-          </div>
+          <AnalysisPanel
+            analysisId={analysisId}
+            recipeId={recipeId}
+            lines={lines}
+            methodState={methodState}
+            signedIn={signedIn}
+            mode={mode}
+            stale={analysisStale}
+            onRetry={runAnalysis}
+          />
         </div>
       </div>
     </div>

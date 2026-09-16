@@ -25,7 +25,7 @@ export interface AnalysisPanelProps {
   signedIn: boolean;
   /** D-20 (C3): home explains, chef briefs (station card leads). */
   mode?: 'home' | 'chef';
-  /** The recipe changed since this analysis — show a stale banner. */
+  /** The recipe changed since this analysis — show an out-of-date tag. */
   stale?: boolean;
   /** Retry action (same POST /analyse the workspace owns). */
   onRetry?: () => void;
@@ -55,20 +55,12 @@ export function AnalysisPanel({
   }
 
   return (
-    <section aria-labelledby="status-heading" className="mt-12 border-t border-border pt-8">
-      <h2 id="status-heading" className="font-display text-h2 text-ink">
+    <section aria-labelledby="status-heading" className="mt-6">
+      <h2 id="status-heading" className="sr-only">
         Analysis status
       </h2>
 
-      {stale && (
-        <div className="mt-4">
-          <Alert tone="warning" title="Changes need analysis">
-            The views below are from before your latest edits. Re-analyse to refresh them.
-          </Alert>
-        </div>
-      )}
-
-      <div className="mt-4 rounded-lg border border-border bg-surface p-5">
+      <div className="rounded-lg border border-border bg-surface p-5">
         {analysis === null && error === null && (
           <div className="flex items-center gap-3 text-small text-muted">
             <Spinner size="sm" label="Loading analysis status" />
@@ -90,6 +82,11 @@ export function AnalysisPanel({
               {analysis.status === 'complete' && <CheckCircle size={18} aria-hidden="true" className="text-positive" weight="bold" />}
               {analysis.status === 'failed' && <XCircle size={18} aria-hidden="true" className="text-negative" weight="bold" />}
               <span className="font-semibold text-ink">{STATUS_COPY[analysis.status]?.label ?? analysis.status}</span>
+              {stale && (
+                <span className="inline-flex items-center rounded-full border border-gold/60 bg-gold/10 px-2 py-0.5 text-caption font-semibold text-[#8A6516] dark:text-gold">
+                  Views out of date — re-analyse
+                </span>
+              )}
             </div>
 
             {analysis.status !== 'complete' && analysis.status !== 'failed' && (
@@ -98,20 +95,10 @@ export function AnalysisPanel({
               </p>
             )}
 
-            <dl className="mt-4 grid gap-2 text-small sm:grid-cols-3">
-              <div>
-                <dt className="text-faint">Mode</dt>
-                <dd className="font-semibold text-body">{analysis.mode}</dd>
-              </div>
-              <div>
-                <dt className="text-faint">Prompt version</dt>
-                <dd className="font-semibold text-body">{analysis.prompt_version}</dd>
-              </div>
-              <div>
-                <dt className="text-faint">Model</dt>
-                <dd className="font-semibold text-body">{analysis.model_version ?? 'not recorded'}</dd>
-              </div>
-            </dl>
+            <p className="mt-2 text-caption text-faint">
+              {analysis.mode} · prompt {analysis.prompt_version} ·{' '}
+              {analysis.model_version ?? 'model not recorded'}
+            </p>
 
             {analysis.status === 'failed' && (
               <div className="mt-4">

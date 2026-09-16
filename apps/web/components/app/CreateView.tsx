@@ -223,13 +223,29 @@ export function CreateView({ signedIn, accountId, onBack, onParsed, onUploaded }
                 htmlFor="recipe-photo"
                 className="mt-4 block cursor-pointer rounded-lg border-2 border-dashed border-border-strong p-5 text-center transition-colors hover:border-accent hover:bg-accent/5"
               >
-                <Camera size={24} aria-hidden="true" className="mx-auto text-muted" />
-                <span className="mt-2 block text-small font-semibold text-ink">
-                  Drop a photo here, or click to choose a file
-                </span>
-                <span className="mt-1 block text-caption text-faint">
-                  {file ? file.name : 'No file chosen'}
-                </span>
+                {previewUrl ? (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={previewUrl}
+                      alt="Selected recipe card"
+                      className="mx-auto max-h-48 w-full rounded-md border border-border bg-background object-contain"
+                    />
+                    <span className="mt-2 block truncate text-caption text-faint">
+                      {file?.name}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Camera size={24} aria-hidden="true" className="mx-auto text-muted" />
+                    <span className="mt-2 block text-small font-semibold text-ink">
+                      Drop a photo here, or click to choose a file
+                    </span>
+                    <span className="mt-1 block text-caption text-faint">
+                      JPEG or PNG, up to 10 MB
+                    </span>
+                  </>
+                )}
                 <input
                   id="recipe-photo"
                   type="file"
@@ -237,20 +253,9 @@ export function CreateView({ signedIn, accountId, onBack, onParsed, onUploaded }
                   aria-label="Choose recipe photo"
                   onChange={onFileChange}
                   disabled={uploading}
-                  className="mt-3 block w-full text-small text-body file:mr-3 file:rounded-md file:border file:border-border-strong file:bg-background file:px-3 file:py-1.5 file:text-small file:font-semibold file:text-ink"
+                  className="sr-only"
                 />
               </label>
-
-              {previewUrl && (
-                <div className="mt-3">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={previewUrl}
-                    alt="Selected recipe card"
-                    className="max-h-48 w-full rounded-md border border-border bg-background object-contain"
-                  />
-                </div>
-              )}
 
               {uploadError && (
                 <div className="mt-3">

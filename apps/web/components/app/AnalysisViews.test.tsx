@@ -44,7 +44,7 @@ describe('AnalysisViews (D-18 home mode, persisted payloads only)', () => {
           }),
         ])}
         lines={LINES}
-        methodState={{ method_tag: 'INFERRED', method_source: 'CDK 1669 / Mrs. Anitha', list_only: false }}
+        methodState={{ method_tag: 'INFERRED', method_source: 'CDK 1669 / Mrs. Anitha', method_text: 'Simmer in tamarind water.', list_only: false }}
       />,
     );
     expect(screen.getAllByText('Coastal Tamil meen kuzhambu').length).toBeGreaterThan(0);

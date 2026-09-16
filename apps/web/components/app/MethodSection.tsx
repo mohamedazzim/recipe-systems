@@ -26,6 +26,9 @@ export interface MethodSectionProps {
   recipeId: string;
   signedIn: boolean;
   onChange?: (state: MethodState) => void;
+  /** Fires ONLY after a successful save (never on mount hydration) — the
+   *  workspace uses it to mark a completed analysis stale. */
+  onSaved?: (state: MethodState) => void;
 }
 
 type Mode = 'none' | 'paste' | 'inferred';
@@ -36,18 +39,19 @@ function persistedMode(state: MethodState | null): Mode {
   return 'none';
 }
 
-export function MethodSection({ recipeId, signedIn, onChange }: MethodSectionProps) {
+export function MethodSection({ recipeId, signedIn, onChange, onSaved }: MethodSectionProps) {
   const [state, setState] = useState<MethodState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  /** true only after a successful save in this view — drives the clear
+   *  "Method saved successfully" confirmation. */
+  const [justSaved, setJustSaved] = useState(false);
   const [mode, setMode] = useState<Mode>('none');
   const [text, setText] = useState('');
   const [source, setSource] = useState('');
   // true while the form differs from the persisted state — a dirty form never
   // shows "saved".
   const [dirty, setDirty] = useState(false);
-  // the last mode the USER saved successfully (null = never saved in this view)
-  const [userSaved, setUserSaved] = useState<Mode | null>(null);
   // a save completed before the mount-hydration returned: the late (stale)
   // hydration result must not overwrite the fresher saved state.
   const savedRef = useRef(false);
@@ -55,14 +59,16 @@ export function MethodSection({ recipeId, signedIn, onChange }: MethodSectionPro
   useEffect(() => {
     if (!signedIn) return;
     savedRef.current = false;
-    setUserSaved(null);
     // Read-only hydration — mounts never write (method-survives-reload).
     api<MethodState>(`/recipes/${recipeId}/method`)
       .then((loaded) => {
         if (savedRef.current) return; // a user save already settled — keep it
         setState(loaded);
         setMode(persistedMode(loaded));
+        setText(loaded.method_text ?? '');
+        setSource(loaded.method_source ?? '');
         setDirty(false);
+        setJustSaved(false);
         onChange?.(loaded);
       })
       .catch(() => {
@@ -82,16 +88,18 @@ export function MethodSection({ recipeId, signedIn, onChange }: MethodSectionPro
         });
         savedRef.current = true;
         setState(result);
+        setText((prev) => result.method_text ?? prev);
         setDirty(false);
-        setUserSaved(body.method);
+        setJustSaved(true);
         onChange?.(result);
+        onSaved?.(result);
       } catch (err) {
         setError(err instanceof ApiError ? err.message : 'Could not save the method.');
       } finally {
         setSaving(false);
       }
     },
-    [recipeId, onChange],
+    [recipeId, onChange, onSaved],
   );
 
   const submit = (): void => {
@@ -107,48 +115,83 @@ export function MethodSection({ recipeId, signedIn, onChange }: MethodSectionPro
   const selectMode = (value: Mode): void => {
     setMode(value);
     setError(null);
+    setJustSaved(false);
     setDirty(value !== persistedMode(state));
+  };
+
+  /** Reveal + focus the saved method's form for editing (the textarea already
+   *  carries the persisted text). */
+  const editSaved = (): void => {
+    setMode(persistedMode(state));
+    setJustSaved(false);
+    document.getElementById('method-text')?.focus();
   };
 
   return (
     <section aria-labelledby="method-heading" className="mt-12 border-t border-border pt-8">
       <h2 id="method-heading" className="font-display text-h2 text-ink">
-        Method
+        Cooking Method
       </h2>
       <p className="mt-1 text-small text-muted">
         How the dish is cooked. With no method, the analysis is list-only: Views 3 and 7 will be
         incomplete.
       </p>
 
-      {state && (
-        <p className="mt-4 text-small text-body" aria-live="polite">
-          {saving
-            ? 'Saving method…'
-            : error
-              ? `Could not save method — ${error}.`
-              : dirty || (state.method_tag === null && userSaved === null)
-                ? 'Method ready to save.'
-                : 'Method saved.'}
-        </p>
-      )}
-      {state && !dirty && !saving && !error && (
-        <p className="mt-1 text-small text-muted">
-          {state.method_tag === 'METHOD' && 'Tag: METHOD — saved from your paste.'}
-          {state.method_tag === 'INFERRED' &&
-            `Tag: INFERRED — source: ${state.method_source ?? 'a named source'}.`}
-          {state.method_tag === null &&
-            (userSaved === 'none'
-              ? 'Method cleared. List-only: Views 3 and 7 will be incomplete.'
-              : 'List-only: Views 3 and 7 will be incomplete.')}
-        </p>
-      )}
+      {signedIn && (
+        <>
+          {saving ? (
+            <p className="mt-4 text-small text-body" aria-live="polite">
+              Saving method…
+            </p>
+          ) : dirty ? (
+            <p className="mt-4 text-small text-muted" aria-live="polite">
+              You have unsaved changes.
+            </p>
+          ) : null}
 
-      {error && (
-        <div className="mt-4">
-          <Alert tone="error" title="Could not save the method">
-            {error}
-          </Alert>
-        </div>
+          {justSaved && !dirty && !saving && !error && state?.method_tag && (
+            <div className="mt-4">
+              <Alert tone="success" role="status" title="Method saved successfully">
+                Your cooking method has been saved and is now attached to this recipe.
+              </Alert>
+            </div>
+          )}
+
+          {error && (
+            <div className="mt-4">
+              <Alert tone="error" title="Could not save method. Please try again.">
+                {error}
+              </Alert>
+            </div>
+          )}
+
+          {!dirty && !saving && !error && state !== null && state.method_tag && (
+            <div className="mt-4 rounded-lg border border-border bg-surface p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-small font-semibold text-positive">Cooking method attached</p>
+                <Button size="sm" variant="outline" onClick={editSaved} disabled={saving}>
+                  Edit method
+                </Button>
+              </div>
+              <p className="mt-1 text-caption text-muted">
+                {state.method_tag === 'METHOD'
+                  ? 'Tag: METHOD — saved from your paste.'
+                  : `Tag: INFERRED — source: ${state.method_source ?? 'a named source'}.`}
+              </p>
+              {state.method_text && (
+                <p className="mt-2 whitespace-pre-wrap border-l-2 border-border-strong pl-3 text-small text-body">
+                  {state.method_text}
+                </p>
+              )}
+            </div>
+          )}
+
+          {!dirty && !saving && state !== null && state.method_tag === null && (
+            <p className="mt-4 text-small text-muted" aria-live="polite">
+              No method attached. Analysis will be list-only: Views 3 and 7 will be incomplete.
+            </p>
+          )}
+        </>
       )}
 
       {!signedIn ? (
@@ -198,6 +241,7 @@ export function MethodSection({ recipeId, signedIn, onChange }: MethodSectionPro
                   setText(e.target.value);
                   setDirty(true);
                   setError(null);
+                  setJustSaved(false);
                 }}
                 rows={5}
                 placeholder="Boil tamarind water; temper; add fish; simmer."
@@ -215,6 +259,7 @@ export function MethodSection({ recipeId, signedIn, onChange }: MethodSectionPro
                     setText(e.target.value);
                     setDirty(true);
                     setError(null);
+                    setJustSaved(false);
                   }}
                   rows={5}
                   placeholder="The method as recorded on the card."
@@ -228,6 +273,7 @@ export function MethodSection({ recipeId, signedIn, onChange }: MethodSectionPro
                     setSource(e.target.value);
                     setDirty(true);
                     setError(null);
+                    setJustSaved(false);
                   }}
                   placeholder="CDK 1669 / Mrs. Anitha"
                 />

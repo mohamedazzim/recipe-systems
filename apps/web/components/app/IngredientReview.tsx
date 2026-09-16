@@ -34,6 +34,10 @@ export interface IngredientReviewProps {
   initialLines?: WireLine[] | null;
   /** Lift the authoritative lines upward (name resolution for the views). */
   onLinesLoaded?: (lines: WireLine[]) => void;
+  /** Fires after a USER mutation (edit/delete/add/split/merge/header) — the
+   *  workspace uses it to mark a completed analysis stale. Never fires on
+   *  load/hydration. */
+  onChanged?: () => void;
 }
 
 interface EditorState {
@@ -65,7 +69,7 @@ function uniqueLines(lines: WireLine[]): WireLine[] {
   });
 }
 
-export function IngredientReview({ recipeId, signedIn, title, initialLines = null, onLinesLoaded }: IngredientReviewProps) {
+export function IngredientReview({ recipeId, signedIn, title, initialLines = null, onLinesLoaded, onChanged }: IngredientReviewProps) {
   const [lines, setLines] = useState<WireLine[] | null>(
     initialLines ? uniqueLines(initialLines) : initialLines,
   );
@@ -153,6 +157,7 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
       });
       cancelEdit();
       await refresh();
+      onChanged?.();
     } catch (err) {
       if (err instanceof ApiError && err.code === 'STALE_EDIT') {
         cancelEdit();
@@ -175,6 +180,7 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
         body: JSON.stringify({ needs_review: false, expected_updated_at: line.updated_at }),
       });
       await refresh();
+      onChanged?.();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not clear the review flag.');
     } finally {
@@ -194,6 +200,7 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
         body: JSON.stringify({ confirmed_sense: canonical, expected_updated_at: line.updated_at }),
       });
       await refresh();
+      onChanged?.();
     } catch (err) {
       if (err instanceof ApiError && err.code === 'STALE_EDIT') {
         await refresh();
@@ -216,6 +223,7 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
         method: 'DELETE',
       });
       await refresh();
+      onChanged?.();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not remove the line.');
     } finally {
@@ -234,6 +242,7 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
         body: JSON.stringify({ is_header: !line.is_header, expected_updated_at: line.updated_at }),
       });
       await refresh();
+      onChanged?.();
     } catch (err) {
       if (err instanceof ApiError && err.code === 'STALE_EDIT') {
         await refresh();
@@ -255,6 +264,7 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
         body: JSON.stringify({ merge_with_next: true, expected_updated_at: line.updated_at }),
       });
       await refresh();
+      onChanged?.();
     } catch (err) {
       if (err instanceof ApiError && err.code === 'STALE_EDIT') {
         await refresh();
@@ -286,6 +296,7 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
       setSplittingId(null);
       setSplitPoint('');
       await refresh();
+      onChanged?.();
     } catch (err) {
       if (err instanceof ApiError && err.code === 'STALE_EDIT') {
         setSplittingId(null);
@@ -308,6 +319,7 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
         body: JSON.stringify({ display_name: 'New ingredient', include_on_list: true }),
       });
       await refresh();
+      onChanged?.();
       const added = (await api<{ items: WireLine[] }>(`/recipes/${recipeId}/lines`)).items;
       const last = added[added.length - 1];
       if (last && lines) {

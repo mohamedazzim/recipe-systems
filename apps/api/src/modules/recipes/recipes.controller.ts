@@ -7,7 +7,7 @@
 //   Body: { "method": "none"|"paste"|"inferred", "method_text"?: string,
 //           "method_source"?: string, "accept_inferred"?: boolean }
 //   200:  { "method_tag": "METHOD"|"INFERRED"|null, "method_source": string|null,
-//           "list_only": boolean }
+//           "method_text": string|null, "list_only": boolean }
 // Guest method selection is handled client-side on the ephemeral draft (API doc §4) —
 // hence JwtAuthGuard only, not GuestOrJwt.
 //

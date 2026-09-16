@@ -12,7 +12,17 @@ describe('ReadinessPanel (D-14 + D-17 launch)', () => {
   });
 
   function props(overrides: Partial<Parameters<typeof ReadinessPanel>[0]> = {}) {
-    return { recipeId: 'r1', signedIn: true, lines: [], onAnalysed: jest.fn(), ...overrides };
+    return {
+      recipeId: 'r1',
+      signedIn: true,
+      lines: [],
+      onAnalyse: jest.fn(async () => undefined),
+      analysing: false,
+      error: null,
+      hasAnalysis: false,
+      stale: false,
+      ...overrides,
+    };
   }
 
   it('ready state: enables the Analyse action', async () => {
@@ -46,46 +56,56 @@ describe('ReadinessPanel (D-14 + D-17 launch)', () => {
     expect(screen.getByText('Blocked by the lines above.')).toBeInTheDocument();
   });
 
-  it('successful enqueue routes to the analysis', async () => {
-    (globalThis.fetch as jest.Mock)
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ can_enqueue: true, blockers: [] }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ analysis_id: 'a-1', status: 'queued', prompt_version: 'v2' }),
-      });
+  it('clicking Analyse delegates to the workspace-owned action', async () => {
+    (globalThis.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ can_enqueue: true, blockers: [] }),
+    });
     const p = props();
     render(<ReadinessPanel {...p} />);
     await screen.findByText(/Ready to analyse/);
     await userEvent.click(screen.getByRole('button', { name: 'Analyse recipe' }));
-    expect(p.onAnalysed).toHaveBeenCalledWith('a-1');
-    const enqueue = (globalThis.fetch as jest.Mock).mock.calls[1] as [string, RequestInit];
-    expect(enqueue[0]).toContain('/recipes/r1/analyse');
-    expect(JSON.parse(enqueue[1].body as string)).toEqual({ mode: 'home' });
+    expect(p.onAnalyse).toHaveBeenCalledTimes(1);
   });
 
-  it('422 METHOD_REQUIRED explains the real consequence', async () => {
-    (globalThis.fetch as jest.Mock)
-      .mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: async () => ({ can_enqueue: true, blockers: [] }),
-      })
-      .mockResolvedValueOnce({
-        ok: false,
-        status: 422,
-        json: async () => ({
-          error: { code: 'METHOD_REQUIRED', message: 'method required' },
-        }),
-      });
-    render(<ReadinessPanel {...props()} />);
+  it('surfaces the workspace analyse error (e.g. METHOD_REQUIRED)', async () => {
+    (globalThis.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ can_enqueue: true, blockers: [] }),
+    });
+    render(
+      <ReadinessPanel
+        {...props({ error: 'Add a method first. Without one, the analysis would be list-only.' })}
+      />,
+    );
     await screen.findByText(/Ready to analyse/);
-    await userEvent.click(screen.getByRole('button', { name: 'Analyse recipe' }));
     expect(await screen.findByText(/Add a method first/)).toBeInTheDocument();
+  });
+
+  it('stale analysis shows "Re-analyze recipe" + the changes-need-analysis notice', async () => {
+    (globalThis.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ can_enqueue: true, blockers: [] }),
+    });
+    render(<ReadinessPanel {...props({ hasAnalysis: true, stale: true })} />);
+    await screen.findByText(/Ready to analyse/);
+    expect(screen.getByRole('button', { name: 'Re-analyze recipe' })).toBeEnabled();
+    expect(screen.getByText('Changes need analysis')).toBeInTheDocument();
+  });
+
+  it('in-flight shows "Starting analysis…" and disables the button', async () => {
+    (globalThis.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ can_enqueue: true, blockers: [] }),
+    });
+    render(<ReadinessPanel {...props({ analysing: true })} />);
+    await screen.findByText(/Ready to analyse/);
+    const button = screen.getByRole('button', { name: 'Starting analysis…' });
+    expect(button).toBeDisabled();
   });
 
   it('guest: no readiness call, honest account note', async () => {

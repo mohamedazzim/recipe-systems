@@ -141,7 +141,7 @@ describe('RecipeService — D-13 method attach (B4)', () => {
       where: { id: '11111111-1111-4111-8111-111111111111' },
       data: { methodText: 'Dry roast the spices…', methodSourceTag: 'METHOD', methodInferredSource: null },
     });
-    expect(state).toEqual({ method_tag: 'METHOD', method_source: null, list_only: false });
+    expect(state).toEqual({ method_tag: 'METHOD', method_source: null, method_text: 'Dry roast the spices…', list_only: false });
   });
 
   it('inferred persists tag INFERRED with the named source (D-13D, A-13: never source-less)', async () => {
@@ -168,6 +168,7 @@ describe('RecipeService — D-13 method attach (B4)', () => {
     expect(state).toEqual({
       method_tag: 'INFERRED',
       method_source: 'CDK 1669 / Mrs. Anitha',
+      method_text: 'Boil tamarind, temper, simmer…',
       list_only: false,
     });
   });
@@ -185,7 +186,7 @@ describe('RecipeService — D-13 method attach (B4)', () => {
       where: { id: '11111111-1111-4111-8111-111111111111' },
       data: { methodText: null, methodSourceTag: null, methodInferredSource: null },
     });
-    expect(state).toEqual({ method_tag: null, method_source: null, list_only: true });
+    expect(state).toEqual({ method_tag: null, method_source: null, method_text: null, list_only: true });
   });
 
   it('unknown persisted tags (CARD/UNKNOWN) never leak into the wire as method_tag', async () => {

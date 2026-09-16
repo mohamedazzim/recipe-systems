@@ -189,6 +189,26 @@ describe('IngredientReview (D-12 actions)', () => {
     expect((delCalls[0] as [string, RequestInit])[1].body).toBeUndefined();
   });
 
+  it('fires onChanged after a user mutation (never on load)', async () => {
+    const onChanged = jest.fn();
+    const mock = globalThis.fetch as jest.Mock;
+    mock.mockResolvedValueOnce(listResponse(LINES)); // initial load
+    mock.mockResolvedValueOnce({
+      ok: true,
+      status: 204,
+      json: jest.fn().mockRejectedValue(new SyntaxError('Unexpected end of JSON input')),
+    }); // DELETE
+    mock.mockResolvedValue(listResponse(LINES.slice(1))); // refresh
+
+    render(<IngredientReview {...props({ onChanged })} />);
+    await screen.findByText('Fish — 500g');
+    // loading/hydrating must never be treated as a user change
+    expect(onChanged).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Delete Fish — 500g' }));
+    expect(onChanged).toHaveBeenCalledTimes(1);
+  });
+
   it('delete failure surfaces the real API message', async () => {
     const mock = globalThis.fetch as jest.Mock;
     mock.mockResolvedValueOnce(listResponse(LINES));

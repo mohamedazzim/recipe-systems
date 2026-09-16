@@ -8,6 +8,7 @@
 
 import { CheckCircle, Clock, XCircle } from '@phosphor-icons/react';
 import { Alert } from '@/components/ui/Alert';
+import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { useAnalysisStatus } from '@/lib/hooks/useAnalysisStatus';
 import { AnalysisViews } from '@/components/app/AnalysisViews';
@@ -24,16 +25,29 @@ export interface AnalysisPanelProps {
   signedIn: boolean;
   /** D-20 (C3): home explains, chef briefs (station card leads). */
   mode?: 'home' | 'chef';
+  /** The recipe changed since this analysis — show a stale banner. */
+  stale?: boolean;
+  /** Retry action (same POST /analyse the workspace owns). */
+  onRetry?: () => void;
 }
 
 const STATUS_COPY: Record<string, { label: string; live: boolean }> = {
-  queued: { label: 'Queued. Waiting for a worker to pick it up.', live: true },
-  generating: { label: 'Your recipe is being analysed.', live: true },
+  queued: { label: 'Analysis queued — waiting for a worker.', live: true },
+  generating: { label: 'Analyzing recipe — generating views.', live: true },
   complete: { label: 'Analysis complete.', live: false },
-  failed: { label: 'The analysis run failed.', live: false },
+  failed: { label: 'Analysis failed.', live: false },
 };
 
-export function AnalysisPanel({ analysisId, recipeId, lines, methodState, signedIn, mode = 'home' }: AnalysisPanelProps) {
+export function AnalysisPanel({
+  analysisId,
+  recipeId,
+  lines,
+  methodState,
+  signedIn,
+  mode = 'home',
+  stale = false,
+  onRetry,
+}: AnalysisPanelProps) {
   const { analysis, error, refresh } = useAnalysisStatus(analysisId);
 
   if (!analysisId) {
@@ -45,6 +59,14 @@ export function AnalysisPanel({ analysisId, recipeId, lines, methodState, signed
       <h2 id="status-heading" className="font-display text-h2 text-ink">
         Analysis status
       </h2>
+
+      {stale && (
+        <div className="mt-4">
+          <Alert tone="warning" title="Changes need analysis">
+            The views below are from before your latest edits. Re-analyse to refresh them.
+          </Alert>
+        </div>
+      )}
 
       <div className="mt-4 rounded-lg border border-border bg-surface p-5">
         {analysis === null && error === null && (
@@ -92,10 +114,16 @@ export function AnalysisPanel({ analysisId, recipeId, lines, methodState, signed
             </dl>
 
             {analysis.status === 'failed' && (
-              <p className="mt-4 text-small text-body">
-                Nothing was published from this run. You can start a new analysis once the
-                recipe is ready.
-              </p>
+              <div className="mt-4">
+                <p className="text-small text-body">
+                  Nothing was published from this run. Fix the recipe if needed, then retry.
+                </p>
+                {onRetry && (
+                  <Button size="sm" onClick={() => void onRetry()} className="mt-3">
+                    Retry analysis
+                  </Button>
+                )}
+              </div>
             )}
 
             {analysis.status === 'complete' && (

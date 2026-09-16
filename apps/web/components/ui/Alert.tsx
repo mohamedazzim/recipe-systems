@@ -14,13 +14,16 @@ export interface AlertProps {
   title?: ReactNode;
   children?: ReactNode;
   className?: string;
+  /** ARIA live region role — errors default to `alert` (assertive); success
+   *  states should pass `status` (polite). */
+  role?: 'alert' | 'status';
 }
 
-/** Inline feedback with an accessible alert role — errors announce to screen readers. */
-export function Alert({ tone = 'info', title, children, className = '' }: AlertProps) {
+/** Inline feedback with an accessible live-region role — errors announce to screen readers. */
+export function Alert({ tone = 'info', title, children, className = '', role = 'alert' }: AlertProps) {
   return (
     <div
-      role="alert"
+      role={role}
       className={`rounded-md border px-4 py-3 ${toneClasses[tone].box} ${className}`}
     >
       {title && <p className={`text-small font-semibold ${toneClasses[tone].title}`}>{title}</p>}

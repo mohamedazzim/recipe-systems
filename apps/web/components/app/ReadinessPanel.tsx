@@ -12,7 +12,7 @@ import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
 import { api, ApiError } from '@/lib/api';
-import type { AnalyseAck, EnqueueState, WireLine } from '@/lib/types';
+import type { EnqueueState, WireLine } from '@/lib/types';
 
 export interface ReadinessPanelProps {
   recipeId: string;
@@ -20,50 +20,46 @@ export interface ReadinessPanelProps {
   /** QA-B7 fix: the current lines — any review change re-fetches the canonical
    *  enqueue-state (the endpoint stays the single source of readiness). */
   lines: WireLine[];
-  onAnalysed: (analysisId: string) => void;
+  /** Launch action owned by the workspace (single POST /analyse source). */
+  onAnalyse: () => Promise<void>;
+  /** true while the POST /analyse is in flight. */
+  analysing: boolean;
+  /** Error from the last analyse attempt (workspace-owned). */
+  error: string | null;
+  /** An analysis already exists for this recipe. */
+  hasAnalysis: boolean;
+  /** The recipe changed since the current analysis — primary action re-analyses. */
+  stale: boolean;
 }
 
-export function ReadinessPanel({ recipeId, signedIn, lines, onAnalysed }: ReadinessPanelProps) {
+export function ReadinessPanel({
+  recipeId,
+  signedIn,
+  lines,
+  onAnalyse,
+  analysing,
+  error,
+  hasAnalysis,
+  stale,
+}: ReadinessPanelProps) {
   const [state, setState] = useState<EnqueueState | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [readyError, setReadyError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setState(null);
-    setError(null);
+    setReadyError(null);
     if (!signedIn) return;
     api<EnqueueState>(`/recipes/${recipeId}/enqueue-state`)
       .then((s) => !cancelled && setState(s))
       .catch((err: unknown) => {
         if (cancelled) return;
-        setError(err instanceof ApiError ? err.message : 'Could not check readiness.');
+        setReadyError(err instanceof ApiError ? err.message : 'Could not check readiness.');
       });
     return () => {
       cancelled = true;
     };
   }, [recipeId, signedIn, lines]);
-
-  const analyse = async (): Promise<void> => {
-    setSubmitting(true);
-    setError(null);
-    try {
-      const ack = await api<AnalyseAck>(`/recipes/${recipeId}/analyse`, {
-        method: 'POST',
-        body: JSON.stringify({ mode: 'home' }),
-      });
-      onAnalysed(ack.analysis_id);
-    } catch (err) {
-      if (err instanceof ApiError && err.code === 'ENQUEUE_BLOCKED') {
-        setError('Analysis is blocked: some lines still need review.');
-      } else if (err instanceof ApiError && err.code === 'METHOD_REQUIRED') {
-        setError('Add a method first. Without one, the analysis would be list-only.');
-      } else {
-        setError(err instanceof ApiError ? err.message : 'Could not start the analysis.');
-      }
-      setSubmitting(false);
-    }
-  };
 
   return (
     <section aria-labelledby="readiness-heading" className="mt-12 border-t border-border pt-8">
@@ -78,7 +74,7 @@ export function ReadinessPanel({ recipeId, signedIn, lines, onAnalysed }: Readin
         <p className="mt-4 text-small text-muted">
           Analysis needs an account. Sign in to run it on this recipe.
         </p>
-      ) : state === null && error === null ? (
+      ) : state === null && readyError === null ? (
         <div className="mt-4 flex items-center gap-3 text-small text-muted">
           <Spinner size="sm" label="Checking readiness" />
           Checking readiness...
@@ -112,6 +108,14 @@ export function ReadinessPanel({ recipeId, signedIn, lines, onAnalysed }: Readin
             </div>
           )}
 
+          {stale && hasAnalysis && (
+            <div className="mt-4">
+              <Alert tone="warning" title="Changes need analysis">
+                The recipe changed since your last analysis. Re-analyse to refresh the views.
+              </Alert>
+            </div>
+          )}
+
           {error && (
             <div className="mt-4">
               <Alert tone="error" title="Analysis did not start">
@@ -123,10 +127,10 @@ export function ReadinessPanel({ recipeId, signedIn, lines, onAnalysed }: Readin
           <div className="mt-5 flex flex-wrap items-center gap-3">
             <Button
               size="lg"
-              onClick={() => void analyse()}
-              disabled={submitting || (state !== null && !state.can_enqueue)}
+              onClick={() => void onAnalyse()}
+              disabled={analysing || (state !== null && !state.can_enqueue)}
             >
-              {submitting ? 'Starting...' : 'Analyse recipe'}
+              {analysing ? 'Starting analysis…' : stale ? 'Re-analyze recipe' : 'Analyse recipe'}
             </Button>
             {state !== null && !state.can_enqueue && (
               <span className="inline-flex items-center gap-1.5 text-small text-muted">

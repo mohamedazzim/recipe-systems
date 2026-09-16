@@ -87,7 +87,11 @@ export class AnalysisService {
         method_source: {
           name: methodSourceTag === 'INFERRED' ? recipe.methodInferredSource : null,
           type: null, // video|text not tracked by the D-13 surface
-          matched: methodSourceTag === 'INFERRED',
+          // D-1/View-7 fix: a PASTED method (METHOD) is the recipe's own method
+          // and is therefore matched — Views 3/7 must generate from it. Previously
+          // only INFERRED was matched, so a pasted method silently left View 3/7
+          // INCOMPLETE (the prompt's method gate requires matched=true).
+          matched: methodSourceTag === 'METHOD' || methodSourceTag === 'INFERRED',
         },
         explicitly_absent: [], // no capture surface records absents yet (C1/P3-4)
         card_metadata: {

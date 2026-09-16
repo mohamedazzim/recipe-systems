@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { AnalysisPanel } from '@/components/app/AnalysisPanel';
 import type { AnalysisState } from '@/lib/types';
 
@@ -46,7 +46,7 @@ describe('AnalysisPanel (D-17 states + D-18 result)', () => {
       ok: true, status: 200, json: async () => stateOf('queued'),
     });
     render(<AnalysisPanel {...props()} />);
-    expect(await screen.findByText(/Waiting for a worker to pick it up/)).toBeInTheDocument();
+    expect(await screen.findByText(/Analysis queued/)).toBeInTheDocument();
     expect(screen.queryByText(/%/)).not.toBeInTheDocument();
   });
 
@@ -55,7 +55,7 @@ describe('AnalysisPanel (D-17 states + D-18 result)', () => {
       ok: true, status: 200, json: async () => stateOf('generating'),
     });
     render(<AnalysisPanel {...props()} />);
-    expect((await screen.findAllByText('Your recipe is being analysed.')).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText('Analyzing recipe — generating views.')).length).toBeGreaterThan(0);
   });
 
   it('complete: renders the real D-18 views (identification + view tabs), no placeholder', async () => {
@@ -79,13 +79,25 @@ describe('AnalysisPanel (D-17 states + D-18 result)', () => {
     expect(screen.getByRole('tab', { name: '4 · Substitutions' })).toBeInTheDocument();
   });
 
-  it('failed: honest failure copy, nothing published', async () => {
+  it('failed: honest failure copy, nothing published, retry offered', async () => {
     (globalThis.fetch as jest.Mock).mockResolvedValue({
       ok: true, status: 200, json: async () => stateOf('failed'),
     });
-    render(<AnalysisPanel {...props()} />);
-    expect(await screen.findByText('The analysis run failed.')).toBeInTheDocument();
+    const onRetry = jest.fn();
+    render(<AnalysisPanel {...props({ onRetry })} />);
+    expect(await screen.findByText('Analysis failed.')).toBeInTheDocument();
     expect(screen.getByText(/Nothing was published from this run/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry analysis' }));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
+  it('stale: shows a changes-need-analysis banner above the views', async () => {
+    (globalThis.fetch as jest.Mock).mockResolvedValue({
+      ok: true, status: 200, json: async () => stateOf('complete', []),
+    });
+    render(<AnalysisPanel {...props({ stale: true })} />);
+    expect(await screen.findByText('Changes need analysis')).toBeInTheDocument();
+    expect(screen.getByText(/before your latest edits/)).toBeInTheDocument();
   });
 
   it('backend error surfaces the message', async () => {

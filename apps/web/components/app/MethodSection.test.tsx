@@ -36,19 +36,20 @@ describe('MethodSection (D-13 modes)', () => {
 
   it('reports the canonical no-method consequence (list-only)', async () => {
     render(<MethodSection {...props()} />);
-    expect(await screen.findByText('Method ready to save.')).toBeInTheDocument();
-    expect(screen.getByText('List-only: Views 3 and 7 will be incomplete.')).toBeInTheDocument();
+    expect(
+      await screen.findByText('No method attached. Analysis will be list-only: Views 3 and 7 will be incomplete.'),
+    ).toBeInTheDocument();
   });
 
   it('never claims saved before a save succeeds (no false "saved" message)', async () => {
     render(<MethodSection {...props()} />);
-    await screen.findByText('Method ready to save.');
-    expect(screen.queryByText('Method saved.')).not.toBeInTheDocument();
+    await screen.findByText(/No method attached/);
+    expect(screen.queryByText('Method saved successfully')).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('radio', { name: 'I will paste it' }));
     await userEvent.type(screen.getByLabelText('Method text'), 'Boil; temper; simmer.');
-    // still un-saved: form is ready, not saved
-    expect(screen.getByText('Method ready to save.')).toBeInTheDocument();
-    expect(screen.queryByText('Method saved.')).not.toBeInTheDocument();
+    // still un-saved: form is dirty, not saved
+    expect(screen.getByText('You have unsaved changes.')).toBeInTheDocument();
+    expect(screen.queryByText('Method saved successfully')).not.toBeInTheDocument();
   });
 
   it('paste mode saves method_text as METHOD and shows the saved state', async () => {
@@ -58,7 +59,7 @@ describe('MethodSection (D-13 modes)', () => {
     (globalThis.fetch as jest.Mock).mockResolvedValue({
       ok: true,
       status: 200,
-      json: async () => ({ method_tag: 'METHOD', method_source: null, list_only: false }),
+      json: async () => ({ method_tag: 'METHOD', method_source: null, method_text: 'Boil; temper; simmer.', list_only: false }),
     });
     await userEvent.click(screen.getByRole('button', { name: 'Save method' }));
     const [url, init] = lastMethodCall();
@@ -69,8 +70,13 @@ describe('MethodSection (D-13 modes)', () => {
       method_text: 'Boil; temper; simmer.',
       method_source: '',
     });
-    expect(await screen.findByText('Method saved.')).toBeInTheDocument();
+    expect(await screen.findByText('Method saved successfully')).toBeInTheDocument();
+    expect(
+      screen.getByText('Your cooking method has been saved and is now attached to this recipe.'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Cooking method attached')).toBeInTheDocument();
     expect(screen.getByText('Tag: METHOD — saved from your paste.')).toBeInTheDocument();
+    expect(screen.getAllByText('Boil; temper; simmer.').length).toBeGreaterThan(0);
     expect(screen.queryByText('Could not save method')).not.toBeInTheDocument();
   });
 
@@ -87,6 +93,7 @@ describe('MethodSection (D-13 modes)', () => {
       json: async () => ({
         method_tag: 'INFERRED',
         method_source: 'CDK 1669 / Mrs. Anitha',
+        method_text: 'Simmer in tamarind water.',
         list_only: false,
       }),
     });
@@ -98,10 +105,11 @@ describe('MethodSection (D-13 modes)', () => {
       method_text: 'Simmer in tamarind water.',
       method_source: 'CDK 1669 / Mrs. Anitha',
     });
-    expect(await screen.findByText('Method saved.')).toBeInTheDocument();
+    expect(await screen.findByText('Method saved successfully')).toBeInTheDocument();
     expect(
       screen.getByText('Tag: INFERRED — source: CDK 1669 / Mrs. Anitha.'),
     ).toBeInTheDocument();
+    expect(screen.getAllByText('Simmer in tamarind water.').length).toBeGreaterThan(0);
   });
 
   it('none clears the method → list-only state after success', async () => {
@@ -111,10 +119,10 @@ describe('MethodSection (D-13 modes)', () => {
     const [url, init] = lastMethodCall();
     expect(url).toContain('/r1/method');
     expect(JSON.parse(init.body as string).method).toBe('none');
-    expect(await screen.findByText('Method saved.')).toBeInTheDocument();
     expect(
-      screen.getByText('Method cleared. List-only: Views 3 and 7 will be incomplete.'),
+      await screen.findByText('No method attached. Analysis will be list-only: Views 3 and 7 will be incomplete.'),
     ).toBeInTheDocument();
+    expect(screen.queryByText('Method saved successfully')).not.toBeInTheDocument();
   });
 
   it('shows "Saving method…" while the request is in flight, then the saved state', async () => {
@@ -134,7 +142,7 @@ describe('MethodSection (D-13 modes)', () => {
       });
     });
     render(<MethodSection {...props()} />);
-    await screen.findByText('Method ready to save.');
+    await screen.findByText(/No method attached/);
     await userEvent.click(screen.getByRole('radio', { name: 'I will paste it' }));
     await userEvent.type(screen.getByLabelText('Method text'), 'Cook for 1–2 hours over low heat.');
     await userEvent.click(screen.getByRole('button', { name: 'Save method' }));
@@ -142,9 +150,9 @@ describe('MethodSection (D-13 modes)', () => {
     resolvePatch({
       ok: true,
       status: 200,
-      json: async () => ({ method_tag: 'METHOD', method_source: null, list_only: false }),
+      json: async () => ({ method_tag: 'METHOD', method_source: null, method_text: 'Cook for 1–2 hours over low heat.', list_only: false }),
     });
-    expect(await screen.findByText('Method saved.')).toBeInTheDocument();
+    expect(await screen.findByText('Method saved successfully')).toBeInTheDocument();
   });
 
   it('backend failure is visible: status line carries the real error', async () => {
@@ -157,7 +165,7 @@ describe('MethodSection (D-13 modes)', () => {
       json: async () => ({ error: { code: 'INTERNAL', message: 'boom' } }),
     });
     await userEvent.click(screen.getByRole('button', { name: 'Save method' }));
-    expect(await screen.findByText('Could not save method — boom.')).toBeInTheDocument();
+    expect(await screen.findByText('Could not save method. Please try again.')).toBeInTheDocument();
     expect(screen.getByText('boom')).toBeInTheDocument(); // the error Alert
   });
 
@@ -166,11 +174,12 @@ describe('MethodSection (D-13 modes)', () => {
     (globalThis.fetch as jest.Mock).mockResolvedValue({
       ok: true,
       status: 200,
-      json: async () => ({ method_tag: 'METHOD', method_source: null, list_only: false }),
+      json: async () => ({ method_tag: 'METHOD', method_source: null, method_text: 'Boil; temper; simmer.', list_only: false }),
     });
     render(<MethodSection {...props()} />);
-    expect(await screen.findByText('Method saved.')).toBeInTheDocument();
+    expect(await screen.findByText('Cooking method attached')).toBeInTheDocument();
     expect(screen.getByText('Tag: METHOD — saved from your paste.')).toBeInTheDocument();
+    expect(screen.getAllByText('Boil; temper; simmer.').length).toBeGreaterThan(0);
     // regression: the old mount-effect PATCHed method:none and wiped the DB row
     const writes = methodCalls().filter((c) => (c[1] as RequestInit).method === 'PATCH');
     expect(writes).toHaveLength(0);
@@ -186,11 +195,11 @@ describe('MethodSection (D-13 modes)', () => {
       json: async () => ({ method_tag: 'METHOD', method_source: null, list_only: false }),
     });
     await userEvent.click(screen.getByRole('button', { name: 'Save method' }));
-    expect(await screen.findByText('Method saved.')).toBeInTheDocument();
+    expect(await screen.findByText('Method saved successfully')).toBeInTheDocument();
     // switching the mode invalidates the saved claim
     await userEvent.click(screen.getByRole('radio', { name: 'Accepted from a source' }));
-    expect(await screen.findByText('Method ready to save.')).toBeInTheDocument();
-    expect(screen.queryByText('Method saved.')).not.toBeInTheDocument();
+    expect(await screen.findByText('You have unsaved changes.')).toBeInTheDocument();
+    expect(screen.queryByText('Method saved successfully')).not.toBeInTheDocument();
   });
 
   it('guest: no form, honest note', async () => {

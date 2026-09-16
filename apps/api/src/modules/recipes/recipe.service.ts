@@ -42,6 +42,9 @@ export type MethodAttachInput =
 export interface MethodState {
   method_tag: 'METHOD' | 'INFERRED' | null;
   method_source: string | null;
+  /** D-13 surface addition: the persisted method text rides the wire so the
+   *  workspace can reopen on the saved method without re-entering it. */
+  method_text: string | null;
   list_only: boolean;
 }
 
@@ -89,6 +92,7 @@ function toMethodState(recipe: Recipe): MethodState {
   return {
     method_tag: tag,
     method_source: tag === 'INFERRED' ? recipe.methodInferredSource : null,
+    method_text: recipe.methodText,
     list_only: tag === null,
   };
 }

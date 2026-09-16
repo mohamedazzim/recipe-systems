@@ -128,6 +128,34 @@ describe('D-17 analysis enqueue (API side)', () => {
       matched: true,
     });
   });
+
+  it('capture marks a PASTED method (METHOD) as matched so Views 3/7 generate (View-7 fix)', async () => {
+    const { recipes } = mocks({ lines: [] });
+    recipes.assertOwned.mockResolvedValue({
+      id: 'r1',
+      methodText: 'Boil tamarind; temper; simmer.',
+      methodSourceTag: 'METHOD',
+      methodInferredSource: null,
+      photoUri: null,
+    });
+    const queue = { enqueue: jest.fn().mockResolvedValue('a3') };
+    const svc2 = new AnalysisService(
+      recipes as never,
+      mocks().intake as never,
+      queue as never,
+      {} as never,
+    );
+    await svc2.enqueue(userActor, 'r1', 'home');
+    const payload = queue.enqueue.mock.calls[0][0];
+    expect(payload.captured.structured_recipe.method_steps).toEqual([
+      { id: 'method-1', text: 'Boil tamarind; temper; simmer.', source: 'METHOD' },
+    ]);
+    expect(payload.captured.structured_recipe.method_source).toEqual({
+      name: null,
+      type: null,
+      matched: true,
+    });
+  });
 });
 
 describe('D-19 view-9 recompute (RS-US-45, API side)', () => {

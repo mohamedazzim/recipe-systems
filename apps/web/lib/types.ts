@@ -66,6 +66,8 @@ export interface UploadResponse {
 export interface MethodState {
   method_tag: 'METHOD' | 'INFERRED' | null;
   method_source: string | null;
+  /** Persisted method text — surfaced so the workspace shows the saved method. */
+  method_text: string | null;
   list_only: boolean;
 }
 

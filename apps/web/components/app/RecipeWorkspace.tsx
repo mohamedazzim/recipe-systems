@@ -10,7 +10,7 @@ import { Heading } from '@/components/ui/Typography';
 import { Button } from '@/components/ui/Button';
 import { api, ApiError } from '@/lib/api';
 import { listSessionRecipes } from '@/lib/flow';
-import type { AnalysisState, MethodState, SavedRecipe } from '@/lib/types';
+import type { AnalyseAck, AnalysisState, MethodState, SavedRecipe } from '@/lib/types';
 import { IngredientReview } from '@/components/app/IngredientReview';
 import type { WireLine } from '@/lib/types';
 import { MethodSection } from '@/components/app/MethodSection';
@@ -47,6 +47,13 @@ export function RecipeWorkspace({
   preferredMode = 'home',
 }: RecipeWorkspaceProps) {
   const [analysisId, setAnalysisId] = useState<string | null>(null);
+  /** true when the recipe changed since the current analysis (D-25/C6: never
+   *  auto re-enqueue — the user explicitly clicks Re-analyse). */
+  const [analysisStale, setAnalysisStale] = useState(false);
+  /** true while POST /analyse is in flight (shared by Readiness + Analysis retry). */
+  const [analysing, setAnalysing] = useState(false);
+  /** error from the last analyse attempt. */
+  const [analyseError, setAnalyseError] = useState<string | null>(null);
   const [lines, setLines] = useState<WireLine[]>(initialLines ?? []);
   const [methodState, setMethodState] = useState<MethodState | null>(null);
   const [title, setTitle] = useState('Recipe');
@@ -134,12 +141,46 @@ export function RecipeWorkspace({
     }
   };
 
+  /** The single POST /analyse source (D-14/D-17). On success the workspace
+   *  points the status panel at the new analysis and clears the stale flag. */
+  const runAnalysis = async (): Promise<void> => {
+    setAnalysing(true);
+    setAnalyseError(null);
+    try {
+      const ack = await api<AnalyseAck>(`/recipes/${recipeId}/analyse`, {
+        method: 'POST',
+        body: JSON.stringify({ mode }),
+      });
+      setAnalysisId(ack.analysis_id);
+      setAnalysisStale(false);
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'ENQUEUE_BLOCKED') {
+        setAnalyseError('Analysis is blocked: some lines still need review.');
+      } else if (err instanceof ApiError && err.code === 'METHOD_REQUIRED') {
+        setAnalyseError('Add a method first. Without one, the analysis would be list-only.');
+      } else {
+        setAnalyseError(err instanceof ApiError ? err.message : 'Could not start the analysis.');
+      }
+    } finally {
+      setAnalysing(false);
+    }
+  };
+
+  /** D-25/C6: editing the structured recipe (or the method) does NOT silently
+   *  re-enqueue — it marks the displayed analysis stale so the primary action
+   *  becomes "Re-analyse recipe". */
+  const markAnalysisStale = (): void => {
+    if (analysisId !== null) setAnalysisStale(true);
+  };
+
   useEffect(() => {
     const record = listSessionRecipes().find((r) => r.recipe_id === recipeId);
     // D-22: the saved DB name (library row) wins over the session preview —
     // after a browser restart no session record exists at all.
     setTitle(initialTitle ?? record?.preview ?? 'Recipe');
     setAnalysisId(null);
+    setAnalysisStale(false);
+    setAnalyseError(null);
     setLines(initialLines ?? []);
     setMethodState(null);
     if (!signedIn) {
@@ -284,14 +325,29 @@ export function RecipeWorkspace({
           title={title}
           initialLines={initialLines}
           onLinesLoaded={setLines}
+          onChanged={markAnalysisStale}
         />
       </div>
 
-      <MethodSection recipeId={recipeId} signedIn={signedIn} onChange={setMethodState} />
+      <MethodSection
+        recipeId={recipeId}
+        signedIn={signedIn}
+        onChange={setMethodState}
+        onSaved={markAnalysisStale}
+      />
 
       <ShoppingSection recipeId={recipeId} />
 
-      <ReadinessPanel recipeId={recipeId} signedIn={signedIn} lines={lines} onAnalysed={setAnalysisId} />
+      <ReadinessPanel
+        recipeId={recipeId}
+        signedIn={signedIn}
+        lines={lines}
+        onAnalyse={runAnalysis}
+        analysing={analysing}
+        error={analyseError}
+        hasAnalysis={analysisId !== null}
+        stale={analysisStale}
+      />
 
       <AnalysisPanel
         analysisId={analysisId}
@@ -300,6 +356,8 @@ export function RecipeWorkspace({
         methodState={methodState}
         signedIn={signedIn}
         mode={mode}
+        stale={analysisStale}
+        onRetry={runAnalysis}
       />
     </div>
   );

@@ -494,89 +494,97 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
                   </div>
                 </form>
               ) : (
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex min-w-0 flex-col gap-3">
+                  {/* TOP — ingredient name, then quantity + unit grouped. */}
                   <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-semibold text-ink">{line.display_name}</span>
-                      {line.needs_review && (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-gold/60 bg-gold/10 px-2 py-0.5 text-caption font-semibold text-[#8A6516] dark:text-gold">
-                          <Warning size={12} aria-hidden="true" weight="bold" />
-                          Review required
-                        </span>
+                    <p className="break-words font-semibold leading-snug text-ink">
+                      {line.display_name}
+                    </p>
+                    <p className="mt-1 text-small tabular text-muted">
+                      <span className="whitespace-nowrap">
+                        {line.amount || 'No amount'}
+                        {line.unit ? ` ${line.unit}` : ''}
+                      </span>
+                      {line.category && (
+                        <span className="whitespace-nowrap"> · {line.category}</span>
                       )}
-                      {line.confirmed_sense !== null && (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-positive/40 bg-positive/10 px-2 py-0.5 text-caption font-semibold text-positive">
-                          <Check size={12} aria-hidden="true" weight="bold" />
-                          Sense confirmed
-                        </span>
-                      )}
-                      {line.canonical_name && (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-caption text-muted">
-                          <Check size={12} aria-hidden="true" weight="bold" />
-                          {line.canonical_name.replace(/_/g, ' ')}
-                        </span>
-                      )}
-                      {line.ocr_confidence != null && (
-                        <span
-                          className={
-                            line.ocr_confidence < 0.9
-                              ? 'inline-flex items-center gap-1 rounded-full border border-gold/60 bg-gold/10 px-2 py-0.5 text-caption font-semibold text-[#8A6516] dark:text-gold'
-                              : 'inline-flex items-center rounded-full border border-border bg-background px-2 py-0.5 text-caption text-muted'
-                          }
-                        >
-                          {line.ocr_confidence < 0.9 && (
-                            <Warning size={12} aria-hidden="true" weight="bold" />
-                          )}
-                          {Math.round(line.ocr_confidence * 100)}% confident
-                        </span>
-                      )}
-                      {line.source_tag && (
-                        <span className="inline-flex items-center rounded-full border border-border bg-background px-2 py-0.5 text-caption text-faint">
-                          from {line.source_tag.toLowerCase()}
-                        </span>
-                      )}
-                    </div>
-                    {line.requires_confirmation && line.confirmed_sense === null && line.canonical_name && (
-                      <div className="mt-2 rounded-md border border-gold/60 bg-gold/10 p-3">
-                        <p className="text-small text-body">
-                          We read{' '}
-                          <span className="font-semibold text-ink">{line.display_name}</span> as{' '}
-                          <span className="font-semibold text-ink">
-                            {line.canonical_name.replace(/_/g, ' ')}
-                          </span>
-                          . Is that right?
-                        </p>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          <Button
-                            size="sm"
-                            onClick={() => void confirmSense(line, line.canonical_name!)}
-                            disabled={saving}
-                          >
-                            <Check size={14} aria-hidden="true" weight="bold" />
-                            Accept
-                          </Button>
-                          <Button size="sm" variant="ghost" onClick={() => beginEdit(line)} disabled={saving}>
-                            Edit instead
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                    <p className="mt-0.5 text-small tabular text-muted">
-                      {line.amount || 'No amount'}
-                      {line.unit ? ` ${line.unit}` : ''}
-                      {line.category ? `, ${line.category}` : ''}
-                      {!line.include_on_list ? ', not on list' : ''}
+                      {!line.include_on_list && <span> · not on list</span>}
                     </p>
                   </div>
+
+                  {/* METADATA — canonical mapping, provenance, confirmation. */}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {line.canonical_name && (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-caption text-muted">
+                        <Check size={12} aria-hidden="true" weight="bold" />
+                        {line.canonical_name.replace(/_/g, ' ')}
+                      </span>
+                    )}
+                    {line.source_tag && (
+                      <span className="inline-flex items-center rounded-full border border-border bg-background px-2 py-0.5 text-caption text-faint">
+                        from {line.source_tag.toLowerCase()}
+                      </span>
+                    )}
+                    {line.confirmed_sense !== null && (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-positive/40 bg-positive/10 px-2 py-0.5 text-caption font-semibold text-positive">
+                        <Check size={12} aria-hidden="true" weight="bold" />
+                        Sense confirmed
+                      </span>
+                    )}
+                    {line.needs_review && (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-gold/60 bg-gold/10 px-2 py-0.5 text-caption font-semibold text-[#8A6516] dark:text-gold">
+                        <Warning size={12} aria-hidden="true" weight="bold" />
+                        Review required
+                      </span>
+                    )}
+                    {line.ocr_confidence != null && (
+                      <span
+                        className={
+                          line.ocr_confidence < 0.9
+                            ? 'inline-flex items-center gap-1 rounded-full border border-gold/60 bg-gold/10 px-2 py-0.5 text-caption font-semibold text-[#8A6516] dark:text-gold'
+                            : 'inline-flex items-center rounded-full border border-border bg-background px-2 py-0.5 text-caption text-muted'
+                        }
+                      >
+                        {line.ocr_confidence < 0.9 && (
+                          <Warning size={12} aria-hidden="true" weight="bold" />
+                        )}
+                        {Math.round(line.ocr_confidence * 100)}% confident
+                      </span>
+                    )}
+                  </div>
+
+                  {line.requires_confirmation && line.confirmed_sense === null && line.canonical_name && (
+                    <div className="rounded-md border border-gold/60 bg-gold/10 p-3">
+                      <p className="text-small text-body">
+                        We read{' '}
+                        <span className="font-semibold text-ink">{line.display_name}</span> as{' '}
+                        <span className="font-semibold text-ink">
+                          {line.canonical_name.replace(/_/g, ' ')}
+                        </span>
+                        . Is that right?
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => void confirmSense(line, line.canonical_name!)}
+                          disabled={saving}
+                        >
+                          <Check size={14} aria-hidden="true" weight="bold" />
+                          Accept
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => beginEdit(line)} disabled={saving}>
+                          Edit instead
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ACTIONS — full-width toolbar; wraps instead of clipping. */}
                   {signedIn && (
-                    <div className="flex shrink-0 flex-wrap items-center gap-1">
+                    <div className="flex flex-wrap items-center gap-1.5 border-t border-border pt-2">
                       <Button size="sm" variant="ghost" onClick={() => beginEdit(line)} disabled={saving} aria-label={`Edit ${line.display_name}`}>
                         <PencilSimple size={14} aria-hidden="true" weight="bold" />
                         Edit
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => void removeLine(line)} disabled={saving} aria-label={`Delete ${line.display_name}`}>
-                        <Trash size={14} aria-hidden="true" weight="bold" />
-                        Delete
                       </Button>
                       <Button
                         size="sm"
@@ -602,6 +610,10 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
                       </Button>
                       <Button size="sm" variant="ghost" onClick={() => void mergeWithNext(line)} disabled={saving} aria-label={`Merge ${line.display_name} with the next line`}>
                         Merge with next
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => void removeLine(line)} disabled={saving} aria-label={`Delete ${line.display_name}`}>
+                        <Trash size={14} aria-hidden="true" weight="bold" />
+                        Delete
                       </Button>
                       {line.needs_review && (
                         <Button size="sm" variant="outline" onClick={() => void clearReview(line)} disabled={saving}>

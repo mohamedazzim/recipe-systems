@@ -3692,6 +3692,34 @@ The §13 condition is: "Could-haves (C7, E6, F5, I5) only if Must on weeks 9–1
 
 **Actual blockers:** none technical (final production-readiness audit: "NO KNOWN TECHNICAL RELEASE BLOCKER"). The only D-31 blocker is the missing §13 dispatcher determination.
 
+#### D-28 human evidence gap review (final, 2026-09-16)
+
+Four evidence categories (never merged):
+
+**A. Automated technical evidence (available):** golden 8/8 · corpus 50 + messy_20 20 · regression gates PASS · integration 23/23 · 151/151 · typecheck 0 · API build 0 · migrate up to date.
+
+**B. Autonomous browser/live-system evidence (available, NOT human evidence):** 20 autonomous guest sessions (AUTONOMOUS-P01..P20, intake/save/cook-log/isolation) · authenticated browser production path (stub; ingest → review → method → analyse → views → save → library → cook log → reload/reopen) · D-27 veto semantics (story_d27 5/5 + live boundary) · historical timing ~1m40s (DeepSeek, reused).
+
+**C. Human-observation evidence (MISSING — HUMAN EVIDENCE REQUIRED):** 20 real uncoached participants (§14 "cooks used save + list + log without coaching") · real Chef G3 evaluation of the three curries (Kumari / inland Tamil / Kerala kudampuli) · two real regional reviewers (TN/Kanyakumari + Kerala) exercising View 5 veto · §15 acceptance scene "unassisted" (A-28 vector).
+
+**D. Dispatcher stability determination (NOT made):** the §13 "Must on weeks 9–10 is stable" judgment is the dispatcher's alone.
+
+#### §13 DISPATCHER DECISION PACKAGE (2026-09-16)
+
+**Evidence supporting stability:** weeks 9–10 Must units implemented + audited (A-22/A-23/A-24/A-30 + A-29 all PASS-WITH-FINDINGS); recorded green CI (69, 34930312273/34930324926, 34952720762, 34936562239, 34967842614, 34509853030, 34514834141, 34390362800); fresh integration 151/151 · gates PASS · golden 8/8 · typecheck 0 · API build 0 · migrate up to date; autonomous production-path validation green.
+
+**Evidence still missing:** D-28 human pilot (20 users, G3 Chef, regional reviewers, uncoached persistence, §15 unassisted walk).
+
+**Human-only evidence:** category C above.
+
+**Non-blocking findings:** A-23 F-1/F-2; A-24 F-1/F-2; A-25 F-2; A-26 F-1/F-2/F-3; A-27 F-1/F-2; A-30 F-1/F-2; A-11 F-1/F-2(closed)/F-3.
+
+**Known technical blockers:** none ("NO KNOWN TECHNICAL RELEASE BLOCKER").
+
+**D-28 status:** PENDING HUMAN EVIDENCE. **D-31 status:** BLOCKED.
+
+**Dispatcher action required:** record in HANDOFF a dated §13 determination whether the week 9–10 Must work "was stable at dispatch" (Recipe_Systems §13 / DISPATCH D-31), citing the evidence above. Only the dispatcher can make this call; until recorded, D-31 stays BLOCKED.
+
 ☐ No entry yet. (Dispatch is conditional: entry must record the week 9–10 Must-stability evidence before any work.)
 
 

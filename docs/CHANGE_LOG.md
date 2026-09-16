@@ -1,3 +1,13 @@
+## 2026-09-16 — Final §13 evidence gap review (0 DeepSeek calls)
+
+- Focused D-28 review: four evidence categories recorded (automated / autonomous
+  browser / human-observation / dispatcher determination).
+- Missing D-28 human evidence confirmed: 20 real uncoached users, real Chef G3,
+  two regional reviewers, §15 unassisted walk.
+- No technical evidence missing; no technical blocker. §13 dispatcher decision
+  package prepared in HANDOFF H-31 (decision NOT made).
+- Statuses preserved: D-28 PENDING HUMAN EVIDENCE; D-31 BLOCKED.
+
 ## 2026-09-16 — A-22 + A-29 audits (0 DeepSeek calls; both PASS-WITH-FINDINGS)
 
 - Executed the two missing audits from the §13 package.

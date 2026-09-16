@@ -56,16 +56,19 @@ export function HomeView({
   const others = recipes.filter((r) => !isOwnedBy(r, owner));
 
   const startCard = (
-    <section aria-labelledby="start-heading" className="rounded-lg border-2 border-accent bg-accent/10 p-6">
+    <section
+      aria-labelledby="start-heading"
+      className="flex min-w-0 flex-col justify-center rounded-lg border-2 border-accent bg-accent/10 p-8"
+    >
       <h2 id="start-heading" className="font-display text-h2 text-accent-strong">
         Start a new recipe
       </h2>
-      <p className="mt-1 max-w-prose text-small text-body">
+      <p className="mt-2 max-w-prose text-small text-body">
         Paste text, fill in a structured form, or upload a photo of a card.
       </p>
-      <div className="mt-4">
-        <Button size="lg" onClick={onCreate}>
-          <Plus size={14} aria-hidden="true" weight="bold" />
+      <div className="mt-6">
+        <Button size="lg" block onClick={onCreate}>
+          <Plus size={16} aria-hidden="true" weight="bold" />
           New recipe
         </Button>
       </div>
@@ -122,7 +125,7 @@ export function HomeView({
 
       {/* Two-column dashboard — start on the left, recently updated on the right. */}
       {signedIn && library !== null ? (
-        <div className="mt-6 grid items-start gap-6 lg:grid-cols-[minmax(240px,320px)_minmax(0,1fr)]">
+        <div className="mt-6 grid items-stretch gap-6 lg:grid-cols-2">
           {startCard}
 
           <section aria-labelledby="recent-heading" className="min-w-0 rounded-lg border border-border bg-surface p-5">

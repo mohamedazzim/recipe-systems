@@ -37,6 +37,18 @@ function formatDate(isoDate: string): string {
   return new Date(`${isoDate}T12:00:00`).toLocaleDateString();
 }
 
+/** `s3://<bucket>/<key>` → a browser-loadable URL. In production this points at
+ *  the authorized/expiring asset URL service (ADR §5); in dev it is MinIO. */
+function photoUrl(uri: string): string {
+  if (/^https?:\/\//i.test(uri)) return uri;
+  const match = /^s3:\/\/([^/]+)\/(.+)$/.exec(uri);
+  if (match) {
+    const base = process.env.NEXT_PUBLIC_ASSET_BASE_URL ?? 'http://localhost:9000';
+    return `${base.replace(/\/$/, '')}/${match[1]}/${match[2]}`;
+  }
+  return uri;
+}
+
 export function CookSection({ recipeId }: { recipeId: string }) {
   const [last, setLast] = useState<LastCook | null>(null);
   const [logs, setLogs] = useState<CookLog[]>([]);
@@ -50,6 +62,10 @@ export function CookSection({ recipeId }: { recipeId: string }) {
   const [photoBusy, setPhotoBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** F5 photo states — kept separate from the cook-log error so one honest
+   *  error lives per surface. */
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [photoLoadFailed, setPhotoLoadFailed] = useState(false);
 
   const loadPhoto = useCallback(async (logId: string | undefined) => {
     if (!logId) {
@@ -59,6 +75,7 @@ export function CookSection({ recipeId }: { recipeId: string }) {
     try {
       const wire = await api<PlatePhoto>(`/cook-logs/${logId}/photo`);
       setPhoto(wire);
+      setPhotoLoadFailed(false);
     } catch {
       // 404 PLATE_PHOTO_NOT_FOUND = no photo yet; any failure stays quiet here.
       setPhoto(null);
@@ -124,15 +141,16 @@ export function CookSection({ recipeId }: { recipeId: string }) {
   const attachPhoto = async (): Promise<void> => {
     if (!latest || !photoFile) return;
     setPhotoBusy(true);
-    setError(null);
+    setPhotoError(null);
     try {
       const form = new FormData();
       form.append('file', photoFile);
       const wire = await apiUpload<PlatePhoto>(`/cook-logs/${latest.cook_log_id}/photo`, form);
       setPhoto(wire);
       setPhotoFile(null);
+      setPhotoLoadFailed(false);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not attach the photo');
+      setPhotoError(err instanceof ApiError ? err.message : 'Could not save photo. Try again.');
     } finally {
       setPhotoBusy(false);
     }
@@ -246,28 +264,56 @@ export function CookSection({ recipeId }: { recipeId: string }) {
       {latest && (
         <div className="mt-4 border-t border-border pt-3">
           <p className="text-caption font-semibold text-ink">Plate photo</p>
+
           {photo ? (
-            <p className="mt-1 text-caption text-body" data-testid="plate-photo-attached">
-              Photo attached ✓ (one per log — attaching again replaces it)
-            </p>
+            <div className="mt-2">
+              {/* eslint-disable-next-line @next/next/no-img-element -- dynamic
+                  object-storage asset (user plate photo); no Next optimizer
+                  remote-pattern for private S3 URLs, and the preview is tiny. */}
+              <img
+                src={photoUrl(photo.photo_uri)}
+                alt="Plate photo — the finished dish"
+                data-testid="plate-photo-preview"
+                onError={() => setPhotoLoadFailed(true)}
+                className="max-h-64 w-auto max-w-full rounded-md border border-border object-contain"
+              />
+              {photoLoadFailed && (
+                <p className="mt-1 text-caption text-negative">
+                  Could not load the photo preview.
+                </p>
+              )}
+              <p className="mt-1 text-caption text-positive" role="status" data-testid="plate-photo-saved">
+                Photo saved
+              </p>
+            </div>
           ) : (
             <p className="mt-1 text-caption text-muted">
-              One image per log. Attaching it never re-runs the analysis.
+              Add a photo of the finished dish.
             </p>
           )}
+
           <input
             type="file"
             accept="image/jpeg,image/png"
             aria-label="Plate photo"
-            onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+            onChange={(e) => {
+              setPhotoFile(e.target.files?.[0] ?? null);
+              setPhotoError(null);
+              setPhotoLoadFailed(false);
+            }}
             className="mt-2 block text-caption"
           />
           {photoFile && (
             <div className="mt-2">
               <Button onClick={() => void attachPhoto()} disabled={photoBusy}>
-                {photoBusy ? 'Attaching…' : photo ? 'Replace photo' : 'Attach photo'}
+                {photoBusy ? 'Uploading photo…' : photo ? 'Replace photo' : 'Upload photo'}
               </Button>
             </div>
+          )}
+          {photoError && (
+            <p className="mt-2 text-caption text-negative" role="alert">
+              {photoError}
+            </p>
           )}
         </div>
       )}

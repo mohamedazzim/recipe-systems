@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CookSection } from '@/components/app/CookSection';
 import { api, apiUpload, ApiError } from '@/lib/api';
@@ -45,6 +45,7 @@ function mockLoad(last: LastCook = LAST_COOK, items: CookLog[] = [LOG], photo: {
 describe('CookSection (D-24 F1/F2/F6)', () => {
   beforeEach(() => {
     (api as jest.Mock).mockReset();
+    (apiUpload as jest.Mock).mockReset();
     mockLoad();
   });
 
@@ -165,7 +166,7 @@ describe('CookSection (D-24 F1/F2/F6)', () => {
     expect(await screen.findByText('Next time: Less chilli next time')).toBeInTheDocument();
   });
 
-  it('F5: attaches a photo to the latest log via multipart and shows the attached state', async () => {
+  it('F5: attaches a photo to the latest log via multipart and shows a persisted preview', async () => {
     render(<CookSection recipeId="r1" />);
     const input = await screen.findByLabelText('Plate photo');
     const file = new File(['img'], 'plate.jpg', { type: 'image/jpeg' });
@@ -174,20 +175,81 @@ describe('CookSection (D-24 F1/F2/F6)', () => {
       photo_uri: 's3://recipe-assets/cook/plate.jpg',
     });
     await userEvent.upload(input, file);
-    await userEvent.click(await screen.findByRole('button', { name: 'Attach photo' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Upload photo' }));
     await waitFor(() => {
       expect(apiUpload).toHaveBeenCalledTimes(1);
     });
     const [path, form] = (apiUpload as jest.Mock).mock.calls[0] as [string, FormData];
     expect(path).toBe('/cook-logs/log-1/photo');
     expect(form.get('file')).toBe(file);
-    expect(await screen.findByTestId('plate-photo-attached')).toHaveTextContent('Photo attached');
+    const preview = await screen.findByTestId('plate-photo-preview');
+    expect(preview).toHaveAttribute('src', 'http://localhost:9000/recipe-assets/cook/plate.jpg');
+    expect(preview).toHaveAttribute('alt', 'Plate photo — the finished dish');
+    expect(screen.getByTestId('plate-photo-saved')).toHaveTextContent('Photo saved');
   });
 
-  it('F5: hydrates the attached state from the BFF on reopen', async () => {
+  it('F5: hydrates the persisted preview from the BFF on reopen', async () => {
     mockLoad(LAST_COOK, [{ ...LOG, has_photo: true }], { cook_log_id: 'log-1', photo_uri: 's3://recipe-assets/cook/plate.jpg' });
     render(<CookSection recipeId="r1" />);
-    expect(await screen.findByTestId('plate-photo-attached')).toBeInTheDocument();
+    expect(await screen.findByTestId('plate-photo-preview')).toBeInTheDocument();
+    expect(screen.getByTestId('plate-photo-preview')).toHaveAttribute(
+      'src',
+      'http://localhost:9000/recipe-assets/cook/plate.jpg',
+    );
+  });
+
+  it('F5: no-photo empty state invites upload without a preview', async () => {
+    render(<CookSection recipeId="r1" />);
+    expect(await screen.findByText('Add a photo of the finished dish.')).toBeInTheDocument();
+    expect(screen.queryByTestId('plate-photo-preview')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Upload photo' })).not.toBeInTheDocument();
+  });
+
+  it('F5: replacement uploads to the same log and updates the preview', async () => {
+    mockLoad(LAST_COOK, [{ ...LOG, has_photo: true }], { cook_log_id: 'log-1', photo_uri: 's3://recipe-assets/cook/old.jpg' });
+    render(<CookSection recipeId="r1" />);
+    expect(await screen.findByTestId('plate-photo-preview')).toHaveAttribute(
+      'src',
+      'http://localhost:9000/recipe-assets/cook/old.jpg',
+    );
+
+    const file = new File(['new'], 'new.jpg', { type: 'image/jpeg' });
+    (apiUpload as jest.Mock).mockResolvedValueOnce({
+      cook_log_id: 'log-1',
+      photo_uri: 's3://recipe-assets/cook/new.jpg',
+    });
+    await userEvent.upload(screen.getByLabelText('Plate photo'), file);
+    await userEvent.click(await screen.findByRole('button', { name: 'Replace photo' }));
+    expect(await screen.findByTestId('plate-photo-preview')).toHaveAttribute(
+      'src',
+      'http://localhost:9000/recipe-assets/cook/new.jpg',
+    );
+    expect((apiUpload as jest.Mock).mock.calls[0][0]).toBe('/cook-logs/log-1/photo');
+  });
+
+  it('F5: photo upload never requests the analysis endpoints', async () => {
+    render(<CookSection recipeId="r1" />);
+    const file = new File(['img'], 'plate.jpg', { type: 'image/jpeg' });
+    (apiUpload as jest.Mock).mockResolvedValueOnce({
+      cook_log_id: 'log-1',
+      photo_uri: 's3://recipe-assets/cook/plate.jpg',
+    });
+    await userEvent.upload(await screen.findByLabelText('Plate photo'), file);
+    await userEvent.click(await screen.findByRole('button', { name: 'Upload photo' }));
+    await waitFor(() => expect(apiUpload).toHaveBeenCalledTimes(1));
+    const analyseCalls = [
+      ...(api as jest.Mock).mock.calls,
+      ...(apiUpload as jest.Mock).mock.calls,
+    ].filter(([p]: [string]) => String(p).includes('/analyse'));
+    expect(analyseCalls).toHaveLength(0);
+  });
+
+  it('F5: image load failure shows the honest preview error', async () => {
+    mockLoad(LAST_COOK, [{ ...LOG, has_photo: true }], { cook_log_id: 'log-1', photo_uri: 's3://recipe-assets/cook/plate.jpg' });
+    render(<CookSection recipeId="r1" />);
+    const preview = await screen.findByTestId('plate-photo-preview');
+    fireEvent.error(preview);
+    expect(screen.getByText('Could not load the photo preview.')).toBeInTheDocument();
   });
 
   it('D-4: never GETs /photo when the log has no photo — an expected empty state, not a 404', async () => {
@@ -195,10 +257,10 @@ describe('CookSection (D-24 F1/F2/F6)', () => {
     await waitFor(() => expect(api).toHaveBeenCalledWith('/recipes/r1/cook-logs'));
     const photoCalls = (api as jest.Mock).mock.calls.filter(([path]: [string]) => path.endsWith('/photo'));
     expect(photoCalls).toHaveLength(0);
-    expect(screen.queryByTestId('plate-photo-attached')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('plate-photo-preview')).not.toBeInTheDocument();
   });
 
-  it('F5: a failed attach surfaces the honest error', async () => {
+  it('F5: a failed attach surfaces the honest error and never shows success', async () => {
     render(<CookSection recipeId="r1" />);
     const input = await screen.findByLabelText('Plate photo');
     const file = new File(['img'], 'plate.jpg', { type: 'image/jpeg' });
@@ -206,7 +268,8 @@ describe('CookSection (D-24 F1/F2/F6)', () => {
       new ApiError(413, 'IMAGE_TOO_LARGE', 'Image exceeds the 10 MB upload limit'),
     );
     await userEvent.upload(input, file);
-    await userEvent.click(await screen.findByRole('button', { name: 'Attach photo' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Upload photo' }));
     expect(await screen.findByText(/Image exceeds the 10 MB upload limit/)).toBeInTheDocument();
+    expect(screen.queryByTestId('plate-photo-saved')).not.toBeInTheDocument();
   });
 });

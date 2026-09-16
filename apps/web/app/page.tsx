@@ -7,6 +7,7 @@ import { LoadingScreen } from '@/components/ui/Spinner';
 import { LandingPage } from '@/components/home/LandingPage';
 import { AppShell, AppView } from '@/components/app/AppShell';
 import { HomeView } from '@/components/app/HomeView';
+import { LibraryView } from '@/components/app/LibraryView';
 import { CreateView } from '@/components/app/CreateView';
 import { RecipeWorkspace } from '@/components/app/RecipeWorkspace';
 import { claimSessionRecords } from '@/lib/flow';
@@ -134,7 +135,7 @@ export default function Home() {
   const user = state.phase === 'signed-in' ? state.user : null;
 
   return (
-    <AppShell user={user} onNavigate={setView} onSignOut={() => void signOut()}>
+    <AppShell user={user} view={view} onNavigate={setView} onSignOut={() => void signOut()}>
       {view.name === 'home' && (
         <HomeView
           signedIn={state.phase === 'signed-in'}
@@ -145,8 +146,18 @@ export default function Home() {
           onOpenRecipe={(recipeId, lines, title) =>
             setView({ name: 'workspace', recipeId, initialLines: lines ?? null, initialTitle: title })
           }
+          onOpenLibrary={() => setView({ name: 'library' })}
           onSignUp={startSignup}
           onSignOut={() => void signOut()}
+        />
+      )}
+      {view.name === 'library' && (
+        <LibraryView
+          library={user ? library : null}
+          onBack={() => setView({ name: 'home' })}
+          onOpenRecipe={(recipeId, lines, title) =>
+            setView({ name: 'workspace', recipeId, initialLines: lines ?? null, initialTitle: title })
+          }
         />
       )}
       {view.name === 'create' && (

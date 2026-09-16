@@ -6,6 +6,7 @@ describe('AppShell', () => {
   function props(overrides: Partial<Parameters<typeof AppShell>[0]> = {}) {
     return {
       user: null,
+      view: { name: 'home' } as const,
       onNavigate: jest.fn(),
       onSignOut: jest.fn(),
       children: <p>App content</p>,

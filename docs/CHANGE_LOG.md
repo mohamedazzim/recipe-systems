@@ -1,3 +1,13 @@
+## 2026-09-16 — D-30 preflight (0 DeepSeek calls; already complete)
+
+- Determined D-30 (Track S shopping data) is ALREADY IMPLEMENTED and evidenced
+  (H-30): ShoppingModule, migration 004 allergen_line, story_d30_shopping 5/5,
+  shopping unit suites 16/16, regression gates 2b/2c PASS.
+- No implementation performed (preflight only). Corrected the DISPATCH ledger D-30
+  status from ☐ to ✅ (H-30; A-30 pending).
+- Remaining: A-30 audit. D-31 remains conditional (§13); D-28 remains PENDING
+  HUMAN EVIDENCE.
+
 ## 2026-09-16 — Final production-readiness audit (0 DeepSeek calls)
 
 - Verdict: NO KNOWN TECHNICAL RELEASE BLOCKER (no P0/P1 findings; no code changes).

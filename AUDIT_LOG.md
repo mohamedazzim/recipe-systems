@@ -703,6 +703,14 @@ Then A-11 closes. Q10 remains the gate for D-28.
 - 0 DeepSeek calls. No known autonomous technical blocker; human acceptance
   evidence remains the only outstanding gate.
 
+## D-30 preflight re-verification (2026-09-16)
+
+- **Decision: D-30 ALREADY COMPLETE** (implementation + evidence in H-30). Not re-implemented.
+- Fresh checks: `story_d30_shopping` 5/5 · shopping unit suites 16/16 · regression gates 2b/2c PASS (shopping one-writer + allergen_line column).
+- Canonical scope verified against DISPATCH D-30 / BUILD_PLAN Track S: E1 list shape (one row per ingredient, two fenugreek rows, no headers, qualifiers visible), E2 have/need persistence across regeneration + reopen, E3 five-group market grouping, composite FK + C-28 soft-delete cleanup — all evidenced in H-30.
+- Remaining gap: A-30 audit not executed. DISPATCH ledger row corrected from ☐ to ✅ (H-30; A-30 pending).
+- 0 DeepSeek calls.
+
 ## Final production-readiness audit (2026-09-16)
 
 - **Verdict: NO KNOWN TECHNICAL RELEASE BLOCKER.**

@@ -54,14 +54,15 @@ describe('RecipeWorkspace', () => {
     return { recipeId: 'r1', signedIn: true, onBack: jest.fn(), ...overrides };
   }
 
-  it('shows the four sections and the session title', async () => {
+  it('shows the session title, the four section tabs, and the default Ingredients section', async () => {
     recordSessionRecipe('r1', 'Meen Kuzhambu', { kind: 'user', accountId: 'acc-1' });
     render(<RecipeWorkspace {...props()} />);
     expect(await screen.findByRole('heading', { level: 1, name: 'Meen Kuzhambu' })).toBeInTheDocument();
     expect(screen.getByText('Review: Meen Kuzhambu')).toBeInTheDocument();
-    expect(screen.getByText('Method section')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Analyse now' })).toBeInTheDocument();
-    expect(screen.getByText('Panel: none')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Ingredients/ })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Method' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Analysis' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Shopping list' })).toBeInTheDocument();
   });
 
   it('passes the enqueued analysis id down to the status panel', async () => {
@@ -75,8 +76,8 @@ describe('RecipeWorkspace', () => {
       return Promise.reject(new Error('unexpected ' + path));
     });
     render(<RecipeWorkspace {...props()} />);
-    await screen.findByRole('button', { name: 'Analyse now' });
-    await userEvent.click(screen.getByRole('button', { name: 'Analyse now' }));
+    await userEvent.click(screen.getByRole('tab', { name: 'Analysis' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Analyse now' }));
     expect(await screen.findByText(/Panel: a-1/)).toBeInTheDocument();
   });
 
@@ -88,10 +89,10 @@ describe('RecipeWorkspace', () => {
       return Promise.reject(new Error('unexpected ' + path));
     });
     render(<RecipeWorkspace {...props()} />);
-    // the workspace reopens on the persisted analysis
-    expect(await screen.findByText(/Panel: a-1/)).toBeInTheDocument();
-    // the user edits a line — no auto re-enqueue, just a stale marker
-    await userEvent.click(screen.getByRole('button', { name: 'Simulate edit' }));
+    // the user edits a line (Ingredients is the default tab) — no auto re-enqueue
+    await userEvent.click(await screen.findByRole('button', { name: 'Simulate edit' }));
+    // switch to Analysis to see the stale marker
+    await userEvent.click(screen.getByRole('tab', { name: 'Analysis' }));
     expect(await screen.findByRole('button', { name: 'Re-analyse now' })).toBeInTheDocument();
     // editing never POSTs /analyse automatically
     const analyseCalls = (api as jest.Mock).mock.calls.filter(
@@ -179,7 +180,7 @@ describe('RecipeWorkspace — D-22 Save (D1)', () => {
   it('D6: delete needs an explicit second step — Cancel returns without calling the API', async () => {
     render(<RecipeWorkspace {...props()} />);
     await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete recipe' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Delete recipe' }));
     expect(screen.getByText(/permanently removed/i)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByText(/permanently removed/i)).not.toBeInTheDocument();
@@ -191,7 +192,7 @@ describe('RecipeWorkspace — D-22 Save (D1)', () => {
     const p = props({ onDeleted: jest.fn() });
     render(<RecipeWorkspace {...p} />);
     await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete recipe' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Delete recipe' }));
     await userEvent.click(screen.getByRole('button', { name: 'Delete recipe' })); // the confirmation button
     expect(apiMock).toHaveBeenCalledWith('/recipes/r1', {
       method: 'DELETE',
@@ -209,7 +210,7 @@ describe('RecipeWorkspace — D-22 Save (D1)', () => {
     const p = props({ onDeleted: jest.fn() });
     render(<RecipeWorkspace {...p} />);
     await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete recipe' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Delete recipe' }));
     await userEvent.click(screen.getByRole('button', { name: 'Delete recipe' }));
     // D-24: the cook surface surfaces the same 503 — one honest error per surface.
     expect((await screen.findAllByText('Service unavailable')).length).toBeGreaterThan(0);

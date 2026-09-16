@@ -65,6 +65,10 @@ export function RecipeWorkspace({
   /** E6 + I5 (D-31): the home-mode one-pager print, surfaced from the header. */
   const [printing, setPrinting] = useState(false);
   const [printError, setPrintError] = useState<string | null>(null);
+  /** Which recipe section is active — Ingredients / Method / Analysis / Shopping. */
+  const [activeTab, setActiveTab] = useState<'ingredients' | 'method' | 'analysis' | 'shopping'>(
+    'ingredients',
+  );
 
   /**
    * D-22 (D1): the visible Save action. The artifact set already persists in
@@ -274,7 +278,7 @@ export function RecipeWorkspace({
         Back to your recipes
       </button>
 
-      {/* Recipe header — identity, mode, and the primary/secondary actions. */}
+      {/* Recipe hero — identity, mode, and the primary/secondary actions. */}
       <div className="mt-5 flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div className="min-w-0">
           <Heading level={1}>{title}</Heading>
@@ -306,18 +310,34 @@ export function RecipeWorkspace({
               </button>
               {moreOpen && (
                 <div
-                  role="menu"
                   aria-label="Recipe actions"
-                  className="absolute right-0 top-10 z-20 min-w-44 overflow-hidden rounded-lg border border-border bg-surface py-1 shadow-card"
+                  className="absolute right-0 top-10 z-20 max-h-[80vh] w-96 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-lg border border-border bg-surface p-3 shadow-card"
                 >
+                  <details className="border-b border-border pb-1">
+                    <summary className="cursor-pointer list-none rounded-md px-2 py-2 text-small font-semibold text-ink hover:bg-ink/5">
+                      Cook log
+                    </summary>
+                    <div className="px-2 pb-2">
+                      <CookSection recipeId={recipeId} />
+                      <SwapSection recipeId={recipeId} lines={lines} onApplied={() => void reloadLines()} />
+                    </div>
+                  </details>
+                  <details className="border-b border-border py-1">
+                    <summary className="cursor-pointer list-none rounded-md px-2 py-2 text-small font-semibold text-ink hover:bg-ink/5">
+                      Tags
+                    </summary>
+                    <div className="px-2 pb-2">
+                      <TagsSection recipeId={recipeId} signedIn={signedIn} />
+                    </div>
+                  </details>
                   <button
-                    role="menuitem"
+                    type="button"
                     onClick={() => {
                       setMoreOpen(false);
                       setConfirmingDelete(true);
                     }}
                     disabled={deleting}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-small font-medium text-negative transition-colors hover:bg-negative/10 disabled:text-faint"
+                    className="mt-1 flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-small font-medium text-negative transition-colors hover:bg-negative/10 disabled:text-faint"
                   >
                     Delete recipe
                   </button>
@@ -333,44 +353,32 @@ export function RecipeWorkspace({
       </p>
       {printError && <p className="mt-2 text-caption text-negative">{printError}</p>}
 
-      {/* Save — the primary persistence action sits with the header. */}
-      <section aria-labelledby="save-heading" className="mt-5 rounded-lg border border-border bg-surface p-5">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 id="save-heading" className="text-small font-semibold text-ink">
-            Save
-          </h2>
-          <p className="text-caption text-muted">
-            Saved recipes survive closing the browser and appear in your library. Blank name = the dish family.
-          </p>
-        </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <input
-            aria-label="Recipe name"
-            value={saveTitle}
-            onChange={(e) => setSaveTitle(e.target.value)}
-            placeholder="Family name (leave blank for the default)"
-            maxLength={255}
-            className="min-w-64 max-w-full flex-1 rounded-md border border-border-strong bg-background px-3 py-2 text-body focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
-          />
-          <Button onClick={() => void saveRecipe()} disabled={saving}>
-            {saving ? 'Saving…' : 'Save recipe'}
-          </Button>
-        </div>
-        {saveError && <p className="mt-2 text-caption text-negative">{saveError}</p>}
-        {saved && (
-          <div className="mt-3 border-t border-border pt-3">
-            <p className="text-caption text-body">
-              Saved as <span className="font-semibold text-ink">{saved.title}</span> ·{' '}
-              {new Date(saved.saved_at).toLocaleString()}
-            </p>
-            <p className="mt-1 text-caption text-muted">
-              Artifacts — raw input {saved.artifacts.raw_input ? '✓' : '—'} · photo{' '}
-              {saved.artifacts.photo ? '✓' : '—'} · object {saved.artifacts.object ? '✓' : '—'} · identification{' '}
-              {saved.artifacts.identification ? '✓' : '—'} · analysis {saved.artifacts.analysis ? '✓' : '—'} · timestamps ✓
-            </p>
-          </div>
-        )}
-      </section>
+      {/* Save — a compact control in the hero, never a full card. */}
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <input
+          aria-label="Recipe name"
+          value={saveTitle}
+          onChange={(e) => setSaveTitle(e.target.value)}
+          placeholder="Family name (blank = the default)"
+          maxLength={255}
+          className="min-w-52 max-w-full rounded-md border border-border-strong bg-background px-3 py-2 text-body focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+        />
+        <Button onClick={() => void saveRecipe()} disabled={saving}>
+          {saving ? 'Saving…' : 'Save recipe'}
+        </Button>
+        {saveError && <span className="text-caption text-negative">{saveError}</span>}
+      </div>
+      {saved && (
+        <p className="mt-2 text-caption text-body">
+          Saved as <span className="font-semibold text-ink">{saved.title}</span> ·{' '}
+          {new Date(saved.saved_at).toLocaleString()}
+          <span className="block text-caption text-muted">
+            Artifacts — raw input {saved.artifacts.raw_input ? '✓' : '—'} · photo{' '}
+            {saved.artifacts.photo ? '✓' : '—'} · object {saved.artifacts.object ? '✓' : '—'} · identification{' '}
+            {saved.artifacts.identification ? '✓' : '—'} · analysis {saved.artifacts.analysis ? '✓' : '—'} · timestamps ✓
+          </span>
+        </p>
+      )}
 
       {/* Delete confirmation — reached from the header More menu (D-22 D6). */}
       {signedIn && confirmingDelete && (
@@ -394,67 +402,80 @@ export function RecipeWorkspace({
       )}
       {deleteError && <p className="mt-2 text-caption text-negative">{deleteError}</p>}
 
-      {/* Two-pane workspace: ANALYSIS is the primary pane (right, first on
-          mobile). Recipe context/actions live in the secondary left pane. */}
-      <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-        <div className={`min-w-0 ${analysisId !== null ? 'order-2' : 'order-1'} lg:order-1`}>
-          {/* D-24 (F1/F2/F6): the after-cook capture. The reopen recall sits at the
-              top of the context pane (F6 AC-1) and the note stays above the analysis
-              (F2 AC-3). */}
-          <CookSection recipeId={recipeId} />
-
-          {/* D-26 (F3/H5): record what was actually used against the latest cook log. */}
-          <SwapSection recipeId={recipeId} lines={lines} onApplied={() => void reloadLines()} />
-
-          {/* D-25 (D3): free-text tags — display, add, remove (recipes module is the
-              sole recipe_tag writer; Bearer-only surface). */}
-          <TagsSection recipeId={recipeId} signedIn={signedIn} />
-
-      <div className="mt-8">
-        <IngredientReview
-          recipeId={recipeId}
-          signedIn={signedIn}
-          title={title}
-          initialLines={initialLines}
-          onLinesLoaded={setLines}
-          onChanged={markAnalysisStale}
-        />
+      {/* Recipe section tabs — one focused section at a time. */}
+      <div
+        className="mt-6 flex gap-6 overflow-x-auto border-b border-border"
+        role="tablist"
+        aria-label="Recipe sections"
+      >
+        {(
+          [
+            ['ingredients', `Ingredients ${lines.length}`],
+            ['method', 'Method'],
+            ['analysis', 'Analysis'],
+            ['shopping', 'Shopping list'],
+          ] as const
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === key}
+            onClick={() => setActiveTab(key)}
+            className={`-mb-px whitespace-nowrap border-b-2 px-1 py-3 text-small font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset--2 focus-visible:outline-gold ${
+              activeTab === key ? 'border-accent text-ink' : 'border-transparent text-muted hover:text-ink'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
-      <MethodSection
-        recipeId={recipeId}
-        signedIn={signedIn}
-        onChange={setMethodState}
-        onSaved={markAnalysisStale}
-      />
-
-      <ShoppingSection recipeId={recipeId} />
-        </div>
-
-        {/* PRIMARY pane — analysis status + views, immediately visible. */}
-        <div className={`min-w-0 ${analysisId !== null ? 'order-1' : 'order-2'} lg:order-2`}>
-          <ReadinessPanel
+      {/* Active section — full-width, one focused workspace. */}
+      <div className="mt-6">
+        {activeTab === 'ingredients' && (
+          <IngredientReview
             recipeId={recipeId}
             signedIn={signedIn}
-            lines={lines}
-            onAnalyse={runAnalysis}
-            analysing={analysing}
-            error={analyseError}
-            hasAnalysis={analysisId !== null}
-            stale={analysisStale}
+            title={title}
+            initialLines={initialLines}
+            onLinesLoaded={setLines}
+            onChanged={markAnalysisStale}
           />
-
-          <AnalysisPanel
-            analysisId={analysisId}
+        )}
+        {activeTab === 'method' && (
+          <MethodSection
             recipeId={recipeId}
-            lines={lines}
-            methodState={methodState}
             signedIn={signedIn}
-            mode={mode}
-            stale={analysisStale}
-            onRetry={runAnalysis}
+            onChange={setMethodState}
+            onSaved={markAnalysisStale}
           />
-        </div>
+        )}
+        {activeTab === 'analysis' && (
+          <>
+            <ReadinessPanel
+              recipeId={recipeId}
+              signedIn={signedIn}
+              lines={lines}
+              onAnalyse={runAnalysis}
+              analysing={analysing}
+              error={analyseError}
+              hasAnalysis={analysisId !== null}
+              stale={analysisStale}
+            />
+            <AnalysisPanel
+              analysisId={analysisId}
+              recipeId={recipeId}
+              lines={lines}
+              methodState={methodState}
+              signedIn={signedIn}
+              mode={mode}
+              stale={analysisStale}
+              onRetry={runAnalysis}
+            />
+          </>
+        )}
+        {activeTab === 'shopping' && <ShoppingSection recipeId={recipeId} />}
       </div>
     </div>
   );

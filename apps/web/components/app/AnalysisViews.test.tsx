@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AnalysisViews } from '@/components/app/AnalysisViews';
 import type { AnalysisState, StationCard, WireLine } from '@/lib/types';
@@ -460,5 +460,47 @@ describe('AnalysisViews (D-20 chef mode · station card leads, §7 headers)', ()
     expect(screen.getByRole('tab', { name: '8 · Allergen brief' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: '9 · Assumption log' })).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: '3 · Process' })).not.toBeInTheDocument();
+  });
+});
+
+describe('AnalysisViews (D-31 home-mode one-pager print)', () => {
+  it('with a recipeId in home mode, the one-pager print button opens the snapshot PDF', async () => {
+    const viewer = { location: { href: '' }, close: jest.fn() };
+    const openSpy = jest.spyOn(window, 'open').mockImplementation(() => viewer as never);
+    URL.createObjectURL = (jest.fn(() => 'blob:one-pager') as unknown as typeof URL.createObjectURL);
+    (globalThis as unknown as { fetch: unknown }).fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      blob: async () => new Blob(['%PDF']),
+    });
+    render(
+      <AnalysisViews analysis={analysis([])} lines={LINES} methodState={null} recipeId="recipe-1" />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Print one-pager' }));
+    await waitFor(() => expect(openSpy).toHaveBeenCalledWith('', '_blank'));
+    await waitFor(() => expect(viewer.location.href).toBe('blob:one-pager'));
+    expect((globalThis.fetch as jest.Mock).mock.calls[0][0]).toContain(
+      '/recipes/recipe-1/print/one-pager',
+    );
+    openSpy.mockRestore();
+    delete (URL as unknown as Record<string, unknown>).createObjectURL;
+  });
+
+  it('without a recipeId the one-pager print surface is absent', () => {
+    render(<AnalysisViews analysis={analysis([])} lines={LINES} methodState={null} />);
+    expect(screen.queryByRole('button', { name: 'Print one-pager' })).not.toBeInTheDocument();
+  });
+
+  it('chef mode hides the home one-pager button', () => {
+    render(
+      <AnalysisViews
+        analysis={analysis([])}
+        lines={LINES}
+        methodState={null}
+        mode="chef"
+        recipeId="recipe-1"
+      />,
+    );
+    expect(screen.queryByRole('button', { name: 'Print one-pager' })).not.toBeInTheDocument();
   });
 });

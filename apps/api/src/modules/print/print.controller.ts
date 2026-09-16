@@ -70,4 +70,28 @@ export class PrintController {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(out.html);
   }
+
+  /** E6 + I5 (D-31): the home-mode one-pager (snapshot-only). */
+  @Get(':recipeId/print/one-pager')
+  @UseGuards(GuestOrJwtGuard)
+  async onePager(
+    @Req() req: ActorRequest,
+    @Param('recipeId') recipeId: string,
+    @Query('format') format: string | undefined,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const out = await this.print.onePagerPrint(
+      req.actor!,
+      recipeId,
+      format === 'html' ? 'html' : 'pdf',
+    );
+    if (out.pdf) {
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `inline; filename="${out.filename}"`);
+      res.send(out.pdf);
+      return;
+    }
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(out.html);
+  }
 }

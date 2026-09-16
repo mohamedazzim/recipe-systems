@@ -22,11 +22,19 @@ import {
   Patch,
   Post,
   Req,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { z } from 'zod';
 import { CsrfGuard } from '../../common/guards/csrf.guard';
 import { ActorRequest, GuestOrJwtGuard } from '../../common/guards/guest-or-jwt.guard';
+import {
+  IMAGE_CONTENT_TYPES,
+  MAX_IMAGE_BYTES,
+  type ImageContentType,
+} from '../intake/storage.service';
 import { CookService, NEXT_TIME_MAX, NOTE_MAX, parseCookDate } from './cook.service';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -176,5 +184,41 @@ export class CookLogController {
       reason: d.reason ?? null,
       appliedToCard: d.applied_to_card,
     });
+  }
+
+  /** F5 (D-31) — attach the plate photo (ONE image per log). JPEG/PNG, ≤10 MB.
+   *  Never triggers re-analysis. 200 + the wire. */
+  @Post(':cookLogId/photo')
+  @UseGuards(GuestOrJwtGuard, CsrfGuard)
+  @UseInterceptors(FileInterceptor('file'))
+  async attachPhoto(
+    @Req() req: ActorRequest,
+    @Param('cookLogId') cookLogId: string,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    if (!file || !file.buffer || file.buffer.length === 0) {
+      throw new BadRequestException({ code: 'INVALID_IMAGE', message: 'JPEG/PNG file required' });
+    }
+    const contentType = file.mimetype as ImageContentType;
+    if (!IMAGE_CONTENT_TYPES.includes(contentType)) {
+      throw new BadRequestException({
+        code: 'INVALID_IMAGE',
+        message: 'Only JPEG/PNG images are accepted (F5)',
+      });
+    }
+    if (file.buffer.length > MAX_IMAGE_BYTES) {
+      throw new BadRequestException({
+        code: 'IMAGE_TOO_LARGE',
+        message: 'Image exceeds the 10 MB upload limit',
+      });
+    }
+    return this.cook.attachPlatePhoto(req.actor!, cookLogId, file.buffer, contentType);
+  }
+
+  /** F5 read surface — the plate photo URI for one log (GuestOrJwt). */
+  @Get(':cookLogId/photo')
+  @UseGuards(GuestOrJwtGuard)
+  async platePhoto(@Req() req: ActorRequest, @Param('cookLogId') cookLogId: string) {
+    return this.cook.platePhoto(req.actor!, cookLogId);
   }
 }

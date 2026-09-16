@@ -18,6 +18,11 @@ function controller() {
         ? { pdf: null, html: '<html>card</html>', filename: 'station-card-r1.pdf' }
         : { pdf: Buffer.from('%PDF-1.4 fake'), html: '<html>card</html>', filename: 'station-card-r1.pdf' },
     ),
+    onePagerPrint: jest.fn(async (_a: unknown, _id: string, format: string) =>
+      format === 'html'
+        ? { pdf: null, html: '<html>one-pager</html>', filename: 'one-pager-r1.pdf' }
+        : { pdf: Buffer.from('%PDF-1.4 fake'), html: '<html>one-pager</html>', filename: 'one-pager-r1.pdf' },
+    ),
   } as unknown as PrintService;
   return { c: new PrintController(print), print };
 }
@@ -66,5 +71,19 @@ describe('PrintController (D-23)', () => {
     await c.stationCard(REQ, 'r1', 'html', res2 as never);
     expect(res2.headers['Content-Type']).toBe('text/html; charset=utf-8');
     expect(res2.send).toHaveBeenCalledWith('<html>card</html>');
+  });
+
+  it('one-pager serves pdf and html formats (E6/I5 D-31)', async () => {
+    const { c, print } = controller();
+    const res = resMock();
+    await c.onePager(REQ, 'r1', undefined, res as never);
+    expect(print.onePagerPrint).toHaveBeenCalledWith(REQ.actor, 'r1', 'pdf');
+    expect(res.headers['Content-Type']).toBe('application/pdf');
+    expect(res.headers['Content-Disposition']).toContain('one-pager-r1.pdf');
+
+    const res2 = resMock();
+    await c.onePager(REQ, 'r1', 'html', res2 as never);
+    expect(res2.headers['Content-Type']).toBe('text/html; charset=utf-8');
+    expect(res2.send).toHaveBeenCalledWith('<html>one-pager</html>');
   });
 });

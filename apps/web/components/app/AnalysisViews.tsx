@@ -14,7 +14,7 @@ import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Field } from '@/components/ui/Field';
 import { Input } from '@/components/ui/Input';
-import { api, ApiError } from '@/lib/api';
+import { api, ApiError, API_BASE_URL } from '@/lib/api';
 import { StationCard, NoStationCard } from '@/components/app/StationCard';
 import { RestrictionHighlight } from '@/components/app/RestrictionHighlight';
 import {
@@ -74,8 +74,49 @@ export function AnalysisViews({
   recipeId,
 }: AnalysisViewsProps) {
   const [activeView, setActiveView] = useState('view-1');
+  const [printing, setPrinting] = useState(false);
+  const [printError, setPrintError] = useState<string | null>(null);
   const byNumber = new Map(analysis.views.map((v) => [v.view_number, v]));
   const view = (n: number) => byNumber.get(n) ?? null;
+
+  /** E6 + I5 (D-31): the home-mode one-pager — snapshot-only PDF print. */
+  async function printOnePager(): Promise<void> {
+    if (!recipeId) return;
+    setPrinting(true);
+    setPrintError(null);
+    const viewer = window.open('', '_blank');
+    try {
+      const res = await fetch(`${API_BASE_URL}/recipes/${recipeId}/print/one-pager`, {
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        let code = 'HTTP_ERROR';
+        let message = res.statusText;
+        try {
+          const body = (await res.json()) as { error?: { code?: string; message?: string } };
+          code = body.error?.code ?? code;
+          message = body.error?.message ?? message;
+        } catch {
+          // non-JSON error body
+        }
+        viewer?.close();
+        throw new ApiError(res.status, code, message);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      if (viewer) {
+        viewer.location.href = url;
+      } else {
+        window.open(url, '_blank');
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      viewer?.close();
+      setPrintError(err instanceof Error ? err.message : 'Could not print the one-pager');
+    } finally {
+      setPrinting(false);
+    }
+  }
 
   const identification = identificationFrom(
     view(5) ? view5Payload(view(5)?.payload ?? null) : null,
@@ -114,6 +155,20 @@ export function AnalysisViews({
       <h2 id="result-heading" className="sr-only">
         Analysis result
       </h2>
+
+      {mode === 'home' && recipeId && (
+        <div className="mb-4">
+          <button
+            type="button"
+            onClick={() => void printOnePager()}
+            disabled={printing}
+            className="inline-flex items-center justify-center gap-2 rounded-md border border-border-strong bg-transparent px-3 py-1.5 text-small font-semibold text-ink transition-colors hover:border-ink/40 hover:bg-ink/5 disabled:cursor-not-allowed disabled:text-faint"
+          >
+            {printing ? 'Printing…' : 'Print one-pager'}
+          </button>
+          {printError && <p className="mt-2 text-caption text-negative">{printError}</p>}
+        </div>
+      )}
 
       {identification ? (
         <div className="rounded-lg border border-border bg-surface p-5">

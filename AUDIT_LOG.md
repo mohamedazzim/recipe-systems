@@ -897,3 +897,25 @@ D-30 verified complete. Next: D-31 remains conditional (§13); D-23 already cons
   build green.
 - **Decision:** **Q10 = RESOLVED (DeepSeek Vision); D-28 = UNBLOCKED (not
   implemented).** PaddleOCR remains available behind the seam, not selected.
+
+## A-31 — Audit: could-have tail E6 / F5 / I5 (D-31)
+
+- **Date / audit agent:** 2026-09-16 · GitHub Copilot (DeepSeek V4 Pro) — post-implementation audit of the D-31 tree (same agent that implemented D-31; independence provided by the pre-recorded attack vectors and the regression gate re-execution, not a separate session).
+- **Audited commit:** the working tree before the D-31 commit (`feat(D-31): implement E6 one-pager, F5 plate photo, I5 energy-band boundary`) — rendering template `packages/rendering/src/templates/one-pager.ts`; API print/cook modules; web CookSection/AnalysisViews; integration `story_d31_one_pager_photo`; docs updates.
+- **Scope:** DISPATCH D-31 done criteria; AUDIT.md A-31 attack vectors; USER_STORIES E6/F5/I5; Recipe_Systems §12/§13; ADR §2 one-writer; INV-10/INV-12/INV-14.
+
+### Verdict: PASS (no findings)
+
+Each A-31 attack vector re-executed:
+
+- **Conditional-dispatch proof (BLOCKER class): SATISFIED.** H-31 records the dispatcher's verbatim §13 determination ("the week 9–10 Must work was stable at dispatch", 2026-09-16). D-31 was not implemented until that determination was recorded; D-28 remains separately PENDING HUMAN EVIDENCE.
+- **E6 truthfulness: PASS.** `onePagerPrint` reads ONLY persisted `analysis_view` (2/4/5/9) + `analysis_station_card` rows (INV-12 snapshot-only) and never queries the live allergen mapping (gate 2d still green). Sections keep / negotiate / identity-shift / ingredients are derived from those rows; no fabricated lines. The template carries I6 ("Not a lab analysis") and the snapshot-only footer; unit + integration tests assert no "Nutrition Facts"/"Serving Size" wording (E6 TC-03).
+- **I5 boundary: PASS.** The energy band is the persisted View 9 band (min/max — never a point-kcal, INV-14) and appears ONLY in `one-pager.ts`. The integration test proves `shoppingListPrint` contains no "Energy (whole pot)" and no "kcal"; the band is optional (absent View 9 → section omitted).
+- **F5 semantics: PASS.** `cook_log_photo.cookLogId` is `@unique` (one image per log); `attachPlatePhoto` replaces via `upsert` and deletes the prior object as compensating cleanup; the cook service has NO queue/boss dependency, so no re-analysis can be enqueued from this path. The integration test asserts analysis rows are byte-identical before/after photo attach (F5 AC-2) and that a foreign actor receives the canonical `RECIPE_NOT_FOUND` (no existence leak).
+- **Drift: PASS.** The diff touches no analysis-engine file (analysis-worker untouched; no prompt/grounding edits). One-writer gates (2e cook, 2d print snapshot-only) stay green.
+
+**Notes (not findings):**
+- `CookService`'s `storage` dependency is an optional constructor parameter guarded by `STORAGE_UNAVAILABLE` — Nest DI always injects `StorageService` in production; the optionality only lets non-F5 unit tests construct the service without a storage fake.
+- The F5 web surface attaches/replaces and shows attachment status; the API returns the canonical `s3://` URI (the same contract as `recipe.photo_uri`). Serving image bytes to `<img>` is not part of F5's acceptance criteria and remains a pre-existing product gap (no object-serving endpoint anywhere).
+
+**Re-verification:** API 329/329 · web 156/156 · worker/schemas/rendering/database/domain/llm/ocr suites green · integration 24/24 · 156/156 · `regression-gates.sh` PASS (zero fires) · golden 8/8 · typecheck 0 · lint 0 · build 0 · `prisma migrate deploy` no pending migrations.

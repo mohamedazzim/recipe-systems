@@ -1,3 +1,25 @@
+## 2026-09-16 — D-31 EXECUTION (E6 one-pager · F5 plate photo · I5 band boundary)
+
+- Implemented the full D-31 could-have tail after the §13 dispatcher determination
+  (0 DeepSeek/OCR API calls — deterministic, no analysis-engine changes).
+- E6: `packages/rendering/src/templates/one-pager.ts` (`onePagerHtml` + I6
+  disclaimer) rendering keep / negotiate / identity-shift / ingredients from
+  persisted analysis snapshots; `PrintService.onePagerPrint` +
+  `GET /recipes/:recipeId/print/one-pager` (`?format=html|pdf`; 404
+  `ONE_PAGER_NOT_FOUND`).
+- F5: `CookService.attachPlatePhoto`/`platePhoto` (one `cook_log_photo` per log via
+  `@unique cookLogId`; replace deletes the old object; no enqueue — no re-analysis)
+  + `POST`/`GET /cook-logs/:cookLogId/photo`.
+- I5: the optional View 9 energy band appears only on the one-pager, never on the
+  market list; band stays a band (INV-14).
+- Web: `CookSection` plate-photo attach/replace; `AnalysisViews` home-mode
+  "Print one-pager" button.
+- Verification: API 329/329 · web 156/156 · worker/schemas/rendering/database/
+  domain/llm/ocr suites green · integration 24/24 · 156/156 (new
+  `story_d31_one_pager_photo` 5/5) · regression gates PASS · golden 8/8 ·
+  typecheck 0 · lint 0 · build 0 · migrate up to date.
+- A-31 = PASS (no findings). D-28 remains PENDING HUMAN EVIDENCE.
+
 ## 2026-09-16 — §13 dispatcher determination (D-31 UNBLOCKED)
 
 - The dispatcher recorded the §13 determination: the week 9–10 Must work "was

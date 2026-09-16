@@ -3663,10 +3663,18 @@ access is available, then execute A-28 and record the go/no-go decision. HARD ST
 
 ### H-31 — D-31 Could-have tail (E6, F5, I5 — conditional per §13)
 
-- **Status: §13 SATISFIED — D-31 UNBLOCKED (dispatcher determination, 2026-09-16).** Implementation not yet dispatched.
+- **Status: COMPLETE (2026-09-16).** §13 SATISFIED → D-31 UNBLOCKED → implemented → audited (**A-31 = PASS**, no findings).
 - **Dispatcher determination (2026-09-16, recorded verbatim):** "Based on the recorded implementation, audit, CI, integration, regression, and E2E evidence for the week 9–10 Must units (D-22, D-23, D-24, D-30), I determine that the week 9–10 Must work was stable at dispatch for purposes of the §13 Could-have unlock condition." Supporting evidence cited: A-22/A-23/A-24/A-29/A-30 PASS-WITH-FINDINGS, recorded green CI/regression, recorded integration/E2E. Known non-blocking findings remain documented.
 - This determination does NOT close D-28's separate human-pilot evidence requirement. **D-28 remains PENDING HUMAN EVIDENCE.**
-- §13 condition: SATISFIED. D-31: UNBLOCKED (not yet implemented).
+- §13 condition: SATISFIED. D-31: UNBLOCKED (§13 satisfied 2026-09-16).
+
+#### Implementation (2026-09-16)
+
+- **E6 one-pager:** `packages/rendering/src/templates/one-pager.ts` (`onePagerHtml` + `I6_DISCLAIMER`) rendering keep (View 2), negotiate (View 4), identity-shift (View 5 `not_this` + family), ingredients (D-20 station-card mise) and the optional View 9 energy band; snapshot-only footer; never a legal nutrition label.
+- **API print surface:** `PrintService.onePagerPrint` (reads persisted `analysis_view` 2/4/5/9 + `analysis_station_card` only; 404 `ONE_PAGER_NOT_FOUND` when no completed analysis) + `GET /recipes/:recipeId/print/one-pager` (`?format=html|pdf`).
+- **F5 plate photo:** `CookService.attachPlatePhoto`/`platePhoto` (one `cook_log_photo` per log via the `@unique cookLogId`; replace deletes the old object; ownership rides `assertOwned`; no enqueue anywhere in the module) + `POST`/`GET /cook-logs/:cookLogId/photo` (JPEG/PNG ≤10 MB).
+- **Web:** `CookSection` plate-photo attach/replace + status; `AnalysisViews` home-mode "Print one-pager" button (hidden in chef mode and without a `recipeId`).
+- **Verification:** API 329/329 · web 156/156 · worker/schemas/rendering/database/domain/llm/ocr suites green · integration 24/24 · 156/156 (new `story_d31_one_pager_photo` 5/5) · `regression-gates.sh` PASS · golden 8/8 · typecheck 0 · lint 0 · build 0 · `prisma migrate deploy` no pending migrations.
 
 #### §13 stability evidence package (prepared 2026-09-16 — determination NOT made)
 
@@ -3716,9 +3724,9 @@ Four evidence categories (never merged):
 
 **Known technical blockers:** none ("NO KNOWN TECHNICAL RELEASE BLOCKER").
 
-**D-28 status:** PENDING HUMAN EVIDENCE. **D-31 status:** UNBLOCKED (§13 satisfied 2026-09-16; not yet implemented).
+**D-28 status:** PENDING HUMAN EVIDENCE. **D-31 status:** COMPLETE (H-31 implemented + A-31 PASS, 2026-09-16).
 
-**Dispatcher action completed (2026-09-16):** the §13 determination was recorded by the dispatcher — week 9–10 Must work "was stable at dispatch." D-31 is now UNBLOCKED and ready for dispatch per DISPATCH D-31. D-28's human pilot remains separately pending.
+**Dispatcher action completed (2026-09-16):** the §13 determination was recorded by the dispatcher — week 9–10 Must work "was stable at dispatch." D-31 was then implemented and audited (A-31 PASS). D-28's human pilot remains separately pending.
 
 ✅ §13 stability evidence RECORDED (dispatcher, 2026-09-16): week 9–10 Must work was stable at dispatch.
 

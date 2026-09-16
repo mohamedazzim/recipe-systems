@@ -188,6 +188,19 @@ Preview a single swap from View 4. **Auth:** Bearer or guest. **Story:** RS-US-1
 - Body: `{ "swap": string }` (e.g. an ingredient name or swap id)
 - 200: `{ "classification": "structural"|"modular"|"identity_shift", "what_is_lost": string }`
 
+### GET /recipes/:recipeId/print/shopping-list
+Print the latest shopping-list snapshot (D-23). **Auth:** Bearer or guest. **Story:** RS-US-27.
+- `?format=html|pdf` (default `pdf`) · 200: PDF (`application/pdf`) or the same template as `text/html` · 404 `SHOPPING_LIST_NOT_FOUND`
+
+### GET /recipes/:recipeId/print/station-card
+Print the persisted station-card snapshot (D-23). **Auth:** Bearer or guest. **Story:** RS-US-29.
+- `?format=html|pdf` (default `pdf`) · 200: PDF (`application/pdf`) or the same template as `text/html` · 404 `STATION_CARD_NOT_FOUND`
+
+### GET /recipes/:recipeId/print/one-pager
+Print the home-mode one-pager (E6/I5 — D-31). **Auth:** Bearer or guest.
+- `?format=html|pdf` (default `pdf`) · 200: PDF (`application/pdf`) or the same template as `text/html` · 404 `ONE_PAGER_NOT_FOUND`
+- Snapshot-only: keep / negotiate / identity-shift / ingredients from persisted analysis views + the optional View 9 energy band; never a legal nutrition label.
+
 ---
 
 ## 6. Recipe library
@@ -249,7 +262,7 @@ Mark a whole group as have. **Auth:** Bearer. **Story:** RS-US-26 AC-4.
 > **D-24 (2026-09-14) ships the F1/F2/F6 slice** — POST /cook-logs, GET /cook-logs,
 > PATCH /cook-logs/:cookLogId (rating/note only), GET /last-cook. Guards follow the
 > existing ownership/session contract (GuestOrJwt + `assertOwned`; writes ride CSRF).
-> Deferred: `next_time` on POST/PATCH (F4) and `/swaps` (F3) → D-26; `/photo` (F5) → D-31.
+> D-26 ships `next_time` (F4) and `/swaps` (F3); D-31 ships the plate photo (F5).
 
 ### POST /recipes/:recipeId/cook-logs
 Log that I cooked it. **Auth:** Bearer. **Story:** RS-US-31.
@@ -272,8 +285,14 @@ Record a swap / restriction-driven swap. **Auth:** Bearer. **Story:** RS-US-33, 
 - 201: created swap
 
 ### POST /cook-logs/:cookLogId/photo
-Upload a plate photo (F5). **Auth:** Bearer. **Story:** RS-US-35.
-- Body: multipart `file` · 201: `{ "image_id", "file_key" }`
+Upload a plate photo (F5 — D-31). **Auth:** Bearer or guest. **Story:** RS-US-35.
+- Body: multipart `file` (JPEG/PNG, ≤ 10 MB) · 200: `{ "cook_log_id": uuid, "photo_uri": "s3://…" }`
+- ONE image per log (the `cook_log_photo.cookLogId` unique key); attaching again replaces the previous object (old object deleted). Never triggers re-analysis.
+- 400 `INVALID_IMAGE` (wrong type/empty) · 400 `IMAGE_TOO_LARGE` (> 10 MB) · 404 `COOK_LOG_NOT_FOUND` / `RECIPE_NOT_FOUND`
+
+### GET /cook-logs/:cookLogId/photo
+Read the plate photo URI for a log (F5 — D-31). **Auth:** Bearer or guest. **Story:** RS-US-35.
+- 200: `{ "cook_log_id": uuid, "photo_uri": "s3://…" }` · 404 `PLATE_PHOTO_NOT_FOUND` (no photo) / `COOK_LOG_NOT_FOUND` / `RECIPE_NOT_FOUND`
 
 ### GET /recipes/:recipeId/last-cook
 Return last-cook summary (date, rating, next-time) for reopen (F6). **Auth:** Bearer. **Story:** RS-US-36.

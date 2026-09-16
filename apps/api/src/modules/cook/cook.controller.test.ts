@@ -33,6 +33,14 @@ function mockCook() {
       next_time: null,
     }),
     updateCookLog: jest.fn().mockResolvedValue(wire({ rating: 5 })),
+    attachPlatePhoto: jest.fn().mockResolvedValue({
+      cook_log_id: LOG_ID,
+      photo_uri: 's3://recipe-assets/cook/2222.jpg',
+    }),
+    platePhoto: jest.fn().mockResolvedValue({
+      cook_log_id: LOG_ID,
+      photo_uri: 's3://recipe-assets/cook/2222.jpg',
+    }),
   };
 }
 
@@ -257,6 +265,61 @@ describe('CookLogController (D-24 PATCH boundary)', () => {
         });
       }
       expect(svc.recordSwap).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('POST/GET /cook-logs/:cookLogId/photo (D-31 F5)', () => {
+    it('POST forwards the buffer and mimetype to the service (F5 attach)', async () => {
+      const svc = mockCook();
+      const controller = new CookLogController(svc as any);
+      const buf = Buffer.from('fake-image');
+      const out = await controller.attachPhoto({ actor: userActor } as any, LOG_ID, {
+        buffer: buf,
+        mimetype: 'image/jpeg',
+      } as any);
+      expect(svc.attachPlatePhoto).toHaveBeenCalledWith(userActor, LOG_ID, buf, 'image/jpeg');
+      expect(out).toEqual({ cook_log_id: LOG_ID, photo_uri: 's3://recipe-assets/cook/2222.jpg' });
+    });
+
+    it('POST refuses a non-JPEG/PNG mimetype (400 INVALID_IMAGE)', async () => {
+      const svc = mockCook();
+      const controller = new CookLogController(svc as any);
+      await expect(
+        controller.attachPhoto({ actor: userActor } as any, LOG_ID, {
+          buffer: Buffer.from('x'),
+          mimetype: 'image/gif',
+        } as any),
+      ).rejects.toMatchObject({ response: { code: 'INVALID_IMAGE' } });
+      expect(svc.attachPlatePhoto).not.toHaveBeenCalled();
+    });
+
+    it('POST refuses an oversized file (400 IMAGE_TOO_LARGE)', async () => {
+      const svc = mockCook();
+      const controller = new CookLogController(svc as any);
+      await expect(
+        controller.attachPhoto({ actor: userActor } as any, LOG_ID, {
+          buffer: Buffer.alloc(11 * 1024 * 1024),
+          mimetype: 'image/png',
+        } as any),
+      ).rejects.toMatchObject({ response: { code: 'IMAGE_TOO_LARGE' } });
+      expect(svc.attachPlatePhoto).not.toHaveBeenCalled();
+    });
+
+    it('POST refuses a missing/empty file (400 INVALID_IMAGE)', async () => {
+      const svc = mockCook();
+      const controller = new CookLogController(svc as any);
+      await expect(
+        controller.attachPhoto({ actor: userActor } as any, LOG_ID, undefined),
+      ).rejects.toMatchObject({ response: { code: 'INVALID_IMAGE' } });
+      expect(svc.attachPlatePhoto).not.toHaveBeenCalled();
+    });
+
+    it('GET forwards to the service and returns the photo wire (F5 read)', async () => {
+      const svc = mockCook();
+      const controller = new CookLogController(svc as any);
+      const out = await controller.platePhoto({ actor: userActor } as any, LOG_ID);
+      expect(svc.platePhoto).toHaveBeenCalledWith(userActor, LOG_ID);
+      expect(out).toEqual({ cook_log_id: LOG_ID, photo_uri: 's3://recipe-assets/cook/2222.jpg' });
     });
   });
 });

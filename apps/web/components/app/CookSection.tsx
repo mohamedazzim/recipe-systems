@@ -1,11 +1,12 @@
 'use client';
 
-// D-24 (P6-1) — the canonical after-cook capture (F1/F2/F6, API §8).
+// D-24 (P6-1) — the canonical after-cook capture (F1/F2/F5/F6, API §8).
 //
 //   F1 — "I cooked this" logs a NEW session (multiple logs kept): cook_date
 //        defaults to today, editable; the library row shows last cooked.
 //   F2 — optional 1–5 rating + free-text note, private; visible on reopen,
 //        above the analysis.
+//   F5 — one plate photo per log (D-31): attach/replace; never re-analysed.
 //   F6 — the recall strip at the top: last cooked date, rating, and the
 //        next-time line surfaced when present (only F4/D-26 writes it).
 //
@@ -13,12 +14,14 @@
 //   GET  /recipes/:recipeId/last-cook + /cook-logs  (reopen hydration)
 //   POST /recipes/:recipeId/cook-logs               (log a cook)
 //   PATCH /cook-logs/:cookLogId                     (edit rating/note — RS-US-32)
+//   POST /cook-logs/:cookLogId/photo                (attach plate photo — F5)
+//   GET  /cook-logs/:cookLogId/photo                (photo presence — F5)
 //
-// NON-GOALS (DISPATCH D-24): swaps (F3), the next-time FIELD (F4), photos (F5).
+// NON-GOALS (DISPATCH D-24): swaps (F3), the next-time FIELD (F4).
 
 import { useCallback, useEffect, useState } from 'react';
-import { api, ApiError } from '@/lib/api';
-import type { CookLog, LastCook } from '@/lib/types';
+import { api, ApiError, apiUpload } from '@/lib/api';
+import type { CookLog, LastCook, PlatePhoto } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
 
 function localToday(): string {
@@ -42,8 +45,25 @@ export function CookSection({ recipeId }: { recipeId: string }) {
   const [rating, setRating] = useState('');
   const [note, setNote] = useState('');
   const [nextTime, setNextTime] = useState('');
+  const [photo, setPhoto] = useState<PlatePhoto | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const loadPhoto = useCallback(async (logId: string | undefined) => {
+    if (!logId) {
+      setPhoto(null);
+      return;
+    }
+    try {
+      const wire = await api<PlatePhoto>(`/cook-logs/${logId}/photo`);
+      setPhoto(wire);
+    } catch {
+      // 404 PLATE_PHOTO_NOT_FOUND = no photo yet; any failure stays quiet here.
+      setPhoto(null);
+    }
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -52,7 +72,9 @@ export function CookSection({ recipeId }: { recipeId: string }) {
         api<{ items: CookLog[] }>(`/recipes/${recipeId}/cook-logs`),
       ]);
       setLast(lastWire);
-      setLogs(Array.isArray(listWire?.items) ? listWire.items : []);
+      const items = Array.isArray(listWire?.items) ? listWire.items : [];
+      setLogs(items);
+      await loadPhoto(items[0]?.cook_log_id);
       setError(null);
     } catch (err) {
       // 404 = no logs yet / recipe not found — the workspace owns recipe-level
@@ -60,11 +82,12 @@ export function CookSection({ recipeId }: { recipeId: string }) {
       if (err instanceof ApiError && err.status === 404) {
         setLast(null);
         setLogs([]);
+        setPhoto(null);
         return;
       }
       setError(err instanceof Error ? err.message : 'Could not load the cook log');
     }
-  }, [recipeId]);
+  }, [recipeId, loadPhoto]);
 
   useEffect(() => {
     void load();
@@ -93,6 +116,23 @@ export function CookSection({ recipeId }: { recipeId: string }) {
       setError(err instanceof ApiError ? err.message : 'Could not save the cook log');
     } finally {
       setBusy(false);
+    }
+  };
+
+  const attachPhoto = async (): Promise<void> => {
+    if (!latest || !photoFile) return;
+    setPhotoBusy(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append('file', photoFile);
+      const wire = await apiUpload<PlatePhoto>(`/cook-logs/${latest.cook_log_id}/photo`, form);
+      setPhoto(wire);
+      setPhotoFile(null);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not attach the photo');
+    } finally {
+      setPhotoBusy(false);
     }
   };
 
@@ -198,6 +238,37 @@ export function CookSection({ recipeId }: { recipeId: string }) {
       )}
 
       {error && <p className="mt-2 text-caption text-negative">{error}</p>}
+
+      {/* F5 (D-31) — one plate photo per log, never re-analysed. The photo
+          attaches to the LATEST log; attaching again replaces it. */}
+      {latest && (
+        <div className="mt-4 border-t border-border pt-3">
+          <p className="text-caption font-semibold text-ink">Plate photo</p>
+          {photo ? (
+            <p className="mt-1 text-caption text-body" data-testid="plate-photo-attached">
+              Photo attached ✓ (one per log — attaching again replaces it)
+            </p>
+          ) : (
+            <p className="mt-1 text-caption text-muted">
+              One image per log. Attaching it never re-runs the analysis.
+            </p>
+          )}
+          <input
+            type="file"
+            accept="image/jpeg,image/png"
+            aria-label="Plate photo"
+            onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
+            className="mt-2 block text-caption"
+          />
+          {photoFile && (
+            <div className="mt-2">
+              <Button onClick={() => void attachPhoto()} disabled={photoBusy}>
+                {photoBusy ? 'Attaching…' : photo ? 'Replace photo' : 'Attach photo'}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* F1 AC-2 — multiple logs per recipe, all kept and listed. */}
       {logs.length > 1 && (

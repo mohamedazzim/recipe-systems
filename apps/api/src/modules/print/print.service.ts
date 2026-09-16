@@ -22,13 +22,21 @@ import { PrismaClient } from '@recipe-systems/database';
 import {
   PdfRenderError,
   chromiumRuntime,
+  onePagerHtml,
   renderPdf,
   shoppingListHtml,
   stationCardHtml,
+  type OnePagerPrintData,
   type PdfRuntime,
   type ShoppingListPrintData,
   type StationCardPrintData,
 } from '@recipe-systems/rendering';
+import {
+  View2PayloadSchema,
+  View4PayloadSchema,
+  View5PayloadSchema,
+  View9PayloadSchema,
+} from '@recipe-systems/schemas';
 import type { Actor } from '../../common/guards/guest-or-jwt.guard';
 import { RecipeService } from '../recipes/recipe.service';
 import { SHOPPING_GROUPS, type ShoppingGroup } from '../shopping/shopping.service';
@@ -184,6 +192,90 @@ export class PrintService {
     };
     const html = stationCardHtml(data);
     return this.finish(html, format, `station-card-${recipe.id}.pdf`);
+  }
+
+  /**
+   * E6 + I5 (D-31): the home-mode one-pager. Renders ONLY persisted analysis
+   * snapshots (INV-12/ADR §7): View 2 (keep), View 4 (negotiate), View 5
+   * (identity-shift + family), View 9 (optional energy band — I5), and the
+   * D-20 station-card mise (ingredient list). No live recipe lines, no
+   * re-analysis, no legal nutrition-label wording.
+   */
+  async onePagerPrint(
+    actor: Actor,
+    recipeId: string,
+    format: 'pdf' | 'html',
+  ): Promise<PrintResult> {
+    const recipe = await this.recipes.assertOwned(actor, recipeId);
+    const analysis = await this.prisma.analysis.findFirst({
+      where: { recipeId: recipe.id, isCurrent: true, status: 'complete' },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    });
+    if (!analysis) {
+      throw new NotFoundException({
+        code: 'ONE_PAGER_NOT_FOUND',
+        message: 'No completed analysis for this recipe (the one-pager needs an analysis)',
+      });
+    }
+    const [v2, v4, v5, v9, card] = await Promise.all([
+      this.prisma.analysisView.findUnique({
+        where: { analysisId_viewNumber: { analysisId: analysis.id, viewNumber: 2 } },
+        select: { payload: true },
+      }),
+      this.prisma.analysisView.findUnique({
+        where: { analysisId_viewNumber: { analysisId: analysis.id, viewNumber: 4 } },
+        select: { payload: true },
+      }),
+      this.prisma.analysisView.findUnique({
+        where: { analysisId_viewNumber: { analysisId: analysis.id, viewNumber: 5 } },
+        select: { payload: true },
+      }),
+      this.prisma.analysisView.findUnique({
+        where: { analysisId_viewNumber: { analysisId: analysis.id, viewNumber: 9 } },
+        select: { payload: true },
+      }),
+      this.prisma.analysisStationCard.findUnique({ where: { analysisId: analysis.id } }),
+    ]);
+
+    const view2 = v2 ? View2PayloadSchema.safeParse(v2.payload) : null;
+    const view4 = v4 ? View4PayloadSchema.safeParse(v4.payload) : null;
+    const view5 = v5 ? View5PayloadSchema.safeParse(v5.payload) : null;
+    const view9 = v9 ? View9PayloadSchema.safeParse(v9.payload) : null;
+
+    const mise = Object.entries(
+      (card?.mise ?? {}) as Record<string, { display_name: string; amount: string | null }>,
+    ).map(([, item]) => ({ displayName: item.display_name, amount: item.amount ?? null }));
+
+    const data: OnePagerPrintData = {
+      recipeTitle: recipe.title,
+      family: view5?.success ? view5.data.family : null,
+      keep: view2?.success
+        ? view2.data.pillars.map((p) => ({
+            pillar: p.pillar,
+            ifMissing: p.if_missing,
+            tag: p.tag,
+          }))
+        : [],
+      negotiate: view4?.success
+        ? view4.data.substitutions.map((s) => ({
+            substitute: s.substitute,
+            consequence: s.consequence,
+          }))
+        : [],
+      identityShift: view5?.success
+        ? view5.data.not_this.map((n) => ({
+            variant: n.variant,
+            keyDifference: n.key_difference,
+          }))
+        : [],
+      ingredients: mise,
+      energyBand: view9?.success
+        ? { min: view9.data.band.energy_kcal_min, max: view9.data.band.energy_kcal_max }
+        : null,
+    };
+    const html = onePagerHtml(data);
+    return this.finish(html, format, `one-pager-${recipe.id}.pdf`);
   }
 
   private async finish(html: string, format: 'pdf' | 'html', filename: string): Promise<PrintResult> {

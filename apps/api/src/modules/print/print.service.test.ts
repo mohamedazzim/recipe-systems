@@ -39,6 +39,63 @@ const cardRow = {
   printable: true,
 };
 
+const view2Payload = {
+  pillars: [
+    {
+      pillar: 'Tamarind sharpness',
+      source_ingredient_ids: ['ing-1'],
+      if_missing: 'Add more tamarind',
+      tag: 'INFERRED',
+    },
+  ],
+  blind_spot_notes: [],
+};
+
+const view4Payload = {
+  substitutions: [
+    { ingredient_id: 'ing-2', substitute: 'Kokum', consequence: 'Milder sourness', tag: 'INFERRED' },
+  ],
+};
+
+const view5Payload = {
+  family: 'Coastal Tamil fish curry',
+  architecture: 'Tamarind-fish base with ground coconut finish',
+  confidence: 'medium',
+  not_this: [
+    {
+      variant: 'Kerala meen curry',
+      key_difference: 'Kerala uses coconut milk; this uses ground coconut',
+    },
+  ],
+  needs_review: true,
+  tag: 'INFERRED',
+};
+
+const view9Payload = {
+  band: {
+    energy_kcal_min: 300,
+    energy_kcal_max: 450,
+    protein_g: { min: 20, max: 30 },
+    fat_g: { min: 10, max: 18 },
+    carb_g: { min: 15, max: 25 },
+    fibre_g: { min: 3, max: 6 },
+  },
+  sodium: 'unknown',
+  assumptions: [{ key: 'portion', value: 'one bowl', tag: 'ASSUMED' }],
+  per_portion: null,
+  tightening_factors: ['fish weight'],
+  disclaimer: 'Band estimate from stated assumptions.',
+};
+
+function onePagerViews() {
+  return {
+    2: view2Payload,
+    4: view4Payload,
+    5: view5Payload,
+    9: view9Payload,
+  };
+}
+
 function service(overrides: { runtime?: PdfRuntime } = {}) {
   const prisma = {
     shoppingListGeneration: { findFirst: jest.fn(async () => generation) },
@@ -50,6 +107,7 @@ function service(overrides: { runtime?: PdfRuntime } = {}) {
       ]),
     },
     analysis: { findFirst: jest.fn(async () => ({ id: 'analysis-1', family: 'Coastal Tamil fish curry' })) },
+    analysisView: { findUnique: jest.fn(async () => null) },
     analysisStationCard: { findUnique: jest.fn(async () => cardRow) },
     cookLog: { findFirst: jest.fn(async () => null) },
     ingredientShoppingState: {
@@ -177,5 +235,76 @@ describe('PrintService (D-23)', () => {
     expect(out.html).toContain('Next time:');
     expect(out.html).toContain('2 green chillies, fenugreek powder off heat');
     expect(out.html).toContain('COOK LOG');
+  });
+
+  it('E6: the one-pager maps Views 2/4/5 + mise with no legal nutrition-label wording', async () => {
+    const { svc, prisma } = service();
+    (prisma.analysisView.findUnique as jest.Mock).mockImplementation(async ({ where }: any) => {
+      const payload = onePagerViews()[where.analysisId_viewNumber.viewNumber as 2 | 4 | 5 | 9];
+      return payload ? { payload } : null;
+    });
+    const out = await svc.onePagerPrint(actor, UUID, 'html');
+    expect(out.html).toContain('Keep');
+    expect(out.html).toContain('Tamarind sharpness');
+    expect(out.html).toContain('Negotiate');
+    expect(out.html).toContain('Kokum');
+    expect(out.html).toContain('Identity-shift');
+    expect(out.html).toContain('Kerala meen curry');
+    expect(out.html).toContain('Fish — 500g');
+    expect(out.html).toContain('Coastal Tamil fish curry');
+    // I6: the one-pager is NOT a legal nutrition label.
+    expect(out.html).not.toContain('Nutrition Facts');
+    expect(out.html).not.toContain('Serving Size');
+    expect(out.html).toContain('Not a lab analysis');
+    expect(out.pdf).toBeNull();
+  });
+
+  it('I5: the energy band appears on the one-pager but never on the market list', async () => {
+    const { svc, prisma } = service();
+    (prisma.analysisView.findUnique as jest.Mock).mockImplementation(async ({ where }: any) => {
+      const payload = onePagerViews()[where.analysisId_viewNumber.viewNumber as 2 | 4 | 5 | 9];
+      return payload ? { payload } : null;
+    });
+    const onePager = await svc.onePagerPrint(actor, UUID, 'html');
+    expect(onePager.html).toContain('Energy (whole pot)');
+    expect(onePager.html).toContain('300–450 kcal');
+    expect(onePager.html).toContain('a band, never a point');
+
+    const market = await svc.shoppingListPrint(actor, UUID, 'html');
+    expect(market.html).not.toContain('Energy (whole pot)');
+    expect(market.html).not.toContain('kcal');
+  });
+
+  it('E6/I5: an absent View 9 renders the one-pager without an energy band (optional)', async () => {
+    const withoutBand = service();
+    (withoutBand.prisma.analysisView.findUnique as jest.Mock).mockImplementation(
+      async ({ where }: any) => {
+        if (where.analysisId_viewNumber.viewNumber === 9) return null;
+        const payload = onePagerViews()[where.analysisId_viewNumber.viewNumber as 2 | 4 | 5 | 9];
+        return payload ? { payload } : null;
+      },
+    );
+    const out = await withoutBand.svc.onePagerPrint(actor, UUID, 'html');
+    expect(out.html).not.toContain('Energy (whole pot)');
+    expect(out.html).toContain('Keep');
+  });
+
+  it('404 ONE_PAGER_NOT_FOUND when no completed analysis exists', async () => {
+    const { svc, prisma } = service();
+    (prisma.analysis.findFirst as jest.Mock).mockResolvedValueOnce(null);
+    await expect(svc.onePagerPrint(actor, UUID, 'html')).rejects.toMatchObject({
+      response: { code: 'ONE_PAGER_NOT_FOUND' },
+    });
+  });
+
+  it('E6 pdf format returns a rendered buffer via the injected runtime', async () => {
+    const { svc, prisma, runtime } = service();
+    (prisma.analysisView.findUnique as jest.Mock).mockImplementation(async ({ where }: any) => {
+      const payload = onePagerViews()[where.analysisId_viewNumber.viewNumber as 2 | 4 | 5 | 9];
+      return payload ? { payload } : null;
+    });
+    const out = await svc.onePagerPrint(actor, UUID, 'pdf');
+    expect(out.pdf?.toString()).toContain('%PDF');
+    expect(runtime.renderToPdf).toHaveBeenCalled();
   });
 });

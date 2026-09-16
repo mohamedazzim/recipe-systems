@@ -1,6 +1,7 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import type { Actor } from '../../common/guards/guest-or-jwt.guard';
 import { IntakeService } from '../intake/intake.service';
+import { StorageService } from '../intake/storage.service';
 import { RecipeService } from '../recipes/recipe.service';
 import {
   CookService,
@@ -24,6 +25,7 @@ function mockPrisma() {
       update: jest.fn(),
     },
     cookLogSwap: { create: jest.fn() },
+    cookLogPhoto: { findUnique: jest.fn(), upsert: jest.fn() },
     recipeIngredientLine: { findFirst: jest.fn() },
   };
 }
@@ -397,6 +399,146 @@ describe('CookService.recordSwap (D-26 F3/H5)', () => {
     await expect(
       svc.recordSwap(userActor, 'not-a-uuid', { action: 'skipped' }),
     ).rejects.toMatchObject({ response: { code: 'COOK_LOG_NOT_FOUND' } });
+  });
+});
+
+describe('CookService.attachPlatePhoto / platePhoto (D-31 F5)', () => {
+  const storageMock = {
+    bucket: 'recipe-assets',
+    uploadImage: jest.fn(),
+    tryDeleteObject: jest.fn(async () => true),
+    deleteObject: jest.fn(async () => undefined),
+  };
+
+  function photoPrisma() {
+    const prisma: any = mockPrisma();
+    prisma.cookLog.findUnique.mockResolvedValue({ id: LOG_ID, recipeId: RECIPE_ID });
+    prisma.recipe.findUnique.mockResolvedValue(ownedRecipe());
+    return prisma;
+  }
+
+  function svc(prisma: any) {
+    return new CookService(
+      prisma,
+      new RecipeService(prisma),
+      intakeMock as unknown as IntakeService,
+      storageMock as unknown as StorageService,
+    );
+  }
+
+  beforeEach(() => {
+    storageMock.uploadImage.mockReset();
+    storageMock.tryDeleteObject.mockReset();
+    storageMock.tryDeleteObject.mockResolvedValue(true);
+    storageMock.deleteObject.mockReset();
+    intakeMock.updateLine.mockClear();
+    intakeMock.softDeleteLine.mockClear();
+  });
+
+  it('stores the first photo and returns the wire — one photo per log (F5 AC-1)', async () => {
+    const prisma = photoPrisma();
+    prisma.cookLogPhoto.findUnique.mockResolvedValue(null);
+    prisma.cookLogPhoto.upsert.mockImplementation(async ({ create }: any) => create);
+    storageMock.uploadImage.mockResolvedValue({
+      key: 'cook/2222.jpg',
+      uri: 's3://recipe-assets/cook/2222.jpg',
+    });
+
+    const wire = await svc(prisma).attachPlatePhoto(userActor, LOG_ID, Buffer.from('img'), 'image/jpeg');
+
+    expect(storageMock.uploadImage).toHaveBeenCalledWith(expect.any(Buffer), 'image/jpeg');
+    expect(prisma.cookLogPhoto.upsert).toHaveBeenCalledWith({
+      where: { cookLogId: LOG_ID },
+      create: { cookLogId: LOG_ID, photoUri: 's3://recipe-assets/cook/2222.jpg' },
+      update: { photoUri: 's3://recipe-assets/cook/2222.jpg' },
+    });
+    expect(storageMock.tryDeleteObject).not.toHaveBeenCalled();
+    expect(wire).toEqual({ cook_log_id: LOG_ID, photo_uri: 's3://recipe-assets/cook/2222.jpg' });
+  });
+
+  it('replaces an existing photo and deletes the old object (F5 AC-2 replacement)', async () => {
+    const prisma = photoPrisma();
+    prisma.cookLogPhoto.findUnique.mockResolvedValue({
+      cookLogId: LOG_ID,
+      photoUri: 's3://recipe-assets/cook/old.jpg',
+    });
+    prisma.cookLogPhoto.upsert.mockImplementation(async ({ create }: any) => create);
+    storageMock.uploadImage.mockResolvedValue({
+      key: 'cook/new.jpg',
+      uri: 's3://recipe-assets/cook/new.jpg',
+    });
+
+    const wire = await svc(prisma).attachPlatePhoto(userActor, LOG_ID, Buffer.from('img'), 'image/png');
+
+    expect(storageMock.tryDeleteObject).toHaveBeenCalledWith('cook/old.jpg');
+    expect(prisma.cookLogPhoto.upsert).toHaveBeenCalledWith({
+      where: { cookLogId: LOG_ID },
+      create: { cookLogId: LOG_ID, photoUri: 's3://recipe-assets/cook/new.jpg' },
+      update: { photoUri: 's3://recipe-assets/cook/new.jpg' },
+    });
+    expect(wire.photo_uri).toBe('s3://recipe-assets/cook/new.jpg');
+  });
+
+  it('never enqueues re-analysis and never writes analysis state (F5 AC-3 no re-run)', async () => {
+    const prisma = photoPrisma();
+    prisma.cookLogPhoto.findUnique.mockResolvedValue(null);
+    prisma.cookLogPhoto.upsert.mockImplementation(async ({ create }: any) => create);
+    storageMock.uploadImage.mockResolvedValue({
+      key: 'cook/2222.jpg',
+      uri: 's3://recipe-assets/cook/2222.jpg',
+    });
+
+    await svc(prisma).attachPlatePhoto(userActor, LOG_ID, Buffer.from('img'), 'image/jpeg');
+
+    // The cook module has no queue/boss dependency; the only DB writes are the
+    // photo row itself. Assert nothing analysis-related was touched.
+    expect(prisma.cookLogPhoto.upsert).toHaveBeenCalledTimes(1);
+    expect(prisma.cookLog.update).not.toHaveBeenCalled();
+    expect(prisma.cookLog.create).not.toHaveBeenCalled();
+    expect(intakeMock.updateLine).not.toHaveBeenCalled();
+    expect(intakeMock.softDeleteLine).not.toHaveBeenCalled();
+  });
+
+  it('is INV-17 guarded — a foreign log is a canonical 404 with no existence leak', async () => {
+    const prisma = photoPrisma();
+    prisma.recipe.findUnique.mockResolvedValue(ownedRecipe({ accountId: 'acc-OTHER' }));
+
+    await expect(
+      svc(prisma).attachPlatePhoto(userActor, LOG_ID, Buffer.from('img'), 'image/jpeg'),
+    ).rejects.toMatchObject({ response: { code: 'RECIPE_NOT_FOUND' } });
+    expect(storageMock.uploadImage).not.toHaveBeenCalled();
+    expect(prisma.cookLogPhoto.upsert).not.toHaveBeenCalled();
+  });
+
+  it('404s malformed and missing cook-log ids (COOK_LOG_NOT_FOUND)', async () => {
+    const prisma = photoPrisma();
+    prisma.cookLog.findUnique.mockResolvedValue(null);
+
+    await expect(
+      svc(prisma).attachPlatePhoto(userActor, 'not-a-uuid', Buffer.from('img'), 'image/jpeg'),
+    ).rejects.toMatchObject({ response: { code: 'COOK_LOG_NOT_FOUND' } });
+    await expect(
+      svc(prisma).attachPlatePhoto(userActor, LOG_ID, Buffer.from('img'), 'image/jpeg'),
+    ).rejects.toMatchObject({ response: { code: 'COOK_LOG_NOT_FOUND' } });
+    expect(storageMock.uploadImage).not.toHaveBeenCalled();
+  });
+
+  it('platePhoto returns the stored uri, and 404s PLATE_PHOTO_NOT_FOUND when absent (F5 read)', async () => {
+    const prisma = photoPrisma();
+    prisma.cookLogPhoto.findUnique.mockResolvedValue({
+      cookLogId: LOG_ID,
+      photoUri: 's3://recipe-assets/cook/2222.jpg',
+    });
+    expect(await svc(prisma).platePhoto(userActor, LOG_ID)).toEqual({
+      cook_log_id: LOG_ID,
+      photo_uri: 's3://recipe-assets/cook/2222.jpg',
+    });
+
+    prisma.cookLogPhoto.findUnique.mockResolvedValue(null);
+    await expect(svc(prisma).platePhoto(userActor, LOG_ID)).rejects.toMatchObject({
+      constructor: NotFoundException,
+      response: { code: 'PLATE_PHOTO_NOT_FOUND' },
+    });
   });
 });
 

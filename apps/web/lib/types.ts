@@ -139,6 +139,12 @@ export interface LastCook {
   next_time: string | null;
 }
 
+/** D-31 (F5): POST/GET /cook-logs/:cookLogId/photo wire (API §8). */
+export interface PlatePhoto {
+  cook_log_id: string;
+  photo_uri: string;
+}
+
 /** D-26 (F3/H5): POST /cook-logs/:cookLogId/swaps wire (API §8). */
 export interface SwapRecord {
   swap_id: string;

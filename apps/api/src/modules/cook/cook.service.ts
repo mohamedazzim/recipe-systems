@@ -1,31 +1,39 @@
-// D-24 (P6-1) — the cook-loop writer (F1/F2/F6, API doc §8). The API cook
-// module is the SOLE writer of cook_log_* (one-writer rule, ADR §2) — the
+// D-24 (P6-1) — the cook-loop writer (F1/F2/F4/F5/F6, API doc §8). The API
+// cook module is the SOLE writer of cook_log_* (one-writer rule, ADR §2) — the
 // new QG2 gate proves no cook_log writes exist outside this module. Reads of
 // cook_log elsewhere (library indicator, delete asset cleanup) remain allowed.
 //
-// Wire contract (API doc §8, endpoints specified by dispatch unit D-24):
+// Wire contract (API doc §8):
 //   POST   /recipes/:recipeId/cook-logs  → 201 CookLogWire (cook_date default
 //                                          today, editable; rating 1–5 optional;
 //                                          note optional — F1/F2)
 //   GET    /recipes/:recipeId/cook-logs  → 200 { items: CookLogWire[] }
 //   PATCH  /cook-logs/:cookLogId         → 200 CookLogWire (rating/note only,
-//                                          RS-US-32; next-time editing is
-//                                          F4/D-26 — not this unit)
+//                                          RS-US-32; next-time editing is F4)
 //   GET    /recipes/:recipeId/last-cook  → 200 LastCookWire (F6 reopen surface)
+//   POST   /cook-logs/:cookLogId/photo   → 201 { cook_log_id, photo_uri } (F5,
+//                                          D-31; one photo per log, replaces)
+//   GET    /cook-logs/:cookLogId/photo   → 200 { cook_log_id, photo_uri } (F5)
 //
-// NON-GOALS (DISPATCH D-24): swaps (F3), the next-time FIELD (F4), plate
-// photos (F5) — those endpoints are D-26/D-31 and are not implemented here.
-// next_time_instruction is only SURFACED when a row carries it (F4/D-26 will
-// write it); D-24 never writes it.
+// NON-GOALS: swaps (F3) live in the same module but were dispatched as D-26.
+// next_time_instruction is only SURFACED when a row carries it; D-24 never
+// wrote it.
 //
 // Ownership: every route rides RecipeService.assertOwned (INV-17) — 404 for
 // missing, foreign and malformed ids; the log's existence never leaks.
 
-import { BadRequestException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { Prisma, PrismaClient } from '@recipe-systems/database';
 import type { Actor } from '../../common/guards/guest-or-jwt.guard';
 import { IntakeService } from '../intake/intake.service';
 import { RecipeService } from '../recipes/recipe.service';
+import { StorageService, type ImageContentType } from '../intake/storage.service';
 
 const UUID_RE =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
@@ -150,6 +158,9 @@ export class CookService {
     @Inject('PRISMA') private readonly prisma: PrismaClient,
     private readonly recipes: RecipeService,
     private readonly intake: IntakeService,
+    /** Object storage for F5 plate photos — Nest DI always injects it; optional
+     *  in the constructor so non-F5 unit tests construct the service without it. */
+    private readonly storage?: StorageService,
   ) {}
 
   /** F1/F2/F4 — log that I cooked it. A NEW row per session (F1 AC-2: multiple
@@ -204,6 +215,83 @@ export class CookService {
       rating: row?.rating ?? null,
       next_time: row?.nextTimeInstruction ?? null,
     };
+  }
+
+  /**
+   * F5 (D-31) — attach the plate photo. ONE image per log (the
+   * `cook_log_photo.cookLogId` unique key enforces it); attaching a new photo
+   * replaces the previous one (the old object is deleted as compensating
+   * cleanup). NEVER triggers re-analysis — no enqueue exists in this path.
+   * Ownership rides the log's recipe through assertOwned (INV-17).
+   */
+  async attachPlatePhoto(
+    actor: Actor,
+    cookLogId: string,
+    buffer: Buffer,
+    contentType: ImageContentType,
+  ): Promise<{ cook_log_id: string; photo_uri: string }> {
+    if (!UUID_RE.test(cookLogId)) {
+      throw new NotFoundException({ code: 'COOK_LOG_NOT_FOUND', message: 'Cook log not found' });
+    }
+    const log = await this.prisma.cookLog.findUnique({
+      where: { id: cookLogId },
+      select: { id: true, recipeId: true },
+    });
+    if (!log) {
+      throw new NotFoundException({ code: 'COOK_LOG_NOT_FOUND', message: 'Cook log not found' });
+    }
+    await this.recipes.assertOwned(actor, log.recipeId);
+    if (!this.storage) {
+      throw new ServiceUnavailableException({
+        code: 'STORAGE_UNAVAILABLE',
+        message: 'Object storage is unavailable',
+      });
+    }
+    const storage = this.storage;
+
+    const existing = await this.prisma.cookLogPhoto.findUnique({ where: { cookLogId } });
+    if (existing) {
+      await storage.tryDeleteObject(this.storageKeyFromUri(existing.photoUri));
+    }
+    const stored = await storage.uploadImage(buffer, contentType);
+    await this.prisma.cookLogPhoto.upsert({
+      where: { cookLogId },
+      create: { cookLogId, photoUri: stored.uri },
+      update: { photoUri: stored.uri },
+    });
+    return { cook_log_id: cookLogId, photo_uri: stored.uri };
+  }
+
+  /** F5 read surface — the plate photo URI for one log (GuestOrJwt + INV-17). */
+  async platePhoto(
+    actor: Actor,
+    cookLogId: string,
+  ): Promise<{ cook_log_id: string; photo_uri: string }> {
+    if (!UUID_RE.test(cookLogId)) {
+      throw new NotFoundException({ code: 'COOK_LOG_NOT_FOUND', message: 'Cook log not found' });
+    }
+    const log = await this.prisma.cookLog.findUnique({
+      where: { id: cookLogId },
+      select: { id: true, recipeId: true },
+    });
+    if (!log) {
+      throw new NotFoundException({ code: 'COOK_LOG_NOT_FOUND', message: 'Cook log not found' });
+    }
+    await this.recipes.assertOwned(actor, log.recipeId);
+    const photo = await this.prisma.cookLogPhoto.findUnique({ where: { cookLogId } });
+    if (!photo) {
+      throw new NotFoundException({
+        code: 'PLATE_PHOTO_NOT_FOUND',
+        message: 'No plate photo for this cook log',
+      });
+    }
+    return { cook_log_id: cookLogId, photo_uri: photo.photoUri };
+  }
+
+  /** `s3://<bucket>/<key>` → `<key>` (bounded to our own bucket prefix). */
+  private storageKeyFromUri(uri: string): string {
+    const prefix = `s3://${this.storage?.bucket ?? 'recipe-assets'}/`;
+    return uri.startsWith(prefix) ? uri.slice(prefix.length) : uri;
   }
 
   /** F2/F4 (RS-US-32/RS-US-34) — edit rating / note / next-time on an existing

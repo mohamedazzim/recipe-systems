@@ -1,11 +1,12 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CookSection } from '@/components/app/CookSection';
-import { api, ApiError } from '@/lib/api';
+import { api, apiUpload, ApiError } from '@/lib/api';
 import type { CookLog, LastCook } from '@/lib/types';
 
 jest.mock('@/lib/api', () => ({
   api: jest.fn(),
+  apiUpload: jest.fn(),
   ApiError: class ApiError extends Error {
     constructor(
       public readonly status: number,
@@ -28,10 +29,14 @@ const LOG: CookLog = {
   created_at: '2026-09-12T10:00:00.000Z',
 };
 
-function mockLoad(last: LastCook = LAST_COOK, items: CookLog[] = [LOG]) {
+function mockLoad(last: LastCook = LAST_COOK, items: CookLog[] = [LOG], photo: { cook_log_id: string; photo_uri: string } | null = null) {
   (api as jest.Mock).mockImplementation(async (path: string) => {
     if (path.endsWith('/last-cook')) return last;
     if (path.endsWith('/cook-logs')) return { items };
+    if (path.endsWith('/photo')) {
+      if (photo) return photo;
+      throw new ApiError(404, 'PLATE_PHOTO_NOT_FOUND', 'No plate photo');
+    }
     throw new Error(`unexpected GET ${path}`);
   });
 }
@@ -157,5 +162,42 @@ describe('CookSection (D-24 F1/F2/F6)', () => {
     mockLoad({ last_cooked_at: '2026-09-12', rating: 4, next_time: 'Less chilli next time' });
     render(<CookSection recipeId="r1" />);
     expect(await screen.findByText('Next time: Less chilli next time')).toBeInTheDocument();
+  });
+
+  it('F5: attaches a photo to the latest log via multipart and shows the attached state', async () => {
+    render(<CookSection recipeId="r1" />);
+    const input = await screen.findByLabelText('Plate photo');
+    const file = new File(['img'], 'plate.jpg', { type: 'image/jpeg' });
+    (apiUpload as jest.Mock).mockResolvedValueOnce({
+      cook_log_id: 'log-1',
+      photo_uri: 's3://recipe-assets/cook/plate.jpg',
+    });
+    await userEvent.upload(input, file);
+    await userEvent.click(await screen.findByRole('button', { name: 'Attach photo' }));
+    await waitFor(() => {
+      expect(apiUpload).toHaveBeenCalledTimes(1);
+    });
+    const [path, form] = (apiUpload as jest.Mock).mock.calls[0] as [string, FormData];
+    expect(path).toBe('/cook-logs/log-1/photo');
+    expect(form.get('file')).toBe(file);
+    expect(await screen.findByTestId('plate-photo-attached')).toHaveTextContent('Photo attached');
+  });
+
+  it('F5: hydrates the attached state from the BFF on reopen', async () => {
+    mockLoad(LAST_COOK, [LOG], { cook_log_id: 'log-1', photo_uri: 's3://recipe-assets/cook/plate.jpg' });
+    render(<CookSection recipeId="r1" />);
+    expect(await screen.findByTestId('plate-photo-attached')).toBeInTheDocument();
+  });
+
+  it('F5: a failed attach surfaces the honest error', async () => {
+    render(<CookSection recipeId="r1" />);
+    const input = await screen.findByLabelText('Plate photo');
+    const file = new File(['img'], 'plate.jpg', { type: 'image/jpeg' });
+    (apiUpload as jest.Mock).mockRejectedValueOnce(
+      new ApiError(413, 'IMAGE_TOO_LARGE', 'Image exceeds the 10 MB upload limit'),
+    );
+    await userEvent.upload(input, file);
+    await userEvent.click(await screen.findByRole('button', { name: 'Attach photo' }));
+    expect(await screen.findByText(/Image exceeds the 10 MB upload limit/)).toBeInTheDocument();
   });
 });

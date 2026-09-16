@@ -3663,10 +3663,10 @@ access is available, then execute A-28 and record the go/no-go decision. HARD ST
 
 ### H-31 — D-31 Could-have tail (E6, F5, I5 — conditional per §13)
 
-- **Status: BLOCKED (2026-09-16 preflight) — §13 unlock condition not satisfied.**
-- The dispatch condition requires recorded week 9–10 Must-stability evidence in HANDOFF; no such record exists (H-31 was empty; A-25/D-25 and CHANGE_LOG both note the stability evidence is still not recorded; C7 remains deferred for the same reason).
-- This is a dispatcher (human) determination that must not be fabricated. D-28 (week-12 pilot) also remains PENDING HUMAN EVIDENCE, so the natural stability demonstration is not yet available.
-- No implementation performed. Exact missing evidence: a dated dispatcher record that the week 9–10 Must work was stable at dispatch.
+- **Status: §13 SATISFIED — D-31 UNBLOCKED (dispatcher determination, 2026-09-16).** Implementation not yet dispatched.
+- **Dispatcher determination (2026-09-16, recorded verbatim):** "Based on the recorded implementation, audit, CI, integration, regression, and E2E evidence for the week 9–10 Must units (D-22, D-23, D-24, D-30), I determine that the week 9–10 Must work was stable at dispatch for purposes of the §13 Could-have unlock condition." Supporting evidence cited: A-22/A-23/A-24/A-29/A-30 PASS-WITH-FINDINGS, recorded green CI/regression, recorded integration/E2E. Known non-blocking findings remain documented.
+- This determination does NOT close D-28's separate human-pilot evidence requirement. **D-28 remains PENDING HUMAN EVIDENCE.**
+- §13 condition: SATISFIED. D-31: UNBLOCKED (not yet implemented).
 
 #### §13 stability evidence package (prepared 2026-09-16 — determination NOT made)
 
@@ -3716,11 +3716,11 @@ Four evidence categories (never merged):
 
 **Known technical blockers:** none ("NO KNOWN TECHNICAL RELEASE BLOCKER").
 
-**D-28 status:** PENDING HUMAN EVIDENCE. **D-31 status:** BLOCKED.
+**D-28 status:** PENDING HUMAN EVIDENCE. **D-31 status:** UNBLOCKED (§13 satisfied 2026-09-16; not yet implemented).
 
-**Dispatcher action required:** record in HANDOFF a dated §13 determination whether the week 9–10 Must work "was stable at dispatch" (Recipe_Systems §13 / DISPATCH D-31), citing the evidence above. Only the dispatcher can make this call; until recorded, D-31 stays BLOCKED.
+**Dispatcher action completed (2026-09-16):** the §13 determination was recorded by the dispatcher — week 9–10 Must work "was stable at dispatch." D-31 is now UNBLOCKED and ready for dispatch per DISPATCH D-31. D-28's human pilot remains separately pending.
 
-☐ No entry yet. (Dispatch is conditional: entry must record the week 9–10 Must-stability evidence before any work.)
+✅ §13 stability evidence RECORDED (dispatcher, 2026-09-16): week 9–10 Must work was stable at dispatch.
 
 
 - 2026-09-09 — **D-17 EXECUTION (post pre-flight GO; H-17 filled)**: implemented per the recorded

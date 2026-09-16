@@ -1,3 +1,12 @@
+## 2026-09-16 — §13 dispatcher determination (D-31 UNBLOCKED)
+
+- The dispatcher recorded the §13 determination: the week 9–10 Must work "was
+  stable at dispatch" (citing A-22/A-23/A-24/A-29/A-30 PASS-WITH-FINDINGS and
+  recorded green CI/regression/integration/E2E).
+- §13 condition: SATISFIED. D-31: UNBLOCKED (not yet implemented).
+- This does NOT close D-28's separate human-pilot requirement: D-28 remains
+  PENDING HUMAN EVIDENCE. Known non-blocking findings remain documented.
+
 ## 2026-09-16 — Final §13 evidence gap review (0 DeepSeek calls)
 
 - Focused D-28 review: four evidence categories recorded (automated / autonomous

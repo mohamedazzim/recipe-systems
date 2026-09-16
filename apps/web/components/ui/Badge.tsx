@@ -3,12 +3,12 @@ import type { ReactNode } from 'react';
 export type Tag = 'CARD' | 'METHOD' | 'INFERRED' | 'ABSENT' | 'UNKNOWN' | 'ASSUMED';
 
 const tagStyles: Record<Tag, string> = {
-  CARD: 'border-turmeric bg-turmeric/15 text-[#8A6516]',
-  METHOD: 'border-curry-leaf bg-curry-leaf/15 text-curry-leaf',
-  INFERRED: 'border-tamarind/70 bg-tamarind/15 text-tamarind/80',
-  ABSENT: 'border-ash-gourd bg-transparent text-muted',
-  UNKNOWN: 'border-chili bg-transparent text-chili',
-  ASSUMED: 'border-dashed border-ash-gourd bg-transparent text-muted',
+  CARD: 'border-border bg-background text-muted',
+  METHOD: 'border-accent/40 bg-accent/10 text-accent-strong',
+  INFERRED: 'border-gold/60 bg-gold/10 text-gold',
+  ABSENT: 'border-negative/40 bg-negative/8 text-negative',
+  UNKNOWN: 'border-border bg-background text-muted',
+  ASSUMED: 'border-dashed border-border bg-background text-muted',
 };
 
 export function Badge({ tag, children }: { tag: Tag; children?: ReactNode }) {

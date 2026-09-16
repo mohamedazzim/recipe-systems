@@ -4,7 +4,7 @@
 // machine (home → create → workspace). Navigation stays on one line; the
 // guest band lives inside HomeView, never dominating the page.
 
-import { SignOut } from '@phosphor-icons/react';
+import { Plus, SignOut } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/Button';
 import type { User, WireLine } from '@/lib/types';
 
@@ -23,14 +23,14 @@ export interface AppShellProps {
 export function AppShell({ user, onNavigate, onSignOut, children }: AppShellProps) {
   return (
     <div className="min-h-[100dvh]">
-      <header className="border-b border-border">
-        <div className="container-rs flex min-h-16 items-center justify-between gap-4">
+      <header className="sticky top-0 z-30 border-b border-border bg-surface">
+        <div className="container-rs flex min-h-14 items-center justify-between gap-4">
           <button
             type="button"
             onClick={() => onNavigate({ name: 'home' })}
             className="flex items-baseline gap-2 rounded-sm text-left focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold"
           >
-            <span className="font-display text-lg font-semibold tracking-tight text-ink">
+            <span className="font-display text-lg font-medium tracking-tight text-ink">
               Recipe Systems
             </span>
             <span aria-hidden="true" className="hidden text-caption text-muted sm:inline">
@@ -41,6 +41,10 @@ export function AppShell({ user, onNavigate, onSignOut, children }: AppShellProp
             <span className="hidden max-w-56 truncate text-small text-muted sm:inline">
               {user ? user.email : 'Guest session'}
             </span>
+            <Button size="sm" onClick={() => onNavigate({ name: 'create' })}>
+              <Plus size={14} aria-hidden="true" weight="bold" />
+              New recipe
+            </Button>
             {user ? (
               <Button size="sm" variant="outline" onClick={onSignOut}>
                 <SignOut size={14} aria-hidden="true" weight="bold" />

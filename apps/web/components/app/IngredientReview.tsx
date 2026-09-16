@@ -557,7 +557,7 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
                           </span>
                         )}
                         {line.needs_review && (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-gold/60 bg-gold/10 px-2 py-0.5 text-caption font-semibold text-[#8A6516] dark:text-gold">
+                          <span className="inline-flex items-center gap-1 rounded-full border border-gold/60 bg-gold/10 px-2 py-0.5 text-caption font-semibold text-gold">
                             <Warning size={12} aria-hidden="true" weight="bold" />
                             Review required
                           </span>
@@ -566,7 +566,7 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
                           <span
                             className={
                               line.ocr_confidence < 0.9
-                                ? 'inline-flex items-center gap-1 rounded-full border border-gold/60 bg-gold/10 px-2 py-0.5 text-caption font-semibold text-[#8A6516] dark:text-gold'
+                                ? 'inline-flex items-center gap-1 rounded-full border border-gold/60 bg-gold/10 px-2 py-0.5 text-caption font-semibold text-gold'
                                 : 'inline-flex items-center rounded-full border border-border bg-background px-2 py-0.5 text-caption text-muted'
                             }
                           >

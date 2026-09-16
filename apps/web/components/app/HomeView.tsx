@@ -103,13 +103,46 @@ export function HomeView({
 
       <section aria-labelledby="home-heading">
         <Heading level={1} id="home-heading">
-          Your recipes
+          Welcome back
         </Heading>
         <Text className="mt-2 max-w-prose text-muted">
-          Paste a recipe, review the structured ingredients, attach a method, and run the
-          nine-view analysis.
+          Here&apos;s where your recipes stand today.
         </Text>
-        <div className="mt-6 flex flex-wrap items-center gap-3">
+      </section>
+
+      {/* Dashboard metrics — only values that are actually derivable are shown. */}
+      <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        {signedIn && library !== null && (
+          <>
+            <div className="rounded-lg border border-border bg-surface p-4">
+              <p className="font-display text-2xl font-medium tabular text-ink">{library.length}</p>
+              <p className="mt-0.5 text-caption text-muted">Recipes saved</p>
+            </div>
+            <div className="rounded-lg border border-border bg-surface p-4">
+              <p className="font-display text-2xl font-medium tabular text-ink">
+                {library.filter((r) => r.has_cook_log).length}
+              </p>
+              <p className="mt-0.5 text-caption text-muted">With cook logs</p>
+            </div>
+          </>
+        )}
+        {!signedIn && (
+          <div className="rounded-lg border border-border bg-surface p-4">
+            <p className="font-display text-2xl font-medium tabular text-ink">{mine.length}</p>
+            <p className="mt-0.5 text-caption text-muted">Recipes this session</p>
+          </div>
+        )}
+      </div>
+
+      {/* Start a new recipe — the single primary intake action. */}
+      <section aria-labelledby="start-heading" className="mt-6 rounded-lg border-2 border-accent bg-accent/10 p-6">
+        <h2 id="start-heading" className="font-display text-h2 text-accent-strong">
+          Start a new recipe
+        </h2>
+        <p className="mt-1 max-w-prose text-small text-body">
+          Paste text, fill in a structured form, or upload a photo of a card.
+        </p>
+        <div className="mt-4">
           <Button size="lg" onClick={onCreate}>
             Create recipe
           </Button>

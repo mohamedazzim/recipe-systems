@@ -23,7 +23,7 @@ describe('HomeView', () => {
 
   it('renders the product heading and the primary create action', () => {
     render(<HomeView {...props()} />);
-    expect(screen.getByRole('heading', { level: 1, name: 'Your recipes' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Welcome back' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Create recipe' })).toBeInTheDocument();
   });
 

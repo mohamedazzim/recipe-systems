@@ -83,7 +83,7 @@ export function AnalysisPanel({
               {analysis.status === 'failed' && <XCircle size={18} aria-hidden="true" className="text-negative" weight="bold" />}
               <span className="font-semibold text-ink">{STATUS_COPY[analysis.status]?.label ?? analysis.status}</span>
               {stale && (
-                <span className="inline-flex items-center rounded-full border border-gold/60 bg-gold/10 px-2 py-0.5 text-caption font-semibold text-[#8A6516] dark:text-gold">
+                <span className="inline-flex items-center rounded-full border border-gold/60 bg-gold/10 px-2 py-0.5 text-caption font-semibold text-gold">
                   Views out of date — re-analyse
                 </span>
               )}

@@ -7,43 +7,43 @@
    ───────────────────────────────────────────────────────────── */
 :root {
   /* canvas & surfaces — warm paper, never sterile white */
-  --rs-canvas: 250 244 230;          /* rice-flour */
-  --rs-surface: 255 253 246;         /* card paper */
+  --rs-canvas: 242 239 228;          /* paper */
+  --rs-surface: 251 250 243;         /* paper-raised */
   --rs-surface-raised: 255 255 252;  /* hover / focused cards */
 
-  /* ink & text */
-  --rs-ink: 43 33 24;                /* charred-cumin — headings */
-  --rs-body: 67 57 46;               /* body copy */
-  --rs-muted: 122 111 95;            /* secondary text */
-  --rs-faint: 163 154 138;           /* placeholders, disabled */
+  /* ink & text — dark olive editorial ink */
+  --rs-ink: 28 36 26;                /* ink */
+  --rs-body: 58 65 54;               /* ink-soft */
+  --rs-muted: 110 103 87;            /* muted */
+  --rs-faint: 138 131 113;           /* muted-2, placeholders, disabled */
 
   /* lines */
-  --rs-border: 228 219 200;          /* whisper borders */
-  --rs-border-strong: 207 196 172;   /* inputs, dividers */
+  --rs-border: 219 213 193;          /* line */
+  --rs-border-strong: 198 191 166;   /* line-strong: inputs, dividers */
 
-  /* brand accents — one saturated action color, gold for emphasis */
-  --rs-accent: 140 59 46;            /* tamarind */
-  --rs-accent-strong: 118 49 36;     /* pressed/hover */
-  --rs-gold: 217 160 46;             /* turmeric — focus, highlights */
-  --rs-positive: 76 107 58;          /* curry-leaf — success */
-  --rs-negative: 193 68 45;          /* chili — destructive, errors */
+  /* brand accents — green primary, olive-gold for inferred/provenance */
+  --rs-accent: 46 107 84;            /* green */
+  --rs-accent-strong: 30 75 59;      /* green strong: pressed/hover */
+  --rs-gold: 147 105 26;             /* gold: inferred, focus, highlights */
+  --rs-positive: 46 107 84;          /* confirmed/success = green */
+  --rs-negative: 168 59 44;          /* danger: destructive, errors */
 }
 
 .dark {
-  --rs-canvas: 28 23 18;             /* kadai-black */
-  --rs-surface: 36 29 22;            /* surface_dark */
-  --rs-surface-raised: 43 35 27;
-  --rs-ink: 242 233 216;             /* rice-text */
-  --rs-body: 216 204 182;
-  --rs-muted: 140 130 114;           /* muted-dark */
-  --rs-faint: 96 88 76;
-  --rs-border: 58 49 38;             /* border-dark */
-  --rs-border-strong: 74 63 50;
-  --rs-accent: 193 88 74;            /* tamarind-dark */
-  --rs-accent-strong: 213 108 92;
-  --rs-gold: 224 178 74;             /* turmeric-dark */
-  --rs-positive: 107 143 82;         /* curry-leaf-dark */
-  --rs-negative: 221 92 66;          /* chili-dark */
+  --rs-canvas: 23 27 21;
+  --rs-surface: 31 36 25;
+  --rs-surface-raised: 35 40 29;
+  --rs-ink: 234 231 220;
+  --rs-body: 203 198 182;
+  --rs-muted: 166 160 141;
+  --rs-faint: 132 126 108;
+  --rs-border: 51 58 44;
+  --rs-border-strong: 69 77 59;
+  --rs-accent: 119 196 162;
+  --rs-accent-strong: 155 219 188;
+  --rs-gold: 227 187 99;
+  --rs-positive: 119 196 162;
+  --rs-negative: 228 152 138;
 }
 
 @tailwind base;

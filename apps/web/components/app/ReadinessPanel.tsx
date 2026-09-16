@@ -94,7 +94,7 @@ export function ReadinessPanel({
                     </p>
                   ) : (
                     <div className="rounded-md border border-gold/60 bg-gold/10 px-4 py-3">
-                      <p className="flex items-center gap-2 text-small font-semibold text-[#8A6516] dark:text-gold">
+                      <p className="flex items-center gap-2 text-small font-semibold text-gold">
                         <Warning size={16} aria-hidden="true" weight="bold" />
                         Review required
                       </p>

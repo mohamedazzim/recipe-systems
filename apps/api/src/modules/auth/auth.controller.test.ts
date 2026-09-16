@@ -51,11 +51,21 @@ describe('AuthController', () => {
     );
   });
 
-  it('callback rejects a request without code/state', async () => {
+  it('callback redirects to the app (never JSON) when code/state are missing', async () => {
+    const res = mockRes();
     const ctrl = new AuthController(mockAuthService() as never);
-    await expect(
-      ctrl.callback(undefined, undefined, { cookies: {} } as never, mockRes() as never),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    await ctrl.callback(undefined, undefined, { cookies: {} } as never, res as never);
+    expect(res.redirect).toHaveBeenCalledWith(
+      302,
+      'http://localhost:3000/?auth_error=Login%20link%20was%20invalid%20or%20expired.',
+    );
+  });
+
+  it('callback redirects home (never JSON) on a Back/revisit after the state was consumed', async () => {
+    const res = mockRes();
+    const ctrl = new AuthController(mockAuthService() as never);
+    await ctrl.callback('code', 'st', { cookies: {} } as never, res as never);
+    expect(res.redirect).toHaveBeenCalledWith(302, 'http://localhost:3000/');
   });
 
   it('callback completes login, sets session + csrf cookies, redirects', async () => {

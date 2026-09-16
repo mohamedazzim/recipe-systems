@@ -69,8 +69,17 @@ export class AuthController {
     @Res() res: Response,
   ) {
     const stateCookie = (req.cookies as Record<string, string>)?.[OAUTH_STATE_COOKIE];
-    if (!code || !state || !stateCookie) {
-      throw new BadRequestException({ code: 'INVALID_CALLBACK', message: 'Missing code or state' });
+    if (!code || !state) {
+      // Malformed/direct hit — never a raw JSON error page.
+      return res.redirect(
+        302,
+        `${this.webOrigin()}/?auth_error=${encodeURIComponent('Login link was invalid or expired.')}`,
+      );
+    }
+    if (!stateCookie) {
+      // Back/refresh re-visit of an already-completed callback: the session is
+      // already established, so land on the app home instead of a raw JSON error.
+      return res.redirect(302, `${this.webOrigin()}/`);
     }
     try {
       const result = await this.auth.completeLogin(code, state, stateCookie);

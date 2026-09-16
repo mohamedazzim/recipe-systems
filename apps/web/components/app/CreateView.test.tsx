@@ -149,10 +149,46 @@ describe('CreateView (paste + photo intake)', () => {
     expect(await screen.findByText('text must be a non-empty string')).toBeInTheDocument();
   });
 
+  it('D-10A B5: the structured form submits entries and routes to the parsed recipe', async () => {
+    (globalThis.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        recipe_id: 'r50',
+        recipe: { raw_text: 'Fish — 500g\nSalt — to taste', lines: [], flags: [] },
+      }),
+    });
+    const p = props();
+    render(<CreateView {...p} />);
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Structured form' }));
+    await userEvent.type(screen.getByLabelText('Ingredient'), 'Fish');
+    await userEvent.type(screen.getByLabelText('Amount'), '500g');
+    await userEvent.click(screen.getByRole('button', { name: 'Add ingredient' }));
+    await userEvent.type(screen.getByLabelText('Ingredient 2'), 'Salt');
+    await userEvent.type(screen.getByLabelText('Amount 2'), 'to taste');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Save and review' }));
+
+    expect(await screen.findByRole('button', { name: 'Saving…' })).toBeInTheDocument();
+    const [url, init] = (globalThis.fetch as jest.Mock).mock.calls[0] as [string, RequestInit];
+    expect(url).toContain('/recipes/form');
+    expect(init.method).toBe('POST');
+    expect(JSON.parse(init.body as string)).toEqual({
+      ingredients: [
+        { display_name: 'Fish', amount: '500g' },
+        { display_name: 'Salt', amount: 'to taste' },
+      ],
+    });
+    expect(p.onParsed).toHaveBeenCalledWith('r50', []);
+    const stored = JSON.parse(window.localStorage.getItem('rs.session.recipes') ?? '[]');
+    expect(stored[0].owner).toBe('user:acc-1');
+  });
+
   it('guest note is shown for guests, absent for signed-in', () => {
     const { rerender } = render(<CreateView {...props({ signedIn: false, accountId: null })} />);
-    expect(screen.getByText(/As a guest you can paste or upload a photo/)).toBeInTheDocument();
+    expect(screen.getByText(/As a guest you can paste/)).toBeInTheDocument();
     rerender(<CreateView {...props({ signedIn: true })} />);
-    expect(screen.queryByText(/As a guest you can paste or upload a photo/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/As a guest you can paste/)).not.toBeInTheDocument();
   });
 });

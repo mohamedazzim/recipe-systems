@@ -3,6 +3,7 @@ import { Prisma } from '@recipe-systems/database';
 import type { Actor } from '../../common/guards/guest-or-jwt.guard';
 import {
   buildResolutionMap,
+  formRawText,
   IntakeService,
   splitRawLines,
   toWireLine,
@@ -203,6 +204,61 @@ describe('IntakeService — D-10 intake', () => {
     expect(prisma.recipeInput.create).toHaveBeenCalledWith({
       data: { recipeId: 'r1', inputType: 'form', rawText: 'Fish — 500g' },
     });
+  });
+
+  it('recordFormLines (D-10A B5) persists a form-typed raw row + one draft line per structured entry', async () => {
+    const { prisma, recipes } = mockPrisma();
+    prisma.recipeInput.create.mockResolvedValue({ id: 'in5' });
+    prisma.recipeIngredientLine.create.mockImplementation(async ({ data }: any) => ({ id: 'l1', ...data }));
+    const svc = new IntakeService(prisma, recipes);
+
+    const input = await svc.recordFormLines(userActor, 'r1', [
+      { displayName: 'Fish', amountText: '500g', unit: 'g', amount: 500, groupName: 'fish_meat' },
+      { displayName: 'Salt', amountText: 'to taste' },
+    ]);
+
+    expect(input.id).toBe('in5');
+    // B5 AC-1: same object path as paste — one recipe_input (form-typed) + draft lines.
+    expect(prisma.recipeInput.create).toHaveBeenCalledWith({
+      data: { recipeId: 'r1', inputType: 'form', rawText: 'Fish — 500g\nSalt — to taste' },
+    });
+    expect(prisma.recipeIngredientLine.create).toHaveBeenCalledTimes(2);
+    const [first, second] = prisma.recipeIngredientLine.create.mock.calls.map((c: any[]) => c[0]);
+    expect(first.data).toEqual(
+      expect.objectContaining({
+        recipeId: 'r1',
+        lineNo: 1,
+        displayName: 'Fish',
+        amountText: '500g',
+        unit: 'g',
+        amount: 500,
+        groupName: 'fish_meat',
+        sourceTag: 'CARD',
+        needsReview: false,
+        includeOnList: true,
+      }),
+    );
+    expect(second.data).toEqual(
+      expect.objectContaining({
+        lineNo: 2,
+        displayName: 'Salt',
+        amountText: 'to taste',
+        unit: null,
+        amount: null,
+        groupName: null,
+      }),
+    );
+  });
+
+  it('formRawText renders one "Name — Amount" line per entry (B5 AC-2 free-text units)', () => {
+    expect(
+      formRawText([
+        { displayName: 'Fish', amountText: '500g' },
+        { displayName: 'Tamarind', amountText: 'A Lemon Size' },
+        { displayName: 'Salt', amountText: 'to taste' },
+        { displayName: 'Coconut', amountText: 'half shell' },
+      ]),
+    ).toBe('Fish — 500g\nTamarind — A Lemon Size\nSalt — to taste\nCoconut — half shell');
   });
 
   it('refuses to write intake rows for a recipe the actor does not own (D-10 ownership)', async () => {

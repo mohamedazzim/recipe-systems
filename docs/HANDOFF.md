@@ -2023,6 +2023,35 @@ execution output; Git: not available / not authorized throughout.
   API §3 · Stories B1/B2/B5 · Q4 resolution (SCAFFOLD §7) · INV-03/INV-17 · TEST_PLAN QG4.
 - Audit result: A-10 not yet executed — PENDING.
 
+### H-10A — D-10A B5 structured form intake
+
+- **Status: COMPLETE (2026-09-16).** Ships the B5 form HTTP route + web UI that D-10
+  left as a service-only seam (`recordForm` with no route). A-10A = PASS-WITH-FINDINGS (one
+  environmental MINOR, unrelated).
+- **BASE_SHA:** `148bf6b` (D-25A). **Scope:** B5 only.
+- **API:** `IntakeService.recordFormLines` (one `recipe_input` `input_type:'form'` row +
+  one draft line per structured entry, synthesized `raw_text`) +
+  `POST /recipes/form` (body `{ ingredients: [{ display_name, amount?, unit?, quantity?, category? }] }`
+  → the same `{ recipe_id, recipe: { raw_text, lines, flags } }` wire as parse-text).
+  `amount` is free-text (`amount_text`) — all B5 AC-2 units accepted verbatim.
+- **Web:** `apps/web/components/app/FormIntake.tsx` (add/remove rows; name + amount) +
+  a Paste/Structured-form toggle in `CreateView` (paste stays default).
+- **No changes:** no schema/migration (input_type 'form' already in the D-02 CHECK), no
+  OCR/DeepSeek, no analysis/shopping/print, no D-28/G3.
+- **Verification:** API 349/349 (29 suites; intake service/controller additions) · web
+  158/158 (20 suites; CreateView form test) · integration `story_d10a_form_intake` 3/3
+  (form-typed row + structured lines; paste/form shape parity; ownership + 400 INVALID_FORM)
+  · `regression-gates.sh` PASS · typecheck 0 · lint 0 · build 0.
+- **Decision trace:** inspected (intake service/controller, CreateView, recipe_input +
+  recipe_ingredient_line schema, B5 story) · already implemented (recordForm service seam)
+  · missing (form route + web UI) · blocked: none · decision: add `recordFormLines` +
+  `POST /recipes/form` + `FormIntake` UI, reusing the paste wire shape · changed: intake
+  service/controller + CreateView/FormIntake + tests · intentionally not changed: D-28/G3,
+  OCR, analysis, shopping, print, schema · risks: none (read/write follows the paste path;
+  one-writer preserved) · resume point: re-run the 50-story development cross-check, then
+  human verification (D-28).
+- **D-28 remains PENDING HUMAN EVIDENCE — untouched.**
+
 ### H-11 — D-11 OCR adapter + low-confidence flagging
 
 - **Status: DONE — CI tier shipped (2026-09-15); A-11 audit pending.** The STOP

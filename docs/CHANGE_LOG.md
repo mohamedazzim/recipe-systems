@@ -1,3 +1,18 @@
+## 2026-09-16 — D-10A EXECUTION (B5 structured form intake)
+
+- Shipped the last partial development story: B5 (structured form intake, Should)
+  as the D-10A continuation (0 DeepSeek/OCR calls).
+- API: `IntakeService.recordFormLines` (form-typed `recipe_input` + one draft
+  line per structured entry, synthesized raw_text) + `POST /recipes/form`
+  (same wire as parse-text). `amount` is free text — all B5 AC-2 units accepted.
+- Web: `FormIntake` component (name + amount rows) + a Paste/Structured-form
+  toggle in `CreateView` (paste stays default).
+- No schema/migration; no OCR/analysis/shopping/print changes; D-28/G3 untouched.
+- A-10A = PASS-WITH-FINDINGS (one environmental MINOR: story_d23 Chromium PDF
+  timeout, unrelated).
+- Verification: API 349/349 · web 158/158 · integration `story_d10a_form_intake`
+  3/3 · regression gates PASS · typecheck 0 · lint 0 · build 0.
+
 ## 2026-09-16 — D-25A EXECUTION (C7 substitution preview, RS-US-18)
 
 - Shipped the deferred C7 Could-have as the D-25A continuation (0 DeepSeek/OCR

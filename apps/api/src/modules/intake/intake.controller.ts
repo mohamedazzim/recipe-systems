@@ -28,10 +28,27 @@ import { CsrfGuard } from '../../common/guards/csrf.guard';
 import { Actor, ActorRequest, GuestOrJwtGuard } from '../../common/guards/guest-or-jwt.guard';
 import { AuthedRequest, JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RecipeService } from '../recipes/recipe.service';
-import { IntakeService, LinePatch } from './intake.service';
+import { IntakeService, LinePatch, formRawText, type FormLineEntry } from './intake.service';
 import { IMAGE_CONTENT_TYPES, ImageContentType, MAX_IMAGE_BYTES, StorageService } from './storage.service';
 
 const parseTextSchema = z.object({ text: z.string().min(1) });
+
+// D-10A (B5): the structured-form intake body — one entry per ingredient. The
+// `amount` field is the free-text amount (B5 AC-2: tsp/tbsp/g/kg/nos/to taste/
+// as required/lemon size/half shell — all ride amount_text as free text).
+const formEntrySchema = z
+  .object({
+    display_name: z.string().min(1).max(255),
+    amount: z.string().max(128).nullable().optional(),
+    unit: z.string().max(64).nullable().optional(),
+    quantity: z.number().finite().nonnegative().nullable().optional(),
+    category: z.string().max(64).nullable().optional(),
+  })
+  .strict();
+
+const formIntakeSchema = z
+  .object({ ingredients: z.array(formEntrySchema).min(1).max(100) })
+  .strict();
 
 // D-12 wire contract (API doc §3 PATCH body + D-12D expected_updated_at token)
 // D-14C: needs_review accepts literal `false` only — clearing a flag is an explicit
@@ -114,6 +131,43 @@ export class IntakeController {
         raw_text: rawText,
         lines: wireLines,
         flags: [], // wrap-around detection is parse-review work (D-12)
+      },
+    };
+  }
+
+  /** B5 (D-10A): structured form intake — the same corrected object as paste/photo
+   *  (one draft line per entry; the review/analysis flow is unchanged). */
+  @Post('form')
+  @HttpCode(200)
+  @UseGuards(GuestOrJwtGuard, CsrfGuard)
+  async formIntake(@Req() req: ActorRequest, @Body() body: unknown) {
+    const parsed = formIntakeSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException({
+        code: 'INVALID_FORM',
+        message:
+          'ingredients must be a non-empty array of { display_name, amount?, unit?, quantity?, category? }',
+      });
+    }
+    const actor = req.actor!;
+    const entries: FormLineEntry[] = parsed.data.ingredients.map((i) => ({
+      displayName: i.display_name,
+      amountText: i.amount ?? null,
+      unit: i.unit ?? null,
+      amount: i.quantity ?? null,
+      groupName: i.category ?? null,
+    }));
+    const rawText = formRawText(entries);
+    const recipe = await this.recipes.createForIntake(actor, { rawText });
+    await this.intake.recordFormLines(actor, recipe.id, entries);
+    const lines = await this.intake.listDraftLines(actor, recipe.id);
+    const wireLines = await this.intake.resolveWireLines(lines);
+    return {
+      recipe_id: recipe.id,
+      recipe: {
+        raw_text: rawText,
+        lines: wireLines,
+        flags: [],
       },
     };
   }

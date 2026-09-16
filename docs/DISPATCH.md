@@ -42,7 +42,7 @@ Rules that apply to **every** unit (the prompts assume them):
 | D-07 | P1-2 | P1 | A1 | D-06 | ✅ below | ☐ |
 | D-08 | P1-3 | P1 | A2 | D-07 | ✅ below | ☐ |
 | D-09 | P1-4 | P1 | A1, A2 (ownership) | D-07 | ✅ below | ☐ |
-| D-10 | P2-1 | P2 — Intake | B1, B2, B5 (form path) | D-08, D-09 | ✅ below | ☐ |
+| D-10 | P2-1 | P2 — Intake | B1, B2, B5 (form path) | D-08, D-09 | ✅ below | ✅ (H-10) · B5 form → D-10A ✅ (H-10A · A-10A) |
 | D-11 | P2-2 | P2 | B2 | D-10 | ✅ below | ☐ |
 | D-12 | P2-3 | P2 | B3 | D-11 | ✅ below | ☐ |
 | D-13 | P2-4 | P2 | B4 | D-12 | ✅ below | ☐ |
@@ -67,7 +67,7 @@ Rules that apply to **every** unit (the prompts assume them):
 
 Parallelism: Track R (D-29) runs alongside the spine from week 1. P1 units (D-06…D-09) run sequentially within weeks 3–4; P2 starts once D-08 (guest sessions) lands — IdP setup does not gate intake. After D-14, P3 units (D-15…D-18) run while D-30 (Track S, weeks 8–9) prepares shopping data; both feed P5. The critical path is D-01 → … → D-28 (P0→P7, BUILD_PLAN §2). D-31 (the could-have tail) dispatches only if the §13 condition holds — it is not on the critical path.
 
-**Post-D-31 reconciliation (2026-09-16):** D-01…D-27, D-29, D-30, D-31 are implemented; D-28 is the only remaining dispatch unit (⏸ PENDING HUMAN EVIDENCE — the §14 "Week 12 go" human pilot). C7 (substitution preview, RS-US-18 — a §13-conditional Could-have) was DEFERRED in D-25 and has now been shipped as the D-25A continuation (H-25A · A-25A PASS, 2026-09-16) — no unshipped could-have remains. A-31 = PASS (no findings); all recorded audits A-11, A-19, A-22…A-27, A-29, A-30, A-31, A-25A are PASS-WITH-FINDINGS or PASS. Audits A-01…A-10, A-12…A-18, A-20, A-21 remain recorded PENDING in HANDOFF (historical — never executed as independent sessions).
+**Post-D-31 reconciliation (2026-09-16):** D-01…D-27, D-29, D-30, D-31 are implemented; D-28 is the only remaining dispatch unit (⏸ PENDING HUMAN EVIDENCE — the §14 "Week 12 go" human pilot). The two deferred continuations are now closed: C7 (substitution preview, §13-conditional Could-have) shipped as D-25A (H-25A · A-25A PASS), and B5 (structured form intake, Should) shipped as D-10A (H-10A · A-10A PASS-WITH-FINDINGS) — no partial or unshipped development story remains. Recorded audits A-10A, A-11, A-19, A-22…A-27, A-29, A-30, A-31, A-25A are PASS-WITH-FINDINGS or PASS. Audits A-01…A-10, A-12…A-18, A-20, A-21 remain recorded PENDING in HANDOFF (historical — never executed as independent sessions).
 
 ---
 

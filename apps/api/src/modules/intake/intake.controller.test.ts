@@ -46,3 +46,60 @@ describe('IntakeController.enqueueState (D-14 read route)', () => {
     });
   });
 });
+
+describe('IntakeController.formIntake (D-10A B5)', () => {
+  const actorReq = {
+    actor: { kind: 'user' as const, user: { accountId: 'acc-1', email: 'c@t.dev', sub: 's' } },
+  };
+
+  function controllerWith(intake: Partial<IntakeService>) {
+    const recipes = {
+      createForIntake: jest.fn().mockResolvedValue({ id: 'r1' }),
+    };
+    return {
+      controller: new IntakeController(
+        recipes as unknown as RecipeService,
+        intake as unknown as IntakeService,
+        {} as StorageService,
+      ),
+      recipes,
+    };
+  }
+
+  it('accepts the structured body and returns the same wire as parse-text', async () => {
+    const intake = {
+      recordFormLines: jest.fn().mockResolvedValue({ id: 'in1' }),
+      listDraftLines: jest.fn().mockResolvedValue([{ id: 'l1' }]),
+      resolveWireLines: jest.fn().mockResolvedValue([{ id: 'l1', display_name: 'Fish' }]),
+    };
+    const { controller, recipes } = controllerWith(intake);
+
+    const out = await controller.formIntake(actorReq as never, {
+      ingredients: [
+        { display_name: 'Fish', amount: '500g' },
+        { display_name: 'Salt', amount: 'to taste' },
+      ],
+    });
+
+    expect(recipes.createForIntake).toHaveBeenCalledWith(actorReq.actor, {
+      rawText: 'Fish — 500g\nSalt — to taste',
+    });
+    expect(intake.recordFormLines).toHaveBeenCalledWith(actorReq.actor, 'r1', [
+      { displayName: 'Fish', amountText: '500g', unit: null, amount: null, groupName: null },
+      { displayName: 'Salt', amountText: 'to taste', unit: null, amount: null, groupName: null },
+    ]);
+    expect(out).toEqual({
+      recipe_id: 'r1',
+      recipe: { raw_text: 'Fish — 500g\nSalt — to taste', lines: [{ id: 'l1', display_name: 'Fish' }], flags: [] },
+    });
+  });
+
+  it('refuses an empty or non-canonical body → 400 INVALID_FORM', async () => {
+    const { controller } = controllerWith({ recordFormLines: jest.fn() });
+    for (const body of [{}, { ingredients: [] }, { ingredients: [{ name: 'Fish' }] }, { ingredients: [{ display_name: '' }] }]) {
+      await expect(controller.formIntake(actorReq as never, body)).rejects.toMatchObject({
+        response: { code: 'INVALID_FORM' },
+      });
+    }
+  });
+});

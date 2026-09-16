@@ -88,6 +88,26 @@ export function splitRawLines(rawText: string): string[] {
     .filter((line) => line.length > 0);
 }
 
+/** D-10A (B5): one structured form entry — the same corrected-object fields as
+ *  paste/photo draft lines. `amountText` carries the free-text amount ("500g",
+ *  "2 tsp", "to taste", "half shell", … — B5 AC-2). */
+export interface FormLineEntry {
+  displayName: string;
+  amountText?: string | null;
+  unit?: string | null;
+  amount?: number | null;
+  groupName?: string | null;
+}
+
+/** D-10A (B5): the synthesized raw text a form entry set renders to — the
+ *  recipe_input.raw_text / recipe.raw_text columns carry the form's own words
+ *  (verbatim, one "Name — Amount" line per entry). */
+export function formRawText(entries: FormLineEntry[]): string {
+  return entries
+    .map((e) => `${e.displayName}${e.amountText ? ` — ${e.amountText}` : ''}`)
+    .join('\n');
+}
+
 export function toWireLine(line: RecipeIngredientLine): WireLine {
   return {
     id: line.id,
@@ -326,6 +346,43 @@ export class IntakeService {
     await this.assertOwned(actor, recipeId);
     return this.prisma.recipeInput.create({
       data: { recipeId, inputType: 'form', rawText },
+    });
+  }
+
+  /** B5 form intake (D-10A): raw row (`input_type = 'form'`) + one draft line
+   *  per structured entry. The review/analysis flow then reads the draft lines
+   *  EXACTLY as for paste/photo — the form and paste produce the same object
+   *  (B5 AC-1). No schema change; Intake remains the sole writer. */
+  async recordFormLines(
+    actor: Actor,
+    recipeId: string,
+    entries: FormLineEntry[],
+  ): Promise<RecipeInput> {
+    await this.assertOwned(actor, recipeId);
+    const rawText = formRawText(entries);
+    return this.prisma.$transaction(async (tx) => {
+      const input = await tx.recipeInput.create({
+        data: { recipeId, inputType: 'form', rawText },
+      });
+      const creates = entries.map((entry, index) =>
+        tx.recipeIngredientLine.create({
+          data: {
+            recipeId,
+            shoppingKey: randomUUID(),
+            lineNo: index + 1,
+            displayName: entry.displayName,
+            amountText: entry.amountText ?? null,
+            unit: entry.unit ?? null,
+            amount: entry.amount ?? null,
+            groupName: entry.groupName ?? null,
+            sourceTag: 'CARD',
+            needsReview: false,
+            includeOnList: true,
+          },
+        }),
+      );
+      await Promise.all(creates);
+      return input;
     });
   }
 

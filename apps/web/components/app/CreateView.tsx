@@ -16,6 +16,7 @@ import { Heading, Text } from '@/components/ui/Typography';
 import { api, apiUpload, ApiError } from '@/lib/api';
 import type { ParseTextResponse, UploadResponse, WireLine } from '@/lib/types';
 import { previewOf, recordSessionRecipe } from '@/lib/flow';
+import { FormIntake } from '@/components/app/FormIntake';
 
 export interface CreateViewProps {
   signedIn: boolean;
@@ -34,6 +35,8 @@ export function CreateView({ signedIn, accountId, onBack, onParsed, onUploaded }
   const [text, setText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // D-10A (B5): text/paste vs structured form — paste stays the default.
+  const [mode, setMode] = useState<'paste' | 'form'>('paste');
 
   // Photo upload state (D-11 B2).
   const [file, setFile] = useState<File | null>(null);
@@ -146,34 +149,69 @@ export function CreateView({ signedIn, accountId, onBack, onParsed, onUploaded }
       )}
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_260px]">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void submit();
-          }}
-          aria-label="Paste a recipe"
-        >
-          <Field
-            htmlFor="recipe-text"
-            label="Recipe text"
-            hint="Lines are parsed as ingredients. Headers, steps, and amounts are kept verbatim in the original."
-          >
-            <Textarea
-              id="recipe-text"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Paste the full recipe here. For example:&#10;Meen Kuzhambu&#10;Fish 500g&#10;Tamarind, a lime-sized ball&#10;Fenugreek seeds 1 tsp&#10;Fenugreek leaves, a handful&#10;..."
-              rows={14}
-              disabled={submitting}
-            />
-          </Field>
-          <div className="mt-5 flex flex-wrap items-center gap-3">
-            <Button type="submit" size="lg" disabled={submitting || text.trim().length === 0}>
-              {submitting ? 'Parsing...' : 'Parse and review'}
-            </Button>
-            <p className="text-caption text-faint">Takes a few seconds.</p>
+        <div>
+          <div className="mb-4 flex gap-2" role="tablist" aria-label="Input mode">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === 'paste'}
+              onClick={() => setMode('paste')}
+              className={
+                mode === 'paste'
+                  ? 'rounded-md border border-ink/40 bg-ink/5 px-3 py-1.5 text-small font-semibold text-ink'
+                  : 'rounded-md border border-transparent px-3 py-1.5 text-small font-semibold text-muted hover:text-ink'
+              }
+            >
+              Paste text
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === 'form'}
+              onClick={() => setMode('form')}
+              className={
+                mode === 'form'
+                  ? 'rounded-md border border-ink/40 bg-ink/5 px-3 py-1.5 text-small font-semibold text-ink'
+                  : 'rounded-md border border-transparent px-3 py-1.5 text-small font-semibold text-muted hover:text-ink'
+              }
+            >
+              Structured form
+            </button>
           </div>
-        </form>
+
+          {mode === 'paste' ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                void submit();
+              }}
+              aria-label="Paste a recipe"
+            >
+              <Field
+                htmlFor="recipe-text"
+                label="Recipe text"
+                hint="Lines are parsed as ingredients. Headers, steps, and amounts are kept verbatim in the original."
+              >
+                <Textarea
+                  id="recipe-text"
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  placeholder="Paste the full recipe here. For example:&#10;Meen Kuzhambu&#10;Fish 500g&#10;Tamarind, a lime-sized ball&#10;Fenugreek seeds 1 tsp&#10;Fenugreek leaves, a handful&#10;..."
+                  rows={14}
+                  disabled={submitting}
+                />
+              </Field>
+              <div className="mt-5 flex flex-wrap items-center gap-3">
+                <Button type="submit" size="lg" disabled={submitting || text.trim().length === 0}>
+                  {submitting ? 'Parsing...' : 'Parse and review'}
+                </Button>
+                <p className="text-caption text-faint">Takes a few seconds.</p>
+              </div>
+            </form>
+          ) : (
+            <FormIntake signedIn={signedIn} accountId={accountId} onParsed={onParsed} />
+          )}
+        </div>
 
         <aside aria-label="Other input options">
           <div className="rounded-lg border border-border p-5">
@@ -235,8 +273,9 @@ export function CreateView({ signedIn, accountId, onBack, onParsed, onUploaded }
 
       {!signedIn && (
         <p className="mt-8 text-small text-muted">
-          As a guest you can paste or upload a photo and see the extracted lines. Reviewing and
-          analysing need an account: sign up and your guest recipes are claimed automatically.
+          As a guest you can paste, fill the structured form, or upload a photo and see the
+          extracted lines. Reviewing and analysing need an account: sign up and your guest recipes
+          are claimed automatically.
         </p>
       )}
     </div>

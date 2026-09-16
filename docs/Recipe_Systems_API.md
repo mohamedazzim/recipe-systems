@@ -113,6 +113,12 @@ Upload a card image; store the original. **Auth:** Bearer or guest. **Story:** R
 - Body: multipart `file` (JPEG/PNG)
 - 201: `{ "recipe_id"?: uuid, "image_id": uuid, "file_key": string }`
 
+### POST /recipes/form
+Structured form intake (B5 — D-10A). **Auth:** Bearer or guest. **Story:** RS-US-06.
+- Body: `{ "ingredients": [ { "display_name": string, "amount"?: string, "unit"?: string, "quantity"?: number, "category"?: string } ] }` — `amount` is the free-text amount (tsp/tbsp/g/kg/nos/to taste/as required/lemon size/half shell all accepted verbatim)
+- 200: `{ "recipe_id": uuid, "recipe": { "raw_text": string, "lines": [ ... ], "flags": [] } }` — the SAME corrected-object shape as parse-text (one draft line per entry)
+- 400: `INVALID_FORM`
+
 ### POST /recipes/:recipeId/ocr
 Run OCR + parse → draft lines with confidence. **Auth:** Bearer or guest. **Story:** RS-US-07.
 - 200: `{ "image_id": uuid, "ocr_text": string, "lines": [ { "display_name", "amount", "unit", "confidence": float, "low_confidence": boolean } ] }`

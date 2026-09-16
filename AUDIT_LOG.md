@@ -940,3 +940,28 @@ Each attack vector re-executed:
 
 **Re-verification:** API 345/345 (29 suites) · web 157/157 (20 suites) · integration 25/25 · 159/159 (new `story_d25a_substitute_preview` 3/3) · `regression-gates.sh` PASS · golden 8/8 · typecheck 0 · lint 0 · build 0.
 
+## A-10A — Audit: B5 structured form intake (D-10A)
+
+- **Date / audit agent:** 2026-09-16 · GitHub Copilot (DeepSeek V4 Pro) — post-implementation audit of D-10A (same agent as implementation; independence provided by the pre-recorded attack vectors + gate re-execution).
+- **Audited commit:** the working tree before the D-10A commit.
+- **Scope:** `Epic-B_Intake.md` B5 AC-1/AC-2; DISPATCH D-10 deliverable (form path); ADR §2 one-writer; INV-17; the D-10A scope (no OCR/analysis/shopping/print/schema changes).
+
+### Verdict: PASS-WITH-FINDINGS
+
+No BLOCKER or failure-class finding; one environmental MINOR recorded.
+
+- **B5 AC-1 (same object as paste/photo): PASS.** `IntakeService.recordFormLines` writes ONE `recipe_input` (`input_type:'form'`) + one draft line per entry with the same corrected-object fields the paste/photo paths produce (`display_name`, `amount_text`, `unit`, `amount`, `group_name`, `sourceTag:'CARD'`, `include_on_list:true`). The integration test proves paste/form draft-line shape parity and that the form object is readable by `listDraftLines`/the review surface.
+- **B5 AC-2 (all units): PASS.** `amount` is free text (`amount_text`) — `500g`, `5 nos`, `A Lemon Size`, `half shell`, `to taste`, `as required` all survive verbatim (integration test asserts each).
+- **One-writer: PASS.** `recordFormLines` lives in `IntakeService` (the sole `recipe_input`/`recipe_ingredient_line` writer); the recipe_input-immutability gate (3b) still PASSES.
+- **No schema change: PASS.** No migration; `input_type='form'` was already in the D-02 CHECK.
+- **Scope discipline: PASS.** The diff touches only intake (service/controller) + web (`CreateView`, new `FormIntake`) + tests — no OCR, analysis, shopping, print, or D-28/G3 changes.
+- **Ownership + boundary: PASS.** `assertOwned` guards every write; foreign actor → 404 `RECIPE_NOT_FOUND`; malformed body → 400 `INVALID_FORM` (integration + controller tests).
+
+### Findings
+
+**F-1 (MINOR — environmental, not a D-10A defect): `story_d23_print` E4 Chromium PDF timed out (>5000 ms) during the full serial integration run AND in isolation.**
+- The E4/E5 real-Chromium PDF tests have a 5000 ms Jest timeout; under current system load the Chromium launch/render exceeded it (5017 ms). The same suite passed in the prior D-25A/D-31 regression runs.
+- Not caused by D-10A: the diff touches no print/PDF/Chromium code path.
+- Recommendation (not part of D-10A): raise the PDF integration tests' `testTimeout` or make Chromium startup budgeted — a separate test-hygiene task.
+
+**Re-verification:** API 349/349 (29 suites) · web 158/158 (20 suites) · integration 25/26 suites green (new `story_d10a_form_intake` 3/3; the one failure is the pre-existing D-23 Chromium timeout above) · `regression-gates.sh` PASS · typecheck 0 · lint 0 · build 0.

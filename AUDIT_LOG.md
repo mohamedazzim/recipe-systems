@@ -703,6 +703,34 @@ Then A-11 closes. Q10 remains the gate for D-28.
 - 0 DeepSeek calls. No known autonomous technical blocker; human acceptance
   evidence remains the only outstanding gate.
 
+## A-30 — Audit: track S shopping data (D-30)
+
+- **Date / audit agent:** 2026-09-16 · DeepSeek V4 Pro (builder session, read-only audit intent — independence caveat recorded as F-2).
+- **Audited:** DISPATCH D-30 deliverables + done criteria; ERD §7 composite FK + C-28; Q2 Option A; one-writer; the A-30 attack vectors.
+
+### Verdict: PASS-WITH-FINDINGS
+
+No BLOCKER/MAJOR. Every attack vector re-verified against the implementation and fresh tests:
+
+- **List truthfulness (BLOCKER):** `ShoppingService.generate` maps ACTIVE `recipe_ingredient_line` rows one-for-one (`deletedAt null`, `lineNo` order) — no invented row is possible; C-39 `shopping_key`s keep the two fenugreeks distinct; qualifiers ride `amount_text`; no headers. `story_d30_shopping` E1 5/5.
+- **State persistence (E2/C-28):** composite-key upsert; soft-delete cleans state via `fk_shopping_state_recipe_line` ON DELETE CASCADE (migration 002); no orphaned-state path found. `story_d30_shopping` C-28 5/5.
+- **Composite FK:** confirmed present (migration 002, line 545).
+- **Grouping (E3):** `groupShoppingLine` returns exactly one of the five canonical groups; no invented category.
+- **Seam to P5:** `print.service.ts` reads `shopping_list_generation` + `shopping_list_item` only (no second generation); rendering consumes passed data.
+- **Q2 Option A:** migration 004 `shopping_list_generation.allergen_line`; `currentAllergenLine` reads the CURRENT analysis View-8 payload through `View8PayloadSchema` and never the live `dietary_allergen_mapping`.
+- **One-writer:** regression gate 2b PASS; the worker writes no shopping tables (A-17); the renderer is read-only (ADR §7).
+- **Security/ownership:** GuestOrJwt + CsrfGuard on writes; `assertOwned` + UUID validation → canonical 404s (INV-17).
+- **Fresh tests:** `story_d30_shopping` 5/5 · shopping unit suites 16/16 · regression gates 2b/2c PASS.
+
+### Findings
+
+**F-1 (MINOR — duplicated renderer):** `renderAllergenLine` is defined twice — canonically in `packages/rendering/src/allergen-line.ts` (used by the worker's station-card writer and the print path) and locally in `apps/api/src/modules/shopping/shopping.service.ts`. The D-23 design comment states the shopping module should share the rendering helper. The logic is byte-identical today; the risk is drift between the persisted `allergen_line` snapshot and the print render. Recommendation: import the rendering helper in the shopping module (dispatcher follow-up; not fixed in audit).
+
+**F-2 (MINOR — process note):** audit executed in the builder's session (same independence caveat as prior builder-session audits).
+
+### Decision
+D-30 verified complete. Next: D-31 remains conditional (§13); D-23 already consumed this layer (done).
+
 ## D-30 preflight re-verification (2026-09-16)
 
 - **Decision: D-30 ALREADY COMPLETE** (implementation + evidence in H-30). Not re-implemented.

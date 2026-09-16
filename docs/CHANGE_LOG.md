@@ -1,3 +1,13 @@
+## 2026-09-16 — A-30 audit (0 DeepSeek calls; PASS-WITH-FINDINGS)
+
+- A-30 independent audit of D-30 executed against the implementation and fresh
+  tests: story_d30_shopping 5/5, shopping unit suites 16/16, gates 2b/2c PASS.
+- Verdict PASS-WITH-FINDINGS: no BLOCKER/MAJOR. F-1 MINOR — `renderAllergenLine`
+  duplicated in the shopping module vs `packages/rendering` (worker already
+  imports the shared helper); not fixed in audit. F-2 MINOR — builder-session
+  caveat.
+- D-30 closed (implementation + audit). D-31 remains conditional (§13).
+
 ## 2026-09-16 — D-30 preflight (0 DeepSeek calls; already complete)
 
 - Determined D-30 (Track S shopping data) is ALREADY IMPLEMENTED and evidenced

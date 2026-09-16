@@ -3657,7 +3657,7 @@ access is available, then execute A-28 and record the go/no-go decision. HARD ST
 - Open items / follow-up risks: D-23 next (print templates; the station-card
   allergen column + the renderer stay D-23) · E3 keyword mapping is a labeled
   D-30 assumption — refine under D-23/D-25 if market feedback demands.
-- Audit result: A-30 not yet executed — PENDING.
+- Audit result: **A-30 = PASS-WITH-FINDINGS (2026-09-16)** — no BLOCKER/MAJOR; one MINOR finding F-1 (duplicated `renderAllergenLine` in the shopping module vs `packages/rendering`, worker already imports the shared helper) and F-2 (builder-session audit caveat). Not fixed in audit.
 - **Preflight re-verification (2026-09-16):** D-30 ALREADY COMPLETE — `story_d30_shopping` 5/5 and the shopping unit suites 16/16 re-pass; regression gates 2b/2c PASS. No implementation is needed; the A-30 audit is the single outstanding step.
 
 ### H-31 — D-31 Could-have tail (E6, F5, I5 — conditional per §13)

@@ -1,3 +1,14 @@
+## 2026-09-16 — §13 stability evidence package prepared (0 DeepSeek calls)
+
+- Compiled the §13 evidence package for D-31 dispatch (weeks 9–10 Must units
+  D-22/D-23/D-24/D-30) into HANDOFF H-31, explicitly separating "evidence
+  prepared" from the dispatcher's stability determination.
+- Supporting: A-23/A-24/A-30 PASS-WITH-FINDINGS; D-22 implemented; green CI runs;
+  integration 151/151; regression gates PASS; golden 8/8.
+- Missing: A-22 verdict not recorded; A-29 pending; D-28 human pilot pending.
+- §13 NOT marked satisfied; D-31 remains BLOCKED. Dispatcher determination still
+  required.
+
 ## 2026-09-16 — D-31 preflight (0 DeepSeek calls; BLOCKED)
 
 - Established canonical D-31 scope (E6 one-pager, F5 plate photo, I5 optional

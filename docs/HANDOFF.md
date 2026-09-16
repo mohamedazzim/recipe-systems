@@ -3667,6 +3667,31 @@ access is available, then execute A-28 and record the go/no-go decision. HARD ST
 - This is a dispatcher (human) determination that must not be fabricated. D-28 (week-12 pilot) also remains PENDING HUMAN EVIDENCE, so the natural stability demonstration is not yet available.
 - No implementation performed. Exact missing evidence: a dated dispatcher record that the week 9–10 Must work was stable at dispatch.
 
+#### §13 stability evidence package (prepared 2026-09-16 — determination NOT made)
+
+The §13 condition is: "Could-haves (C7, E6, F5, I5) only if Must on weeks 9–10 is stable" (Recipe_Systems §13). Weeks 9–10 Must units: D-22 (D1/D2/D6), D-30 (E1 data), D-23 (E4/E5/H4), D-24 (F1/F2/F6).
+
+**Supports stability:**
+- A-23 = PASS-WITH-FINDINGS (print one-page, INV-12 snapshot-only, Q2 allergen line).
+- A-24 = PASS-WITH-FINDINGS (cook loop F1/F2/F6).
+- A-30 = PASS-WITH-FINDINGS (shopping E1/E2/E3, C-28, Q2 Option A).
+- D-22 implemented (H-22) and deterministically covered (story_d22 5/5 in the 151/151 integration run).
+- Recorded green CI: D-23 run 69; D-24 34930312273/34930324926; D-25 34952720762; D-26 34936562239; D-27 34967842614; D-29 34390362800.
+- Fresh (2026-09-16): integration 23/23 · 151/151; regression gates PASS; golden 8/8; typecheck 0; API build 0; migrate up to date.
+
+**Missing evidence:**
+- A-22 (D-22) independent audit verdict is not recorded in AUDIT_LOG.
+- A-29 (D-29) audit is PENDING (H-29: "not yet executed").
+- D-28 week-12 pilot is PENDING HUMAN EVIDENCE (the natural stability demonstration).
+
+**Human-only determination:**
+- The §13 "weeks 9–10 Must is stable" judgment is a dispatcher decision — not agent-made.
+- D-28 human gates: 20-user uncoached cohort, G3 Chef pass, two regional reviewers, uncoached save/list/cook-log.
+
+**Non-blocking documented findings:** A-23 F-1 (no print e2e spec, deferred) + F-2; A-24 F-1 + F-2; A-25 F-2 (F-1 closed); A-26 F-1/F-2/F-3; A-27 F-1/F-2; A-30 F-1/F-2; A-11 F-1/F-2 (closed) + F-3.
+
+**Actual blockers:** none technical (final production-readiness audit: "NO KNOWN TECHNICAL RELEASE BLOCKER"). The only D-31 blocker is the missing §13 dispatcher determination.
+
 ☐ No entry yet. (Dispatch is conditional: entry must record the week 9–10 Must-stability evidence before any work.)
 
 

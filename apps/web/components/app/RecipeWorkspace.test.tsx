@@ -41,6 +41,9 @@ jest.mock('@/components/app/AnalysisPanel', () => ({
     <p>Panel: {analysisId ?? 'none'}</p>
   ),
 }));
+jest.mock('@/components/app/ShoppingSection', () => ({
+  ShoppingSection: () => <p>Shopping section</p>,
+}));
 
 describe('RecipeWorkspace', () => {
   beforeEach(() => {
@@ -117,6 +120,25 @@ describe('RecipeWorkspace', () => {
     render(<RecipeWorkspace {...p} />);
     await userEvent.click(screen.getByRole('button', { name: /Back to your recipes/ }));
     expect(p.onBack).toHaveBeenCalled();
+  });
+
+  it('steps forward through the sections with the footer next buttons', async () => {
+    render(<RecipeWorkspace {...props()} />);
+    expect(screen.getByText('Step 1 of 4 — review the parsed lines.')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Proceed to Method' }));
+    expect(screen.getByText('Method section')).toBeInTheDocument();
+    expect(screen.getByText('Step 2 of 4 — attach the method.')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Proceed to Analysis' }));
+    expect(screen.getByText('Step 3 of 4 — run and read the analysis.')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Proceed to Shopping list' }));
+    expect(screen.getByText('Shopping section')).toBeInTheDocument();
+    expect(screen.getByText('Step 4 of 4 — your shopping list.')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Back to ingredients' }));
+    expect(screen.getByText('Review: Recipe')).toBeInTheDocument();
   });
 });
 

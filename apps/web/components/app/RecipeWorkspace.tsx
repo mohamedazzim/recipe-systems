@@ -5,7 +5,7 @@
 // section order; nothing here is decorative.
 
 import { useEffect, useState } from 'react';
-import { ArrowLeft, DotsThreeVertical } from '@phosphor-icons/react';
+import { ArrowLeft, ArrowRight, DotsThreeVertical } from '@phosphor-icons/react';
 import { Heading } from '@/components/ui/Typography';
 import { Button } from '@/components/ui/Button';
 import { api, ApiError, API_BASE_URL } from '@/lib/api';
@@ -476,6 +476,41 @@ export function RecipeWorkspace({
           </>
         )}
         {activeTab === 'shopping' && <ShoppingSection recipeId={recipeId} />}
+      </div>
+
+      {/* Section footer — step forward through the four sections in order. */}
+      <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+        <span className="text-caption text-faint">
+          {activeTab === 'ingredients' && 'Step 1 of 4 — review the parsed lines.'}
+          {activeTab === 'method' && 'Step 2 of 4 — attach the method.'}
+          {activeTab === 'analysis' && 'Step 3 of 4 — run and read the analysis.'}
+          {activeTab === 'shopping' && 'Step 4 of 4 — your shopping list.'}
+        </span>
+        {activeTab === 'shopping' ? (
+          <Button variant="outline" onClick={() => setActiveTab('ingredients')}>
+            <ArrowLeft size={14} aria-hidden="true" weight="bold" />
+            Back to ingredients
+          </Button>
+        ) : (
+          <Button
+            onClick={() =>
+              setActiveTab(
+                activeTab === 'ingredients'
+                  ? 'method'
+                  : activeTab === 'method'
+                    ? 'analysis'
+                    : 'shopping',
+              )
+            }
+          >
+            {activeTab === 'ingredients'
+              ? 'Proceed to Method'
+              : activeTab === 'method'
+                ? 'Proceed to Analysis'
+                : 'Proceed to Shopping list'}
+            <ArrowRight size={14} aria-hidden="true" weight="bold" />
+          </Button>
+        )}
       </div>
     </div>
   );

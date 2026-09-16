@@ -97,8 +97,7 @@ describe('authenticated paste → workspace → ingredient lines (reported-bug r
     );
     await screen.findByText('1 lb ground beef');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Ingredient actions for 1 lb ground beef' }));
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Edit' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Edit 1 lb ground beef' }));
     await userEvent.clear(screen.getByLabelText('Display name'));
     await userEvent.type(screen.getByLabelText('Display name'), '1 lb ground beef (85/15)');
     await userEvent.click(screen.getByRole('button', { name: 'Save line' }));

@@ -35,8 +35,8 @@ export function CreateView({ signedIn, accountId, onBack, onParsed, onUploaded }
   const [text, setText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // D-10A (B5): text/paste vs structured form — paste stays the default.
-  const [mode, setMode] = useState<'paste' | 'form'>('paste');
+  // D-10A (B5): text/paste vs structured form vs photo — paste stays the default.
+  const [mode, setMode] = useState<'paste' | 'form' | 'photo'>('paste');
 
   // Photo upload state (D-11 B2).
   const [file, setFile] = useState<File | null>(null);
@@ -129,15 +129,16 @@ export function CreateView({ signedIn, accountId, onBack, onParsed, onUploaded }
         className="inline-flex items-center gap-1.5 rounded-sm text-small font-semibold text-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold"
       >
         <ArrowLeft size={14} aria-hidden="true" />
-        Back to your recipes
+        Back to home
       </button>
 
       <Heading level={1} className="mt-5">
         Add a recipe
       </Heading>
-      <Text className="mt-2 text-muted">
-        Paste the recipe text, or upload a photo of a card. The original stays preserved
-        exactly as you entered it; the structured lines are extracted for review next.
+      <Text className="mt-2 max-w-prose text-muted">
+        Paste the recipe text, fill in a structured form, or upload a photo of a card. The
+        original stays preserved exactly as entered; the structured lines are extracted for
+        review next.
       </Text>
 
       {error && (
@@ -148,38 +149,36 @@ export function CreateView({ signedIn, accountId, onBack, onParsed, onUploaded }
         </div>
       )}
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_260px]">
-        <div>
-          <div className="mb-4 flex gap-2" role="tablist" aria-label="Input mode">
+      <div className="mt-6 overflow-hidden rounded-lg border border-border bg-surface">
+        <div
+          className="flex gap-6 overflow-x-auto border-b border-border px-5"
+          role="tablist"
+          aria-label="Input mode"
+        >
+          {(
+            [
+              ['paste', 'Paste text'],
+              ['form', 'Structured form'],
+              ['photo', 'Photo'],
+            ] as const
+          ).map(([key, label]) => (
             <button
+              key={key}
               type="button"
               role="tab"
-              aria-selected={mode === 'paste'}
-              onClick={() => setMode('paste')}
-              className={
-                mode === 'paste'
-                  ? 'rounded-md border border-ink/40 bg-ink/5 px-3 py-1.5 text-small font-semibold text-ink'
-                  : 'rounded-md border border-transparent px-3 py-1.5 text-small font-semibold text-muted hover:text-ink'
-              }
+              aria-selected={mode === key}
+              onClick={() => setMode(key)}
+              className={`-mb-px whitespace-nowrap border-b-2 px-1 py-3 text-small font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset--2 focus-visible:outline-gold ${
+                mode === key ? 'border-accent text-ink' : 'border-transparent text-muted hover:text-ink'
+              }`}
             >
-              Paste text
+              {label}
             </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={mode === 'form'}
-              onClick={() => setMode('form')}
-              className={
-                mode === 'form'
-                  ? 'rounded-md border border-ink/40 bg-ink/5 px-3 py-1.5 text-small font-semibold text-ink'
-                  : 'rounded-md border border-transparent px-3 py-1.5 text-small font-semibold text-muted hover:text-ink'
-              }
-            >
-              Structured form
-            </button>
-          </div>
+          ))}
+        </div>
 
-          {mode === 'paste' ? (
+        <div className="p-5">
+          {mode === 'paste' && (
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -208,67 +207,76 @@ export function CreateView({ signedIn, accountId, onBack, onParsed, onUploaded }
                 <p className="text-caption text-faint">Takes a few seconds.</p>
               </div>
             </form>
-          ) : (
+          )}
+
+          {mode === 'form' && (
             <FormIntake signedIn={signedIn} accountId={accountId} onParsed={onParsed} />
           )}
-        </div>
 
-        <aside aria-label="Other input options">
-          <div className="rounded-lg border border-border p-5">
-            <div className="flex items-center gap-2">
-              <Camera size={22} aria-hidden="true" className="text-muted" />
-              <p className="font-semibold text-ink">Photo capture</p>
-            </div>
-            <p className="mt-1 text-small text-muted">
-              Upload a photo of a handwritten or printed recipe card. JPEG or PNG, up to 10 MB.
-            </p>
+          {mode === 'photo' && (
+            <div>
+              <p className="text-small text-muted">
+                Upload a photo of a handwritten or printed recipe card. JPEG or PNG, up to 10 MB.
+              </p>
 
-            {previewUrl && (
-              <div className="mt-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={previewUrl}
-                  alt="Selected recipe card"
-                  className="max-h-48 w-full rounded-md border border-border bg-background object-contain"
+              <label
+                htmlFor="recipe-photo"
+                className="mt-4 block cursor-pointer rounded-lg border-2 border-dashed border-border-strong p-5 text-center transition-colors hover:border-accent hover:bg-accent/5"
+              >
+                <Camera size={24} aria-hidden="true" className="mx-auto text-muted" />
+                <span className="mt-2 block text-small font-semibold text-ink">
+                  Drop a photo here, or click to choose a file
+                </span>
+                <span className="mt-1 block text-caption text-faint">
+                  {file ? file.name : 'No file chosen'}
+                </span>
+                <input
+                  id="recipe-photo"
+                  type="file"
+                  accept="image/jpeg,image/png"
+                  aria-label="Choose recipe photo"
+                  onChange={onFileChange}
+                  disabled={uploading}
+                  className="mt-3 block w-full text-small text-body file:mr-3 file:rounded-md file:border file:border-border-strong file:bg-background file:px-3 file:py-1.5 file:text-small file:font-semibold file:text-ink"
                 />
-                <p className="mt-1 truncate text-caption text-muted">{file?.name}</p>
-              </div>
-            )}
+              </label>
 
-            <input
-              id="recipe-photo"
-              type="file"
-              accept="image/jpeg,image/png"
-              aria-label="Choose recipe photo"
-              onChange={onFileChange}
-              disabled={uploading}
-              className="mt-3 block w-full text-small text-body file:mr-3 file:rounded-md file:border file:border-border-strong file:bg-background file:px-3 file:py-1.5 file:text-small file:font-semibold file:text-ink"
-            />
+              {previewUrl && (
+                <div className="mt-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={previewUrl}
+                    alt="Selected recipe card"
+                    className="max-h-48 w-full rounded-md border border-border bg-background object-contain"
+                  />
+                </div>
+              )}
 
-            {uploadError && (
-              <div className="mt-3">
-                <Alert tone="error" title="Could not read the photo">
-                  {uploadError}
-                </Alert>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void upload()}
-                  disabled={uploading || !file}
-                  className="mt-2"
-                >
-                  Retry
+              {uploadError && (
+                <div className="mt-3">
+                  <Alert tone="error" title="Could not read the photo">
+                    {uploadError}
+                  </Alert>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void upload()}
+                    disabled={uploading || !file}
+                    className="mt-2"
+                  >
+                    Retry
+                  </Button>
+                </div>
+              )}
+
+              <div className="mt-4">
+                <Button onClick={() => void upload()} disabled={uploading || !file}>
+                  {uploading ? 'Uploading photo & reading the card…' : 'Upload photo'}
                 </Button>
               </div>
-            )}
-
-            <div className="mt-4">
-              <Button onClick={() => void upload()} disabled={uploading || !file} size="sm">
-                {uploading ? 'Uploading photo & reading the card…' : 'Upload photo'}
-              </Button>
             </div>
-          </div>
-        </aside>
+          )}
+        </div>
       </div>
 
       {!signedIn && (

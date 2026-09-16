@@ -44,9 +44,10 @@ describe('CreateView (paste + photo intake)', () => {
     return new File([new Uint8Array(size)], name, { type });
   }
 
-  it('photo upload control renders with a file picker and a disabled upload action', () => {
+  it('photo upload control renders behind the Photo tab with a picker and a disabled upload action', async () => {
     render(<CreateView {...props()} />);
-    expect(screen.getByText('Photo capture')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('tab', { name: 'Photo' }));
+    expect(screen.getByText('Drop a photo here, or click to choose a file')).toBeInTheDocument();
     expect(screen.getByLabelText('Choose recipe photo')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Upload photo' })).toBeDisabled();
     expect(screen.queryByText('Coming soon.')).not.toBeInTheDocument();
@@ -54,6 +55,7 @@ describe('CreateView (paste + photo intake)', () => {
 
   it('rejects a non-image file type before any request', async () => {
     render(<CreateView {...props()} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Photo' }));
     await userEvent.upload(
       screen.getByLabelText('Choose recipe photo'),
       imageFile('notes.txt', 'text/plain'),
@@ -65,6 +67,7 @@ describe('CreateView (paste + photo intake)', () => {
 
   it('rejects an oversized image before any request', async () => {
     render(<CreateView {...props()} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Photo' }));
     await userEvent.upload(
       screen.getByLabelText('Choose recipe photo'),
       imageFile('big.jpg', 'image/jpeg', 11 * 1024 * 1024),
@@ -81,6 +84,7 @@ describe('CreateView (paste + photo intake)', () => {
     (globalThis.fetch as jest.Mock).mockResolvedValue(uploadResponse(lines));
     const p = props();
     render(<CreateView {...p} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Photo' }));
     await userEvent.upload(screen.getByLabelText('Choose recipe photo'), imageFile());
     await userEvent.click(screen.getByRole('button', { name: 'Upload photo' }));
 
@@ -107,6 +111,7 @@ describe('CreateView (paste + photo intake)', () => {
     });
     const p = props();
     render(<CreateView {...p} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Photo' }));
     await userEvent.upload(screen.getByLabelText('Choose recipe photo'), imageFile());
     await userEvent.click(screen.getByRole('button', { name: 'Upload photo' }));
 

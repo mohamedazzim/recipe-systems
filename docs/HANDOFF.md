@@ -3675,6 +3675,7 @@ access is available, then execute A-28 and record the go/no-go decision. HARD ST
 - **F5 plate photo:** `CookService.attachPlatePhoto`/`platePhoto` (one `cook_log_photo` per log via the `@unique cookLogId`; replace deletes the old object; ownership rides `assertOwned`; no enqueue anywhere in the module) + `POST`/`GET /cook-logs/:cookLogId/photo` (JPEG/PNG ≤10 MB).
 - **Web:** `CookSection` plate-photo attach/replace + status; `AnalysisViews` home-mode "Print one-pager" button (hidden in chef mode and without a `recipeId`).
 - **Verification:** API 329/329 · web 156/156 · worker/schemas/rendering/database/domain/llm/ocr suites green · integration 24/24 · 156/156 (new `story_d31_one_pager_photo` 5/5) · `regression-gates.sh` PASS · golden 8/8 · typecheck 0 · lint 0 · build 0 · `prisma migrate deploy` no pending migrations.
+- **Reconciliation note (2026-09-16):** C7 (substitution preview, RS-US-18 — a §13-conditional Could-have) remains UNSHIPPED: it was DEFERRED in D-25 (H-25) and is not part of D-31. §13 is now SATISFIED, so C7 is an open dispatcher decision, not a blocker. D-28 remains the only remaining dispatch unit (PENDING HUMAN EVIDENCE).
 
 #### §13 stability evidence package (prepared 2026-09-16 — determination NOT made)
 

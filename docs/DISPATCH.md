@@ -55,17 +55,19 @@ Rules that apply to **every** unit (the prompts assume them):
 | D-20 | P4-2 | P4 | C3, C5 | D-19 | ✅ below | ☐ |
 | D-21 | P4-3 | P4 | H6, I6 | D-19 | ✅ below | ☐ |
 | D-22 | P5-1 | P5 — Save, shop, print | D1, D2, D6 | D-21, D-30 | ✅ below | ✅ (H-22 · A-22) |
-| D-23 | P5-2 | P5 | E4, E5, H4 | D-22, D-30 (Q2 gate) | ✅ below | ☐ |
-| D-24 | P6-1 | P6 — Cook loop | F1, F2, F6 | D-23 | ✅ below | ☐ |
-| D-25 | P7-1 | P7 — Hardening & pilot | B6, C6, C7, D3, D4, D5 | D-24, D-29 | ✅ below | ☐ |
-| D-26 | P7-2 | P7 | F3, F4, H1, H3, H5, I3, I4 | D-24 | ✅ below | ☐ |
-| D-27 | P7-3 | P7 | G2 (veto workflow) | D-25 | ✅ below | ☐ |
+| D-23 | P5-2 | P5 | E4, E5, H4 | D-22, D-30 (Q2 gate) | ✅ below | ✅ (H-23 · A-23) |
+| D-24 | P6-1 | P6 — Cook loop | F1, F2, F6 | D-23 | ✅ below | ✅ (H-24 · A-24) |
+| D-25 | P7-1 | P7 — Hardening & pilot | B6, C6, C7, D3, D4, D5 | D-24, D-29 | ✅ below | ✅ (H-25 · A-25) — C7 deferred |
+| D-26 | P7-2 | P7 | F3, F4, H1, H3, H5, I3, I4 | D-24 | ✅ below | ✅ (H-26 · A-26) |
+| D-27 | P7-3 | P7 | G2 (veto workflow) | D-25 | ✅ below | ✅ (H-27 · A-27) |
 | D-28 | P7-4 | P7 | G3 (pilot gate) | D-24, D-27 | ✅ below | ⏸ PENDING HUMAN EVIDENCE |
 | D-29 | Track R | Track R — Reference data | H7, I7 | D-01 (runs wks 1–8) | ✅ below | ✅ (H-29 · A-29) |
 | D-30 | Track S | Track S — Shopping data | E1, E2, E3 | D-14 (runs wks 8–9, feeds P5) | ✅ below | ✅ (H-30 · A-30) |
 | D-31 | P7 could-haves | P7 tail (conditional) | E6, F5, I5 | D-23, D-24, D-26 (dispatch only if Must on weeks 9–10 is stable — Recipe_Systems §13) | ✅ below | ✅ (H-31 · A-31 PASS) |
 
 Parallelism: Track R (D-29) runs alongside the spine from week 1. P1 units (D-06…D-09) run sequentially within weeks 3–4; P2 starts once D-08 (guest sessions) lands — IdP setup does not gate intake. After D-14, P3 units (D-15…D-18) run while D-30 (Track S, weeks 8–9) prepares shopping data; both feed P5. The critical path is D-01 → … → D-28 (P0→P7, BUILD_PLAN §2). D-31 (the could-have tail) dispatches only if the §13 condition holds — it is not on the critical path.
+
+**Post-D-31 reconciliation (2026-09-16):** D-01…D-27, D-29, D-30, D-31 are implemented; D-28 is the only remaining dispatch unit (⏸ PENDING HUMAN EVIDENCE — the §14 "Week 12 go" human pilot). C7 (substitution preview, RS-US-18 — a §13-conditional Could-have) was DEFERRED in D-25 and remains the one unshipped conditional story; §13 is now SATISFIED (2026-09-16) but no dispatch unit ships C7 — it is an open dispatcher decision, not a blocker. A-31 = PASS (no findings); all recorded audits A-11, A-19, A-22…A-27, A-29, A-30, A-31 are PASS-WITH-FINDINGS or PASS. Audits A-01…A-10, A-12…A-18, A-20, A-21 remain recorded PENDING in HANDOFF (historical — never executed as independent sessions).
 
 ---
 
@@ -976,7 +978,8 @@ DONE CRITERIA:
 ```text
 You are shipping the three could-have stories. CONDITIONAL DISPATCH: Recipe_Systems §13 — "Could-haves
 (C7, E6, F5, I5) only if Must on weeks 9–10 is stable." Do not start this unit until the week 9–10 Must
-work is stable; record the stability evidence in the HANDOFF entry. (C7 shares this gate and ships in D-25.)
+work is stable; record the stability evidence in the HANDOFF entry. (C7 shares this gate but was
+DEFERRED in D-25 — H-25 records it as unshipped — and is NOT part of this unit.)
 
 READ FIRST: docs/Recipe_Systems.md §12 E6/F5/I5, §13 (the could-haves rule),
 docs/USER_STORIES.md E6/F5/I5 (acceptance + test cases), docs/DISPATCH.md D-23 (print templates),

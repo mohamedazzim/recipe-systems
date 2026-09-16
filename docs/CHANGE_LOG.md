@@ -1,3 +1,13 @@
+## 2026-09-16 — A-28 readiness sweep (0 DeepSeek calls)
+
+- Ran the A-28 blocker-class sweep on the current commit: full integration
+  23/23 · 151/151, regression-gates PASS, golden 8/8.
+- Verified OPEN DECISION register hygiene (no silent resolution).
+- Withdrew the F-1 dev-credential finding (dispatcher: `Password@123` authoritative;
+  no credential-doc change).
+- A-28 preflight complete; full A-28 not executed (D-28 PENDING HUMAN EVIDENCE).
+- No known autonomous technical blocker; human acceptance evidence outstanding.
+
 ## 2026-09-16 — D-28 autonomous pilot (0 DeepSeek calls)
 
 - Brought up the full local stack + stub-configured worker; re-ran zero-cost

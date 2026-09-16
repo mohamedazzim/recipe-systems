@@ -3471,6 +3471,35 @@ access is available, then execute A-28 and record the go/no-go decision. HARD ST
 - 0 calls, 0 retries, 0 failures. All autonomous flows used the deterministic
   stub; no live model or OCR was invoked.
 
+### A-28 readiness sweep (2026-09-16)
+
+- **Status: A-28 PREFLIGHT COMPLETE — FULL A-28 NOT EXECUTED (blocked on D-28 human evidence).**
+- DeepSeek accounting: 0 calls, 0 retries, 0 failures.
+
+| A-28 criterion | Classification | Basis |
+|---|---|---|
+| Zero invented ingredients (golden) | PASS | golden-check 8/8 re-run |
+| No "safe" wording | PASS | regression gates + golden |
+| No point-kcal | PASS | regression gates + golden |
+| Prints fit one page | AUTONOMOUSLY VERIFIED | story_d23_print (real Chromium, one-page PDF) in the 151/151 integration run |
+| Photo→first analysis < 2 min | PASS-WITH-EXISTING-EVIDENCE | historical ~1m40s reused; no fresh run |
+| Three curries separable (G3) | PENDING HUMAN EVIDENCE | requires human Chef + real model |
+| Must stories on golden + 20 messy (human) | PENDING HUMAN EVIDENCE | uncoached 20-user cohort |
+| View 5 not vetoed wholesale | PENDING HUMAN EVIDENCE | real regional reviewers |
+| Save + list + log without coaching | PENDING HUMAN EVIDENCE | uncoached users |
+| Blocker regression sweep | AUTONOMOUSLY VERIFIED | integration 23/23 · 151/151 + regression-gates PASS on current commit |
+| §15 acceptance scene unassisted | PENDING HUMAN EVIDENCE | requires an unassisted human walk |
+| OPEN DECISION register hygiene | PASS | Q1/Q3/Q5/Q6/Q7/Q11–Q17 open; Q2/Q4/Q8/Q9/Q10/Q18 resolved with recorded traces; no silent resolution |
+
+- **Finding retraction:** F-1 (dev sign-in credential mismatch) WITHDRAWN — the
+  dispatcher confirms `Password@123` is the authoritative dev password and directed
+  no credential-documentation change.
+- **Technical blockers:** NO KNOWN AUTONOMOUS TECHNICAL BLOCKER — HUMAN ACCEPTANCE
+  EVIDENCE REMAINS.
+- **Exact resume point:** when 20 real users, a Chef, and two regional reviewers are
+  available, run the uncoached protocol, then execute the A-28 closing sweep with
+  the human evidence.
+
 ### H-28 — D-28 Week-12 pilot gate
 
 - **Status: PREFLIGHT ONLY (2026-09-15) — STOP.** No implementation. This entry

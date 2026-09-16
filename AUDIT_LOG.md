@@ -690,6 +690,19 @@ Then A-11 closes. Q10 remains the gate for D-28.
   (`password` vs realm `Password@123`). Not fixed this run.
 - D-28 remains PENDING HUMAN EVIDENCE. A-28 not executed.
 
+## A-28 readiness sweep (2026-09-16)
+
+- A-28 preflight only; full A-28 not executed (D-28 is PENDING HUMAN EVIDENCE).
+- Blocker-class sweep re-run on the current commit: full integration 23/23 ·
+  151/151 green (one-writer, INV-04/05/10/12/13/14, two-fenugreeks, XOR/claim,
+  ownership escape, golden suite); regression-gates PASS; golden 8/8.
+- OPEN DECISION register verified unchanged: Q1/Q3/Q5/Q6/Q7/Q11–Q17 open;
+  Q2/Q4/Q8/Q9/Q10/Q18 resolved with recorded traces. No silent resolution.
+- F-1 credential finding WITHDRAWN (dispatcher: `Password@123` authoritative; no
+  credential-doc change).
+- 0 DeepSeek calls. No known autonomous technical blocker; human acceptance
+  evidence remains the only outstanding gate.
+
 ### Q10 corpus determination — `ocr_sample_pics/` (2026-09-15)
 
 - **Inventory:** 15 JPEGs `card-001..015.jpg` (~274×237 px). Content = generic

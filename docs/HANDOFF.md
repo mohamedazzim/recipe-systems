@@ -3127,6 +3127,45 @@ execution output; Git: not available / not authorized throughout.
   surfaces). Q5/C7 remain OPEN/deferred as before; D-23/D-24/D-26/DeepSeek
   preserved.
 
+### H-25A — D-25A C7 substitution preview (RS-US-18)
+
+- **Status: COMPLETE (2026-09-16).** The deferred C7 Could-have, shipped as the
+  D-25A continuation after §13 SATISFIED. A-25A = PASS (no findings).
+- **BASE_SHA:** `4154979` (post-D-31 reconciliation). **Scope:** C7 only.
+- **Classifier:** `apps/api/src/modules/analysis/substitution-preview.ts` —
+  pure/deterministic `classifySubstitution` (structural / modular /
+  identity_shift) using ONLY persisted View 1/5/6 evidence + the persisted
+  View 4 substitute/consequence. No LLM, no network, no invention.
+- **API:** `AnalysisService.previewSubstitution` (read-only; latest complete
+  analysis; 404s `RECIPE_NOT_FOUND` / `ANALYSIS_NOT_FOUND` /
+  `SUBSTITUTION_NOT_FOUND` incl. malformed ingredient id) +
+  `POST /recipes/:recipeId/substitute-preview` (body `{ ingredient_id }` →
+  `{ ingredient_id, substitute, classification, what_is_lost }`). The body key
+  is `ingredient_id` (the canonical API-doc `swap` placeholder pinned to the
+  precise "one View 4 substitution" semantics).
+- **Web:** `apps/web/components/app/SubstitutionPreview.tsx` — select one
+  persisted substitution, preview its class + persisted consequence; chef mode
+  carries the "Structural / modular / identity-shift grid" framing. Existing
+  View 4 list rendering preserved.
+- **Persistence:** NONE — no table, no migration, no `View4PayloadSchema`
+  change; classification is derived at preview time and never persisted.
+- **Verification:** classifier 9/9 · API 345/345 (29 suites) · web 157/157
+  (20 suites) · integration 25/25 · 159/159 (new `story_d25a_substitute_preview`
+  3/3: identity_shift + structural previews, read-only byte-identical analysis
+  rows, no View 4 payload mutation, 404s) · `regression-gates.sh` PASS ·
+  golden 8/8 · typecheck 0 · lint 0 · build 0.
+- **Decision trace:** inspected (Recipe_Systems §6/§12 C7, Epic-C C7, D-25
+  dispatch, H-25, A-25, View 1/4/5/6 schemas, llm-adapter View 4 prompt, web
+  renderView4) · already implemented (View 4 generation/persistence/flat
+  render) · missing (classifier, endpoint, preview UI, tests) · blocked: none
+  (§13 satisfied; no OPEN decision) · decision: deterministic derivation,
+  read-only, no schema change · changed: classifier + endpoint + UI + tests ·
+  intentionally not changed: D-25/D-26/D-27 semantics, View4PayloadSchema,
+  no persistence, no LLM · risks: heuristic misclassification on non-golden
+  recipes (mitigated by golden mapping + no-invention guard) · resume point:
+  D-28 human verification (unchanged).
+- **D-28 remains PENDING HUMAN EVIDENCE — untouched.**
+
 ### H-26 — D-26 Profiles, swaps, next-time, I3/I4
 
 - BASE_SHA / COMMIT_SHA: base `cc5fb88` (D-26 preflight) / final commit recorded

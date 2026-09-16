@@ -191,3 +191,99 @@ describe('D-19 view-9 recompute (RS-US-45, API side)', () => {
     });
   });
 });
+
+describe('AnalysisService.previewSubstitution (D-25A C7)', () => {
+  const TAMARIND_ID = 'aaaaaaaa-0000-4000-8000-000000000001';
+  const UNKNOWN_ID = 'bbbbbbbb-0000-4000-8000-000000000002';
+
+  function previewMocks(views: Record<number, unknown> = {}) {
+    const recipes = { assertOwned: jest.fn().mockResolvedValue({ id: 'r1' }) };
+    const intake = {} as never;
+    const queue = { enqueue: jest.fn(), enqueueView9Recompute: jest.fn() };
+    const prisma = {
+      analysis: { findFirst: jest.fn().mockResolvedValue({ id: 'a1' }) },
+      analysisView: {
+        findUnique: jest.fn(async ({ where }: any) => {
+          const payload = views[where.analysisId_viewNumber.viewNumber];
+          return payload === undefined ? null : { payload };
+        }),
+      },
+      recipeIngredientLine: {
+        findUnique: jest.fn().mockResolvedValue({ displayName: 'Tamarind', recipeId: 'r1' }),
+      },
+    };
+    const svc = new AnalysisService(recipes as never, intake, queue as never, prisma as never);
+    return { svc, recipes, queue, prisma };
+  }
+
+  it('previews one persisted View 4 substitution with a grounded classification (no invention)', async () => {
+    const { svc, queue, prisma } = previewMocks({
+      1: {
+        items: [{ ingredient_id: TAMARIND_ID, job: 'Sour', if_omitted: 'No sour — flat stew', tag: 'CARD' }],
+        role_groups: [],
+      },
+      4: {
+        substitutions: [
+          { ingredient_id: TAMARIND_ID, substitute: 'Kudampuli', consequence: 'Kerala meen curry — walks to another coast', tag: 'INFERRED' },
+        ],
+      },
+      5: {
+        family: 'Coastal Tamil',
+        architecture: 'x',
+        confidence: 'high',
+        not_this: [{ variant: 'Kerala meen curry', key_difference: 'uses kudampuli instead of tamarind/mango' }],
+        needs_review: true,
+        tag: 'INFERRED',
+      },
+      6: { ratios: [], unresolvable: [] },
+    });
+    const out = await svc.previewSubstitution(userActor, 'r1', TAMARIND_ID);
+    expect(out).toEqual({
+      ingredient_id: TAMARIND_ID,
+      substitute: 'Kudampuli',
+      classification: 'identity_shift',
+      what_is_lost: 'Kerala meen curry — walks to another coast',
+    });
+    // read-only: no enqueue, no analysis_* writes, no recipe-line writes
+    expect(queue.enqueue as jest.Mock).not.toHaveBeenCalled();
+    expect(queue.enqueueView9Recompute as jest.Mock).not.toHaveBeenCalled();
+    expect((prisma.analysisView.findUnique as jest.Mock).mock.calls).toHaveLength(4);
+  });
+
+  it('404 ANALYSIS_NOT_FOUND when the recipe has no latest complete analysis', async () => {
+    const { svc, prisma } = previewMocks();
+    prisma.analysis.findFirst.mockResolvedValue(null);
+    await expect(svc.previewSubstitution(userActor, 'r1', TAMARIND_ID)).rejects.toMatchObject({
+      response: { code: 'ANALYSIS_NOT_FOUND' },
+    });
+  });
+
+  it('404 SUBSTITUTION_NOT_FOUND for an ingredient that is not a persisted View 4 source', async () => {
+    const { svc } = previewMocks({
+      4: { substitutions: [{ ingredient_id: TAMARIND_ID, substitute: 'Kudampuli', consequence: 'x', tag: 'INFERRED' }] },
+    });
+    await expect(svc.previewSubstitution(userActor, 'r1', UNKNOWN_ID)).rejects.toMatchObject({
+      response: { code: 'SUBSTITUTION_NOT_FOUND' },
+    });
+  });
+
+  it('malformed ingredient id → canonical 404 SUBSTITUTION_NOT_FOUND (no Prisma lookup)', async () => {
+    const { svc, prisma } = previewMocks();
+    await expect(svc.previewSubstitution(userActor, 'r1', 'not-a-uuid')).rejects.toMatchObject({
+      response: { code: 'SUBSTITUTION_NOT_FOUND' },
+    });
+    expect(prisma.analysisView.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('ownership rides assertOwned — a foreign recipe is the canonical 404', async () => {
+    const { svc, recipes } = previewMocks();
+    (recipes.assertOwned as jest.Mock).mockRejectedValue(
+      Object.assign(new Error('not found'), {
+        response: { code: 'RECIPE_NOT_FOUND' },
+      }),
+    );
+    await expect(svc.previewSubstitution(userActor, 'foreign-recipe', TAMARIND_ID)).rejects.toMatchObject({
+      response: { code: 'RECIPE_NOT_FOUND' },
+    });
+  });
+});

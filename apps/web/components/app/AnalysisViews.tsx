@@ -18,6 +18,10 @@ import { api, ApiError, API_BASE_URL } from '@/lib/api';
 import { StationCard, NoStationCard } from '@/components/app/StationCard';
 import { RestrictionHighlight } from '@/components/app/RestrictionHighlight';
 import {
+  SubstitutionPreview,
+  type PersistedSubstitution,
+} from '@/components/app/SubstitutionPreview';
+import {
   displayDuration,
   identificationFrom,
   resolveIngredientName,
@@ -126,7 +130,7 @@ export function AnalysisViews({
     { id: 'view-1', label: '1 · Why it works', content: renderView1(view(1), lines) },
     { id: 'view-2', label: '2 · Balance', content: renderView2(view(2), lines) },
     { id: 'view-3', label: '3 · Process', content: renderView3(view(3), lines) },
-    { id: 'view-4', label: '4 · Substitutions', content: renderView4(view(4), lines) },
+    { id: 'view-4', label: '4 · Substitutions', content: renderView4(view(4), lines, recipeId, mode === 'chef') },
     { id: 'view-5', label: '5 · Regional', content: renderView5(view(5)) },
     { id: 'view-6', label: '6 · Ratios', content: renderView6(view(6)) },
     { id: 'view-7', label: '7 · Sensory', content: renderView7(view(7)) },
@@ -352,30 +356,26 @@ function renderView3(row: ViewRow | null, lines: WireLine[]): React.ReactNode {
   );
 }
 
-function renderView4(row: ViewRow | null, lines: WireLine[]): React.ReactNode {
+function renderView4(
+  row: ViewRow | null,
+  lines: WireLine[],
+  recipeId?: string,
+  chefMode = false,
+): React.ReactNode {
   if (!row) return <UnavailableView label="View 4: Substitutions" />;
   const payload = view4Payload(row.payload);
   if (!payload || row.status !== 'COMPLETE') return <IncompleteView label="View 4" />;
-  const name = (id: string) => resolveIngredientName(id, lines);
   return (
     <div>
-      <p className="text-small text-muted">What you can skip, and what to swap instead.</p>
       {payload.substitutions.length === 0 ? (
         <p className="mt-4 text-small text-body">No substitutions were generated for this recipe.</p>
       ) : (
-        <ul className="mt-4 divide-y divide-border rounded-lg border border-border bg-surface">
-          {payload.substitutions.map((sub, index) => (
-            <li key={`${sub.ingredient_id}-${index}`} className="px-4 py-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="font-semibold text-ink">
-                  {name(sub.ingredient_id)} → {sub.substitute}
-                </span>
-                <Badge tag="INFERRED" />
-              </div>
-              <p className="mt-1 text-small text-body">{sub.consequence}</p>
-            </li>
-          ))}
-        </ul>
+        <SubstitutionPreview
+          substitutions={payload.substitutions as PersistedSubstitution[]}
+          lines={lines}
+          recipeId={recipeId}
+          chefMode={chefMode}
+        />
       )}
     </div>
   );

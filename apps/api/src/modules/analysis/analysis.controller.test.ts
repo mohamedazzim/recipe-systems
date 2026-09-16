@@ -321,3 +321,46 @@ describe('AnalysisController.patchView9Portions (D-26 RS-US-46 / Q14 seam)', () 
     ).rejects.toMatchObject({ response: { code: 'ANALYSIS_NOT_FOUND' } });
   });
 });
+
+describe('AnalysisController.substitutePreview (D-25A C7 / RS-US-18)', () => {
+  const analysis = {
+    previewSubstitution: jest.fn().mockResolvedValue({
+      ingredient_id: 'aaaaaaaa-0000-4000-8000-000000000001',
+      substitute: 'Kudampuli',
+      classification: 'identity_shift',
+      what_is_lost: 'Kerala meen curry — walks to another coast',
+    }),
+  };
+  const controller = new AnalysisController(analysis as never, {} as never, {} as never);
+  const actorReq = {
+    actor: { kind: 'user' as const, user: { accountId: 'acc-1', email: 'c@t.dev', sub: 's' } },
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('forwards one ingredient id and returns the canonical preview wire', async () => {
+    const out = await controller.substitutePreview(
+      actorReq as never,
+      'r1',
+      { ingredient_id: 'aaaaaaaa-0000-4000-8000-000000000001' },
+    );
+    expect(analysis.previewSubstitution).toHaveBeenCalledWith(
+      actorReq.actor,
+      'r1',
+      'aaaaaaaa-0000-4000-8000-000000000001',
+    );
+    expect(out.classification).toBe('identity_shift');
+    expect(out.what_is_lost).toBe('Kerala meen curry — walks to another coast');
+  });
+
+  it('refuses non-canonical bodies → 400 INVALID_PREVIEW_BODY', async () => {
+    for (const body of [{}, { ingredient_id: '' }, { swap: 'tamarind' }, { ingredient_id: 'x', extra: 1 }]) {
+      await expect(
+        controller.substitutePreview(actorReq as never, 'r1', body),
+      ).rejects.toMatchObject({ response: { code: 'INVALID_PREVIEW_BODY' } });
+    }
+    expect(analysis.previewSubstitution).not.toHaveBeenCalled();
+  });
+});

@@ -1,3 +1,25 @@
+## 2026-09-16 — D-25A EXECUTION (C7 substitution preview, RS-US-18)
+
+- Shipped the deferred C7 Could-have as the D-25A continuation (0 DeepSeek/OCR
+  calls; §13 was already SATISFIED).
+- Deterministic classifier `apps/api/src/modules/analysis/substitution-preview.ts`
+  — structural / modular / identity_shift from persisted View 1/5/6 evidence +
+  the persisted View 4 substitute/consequence. No LLM, no network, no invention.
+- API: `AnalysisService.previewSubstitution` (read-only, latest complete
+  analysis) + `POST /recipes/:recipeId/substitute-preview`
+  (`{ ingredient_id }` → `{ ingredient_id, substitute, classification,
+  what_is_lost }`); 404s `RECIPE_NOT_FOUND` / `ANALYSIS_NOT_FOUND` /
+  `SUBSTITUTION_NOT_FOUND` (malformed id → canonical 404).
+- Web: `SubstitutionPreview` — select one persisted View 4 substitution, preview
+  its class + persisted consequence; chef-mode structural/modular/identity-shift
+  framing; existing View 4 list preserved.
+- Persistence: none — no table/migration, `View4PayloadSchema` untouched,
+  classification derived at preview time and never persisted.
+- A-25A = PASS (no findings). D-28 remains PENDING HUMAN EVIDENCE (untouched).
+- Verification: classifier 9/9 · API 345/345 · web 157/157 · integration
+  25/25 · 159/159 (new `story_d25a_substitute_preview` 3/3) · gates PASS ·
+  golden 8/8 · typecheck 0 · lint 0 · build 0.
+
 ## 2026-09-16 — D-31 EXECUTION (E6 one-pager · F5 plate photo · I5 band boundary)
 
 - Implemented the full D-31 could-have tail after the §13 dispatcher determination

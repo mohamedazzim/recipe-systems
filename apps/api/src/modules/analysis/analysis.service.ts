@@ -14,13 +14,17 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { StructuredRecipeInput } from '@recipe-systems/schemas';
+import { StructuredRecipeInput, View1PayloadSchema, View4PayloadSchema, View5PayloadSchema, View6PayloadSchema } from '@recipe-systems/schemas';
 import { PrismaClient } from '@recipe-systems/database';
 import { PROMPT_VERSION } from '@recipe-systems/llm-adapter';
 import type { Actor } from '../../common/guards/guest-or-jwt.guard';
 import { IntakeService } from '../intake/intake.service';
 import { RecipeService } from '../recipes/recipe.service';
 import { AnalysisQueueService, QueueUnavailableError } from './analysis-queue.service';
+import { classifySubstitution, type SubstitutionClass } from './substitution-preview';
+
+const UUID_RE =
+  /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
 /** D-19 (P4-1): the RS-US-45 assumption-edit body (View 9 recompute). D-26 I3
  *  adds the Q14 seam: `portions` (RS-US-46, 3|4) — persisted ONLY in the View 9
@@ -192,5 +196,110 @@ export class AnalysisService {
       throw err;
     }
     return { analysis_id: analysis.id, status: 'recompute_queued', assumptions: delta };
+  }
+
+  /**
+   * D-25A (C7 / RS-US-18): preview ONE substitution that already exists in the
+   * persisted View 4 of the LATEST COMPLETE analysis. READ-ONLY and
+   * deterministic — no LLM, no network, no enqueue, no analysis_* writes, no
+   * recipe-line writes, no persistence. The classification is derived at
+   * preview time from persisted View 1/5/6 evidence + the persisted View 4
+   * substitute/consequence (never invented).
+   *
+   * 404s (canonical): RECIPE_NOT_FOUND (missing/foreign/malformed recipe via
+   * assertOwned) · ANALYSIS_NOT_FOUND (no latest complete analysis) ·
+   * SUBSTITUTION_NOT_FOUND (the ingredient is not the source of any persisted
+   * View 4 substitution, or the id is malformed).
+   */
+  async previewSubstitution(
+    actor: Actor,
+    recipeId: string,
+    ingredientId: string,
+  ): Promise<{
+    ingredient_id: string;
+    substitute: string;
+    classification: SubstitutionClass;
+    what_is_lost: string;
+  }> {
+    const recipe = await this.recipes.assertOwned(actor, recipeId);
+    if (!UUID_RE.test(ingredientId)) {
+      throw new NotFoundException({
+        code: 'SUBSTITUTION_NOT_FOUND',
+        message: 'No substitution for that ingredient',
+      });
+    }
+    const analysis = await this.prisma.analysis.findFirst({
+      where: { recipeId: recipe.id, isCurrent: true, status: 'complete' },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    });
+    if (!analysis) {
+      throw new NotFoundException({
+        code: 'ANALYSIS_NOT_FOUND',
+        message: 'No completed analysis for this recipe',
+      });
+    }
+
+    const [v1, v4, v5, v6, line] = await Promise.all([
+      this.prisma.analysisView.findUnique({
+        where: { analysisId_viewNumber: { analysisId: analysis.id, viewNumber: 1 } },
+        select: { payload: true },
+      }),
+      this.prisma.analysisView.findUnique({
+        where: { analysisId_viewNumber: { analysisId: analysis.id, viewNumber: 4 } },
+        select: { payload: true },
+      }),
+      this.prisma.analysisView.findUnique({
+        where: { analysisId_viewNumber: { analysisId: analysis.id, viewNumber: 5 } },
+        select: { payload: true },
+      }),
+      this.prisma.analysisView.findUnique({
+        where: { analysisId_viewNumber: { analysisId: analysis.id, viewNumber: 6 } },
+        select: { payload: true },
+      }),
+      this.prisma.recipeIngredientLine.findUnique({
+        where: { id: ingredientId },
+        select: { displayName: true, recipeId: true },
+      }),
+    ]);
+
+    const view4 = v4 ? View4PayloadSchema.safeParse(v4.payload) : null;
+    if (!view4?.success) {
+      throw new NotFoundException({
+        code: 'SUBSTITUTION_NOT_FOUND',
+        message: 'No substitution for that ingredient',
+      });
+    }
+    const substitution = view4.data.substitutions.find((s) => s.ingredient_id === ingredientId);
+    if (!substitution) {
+      throw new NotFoundException({
+        code: 'SUBSTITUTION_NOT_FOUND',
+        message: 'No substitution for that ingredient',
+      });
+    }
+
+    // The source line belongs to THIS recipe (a foreign ingredient is never
+    // resolved to another recipe's line — it would not be in this View 4).
+    const ingredientName =
+      line && line.recipeId === recipe.id ? line.displayName : ingredientId;
+
+    const view1 = v1 ? View1PayloadSchema.safeParse(v1.payload) : null;
+    const view5 = v5 ? View5PayloadSchema.safeParse(v5.payload) : null;
+    const view6 = v6 ? View6PayloadSchema.safeParse(v6.payload) : null;
+
+    const classification = classifySubstitution({
+      substitution,
+      ingredientName,
+      view1: view1?.success ? view1.data : null,
+      view5: view5?.success ? view5.data : null,
+      view6: view6?.success ? view6.data : null,
+    });
+
+    return {
+      ingredient_id: ingredientId,
+      substitute: substitution.substitute,
+      classification,
+      what_is_lost: substitution.consequence,
+    };
   }
 }

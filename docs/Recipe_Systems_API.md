@@ -184,9 +184,11 @@ Explicitly re-run analysis (never silent); snapshots the previous one. **Auth:**
 - 200: new analysis with `snapshot_of` set, `is_latest=true`
 
 ### POST /recipes/:recipeId/substitute-preview
-Preview a single swap from View 4. **Auth:** Bearer or guest. **Story:** RS-US-18.
-- Body: `{ "swap": string }` (e.g. an ingredient name or swap id)
-- 200: `{ "classification": "structural"|"modular"|"identity_shift", "what_is_lost": string }`
+Preview ONE persisted View 4 substitution (C7 — D-25A). **Auth:** Bearer or guest. **Story:** RS-US-18.
+- Body: `{ "ingredient_id": uuid }` — the source ingredient of one persisted View 4 substitution
+- 200: `{ "ingredient_id": uuid, "substitute": string, "classification": "structural"|"modular"|"identity_shift", "what_is_lost": string }` (the persisted consequence)
+- 404: `ANALYSIS_NOT_FOUND` (no completed analysis) · `SUBSTITUTION_NOT_FOUND` (unknown/malformed ingredient) · `RECIPE_NOT_FOUND` (foreign/missing recipe)
+- Read-only + deterministic — never invents a substitution; the classification is derived at preview time and never persisted.
 
 ### GET /recipes/:recipeId/print/shopping-list
 Print the latest shopping-list snapshot (D-23). **Auth:** Bearer or guest. **Story:** RS-US-27.

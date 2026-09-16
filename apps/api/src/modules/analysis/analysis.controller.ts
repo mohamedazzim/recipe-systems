@@ -47,6 +47,9 @@ const view9AssumptionsSchema = z
 // D-26 (P7-2): RS-US-46 portions body (I3 / Q14 seam — 3|4 only, no persistence
 // column; the count lives in the View 9 payload's per_portion).
 const portionsSchema = z.object({ portions: z.union([z.literal(3), z.literal(4)]) }).strict();
+// D-25A (C7 / RS-US-18): substitute-preview body — exactly ONE persisted View 4
+// substitution, addressed by its source ingredient id.
+const substitutePreviewSchema = z.object({ ingredient_id: z.string().min(1) }).strict();
 const UUID_RE =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
@@ -299,6 +302,31 @@ export class AnalysisController {
       })),
       station_card: card ? this.stationCardWire(card) : null,
     };
+  }
+
+  /**
+   * D-25A (C7 / RS-US-18): preview ONE persisted View 4 substitution —
+   * deterministic, read-only, no LLM, no re-analysis, no persistence.
+   * 200: { ingredient_id, substitute, classification, what_is_lost }.
+   * 404: RECIPE_NOT_FOUND / ANALYSIS_NOT_FOUND / SUBSTITUTION_NOT_FOUND.
+   */
+  @Post('recipes/:recipeId/substitute-preview')
+  @HttpCode(200)
+  @UseGuards(GuestOrJwtGuard, CsrfGuard)
+  async substitutePreview(
+    @Req() req: ActorRequest,
+    @Param('recipeId') recipeId: string,
+    @Body() body: unknown,
+  ) {
+    const parsed = substitutePreviewSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException({
+        code: 'INVALID_PREVIEW_BODY',
+        message: 'body must be { ingredient_id: string }',
+      });
+    }
+    const actor = this.actorOf(req);
+    return this.analysis.previewSubstitution(actor, recipeId, parsed.data.ingredient_id);
   }
 
   /**

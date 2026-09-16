@@ -919,3 +919,24 @@ Each A-31 attack vector re-executed:
 - The F5 web surface attaches/replaces and shows attachment status; the API returns the canonical `s3://` URI (the same contract as `recipe.photo_uri`). Serving image bytes to `<img>` is not part of F5's acceptance criteria and remains a pre-existing product gap (no object-serving endpoint anywhere).
 
 **Re-verification:** API 329/329 · web 156/156 · worker/schemas/rendering/database/domain/llm/ocr suites green · integration 24/24 · 156/156 · `regression-gates.sh` PASS (zero fires) · golden 8/8 · typecheck 0 · lint 0 · build 0 · `prisma migrate deploy` no pending migrations.
+
+## A-25A — Audit: C7 substitution preview (D-25A)
+
+- **Date / audit agent:** 2026-09-16 · GitHub Copilot (DeepSeek V4 Pro) — post-implementation audit of D-25A (same agent as implementation; independence provided by the pre-recorded attack vectors + gate re-execution).
+- **Audited commit:** the working tree before the D-25A commit.
+- **Scope:** DISPATCH D-25 deliverable #4 (C7) + D-25A scope; `Epic-C_Analysis.md` C7 AC-1/2/3; Recipe_Systems §6 View 4 + §12 C7; INV-10; ADR §2 one-writer; frozen `View4PayloadSchema` (D-05).
+
+### Verdict: PASS (no findings)
+
+Each attack vector re-executed:
+
+- **Class truthfulness (golden mapping): PASS.** Unit tests encode §6 View 4 expectations — tamarind → kudampuli = `identity_shift` (View 5 `not_this` names the swap); fish/coconut-body = `structural` (View 1 `if_omitted` states the dish breaks, or View 6 `structural: true` ratio); drumstick/chilli-count = `modular`. The integration test proves both `identity_shift` and `structural` classifications on a real persisted analysis.
+- **INV-10 (nothing invented): PASS.** The classifier's outputs are ONLY the persisted View 4 `substitute` + `consequence` (verbatim) plus a class derived from persisted View 1/5/6 rows. The integration test asserts the View 4 payload is byte-unchanged and never gains a `classification` key.
+- **Frozen-schema integrity: PASS.** `View4PayloadSchema` is untouched; the classification is derived at preview time and never persisted (integration proof: `JSON.stringify(view4.payload)` contains no `classification`).
+- **Read-only: PASS.** `previewSubstitution` performs only `assertOwned`, `analysis.findFirst`, `analysisView.findUnique`, `recipeIngredientLine.findUnique` — no `analysis_*`, `recipe_ingredient_line`, or any other writes. The integration test asserts analysis rows are byte-identical before/after the preview. Regression gates (one-writer) still PASS.
+- **No LLM in the preview path: PASS.** The preview path imports no `@recipe-systems/llm-adapter` and makes no network call; the classifier is a pure function.
+- **AC-1 one-swap-at-a-time: PASS.** The endpoint accepts exactly one `ingredient_id` and returns one classification; non-canonical bodies are 400 `INVALID_PREVIEW_BODY`.
+- **Canonical 404s: PASS.** `RECIPE_NOT_FOUND` (foreign/missing/malformed recipe via `assertOwned`) · `ANALYSIS_NOT_FOUND` (no latest complete analysis) · `SUBSTITUTION_NOT_FOUND` (unknown/foreign/malformed ingredient) — verified in unit + integration tests.
+
+**Re-verification:** API 345/345 (29 suites) · web 157/157 (20 suites) · integration 25/25 · 159/159 (new `story_d25a_substitute_preview` 3/3) · `regression-gates.sh` PASS · golden 8/8 · typecheck 0 · lint 0 · build 0.
+

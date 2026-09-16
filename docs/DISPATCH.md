@@ -57,7 +57,7 @@ Rules that apply to **every** unit (the prompts assume them):
 | D-22 | P5-1 | P5 — Save, shop, print | D1, D2, D6 | D-21, D-30 | ✅ below | ✅ (H-22 · A-22) |
 | D-23 | P5-2 | P5 | E4, E5, H4 | D-22, D-30 (Q2 gate) | ✅ below | ✅ (H-23 · A-23) |
 | D-24 | P6-1 | P6 — Cook loop | F1, F2, F6 | D-23 | ✅ below | ✅ (H-24 · A-24) |
-| D-25 | P7-1 | P7 — Hardening & pilot | B6, C6, C7, D3, D4, D5 | D-24, D-29 | ✅ below | ✅ (H-25 · A-25) — C7 deferred |
+| D-25 | P7-1 | P7 — Hardening & pilot | B6, C6, C7, D3, D4, D5 | D-24, D-29 | ✅ below | ✅ (H-25 · A-25) · C7 → D-25A ✅ (H-25A · A-25A) |
 | D-26 | P7-2 | P7 | F3, F4, H1, H3, H5, I3, I4 | D-24 | ✅ below | ✅ (H-26 · A-26) |
 | D-27 | P7-3 | P7 | G2 (veto workflow) | D-25 | ✅ below | ✅ (H-27 · A-27) |
 | D-28 | P7-4 | P7 | G3 (pilot gate) | D-24, D-27 | ✅ below | ⏸ PENDING HUMAN EVIDENCE |
@@ -67,7 +67,7 @@ Rules that apply to **every** unit (the prompts assume them):
 
 Parallelism: Track R (D-29) runs alongside the spine from week 1. P1 units (D-06…D-09) run sequentially within weeks 3–4; P2 starts once D-08 (guest sessions) lands — IdP setup does not gate intake. After D-14, P3 units (D-15…D-18) run while D-30 (Track S, weeks 8–9) prepares shopping data; both feed P5. The critical path is D-01 → … → D-28 (P0→P7, BUILD_PLAN §2). D-31 (the could-have tail) dispatches only if the §13 condition holds — it is not on the critical path.
 
-**Post-D-31 reconciliation (2026-09-16):** D-01…D-27, D-29, D-30, D-31 are implemented; D-28 is the only remaining dispatch unit (⏸ PENDING HUMAN EVIDENCE — the §14 "Week 12 go" human pilot). C7 (substitution preview, RS-US-18 — a §13-conditional Could-have) was DEFERRED in D-25 and remains the one unshipped conditional story; §13 is now SATISFIED (2026-09-16) but no dispatch unit ships C7 — it is an open dispatcher decision, not a blocker. A-31 = PASS (no findings); all recorded audits A-11, A-19, A-22…A-27, A-29, A-30, A-31 are PASS-WITH-FINDINGS or PASS. Audits A-01…A-10, A-12…A-18, A-20, A-21 remain recorded PENDING in HANDOFF (historical — never executed as independent sessions).
+**Post-D-31 reconciliation (2026-09-16):** D-01…D-27, D-29, D-30, D-31 are implemented; D-28 is the only remaining dispatch unit (⏸ PENDING HUMAN EVIDENCE — the §14 "Week 12 go" human pilot). C7 (substitution preview, RS-US-18 — a §13-conditional Could-have) was DEFERRED in D-25 and has now been shipped as the D-25A continuation (H-25A · A-25A PASS, 2026-09-16) — no unshipped could-have remains. A-31 = PASS (no findings); all recorded audits A-11, A-19, A-22…A-27, A-29, A-30, A-31, A-25A are PASS-WITH-FINDINGS or PASS. Audits A-01…A-10, A-12…A-18, A-20, A-21 remain recorded PENDING in HANDOFF (historical — never executed as independent sessions).
 
 ---
 

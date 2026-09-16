@@ -158,6 +158,45 @@ describe('AnalysisViews (D-18 home mode, persisted payloads only)', () => {
     expect(screen.getByText('Vegetarian version; fish texture lost')).toBeInTheDocument();
   });
 
+  it('D-25A C7: previews one persisted substitution class without modifying content', async () => {
+    (globalThis as unknown as { fetch: unknown }).fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        ingredient_id: 'line-fish',
+        substitute: 'Brinjal',
+        classification: 'identity_shift',
+        what_is_lost: 'Vegetarian version; fish texture lost',
+      }),
+    });
+    render(
+      <AnalysisViews
+        analysis={analysis([
+          view(4, 'COMPLETE', {
+            substitutions: [
+              { ingredient_id: 'line-fish', substitute: 'Brinjal', consequence: 'Vegetarian version; fish texture lost', tag: 'INFERRED' },
+            ],
+          }),
+        ])}
+        lines={LINES}
+        methodState={null}
+        recipeId="recipe-1"
+      />,
+    );
+    await userEvent.click(screen.getByRole('tab', { name: '4 · Substitutions' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Preview shift class' }));
+    expect(await screen.findByTestId('substitution-class')).toHaveTextContent('Identity shift');
+    // The persisted consequence is shown verbatim — nothing new is generated.
+    expect(screen.getByText('Vegetarian version; fish texture lost')).toBeInTheDocument();
+    const post = (globalThis.fetch as jest.Mock).mock.calls.find(
+      (c) => (c[1] as RequestInit)?.method === 'POST',
+    );
+    expect(post[0]).toContain('/recipes/recipe-1/substitute-preview');
+    expect(JSON.parse((post[1] as RequestInit).body as string)).toEqual({
+      ingredient_id: 'line-fish',
+    });
+  });
+
   it('unavailable view: honest empty state, never fake content', async () => {
     render(<AnalysisViews analysis={analysis([])} lines={LINES} methodState={null} />);
     await userEvent.click(screen.getByRole('tab', { name: '1 · Why it works' }));

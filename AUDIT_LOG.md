@@ -703,6 +703,18 @@ Then A-11 closes. Q10 remains the gate for D-28.
 - 0 DeepSeek calls. No known autonomous technical blocker; human acceptance
   evidence remains the only outstanding gate.
 
+## Final production-readiness audit (2026-09-16)
+
+- **Verdict: NO KNOWN TECHNICAL RELEASE BLOCKER.**
+- Evidence re-executed: workspace typecheck exit 0; API build exit 0; worker build
+  exit 0; `prisma migrate status` up to date; secret-pattern scan clean; no temp
+  scripts; web→BFF-only and Intake-only line writes confirmed by grep; integration
+  151/151 + regression gates PASS (prior this session).
+- Findings: INFO-only — (1) nginx edge is health-only (no reverse proxy yet, no
+  deployment pipeline exists); (2) untracked Q10 OCR artifacts; (3) Prisma major
+  update notice; (4) production-relevant OPEN decisions Q7/Q11/Q12/Q15 deferred.
+- No P0/P1 → no product-code changes.
+
 ### Q10 corpus determination — `ocr_sample_pics/` (2026-09-15)
 
 - **Inventory:** 15 JPEGs `card-001..015.jpg` (~274×237 px). Content = generic

@@ -3500,6 +3500,24 @@ access is available, then execute A-28 and record the go/no-go decision. HARD ST
   available, run the uncoached protocol, then execute the A-28 closing sweep with
   the human evidence.
 
+### Final production-readiness audit (2026-09-16)
+
+- **Verdict: NO KNOWN TECHNICAL RELEASE BLOCKER.** No P0/P1 findings; no product-code changes.
+- **Integrity:** HEAD = origin/main (`9695f50`); no committed secrets (pattern scan
+  clean); no tracked `.env`/`dist`/`.next`/`coverage`; no temp scripts. Untracked
+  Q10 OCR artifacts remain (INFO: decide commit vs gitignore later).
+- **Build/deploy:** workspace typecheck exit 0; API `nest build` exit 0; worker
+  build exit 0; `prisma migrate status` = "Database schema is up to date!".
+- **Architecture:** web has no direct DB/worker access (BFF only);
+  `recipe_ingredient_line` writes confined to Intake; one-writer gates PASS;
+  OPEN DECISION register unchanged.
+- **Security:** secret scan clean; ownership/CSRF/reviewer-auth/INV-17 covered by
+  the 151/151 integration run + regression gates.
+- **INFO findings (none blocking):** nginx.conf is a P0-scope health-only edge
+  (no web/api reverse-proxy yet — consistent with "no deployment pipeline");
+  Prisma 6.19.3 major-update notice; production-relevant OPEN decisions Q7 (cloud),
+  Q11 (guest TTL), Q12 (RPO/RTO), Q15 (retention) remain intentionally deferred.
+
 ### H-28 — D-28 Week-12 pilot gate
 
 - **Status: PREFLIGHT ONLY (2026-09-15) — STOP.** No implementation. This entry

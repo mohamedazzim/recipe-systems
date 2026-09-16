@@ -206,7 +206,7 @@ export function RecipeWorkspace({
   }, [recipeId, initialLines, initialTitle, signedIn]);
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <div className="mx-auto max-w-7xl">
       <button
         type="button"
         onClick={onBack}
@@ -230,10 +230,15 @@ export function RecipeWorkspace({
         </span>
       </div>
 
-      {/* D-24 (F1/F2/F6): the after-cook capture. The reopen recall sits at the
-          top of the workspace (F6 AC-1) and the note stays above the analysis
-          (F2 AC-3) — CookSection renders before every analysis surface. */}
-      <CookSection recipeId={recipeId} />
+      {/* Two-pane workspace: ANALYSIS is the primary pane (right + sticky on
+          desktop, first on mobile). Recipe context/actions live in the
+          secondary left pane. */}
+      <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+        <div className={`min-w-0 ${analysisId !== null ? 'order-2' : 'order-1'} lg:order-1`}>
+          {/* D-24 (F1/F2/F6): the after-cook capture. The reopen recall sits at the
+              top of the context pane (F6 AC-1) and the note stays above the analysis
+              (F2 AC-3). */}
+          <CookSection recipeId={recipeId} />
 
       {/* D-26 (F3/H5): record what was actually used against the latest cook log. */}
       <SwapSection recipeId={recipeId} lines={lines} onApplied={() => void reloadLines()} />
@@ -337,8 +342,12 @@ export function RecipeWorkspace({
       />
 
       <ShoppingSection recipeId={recipeId} />
+        </div>
 
-      <ReadinessPanel
+        {/* PRIMARY pane — analysis status + views, immediately visible. */}
+        <div className={`min-w-0 ${analysisId !== null ? 'order-1' : 'order-2'} lg:order-2`}>
+          <div className="lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
+            <ReadinessPanel
         recipeId={recipeId}
         signedIn={signedIn}
         lines={lines}
@@ -359,6 +368,9 @@ export function RecipeWorkspace({
         stale={analysisStale}
         onRetry={runAnalysis}
       />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

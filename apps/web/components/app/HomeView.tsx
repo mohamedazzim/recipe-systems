@@ -146,7 +146,7 @@ export function HomeView({
               <p className="mt-4 text-small text-muted">No recipes yet — start one on the left.</p>
             ) : (
               <ul className="mt-3 divide-y divide-border">
-                {library.slice(0, 3).map((recipe) => (
+                {library.slice(0, 2).map((recipe) => (
                   <li key={recipe.recipe_id}>
                     <button
                       type="button"

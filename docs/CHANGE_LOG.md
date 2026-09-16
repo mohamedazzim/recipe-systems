@@ -1,3 +1,13 @@
+## 2026-09-16 — D-31 preflight (0 DeepSeek calls; BLOCKED)
+
+- Established canonical D-31 scope (E6 one-pager, F5 plate photo, I5 optional
+  energy band) and the §13 unlock condition.
+- §13 unlock condition NOT satisfied: no week 9–10 Must-stability evidence is
+  recorded in HANDOFF (H-31 empty; C7 deferred for the same reason; D-28 pilot
+  still PENDING HUMAN EVIDENCE).
+- Decision: D-31 BLOCKED — no implementation. Dispatcher must record the §13
+  stability evidence before D-31 can dispatch.
+
 ## 2026-09-16 — A-30 audit (0 DeepSeek calls; PASS-WITH-FINDINGS)
 
 - A-30 independent audit of D-30 executed against the implementation and fresh

@@ -3662,6 +3662,11 @@ access is available, then execute A-28 and record the go/no-go decision. HARD ST
 
 ### H-31 — D-31 Could-have tail (E6, F5, I5 — conditional per §13)
 
+- **Status: BLOCKED (2026-09-16 preflight) — §13 unlock condition not satisfied.**
+- The dispatch condition requires recorded week 9–10 Must-stability evidence in HANDOFF; no such record exists (H-31 was empty; A-25/D-25 and CHANGE_LOG both note the stability evidence is still not recorded; C7 remains deferred for the same reason).
+- This is a dispatcher (human) determination that must not be fabricated. D-28 (week-12 pilot) also remains PENDING HUMAN EVIDENCE, so the natural stability demonstration is not yet available.
+- No implementation performed. Exact missing evidence: a dated dispatcher record that the week 9–10 Must work was stable at dispatch.
+
 ☐ No entry yet. (Dispatch is conditional: entry must record the week 9–10 Must-stability evidence before any work.)
 
 

@@ -178,7 +178,8 @@ describe('RecipeWorkspace — D-22 Save (D1)', () => {
 
   it('D6: delete needs an explicit second step — Cancel returns without calling the API', async () => {
     render(<RecipeWorkspace {...props()} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Delete recipe' }));
+    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete recipe' }));
     expect(screen.getByText(/permanently removed/i)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(screen.queryByText(/permanently removed/i)).not.toBeInTheDocument();
@@ -189,7 +190,8 @@ describe('RecipeWorkspace — D-22 Save (D1)', () => {
     apiMock.mockResolvedValue(undefined); // the 204 path
     const p = props({ onDeleted: jest.fn() });
     render(<RecipeWorkspace {...p} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Delete recipe' }));
+    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete recipe' }));
     await userEvent.click(screen.getByRole('button', { name: 'Delete recipe' })); // the confirmation button
     expect(apiMock).toHaveBeenCalledWith('/recipes/r1', {
       method: 'DELETE',
@@ -206,7 +208,8 @@ describe('RecipeWorkspace — D-22 Save (D1)', () => {
     );
     const p = props({ onDeleted: jest.fn() });
     render(<RecipeWorkspace {...p} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Delete recipe' }));
+    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Delete recipe' }));
     await userEvent.click(screen.getByRole('button', { name: 'Delete recipe' }));
     // D-24: the cook surface surfaces the same 503 — one honest error per surface.
     expect((await screen.findAllByText('Service unavailable')).length).toBeGreaterThan(0);

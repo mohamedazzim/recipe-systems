@@ -5,10 +5,10 @@
 // section order; nothing here is decorative.
 
 import { useEffect, useState } from 'react';
-import { ArrowLeft } from '@phosphor-icons/react';
+import { ArrowLeft, DotsThreeVertical } from '@phosphor-icons/react';
 import { Heading } from '@/components/ui/Typography';
 import { Button } from '@/components/ui/Button';
-import { api, ApiError } from '@/lib/api';
+import { api, ApiError, API_BASE_URL } from '@/lib/api';
 import { listSessionRecipes } from '@/lib/flow';
 import type { AnalyseAck, AnalysisState, MethodState, SavedRecipe } from '@/lib/types';
 import { IngredientReview } from '@/components/app/IngredientReview';
@@ -60,6 +60,11 @@ export function RecipeWorkspace({
   /** D-20 (C3): home explains, chef briefs. Guests get a session-local toggle;
    *  signed-in users persist the preference on the account (C3 AC-2/TC-03). */
   const [mode, setMode] = useState<'home' | 'chef'>(preferredMode);
+  /** Header overflow menu (Delete + low-frequency actions). */
+  const [moreOpen, setMoreOpen] = useState(false);
+  /** E6 + I5 (D-31): the home-mode one-pager print, surfaced from the header. */
+  const [printing, setPrinting] = useState(false);
+  const [printError, setPrintError] = useState<string | null>(null);
 
   /**
    * D-22 (D1): the visible Save action. The artifact set already persists in
@@ -173,6 +178,59 @@ export function RecipeWorkspace({
     if (analysisId !== null) setAnalysisStale(true);
   };
 
+  /** E6 + I5 (D-31): snapshot-only PDF print — same endpoint the analysis
+   *  views use, surfaced once more in the header for discoverability. */
+  const printOnePager = async (): Promise<void> => {
+    setPrinting(true);
+    setPrintError(null);
+    const viewer = window.open('', '_blank');
+    try {
+      const res = await fetch(`${API_BASE_URL}/recipes/${recipeId}/print/one-pager`, {
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        let message = res.statusText;
+        try {
+          const body = (await res.json()) as { error?: { message?: string } };
+          message = body.error?.message ?? message;
+        } catch {
+          // non-JSON error body
+        }
+        viewer?.close();
+        throw new ApiError(res.status, 'HTTP_ERROR', message);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      if (viewer) viewer.location.href = url;
+      else window.open(url, '_blank');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      viewer?.close();
+      setPrintError(err instanceof Error ? err.message : 'Could not print the one-pager');
+    } finally {
+      setPrinting(false);
+    }
+  };
+
+  // Close the header More menu on outside click or Escape.
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onDown = (e: MouseEvent) => {
+      const target = e.target as Element | null;
+      if (target && target.closest('[data-ws-menu]')) return;
+      setMoreOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMoreOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [moreOpen]);
+
   useEffect(() => {
     const record = listSessionRecipes().find((r) => r.recipe_id === recipeId);
     // D-22: the saved DB name (library row) wins over the session preview —
@@ -216,40 +274,75 @@ export function RecipeWorkspace({
         Back to your recipes
       </button>
 
-      <Heading level={1} className="mt-5">
-        {title}
-      </Heading>
-      <p className="mt-2 text-small text-muted">
-        Review the lines, attach a method, then run the analysis.
-      </p>
-
-      <div className="mt-4 flex items-center gap-3">
-        <ModeToggle mode={mode} onSelect={selectMode} />
-        <span className="text-caption text-faint">
-          {mode === 'home' ? 'Home explains.' : 'Chef briefs — the station card leads.'}
-        </span>
+      {/* Recipe header — identity, mode, and the primary/secondary actions. */}
+      <div className="mt-5 flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+        <div className="min-w-0">
+          <Heading level={1}>{title}</Heading>
+          <p className="mt-1 max-w-prose text-small text-muted">
+            Review the lines, attach a method, then run the analysis.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <ModeToggle mode={mode} onSelect={selectMode} />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void printOnePager()}
+            disabled={analysisId === null || printing}
+          >
+            {printing ? 'Printing…' : 'Print one-pager'}
+          </Button>
+          {signedIn && (
+            <div data-ws-menu className="relative">
+              <button
+                type="button"
+                aria-label="More actions"
+                aria-haspopup="menu"
+                aria-expanded={moreOpen}
+                onClick={() => setMoreOpen(!moreOpen)}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border-strong bg-transparent text-muted transition-colors hover:border-ink/40 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+              >
+                <DotsThreeVertical size={18} aria-hidden="true" weight="bold" />
+              </button>
+              {moreOpen && (
+                <div
+                  role="menu"
+                  aria-label="Recipe actions"
+                  className="absolute right-0 top-10 z-20 min-w-44 overflow-hidden rounded-lg border border-border bg-surface py-1 shadow-card"
+                >
+                  <button
+                    role="menuitem"
+                    onClick={() => {
+                      setMoreOpen(false);
+                      setConfirmingDelete(true);
+                    }}
+                    disabled={deleting}
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-small font-medium text-negative transition-colors hover:bg-negative/10 disabled:text-faint"
+                  >
+                    Delete recipe
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Two-pane workspace: ANALYSIS is the primary pane (right + sticky on
-          desktop, first on mobile). Recipe context/actions live in the
-          secondary left pane. */}
-      <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-        <div className={`min-w-0 ${analysisId !== null ? 'order-2' : 'order-1'} lg:order-1`}>
-          {/* D-24 (F1/F2/F6): the after-cook capture. The reopen recall sits at the
-              top of the context pane (F6 AC-1) and the note stays above the analysis
-              (F2 AC-3). */}
-          <CookSection recipeId={recipeId} />
+      <p className="mt-2 text-caption text-faint">
+        {mode === 'home' ? 'Home explains.' : 'Chef briefs — the station card leads.'}
+      </p>
+      {printError && <p className="mt-2 text-caption text-negative">{printError}</p>}
 
-      {/* D-26 (F3/H5): record what was actually used against the latest cook log. */}
-      <SwapSection recipeId={recipeId} lines={lines} onApplied={() => void reloadLines()} />
-
-      <section aria-labelledby="save-heading" className="mt-6 rounded-lg border border-border bg-surface p-5">
-        <h2 id="save-heading" className="text-small font-semibold text-ink">
-          Save
-        </h2>
-        <p className="mt-1 text-caption text-muted">
-          Saved recipes survive closing the browser and appear in your library. Blank name = the dish family.
-        </p>
+      {/* Save — the primary persistence action sits with the header. */}
+      <section aria-labelledby="save-heading" className="mt-5 rounded-lg border border-border bg-surface p-5">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 id="save-heading" className="text-small font-semibold text-ink">
+            Save
+          </h2>
+          <p className="text-caption text-muted">
+            Saved recipes survive closing the browser and appear in your library. Blank name = the dish family.
+          </p>
+        </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <input
             aria-label="Recipe name"
@@ -279,49 +372,43 @@ export function RecipeWorkspace({
         )}
       </section>
 
-      {/* D-25 (D3): free-text tags — display, add, remove (recipes module is the
-          sole recipe_tag writer; Bearer-only surface). */}
-      <TagsSection recipeId={recipeId} signedIn={signedIn} />
-
-      {signedIn && (
-        <section aria-labelledby="delete-heading" className="mt-6 rounded-lg border border-negative/40 bg-negative/8 p-5">
-        <h2 id="delete-heading" className="text-small font-semibold text-negative">
-          Delete recipe
-        </h2>
-        {!confirmingDelete ? (
-          <>
-            <p className="mt-1 text-caption text-muted">
-              Permanently removes this recipe and everything saved with it. This cannot be undone.
-            </p>
-            <div className="mt-3">
-              <Button variant="danger" onClick={() => setConfirmingDelete(true)} disabled={deleting}>
-                Delete recipe
-              </Button>
-            </div>
-          </>
-        ) : (
-          <>
-            <p className="mt-2 text-small text-body">
-              Delete <span className="font-semibold">{title}</span>? Its photo, object, analyses,
-              lists and logs are permanently removed. This cannot be undone.
-            </p>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <Button
-                variant="danger"
-                onClick={() => void deleteRecipe()}
-                disabled={deleting}
-              >
-                {deleting ? 'Deleting…' : 'Delete recipe'}
-              </Button>
-              <Button variant="outline" onClick={() => setConfirmingDelete(false)} disabled={deleting}>
-                Cancel
-              </Button>
-            </div>
-          </>
-        )}
-        {deleteError && <p className="mt-2 text-caption text-negative">{deleteError}</p>}
+      {/* Delete confirmation — reached from the header More menu (D-22 D6). */}
+      {signedIn && confirmingDelete && (
+        <section aria-labelledby="delete-heading" className="mt-4 rounded-lg border border-negative/40 bg-negative/8 p-5">
+          <h2 id="delete-heading" className="text-small font-semibold text-negative">
+            Delete recipe
+          </h2>
+          <p className="mt-2 text-small text-body">
+            Delete <span className="font-semibold">{title}</span>? Its photo, object, analyses,
+            lists and logs are permanently removed. This cannot be undone.
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <Button variant="danger" onClick={() => void deleteRecipe()} disabled={deleting}>
+              {deleting ? 'Deleting…' : 'Delete recipe'}
+            </Button>
+            <Button variant="outline" onClick={() => setConfirmingDelete(false)} disabled={deleting}>
+              Cancel
+            </Button>
+          </div>
         </section>
       )}
+      {deleteError && <p className="mt-2 text-caption text-negative">{deleteError}</p>}
+
+      {/* Two-pane workspace: ANALYSIS is the primary pane (right, first on
+          mobile). Recipe context/actions live in the secondary left pane. */}
+      <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+        <div className={`min-w-0 ${analysisId !== null ? 'order-2' : 'order-1'} lg:order-1`}>
+          {/* D-24 (F1/F2/F6): the after-cook capture. The reopen recall sits at the
+              top of the context pane (F6 AC-1) and the note stays above the analysis
+              (F2 AC-3). */}
+          <CookSection recipeId={recipeId} />
+
+          {/* D-26 (F3/H5): record what was actually used against the latest cook log. */}
+          <SwapSection recipeId={recipeId} lines={lines} onApplied={() => void reloadLines()} />
+
+          {/* D-25 (D3): free-text tags — display, add, remove (recipes module is the
+              sole recipe_tag writer; Bearer-only surface). */}
+          <TagsSection recipeId={recipeId} signedIn={signedIn} />
 
       <div className="mt-8">
         <IngredientReview

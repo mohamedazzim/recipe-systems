@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   Check,
+  DotsThreeVertical,
   PencilSimple,
   Plus,
   Scissors,
@@ -83,6 +84,8 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
   const [saving, setSaving] = useState(false);
   const [splittingId, setSplittingId] = useState<string | null>(null);
   const [splitPoint, setSplitPoint] = useState('');
+  /** The per-line overflow menu (ingredient actions) — one open at a time. */
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
 
   const refresh = useCallback(async (): Promise<void> => {
     setForeignRecipe(false);
@@ -126,6 +129,25 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
     void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recipeId, signedIn]);
+
+  // Close the ingredient actions menu on outside click or Escape.
+  useEffect(() => {
+    if (menuOpenId === null) return;
+    const onDown = (e: MouseEvent) => {
+      const target = e.target as Element | null;
+      if (target && target.closest('[data-ing-menu]')) return;
+      setMenuOpenId(null);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMenuOpenId(null);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [menuOpenId]);
 
   const beginEdit = (line: WireLine): void => {
     setEditingId(line.id);
@@ -415,7 +437,7 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
       )}
 
       <ul className="mt-5 divide-y divide-border rounded-lg border border-border bg-surface">
-        {ingredientLines.map((line) => {
+        {ingredientLines.map((line, index) => {
           const isEditing = editingId === line.id;
           const isSplitting = splittingId === line.id;
           return (
@@ -494,134 +516,177 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
                   </div>
                 </form>
               ) : (
-                <div className="flex min-w-0 flex-col gap-3">
-                  {/* TOP — ingredient name, then quantity + unit grouped. */}
-                  <div className="min-w-0">
-                    <p className="break-words font-semibold leading-snug text-ink">
-                      {line.display_name}
-                    </p>
-                    <p className="mt-1 text-small tabular text-muted">
-                      <span className="whitespace-nowrap">
-                        {line.amount || 'No amount'}
-                        {line.unit ? ` ${line.unit}` : ''}
-                      </span>
-                      {line.category && (
-                        <span className="whitespace-nowrap"> · {line.category}</span>
-                      )}
-                      {!line.include_on_list && <span> · not on list</span>}
-                    </p>
-                  </div>
+                <div>
+                  <div className="flex items-start gap-3">
+                    <span className="mt-1 w-6 shrink-0 text-right font-display text-caption font-semibold tabular text-faint">
+                      {String(index + 1).padStart(2, '0')}
+                    </span>
 
-                  {/* METADATA — canonical mapping, provenance, confirmation. */}
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {line.canonical_name && (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-caption text-muted">
-                        <Check size={12} aria-hidden="true" weight="bold" />
-                        {line.canonical_name.replace(/_/g, ' ')}
-                      </span>
-                    )}
-                    {line.source_tag && (
-                      <span className="inline-flex items-center rounded-full border border-border bg-background px-2 py-0.5 text-caption text-faint">
-                        from {line.source_tag.toLowerCase()}
-                      </span>
-                    )}
-                    {line.confirmed_sense !== null && (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-positive/40 bg-positive/10 px-2 py-0.5 text-caption font-semibold text-positive">
-                        <Check size={12} aria-hidden="true" weight="bold" />
-                        Sense confirmed
-                      </span>
-                    )}
-                    {line.needs_review && (
-                      <span className="inline-flex items-center gap-1 rounded-full border border-gold/60 bg-gold/10 px-2 py-0.5 text-caption font-semibold text-[#8A6516] dark:text-gold">
-                        <Warning size={12} aria-hidden="true" weight="bold" />
-                        Review required
-                      </span>
-                    )}
-                    {line.ocr_confidence != null && (
-                      <span
-                        className={
-                          line.ocr_confidence < 0.9
-                            ? 'inline-flex items-center gap-1 rounded-full border border-gold/60 bg-gold/10 px-2 py-0.5 text-caption font-semibold text-[#8A6516] dark:text-gold'
-                            : 'inline-flex items-center rounded-full border border-border bg-background px-2 py-0.5 text-caption text-muted'
-                        }
-                      >
-                        {line.ocr_confidence < 0.9 && (
-                          <Warning size={12} aria-hidden="true" weight="bold" />
-                        )}
-                        {Math.round(line.ocr_confidence * 100)}% confident
-                      </span>
-                    )}
-                  </div>
-
-                  {line.requires_confirmation && line.confirmed_sense === null && line.canonical_name && (
-                    <div className="rounded-md border border-gold/60 bg-gold/10 p-3">
-                      <p className="text-small text-body">
-                        We read{' '}
-                        <span className="font-semibold text-ink">{line.display_name}</span> as{' '}
-                        <span className="font-semibold text-ink">
-                          {line.canonical_name.replace(/_/g, ' ')}
-                        </span>
-                        . Is that right?
+                    <div className="min-w-0 flex-1">
+                      <p className="break-words font-semibold leading-snug text-ink">
+                        {line.display_name}
                       </p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() => void confirmSense(line, line.canonical_name!)}
-                          disabled={saving}
-                        >
-                          <Check size={14} aria-hidden="true" weight="bold" />
-                          Accept
-                        </Button>
-                        <Button size="sm" variant="ghost" onClick={() => beginEdit(line)} disabled={saving}>
-                          Edit instead
-                        </Button>
-                      </div>
-                    </div>
-                  )}
+                      <p className="mt-0.5 text-small tabular text-muted">
+                        <span className="whitespace-nowrap">
+                          {line.amount || 'No amount'}
+                          {line.unit ? ` ${line.unit}` : ''}
+                        </span>
+                        {line.category && (
+                          <span className="whitespace-nowrap"> · {line.category}</span>
+                        )}
+                        {!line.include_on_list && <span> · not on list</span>}
+                      </p>
 
-                  {/* ACTIONS — full-width toolbar; wraps instead of clipping. */}
-                  {signedIn && (
-                    <div className="flex flex-wrap items-center gap-1.5 border-t border-border pt-2">
-                      <Button size="sm" variant="ghost" onClick={() => beginEdit(line)} disabled={saving} aria-label={`Edit ${line.display_name}`}>
-                        <PencilSimple size={14} aria-hidden="true" weight="bold" />
-                        Edit
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => void toggleHeader(line)}
-                        disabled={saving}
-                        aria-label={`Mark ${line.display_name} as header`}
-                      >
-                        Header
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setSplittingId(isSplitting ? null : line.id);
-                          setSplitPoint('');
-                        }}
-                        disabled={saving}
-                        aria-label={`Split ${line.display_name}`}
-                      >
-                        <Scissors size={14} aria-hidden="true" weight="bold" />
-                        Split
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => void mergeWithNext(line)} disabled={saving} aria-label={`Merge ${line.display_name} with the next line`}>
-                        Merge with next
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={() => void removeLine(line)} disabled={saving} aria-label={`Delete ${line.display_name}`}>
-                        <Trash size={14} aria-hidden="true" weight="bold" />
-                        Delete
-                      </Button>
-                      {line.needs_review && (
-                        <Button size="sm" variant="outline" onClick={() => void clearReview(line)} disabled={saving}>
-                          Clear review
-                        </Button>
+                      {/* METADATA — canonical mapping, provenance, confirmation. */}
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                        {line.canonical_name && (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-caption text-muted">
+                            <Check size={12} aria-hidden="true" weight="bold" />
+                            {line.canonical_name.replace(/_/g, ' ')}
+                          </span>
+                        )}
+                        {line.source_tag && (
+                          <span className="inline-flex items-center rounded-full border border-border bg-background px-2 py-0.5 text-caption text-faint">
+                            from {line.source_tag.toLowerCase()}
+                          </span>
+                        )}
+                        {line.confirmed_sense !== null && (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-positive/40 bg-positive/10 px-2 py-0.5 text-caption font-semibold text-positive">
+                            <Check size={12} aria-hidden="true" weight="bold" />
+                            Sense confirmed
+                          </span>
+                        )}
+                        {line.needs_review && (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-gold/60 bg-gold/10 px-2 py-0.5 text-caption font-semibold text-[#8A6516] dark:text-gold">
+                            <Warning size={12} aria-hidden="true" weight="bold" />
+                            Review required
+                          </span>
+                        )}
+                        {line.ocr_confidence != null && (
+                          <span
+                            className={
+                              line.ocr_confidence < 0.9
+                                ? 'inline-flex items-center gap-1 rounded-full border border-gold/60 bg-gold/10 px-2 py-0.5 text-caption font-semibold text-[#8A6516] dark:text-gold'
+                                : 'inline-flex items-center rounded-full border border-border bg-background px-2 py-0.5 text-caption text-muted'
+                            }
+                          >
+                            {line.ocr_confidence < 0.9 && (
+                              <Warning size={12} aria-hidden="true" weight="bold" />
+                            )}
+                            {Math.round(line.ocr_confidence * 100)}% confident
+                          </span>
+                        )}
+                      </div>
+
+                      {line.requires_confirmation && line.confirmed_sense === null && line.canonical_name && (
+                        <div className="mt-2 rounded-md border border-gold/60 bg-gold/10 p-3">
+                          <p className="text-small text-body">
+                            We read{' '}
+                            <span className="font-semibold text-ink">{line.display_name}</span> as{' '}
+                            <span className="font-semibold text-ink">
+                              {line.canonical_name.replace(/_/g, ' ')}
+                            </span>
+                            . Is that right?
+                          </p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <Button
+                              size="sm"
+                              onClick={() => void confirmSense(line, line.canonical_name!)}
+                              disabled={saving}
+                            >
+                              <Check size={14} aria-hidden="true" weight="bold" />
+                              Accept
+                            </Button>
+                            <Button size="sm" variant="ghost" onClick={() => beginEdit(line)} disabled={saving}>
+                              Edit instead
+                            </Button>
+                          </div>
+                        </div>
                       )}
                     </div>
-                  )}
+
+                    {/* ACTIONS — compact overflow menu; no clipped button row. */}
+                    {signedIn && (
+                      <div data-ing-menu className="relative shrink-0">
+                        <button
+                          type="button"
+                          aria-label={`Ingredient actions for ${line.display_name}`}
+                          aria-haspopup="menu"
+                          aria-expanded={menuOpenId === line.id}
+                          onClick={() => setMenuOpenId(menuOpenId === line.id ? null : line.id)}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted transition-colors hover:bg-ink/5 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                        >
+                          <DotsThreeVertical size={18} aria-hidden="true" weight="bold" />
+                        </button>
+                        {menuOpenId === line.id && (
+                          <div
+                            role="menu"
+                            aria-label={`Actions for ${line.display_name}`}
+                            className="absolute right-0 top-10 z-20 min-w-44 overflow-hidden rounded-lg border border-border bg-surface py-1 shadow-card"
+                          >
+                            <button
+                              role="menuitem"
+                              onClick={() => { setMenuOpenId(null); beginEdit(line); }}
+                              disabled={saving}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-small font-medium text-ink transition-colors hover:bg-ink/5 disabled:text-faint"
+                            >
+                              <PencilSimple size={14} aria-hidden="true" weight="bold" />
+                              Edit
+                            </button>
+                            <button
+                              role="menuitem"
+                              onClick={() => { setMenuOpenId(null); void toggleHeader(line); }}
+                              disabled={saving}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-small font-medium text-ink transition-colors hover:bg-ink/5 disabled:text-faint"
+                            >
+                              Mark as header
+                            </button>
+                            <button
+                              role="menuitem"
+                              onClick={() => {
+                                setMenuOpenId(null);
+                                setSplittingId(isSplitting ? null : line.id);
+                                setSplitPoint('');
+                              }}
+                              disabled={saving}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-small font-medium text-ink transition-colors hover:bg-ink/5 disabled:text-faint"
+                            >
+                              <Scissors size={14} aria-hidden="true" weight="bold" />
+                              Split line
+                            </button>
+                            <button
+                              role="menuitem"
+                              onClick={() => { setMenuOpenId(null); void mergeWithNext(line); }}
+                              disabled={saving}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-small font-medium text-ink transition-colors hover:bg-ink/5 disabled:text-faint"
+                            >
+                              Merge with next
+                            </button>
+                            {line.needs_review && (
+                              <button
+                                role="menuitem"
+                                onClick={() => { setMenuOpenId(null); void clearReview(line); }}
+                                disabled={saving}
+                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-small font-medium text-ink transition-colors hover:bg-ink/5 disabled:text-faint"
+                              >
+                                Clear review
+                              </button>
+                            )}
+                            <div className="my-1 border-t border-border" />
+                            <button
+                              role="menuitem"
+                              onClick={() => { setMenuOpenId(null); void removeLine(line); }}
+                              disabled={saving}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-small font-medium text-negative transition-colors hover:bg-negative/10 disabled:text-faint"
+                            >
+                              <Trash size={14} aria-hidden="true" weight="bold" />
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 

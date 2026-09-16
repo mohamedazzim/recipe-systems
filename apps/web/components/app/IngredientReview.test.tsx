@@ -49,6 +49,15 @@ describe('IngredientReview (D-12 actions)', () => {
     return { recipeId: 'r1', signedIn: true, title: 'Meen Kuzhambu', initialLines: null, ...overrides };
   }
 
+  async function openActions(name: string) {
+    await userEvent.click(screen.getByRole('button', { name: `Ingredient actions for ${name}` }));
+  }
+
+  async function clickAction(name: string, label: string) {
+    await openActions(name);
+    await userEvent.click(screen.getByRole('menuitem', { name: label }));
+  }
+
   it('renders the lines with amounts and keeps the two fenugreek lines distinct', async () => {
     (globalThis.fetch as jest.Mock).mockResolvedValue(listResponse(LINES));
     render(<IngredientReview {...props()} />);
@@ -64,7 +73,8 @@ describe('IngredientReview (D-12 actions)', () => {
     );
     render(<IngredientReview {...props()} />);
     expect(await screen.findByText('Review required')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Clear review' })).toBeInTheDocument();
+    await openActions('Chilli — 5 Nos');
+    expect(screen.getByRole('menuitem', { name: 'Clear review' })).toBeInTheDocument();
   });
 
   it('D-11: shows OCR confidence and visibly marks a low-confidence line', async () => {
@@ -99,7 +109,7 @@ describe('IngredientReview (D-12 actions)', () => {
     (globalThis.fetch as jest.Mock).mockResolvedValueOnce(okResponse(line()));
     (globalThis.fetch as jest.Mock).mockResolvedValue(listResponse(LINES));
 
-    await userEvent.click(screen.getByRole('button', { name: 'Edit Fish — 500g' }));
+    await clickAction('Fish — 500g', 'Edit');
     await userEvent.clear(screen.getByLabelText('Display name'));
     await userEvent.type(screen.getByLabelText('Display name'), 'Fish fillet 500g');
     await userEvent.click(screen.getByRole('button', { name: 'Save line' }));
@@ -122,7 +132,7 @@ describe('IngredientReview (D-12 actions)', () => {
     (globalThis.fetch as jest.Mock).mockResolvedValueOnce(okResponse({ lines: [line(), line()] }));
     (globalThis.fetch as jest.Mock).mockResolvedValue(listResponse(LINES));
 
-    await userEvent.click(screen.getByRole('button', { name: 'Split Fish — 500g' }));
+    await clickAction('Fish — 500g', 'Split line');
     await userEvent.type(screen.getByLabelText('Split after character'), '4');
     await userEvent.click(screen.getByRole('button', { name: 'Split line' }));
 
@@ -141,9 +151,7 @@ describe('IngredientReview (D-12 actions)', () => {
     (globalThis.fetch as jest.Mock).mockResolvedValueOnce(okResponse(line()));
     (globalThis.fetch as jest.Mock).mockResolvedValue(listResponse(LINES));
 
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Merge Fish — 500g with the next line' }),
-    );
+    await clickAction('Fish — 500g', 'Merge with next');
 
     const mergeCalls = (globalThis.fetch as jest.Mock).mock.calls.filter((c) => {
       const [url, init] = c as [string, RequestInit];
@@ -175,7 +183,7 @@ describe('IngredientReview (D-12 actions)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Add line' }));
     expect(await screen.findByText('New ingredient')).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Delete New ingredient' }));
+    await clickAction('New ingredient', 'Delete');
     expect(await screen.findByText('Fish — 500g')).toBeInTheDocument();
     expect(screen.queryByText('New ingredient')).not.toBeInTheDocument();
     expect(screen.queryByText('Could not remove the line.')).not.toBeInTheDocument();
@@ -205,7 +213,7 @@ describe('IngredientReview (D-12 actions)', () => {
     // loading/hydrating must never be treated as a user change
     expect(onChanged).not.toHaveBeenCalled();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Delete Fish — 500g' }));
+    await clickAction('Fish — 500g', 'Delete');
     expect(onChanged).toHaveBeenCalledTimes(1);
   });
 
@@ -219,7 +227,7 @@ describe('IngredientReview (D-12 actions)', () => {
     });
     render(<IngredientReview {...props()} />);
     await screen.findByText('Fish — 500g');
-    await userEvent.click(screen.getByRole('button', { name: 'Delete Fish — 500g' }));
+    await clickAction('Fish — 500g', 'Delete');
     expect(await screen.findByText('Recipe not found')).toBeInTheDocument();
   });
 
@@ -230,7 +238,7 @@ describe('IngredientReview (D-12 actions)', () => {
 
     render(<IngredientReview {...props()} />);
     await screen.findByText('Review required');
-    await userEvent.click(screen.getByRole('button', { name: 'Clear review' }));
+    await clickAction('Fish — 500g', 'Clear review');
 
     const clearCalls = (globalThis.fetch as jest.Mock).mock.calls.filter((c) => {
       const [url, init] = c as [string, RequestInit];
@@ -249,7 +257,7 @@ describe('IngredientReview (D-12 actions)', () => {
 
     render(<IngredientReview {...props()} />);
     await screen.findByText('Fish — 500g');
-    await userEvent.click(screen.getByRole('button', { name: 'Mark Fish — 500g as header' }));
+    await clickAction('Fish — 500g', 'Mark as header');
 
     const patchCalls = mock.mock.calls.filter((c) => {
       const [url, init] = c as [string, RequestInit];
@@ -293,7 +301,7 @@ describe('IngredientReview (D-12 actions)', () => {
     });
     (globalThis.fetch as jest.Mock).mockResolvedValue(listResponse(LINES));
 
-    await userEvent.click(screen.getByRole('button', { name: 'Edit Fish — 500g' }));
+    await clickAction('Fish — 500g', 'Edit');
     await userEvent.click(screen.getByRole('button', { name: 'Save line' }));
     expect(await screen.findByText(/changed elsewhere/)).toBeInTheDocument();
   });

@@ -58,7 +58,7 @@ export function HomeView({
   const startCard = (
     <section
       aria-labelledby="start-heading"
-      className="flex min-w-0 flex-col rounded-lg border-2 border-accent bg-accent/10 p-6"
+      className="flex min-w-0 flex-col justify-center rounded-lg border-2 border-accent bg-accent/10 p-6"
     >
       <h2 id="start-heading" className="font-display text-h2 text-accent-strong">
         Start a new recipe
@@ -125,12 +125,12 @@ export function HomeView({
 
       {/* Two-column dashboard — start on the left, recently updated on the right. */}
       {signedIn && library !== null ? (
-        <div className="mt-6 grid items-start gap-6 lg:grid-cols-2">
+        <div className="mt-6 grid items-stretch gap-6 lg:grid-cols-2">
           {startCard}
 
           <section aria-labelledby="recent-heading" className="min-w-0 rounded-lg border border-border bg-surface p-5">
             <div className="flex items-baseline justify-between gap-4">
-              <h2 id="recent-heading" className="font-display text-h2 text-ink">
+              <h2 id="recent-heading" className="font-display text-h3 text-ink">
                 Recently updated
               </h2>
               <button

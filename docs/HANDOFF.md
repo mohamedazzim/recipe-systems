@@ -2798,6 +2798,7 @@ execution output; Git: not available / not authorized throughout.
 - Tests at close-out: API 202/202 · web 104/104 · integration 106/106 · gates PASS (8/8) ·
   contract OK · lint 0 · typecheck 0 · verify-local exit 0 · CI success (run `34514834141`).
 - OPEN DECISION notes: unchanged (Q1/Q5/Q9/Q10/Q11 OPEN) · no D-23/D-30 work (HARD STOP honored).
+- Audit result: **A-22 = PASS-WITH-FINDINGS (2026-09-16)** — no BLOCKER/MAJOR; F-1 builder-session process note; library e2e spec machine-blocked (H-13) with live-browser + integration coverage.
 
 ### H-23 — D-23 Print list + station card
 
@@ -3594,7 +3595,7 @@ access is available, then execute A-28 and record the go/no-go decision. HARD ST
 - Gate evidence: QG2 one-writer gates (dietary/nutrition AND dictionary/alias) both actively enforcing, fire-proofed by `qg2_gates.test.ts`.
 - OPEN DECISION notes: Q5 stays OPEN — every dictionary/alias write labeled "Q5 WORKING ASSUMPTION" (working assumption permitted by DISPATCH D-29; not a final decision).
 - Deviations: no staging table (staging = validated import files + signed approval records — the ERD is frozen); fish sodium kept as real per-class values (species-unknown sodium rule deferred to D-19's consumption); D-19 recompute design preserved for the D-19 pre-flight (recorded 2026-09-10, see §5).
-- Audit result: A-29 not yet executed — PENDING.
+- Audit result: **A-29 = PASS-WITH-FINDINGS (2026-09-16)** — no BLOCKER/MAJOR; F-1 builder-session process note. Q5 stays OPEN (labeled working assumption).
 
 ### H-30 — D-30 Track S shopping data
 - BASE_SHA / COMMIT_SHA: base `1bd38f1` / D-30 checkpoint commit (this entry).
@@ -3680,8 +3681,7 @@ The §13 condition is: "Could-haves (C7, E6, F5, I5) only if Must on weeks 9–1
 - Fresh (2026-09-16): integration 23/23 · 151/151; regression gates PASS; golden 8/8; typecheck 0; API build 0; migrate up to date.
 
 **Missing evidence:**
-- A-22 (D-22) independent audit verdict is not recorded in AUDIT_LOG.
-- A-29 (D-29) audit is PENDING (H-29: "not yet executed").
+- A-22 (D-22) and A-29 (D-29) audits are now recorded (both PASS-WITH-FINDINGS, 2026-09-16).
 - D-28 week-12 pilot is PENDING HUMAN EVIDENCE (the natural stability demonstration).
 
 **Human-only determination:**

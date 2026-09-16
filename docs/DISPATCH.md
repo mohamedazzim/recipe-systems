@@ -54,14 +54,14 @@ Rules that apply to **every** unit (the prompts assume them):
 | D-19 | P4-1 | P4 — Analysis complete | C2 (5–9), H2, I1, I2, H6, I6 | D-18, D-29 | ✅ below | ☐ |
 | D-20 | P4-2 | P4 | C3, C5 | D-19 | ✅ below | ☐ |
 | D-21 | P4-3 | P4 | H6, I6 | D-19 | ✅ below | ☐ |
-| D-22 | P5-1 | P5 — Save, shop, print | D1, D2, D6 | D-21, D-30 | ✅ below | ☐ |
+| D-22 | P5-1 | P5 — Save, shop, print | D1, D2, D6 | D-21, D-30 | ✅ below | ✅ (H-22 · A-22) |
 | D-23 | P5-2 | P5 | E4, E5, H4 | D-22, D-30 (Q2 gate) | ✅ below | ☐ |
 | D-24 | P6-1 | P6 — Cook loop | F1, F2, F6 | D-23 | ✅ below | ☐ |
 | D-25 | P7-1 | P7 — Hardening & pilot | B6, C6, C7, D3, D4, D5 | D-24, D-29 | ✅ below | ☐ |
 | D-26 | P7-2 | P7 | F3, F4, H1, H3, H5, I3, I4 | D-24 | ✅ below | ☐ |
 | D-27 | P7-3 | P7 | G2 (veto workflow) | D-25 | ✅ below | ☐ |
 | D-28 | P7-4 | P7 | G3 (pilot gate) | D-24, D-27 | ✅ below | ⏸ PENDING HUMAN EVIDENCE |
-| D-29 | Track R | Track R — Reference data | H7, I7 | D-01 (runs wks 1–8) | ✅ below | ☐ |
+| D-29 | Track R | Track R — Reference data | H7, I7 | D-01 (runs wks 1–8) | ✅ below | ✅ (H-29 · A-29) |
 | D-30 | Track S | Track S — Shopping data | E1, E2, E3 | D-14 (runs wks 8–9, feeds P5) | ✅ below | ✅ (H-30 · A-30) |
 | D-31 | P7 could-haves | P7 tail (conditional) | E6, F5, I5 | D-23, D-24, D-26 (dispatch only if Must on weeks 9–10 is stable — Recipe_Systems §13) | ✅ below | ⏸ BLOCKED (§13 stability evidence missing) |
 

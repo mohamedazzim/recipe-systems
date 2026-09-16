@@ -1,3 +1,18 @@
+## 2026-09-16 — A-22 + A-29 audits (0 DeepSeek calls; both PASS-WITH-FINDINGS)
+
+- Executed the two missing audits from the §13 package.
+- A-22 (D-22 library save/browse/delete): PASS-WITH-FINDINGS — no BLOCKER/MAJOR;
+  save six-artifact set, DB-first delete cascade, account-only library,
+  resume-save all re-verified; fresh story_d22_save_library + story_d22_delete
+  + recipe.service.test.ts green.
+- A-29 (D-29 reference data): PASS-WITH-FINDINGS — no BLOCKER/MAJOR; reviewed
+  sha-signed approve-only persist path, overlap rejection, forward-only
+  versioning, I7 fidelity, Q5 OPEN; fresh story_d29 + reference-data unit
+  suites green.
+- §13 package updated: A-22/A-29 gaps closed; remaining missing evidence is the
+  D-28 human pilot and the dispatcher stability determination. D-28 PENDING
+  HUMAN EVIDENCE; D-31 BLOCKED (unchanged).
+
 ## 2026-09-16 — §13 stability evidence package prepared (0 DeepSeek calls)
 
 - Compiled the §13 evidence package for D-31 dispatch (weeks 9–10 Must units

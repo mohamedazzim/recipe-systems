@@ -703,6 +703,53 @@ Then A-11 closes. Q10 remains the gate for D-28.
 - 0 DeepSeek calls. No known autonomous technical blocker; human acceptance
   evidence remains the only outstanding gate.
 
+## A-22 — Audit: library save/browse/delete (D-22)
+
+- **Date / audit agent:** 2026-09-16 · DeepSeek V4 Pro (builder session, read-only audit intent — independence caveat as F-1).
+- **Audited:** DISPATCH D-22 (D1/D2/D6) done criteria; AUDIT.md A-22 attack vectors; `RecipeService` + `RecipesController`; `story_d22_save_library` + `story_d22_delete`.
+
+### Verdict: PASS-WITH-FINDINGS
+
+No BLOCKER/MAJOR. Every vector re-verified against the implementation and fresh tests:
+
+- **Save completeness (BLOCKER):** `saveRecipe` → `assertOwned` → `identificationFamily` → title normalization (given > placeholder-family > existing) → six-artifact set (raw_input, photo, object, identification, analysis, timestamps). `story_d22_save_library` D1 + D1 AC-2 green.
+- **Delete cascade (BLOCKER):** `deleteRecipe` → DB-first `recipe.delete` (ON DELETE CASCADE across 13 child tables) → compensating per-object storage cleanup (`collectAssetKeys` restricted to `s3://<bucket>/`), residue logged as a structured WARN. `story_d22_delete` green (confirm required, no residue, INV-17 404s, MinIO object deleted).
+- **Ownership:** `listLibrary`/`search` are account-only (guest → []), `where accountId + deletedAt null`; `story_d22_save_library` cross-account 404 + empty library.
+- **Resume-save (A1 TC-02):** `story_d22_save_library` proves guest save → claim transaction → named recipe lands in the new account library.
+- **Fresh tests:** story_d22_save_library + story_d22_delete (integration, real Postgres) PASS · recipe.service.test.ts PASS.
+
+### Findings
+
+**F-1 (MINOR — process note):** audit executed in the builder's session (same independence caveat as the other builder-session audits).
+**NOTE:** the Playwright library e2e spec is machine-blocked on the dev VM (H-13); the identical assertions are covered by the live-browser evidence (H-22) and the integration stories.
+
+### Decision
+D-22 verified complete. Next dependent units (D-23, D-25) already shipped and audited.
+
+## A-29 — Audit: track R reference data (D-29)
+
+- **Date / audit agent:** 2026-09-16 · DeepSeek V4 Pro (builder session, read-only audit intent — independence caveat as F-1).
+- **Audited:** DISPATCH D-29 done criteria; AUDIT.md A-29 attack vectors; the admin reference-data module (`stage` → `approve` → persist).
+
+### Verdict: PASS-WITH-FINDINGS
+
+No BLOCKER/MAJOR. Every vector re-verified:
+
+- **Reviewed path (BLOCKER):** `ReferenceDataService.approve` is the ONLY persist entry; requires the committed approval record; verifies import_id, reviewer, and `import_file_sha256` (sha mismatch throws); unreviewed → `UnreviewedImportError`. `one-writer.static.test` + `story_d29_reference_data` green.
+- **Overlap rejection:** `story_d29_reference_data` proves the EXCLUDE USING gist rejects overlapping effective-dated rows.
+- **Versioning:** forward-only; supersede closes the prior open version; historical rows never mutated in place.
+- **I7 fidelity:** mapped lines carry USDA/peer IDs; unmapped lines excluded from totals and listed.
+- **Q5 hygiene:** dictionary/alias writes labeled Q5 WORKING ASSUMPTION (create-only); Q5 remains OPEN.
+- **Fresh tests:** story_d29_reference_data (integration, real Postgres) PASS · reference-data.service.test.ts + one-writer.static.test.ts PASS.
+
+### Findings
+
+**F-1 (MINOR — process note):** audit executed in the builder's session.
+**NOTE:** A-26 F-1 (definition-delete FK/CHECK interaction) is not reachable through D-29's reviewed path, which is create/supersede-only — no definition-delete surface exists; the interaction remains a pre-existing schema observation, not a D-29 defect.
+
+### Decision
+D-29 verified complete (implementation + audit).
+
 ## A-30 — Audit: track S shopping data (D-30)
 
 - **Date / audit agent:** 2026-09-16 · DeepSeek V4 Pro (builder session, read-only audit intent — independence caveat recorded as F-2).

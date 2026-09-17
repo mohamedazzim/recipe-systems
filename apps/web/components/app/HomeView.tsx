@@ -98,23 +98,6 @@ export function HomeView({
         </Text>
       </section>
 
-      {/* Dashboard metrics — only the two counts the backend actually exposes
-          (saved recipes, cook logs). No placeholder "—" padding. */}
-      <div className="mt-6 grid max-w-2xl grid-cols-2 gap-4">
-        <div className="rounded-lg border border-border bg-surface p-5">
-          <p className="font-display text-metric tabular text-ink">
-            {signedIn && library !== null ? library.length : mine.length}
-          </p>
-          <p className="mt-1 text-caption text-muted">Recipes saved</p>
-        </div>
-        <div className="rounded-lg border border-border bg-surface p-5">
-          <p className="font-display text-metric tabular text-ink">
-            {signedIn && library !== null ? library.filter((r) => r.has_cook_log).length : 0}
-          </p>
-          <p className="mt-1 text-caption text-muted">With cook logs</p>
-        </div>
-      </div>
-
       {/* Two-column dashboard — start on the left, recently updated on the right. */}
       {signedIn && library !== null ? (
         <div className="mt-6 grid items-stretch gap-6 lg:grid-cols-2">

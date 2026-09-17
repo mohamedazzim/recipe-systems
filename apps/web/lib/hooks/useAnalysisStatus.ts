@@ -4,7 +4,7 @@
 // ever rendered.
 
 import { useEffect, useRef, useState } from 'react';
-import { api, API_BASE_URL, readCookie } from '@/lib/api';
+import { api, ApiError, API_BASE_URL, readCookie } from '@/lib/api';
 import type { AnalysisState, AnalysisStatus } from '@/lib/types';
 
 export interface AnalysisStatusValue {
@@ -46,6 +46,16 @@ export function useAnalysisStatus(analysisId: string | null): AnalysisStatusValu
         return state.status === 'complete' || state.status === 'failed';
       } catch (err) {
         if (stopped) return false;
+        // A-17 (one-writer BLOCKER): the API only enqueues — the worker
+        // materializes the analysis_* row on delivery. Right after POST
+        // /analyse the row may not exist yet, so that 404 is "queued, not yet
+        // written", never a failure. Keep polling; the row appears on the
+        // next tick (and the SSE events endpoint reconnects the same way).
+        if (err instanceof ApiError && err.code === 'ANALYSIS_NOT_FOUND') {
+          setAnalysis(null);
+          setError(null);
+          return false;
+        }
         setAnalysis(null);
         setError(err instanceof Error ? err.message : 'Could not load the analysis.');
         return false;

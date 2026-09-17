@@ -99,13 +99,24 @@ describe('AnalysisPanel (D-17 states + D-18 result)', () => {
     expect(await screen.findByText('Views out of date — re-analyse')).toBeInTheDocument();
   });
 
-  it('backend error surfaces the message', async () => {
+  it('ANALYSIS_NOT_FOUND (row still being written) shows the waiting state, not an error', async () => {
     (globalThis.fetch as jest.Mock).mockResolvedValue({
       ok: false,
       status: 404,
       json: async () => ({ error: { code: 'ANALYSIS_NOT_FOUND', message: 'Analysis not found' } }),
     });
     render(<AnalysisPanel {...props()} />);
-    expect(await screen.findByText('Analysis not found')).toBeInTheDocument();
+    expect(await screen.findByText('Loading status...')).toBeInTheDocument();
+    expect(screen.queryByText('Could not load the analysis status')).not.toBeInTheDocument();
+  });
+
+  it('a real backend error surfaces the message', async () => {
+    (globalThis.fetch as jest.Mock).mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: { code: 'WORKER_DOWN', message: 'Analysis service unavailable' } }),
+    });
+    render(<AnalysisPanel {...props()} />);
+    expect(await screen.findByText('Analysis service unavailable')).toBeInTheDocument();
   });
 });

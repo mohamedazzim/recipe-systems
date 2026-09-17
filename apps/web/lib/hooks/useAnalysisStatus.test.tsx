@@ -78,17 +78,44 @@ describe('useAnalysisStatus (poll + SSE, real states only)', () => {
     expect(screen.getByTestId('terminal').textContent).toBe('failed');
   });
 
-  it('surfaces API errors as a message', async () => {
-    (globalThis.fetch as jest.Mock).mockResolvedValue({
+  it('treats ANALYSIS_NOT_FOUND as "queued, not yet written": no error, keeps polling', async () => {
+    const mock = globalThis.fetch as jest.Mock;
+    mock.mockResolvedValueOnce({
       ok: false,
       status: 404,
       json: async () => ({ error: { code: 'ANALYSIS_NOT_FOUND', message: 'Analysis not found' } }),
+    });
+    mock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => stateOf('queued'),
     });
     render(<Probe analysisId="a-123" />);
     await act(async () => {
       await Promise.resolve();
     });
-    expect(screen.getByTestId('error').textContent).toBe('Analysis not found');
+    // first poll 404 → no error surfaced, still "none" (the row is being written)
+    expect(screen.getByTestId('error').textContent).toBe('no-error');
+    expect(screen.getByTestId('status').textContent).toBe('none');
+    // next poll finds the materialized row
+    await act(async () => {
+      jest.advanceTimersByTime(2500);
+    });
+    expect(screen.getByTestId('status').textContent).toBe('queued');
+    expect(screen.getByTestId('error').textContent).toBe('no-error');
+  });
+
+  it('surfaces real API errors as a message', async () => {
+    (globalThis.fetch as jest.Mock).mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: { code: 'INTERNAL', message: 'boom' } }),
+    });
+    render(<Probe analysisId="a-123" />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByTestId('error').textContent).toBe('boom');
   });
 
   it('does nothing without an analysis id', async () => {

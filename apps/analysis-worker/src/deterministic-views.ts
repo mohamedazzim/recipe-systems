@@ -238,6 +238,7 @@ export const DEFAULT_OVERRIDES: View9Overrides = {
 interface MassDefaults {
   nos_g?: number;
   tsp_g?: number;
+  inch_g?: number;
   default_g?: [number, number];
 }
 
@@ -253,6 +254,15 @@ const DEFAULT_MASS: Record<string, MassDefaults> = {
   tamarind: { default_g: [25, 25] }, // "a lemon size"
   fenugreek_seed: { tsp_g: 2 },
   mustard_seed: { tsp_g: 2.5 },
+  // View 9 coverage additions (R-2026-09-17-006): ASSUMED unit masses so the
+  // common curry-card lines resolve to a mass instead of I7-unmapped.
+  turmeric_powder: { tsp_g: 2.2 },
+  red_chilli: { nos_g: 3 }, // one dried red chilli
+  ginger: { inch_g: 6 }, // 1-inch knob ≈ 6 g
+  shallots: { nos_g: 25 }, // one small onion / shallot
+  coriander_leaf: { tsp_g: 1 }, // chopped fresh coriander
+  curry_leaves: { nos_g: 0.5 }, // one curry leaf ≈ 0.5 g
+  fenugreek_powder: { tsp_g: 2.5 },
 };
 
 function parseFraction(text: string): number | null {
@@ -260,6 +270,48 @@ function parseFraction(text: string): number | null {
   if (frac) return Number(frac[1]) / Number(frac[2]);
   const plain = text.match(/^(\d+(?:\.\d+)?)/);
   return plain ? Number(plain[1]) : null;
+}
+
+/** Unicode vulgar fractions ("½", "¼") → ASCII ("1/2", "1/4") so the amount
+ *  parser reads them the same as the typed form. The paste path commonly
+ *  captures the card's "½ shell" / "¼ tsp" glyphs. */
+const UNICODE_FRACTIONS: Record<string, string> = {
+  '½': '1/2',
+  '⅓': '1/3',
+  '⅔': '2/3',
+  '¼': '1/4',
+  '¾': '3/4',
+  '⅕': '1/5',
+  '⅖': '2/5',
+  '⅗': '3/5',
+  '⅘': '4/5',
+  '⅙': '1/6',
+  '⅚': '5/6',
+  '⅐': '1/7',
+  '⅛': '1/8',
+  '⅜': '3/8',
+  '⅝': '5/8',
+  '⅞': '7/8',
+  '⅑': '1/9',
+  '⅒': '1/10',
+};
+
+function normalizeFractions(text: string): string {
+  return text.replace(/[½⅓⅔¼¾⅕⅖⅗⅘⅙⅚⅐⅛⅜⅝⅞⅑⅒]/g, (ch) => UNICODE_FRACTIONS[ch] ?? ch);
+}
+
+/** The paste path keeps the whole card line as display_name ("Fish — 500 g")
+ *  with amount_text null. Recover the trailing amount when amount_text is
+ *  absent, so View 9 can derive a mass from the card's own words. */
+export function extractAmountFromDisplayName(displayName: string): string | null {
+  const idx = displayName.search(/[—–-]/);
+  if (idx === -1) return null;
+  const tail = displayName.slice(idx + 1).trim();
+  if (tail.length === 0) return null;
+  // Only accept something that reads like an amount (number/fraction, or a
+  // known free-text amount) — never treat a hyphenated name as name+amount.
+  if (!/^(\d|[½¼¾⅓⅔]|to taste|a |an |half|for )/i.test(tail)) return null;
+  return tail;
 }
 
 /** Deterministic amount → mass range. Returns null when no mass is derivable
@@ -276,7 +328,7 @@ export function ingredientMassGrams(
     if (lower === 'g') return [quantity, quantity];
     if (lower === 'kg') return [quantity * 1000, quantity * 1000];
   }
-  const words = amountText ? amountText.trim().toLowerCase() : '';
+  const words = normalizeFractions(amountText ? amountText.trim().toLowerCase() : '');
   // fraction FIRST: '1/2 nos' must not match as plain '1' + no unit.
   const match = words.match(/^(\d+\s*\/\s*\d+|\d+(?:\.\d+)?)\s*([a-z]+)?/);
   if (match) {
@@ -294,7 +346,15 @@ export function ingredientMassGrams(
       if (unitToken === 'tbsp' && defaults?.tsp_g !== undefined) {
         return [n * defaults.tsp_g * 3, n * defaults.tsp_g * 3];
       }
-      if (!unitToken && defaults?.default_g) return [n, n];
+      if (unitToken === 'inch' && defaults?.inch_g !== undefined) {
+        return [n * defaults.inch_g, n * defaults.inch_g];
+      }
+      if (!unitToken) {
+        // a bare count ("5", "1") = the ingredient's per-piece mass when that
+        // is its only mass basis; otherwise the explicit default range.
+        if (defaults?.nos_g !== undefined) return [n * defaults.nos_g, n * defaults.nos_g];
+        if (defaults?.default_g) return [n, n];
+      }
     }
   }
   if (defaults?.default_g) return defaults.default_g;
@@ -393,7 +453,7 @@ export async function computeView9(
     }
     const mass = ingredientMassGrams(
       ingredient.canonical_name,
-      ingredient.amount_text,
+      ingredient.amount_text ?? extractAmountFromDisplayName(ingredient.display_name),
       ingredient.quantity,
       ingredient.unit,
     );

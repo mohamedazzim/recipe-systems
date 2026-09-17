@@ -223,9 +223,7 @@ export class RestrictionService {
         `diet pattern: ${pattern} (the card carries no diet-pattern data — shown as unknown, never a pass)`,
       );
     }
-    profileNotes.push(
-      `label pack: ${profile.labelPack} (pilot precedence: profile pack + dual-pack entries — ERD §15 OPEN)`,
-    );
+    profileNotes.push(`label pack: ${profile.labelPack}`);
     return {
       conflicts,
       unknown: unknownHits,

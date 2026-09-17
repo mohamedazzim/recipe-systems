@@ -1,0 +1,186 @@
+{
+  "import_id": "R-2026-09-17-006",
+  "title": "View 9 food-table coverage — turmeric, dried red chilli, ginger, shallots (small onion), fresh coriander leaf, salt, fenugreek powder and curry leaves, so the common curry-card lines resolve instead of I7-unmapped",
+  "sources": [
+    "USDA FoodData Central SR Legacy (per-food nutrient values; NDB numbers recorded per entry; the two-fenugreeks invariant is preserved — fenugreek POWDER shares the seed entry by the same documented pattern coriander_powder uses)",
+    "Curry leaves: Indian Food Composition Tables (IFCT 2017), curry leaves raw — curry leaves have no SR Legacy record, so IFCT 2017 is the cited source",
+    "Unit masses are D-19-labeled ASSUMED defaults (Recipe_Systems §6 worked-example convention): turmeric 2.2 g/tsp, dried red chilli 3 g each, ginger 6 g per 1-inch knob, shallot/small onion 25 g each, chopped fresh coriander 1 g/tsp, curry leaf 0.5 g each, fenugreek powder 2.5 g/tsp"
+  ],
+  "sections": {
+    "dictionary": [
+      { "canonical_name": "turmeric_powder", "description": "Turmeric powder (ground turmeric)" },
+      { "canonical_name": "red_chilli", "description": "Dried red chilli (whole)" },
+      { "canonical_name": "ginger", "description": "Ginger root (fresh)" },
+      { "canonical_name": "coriander_leaf", "description": "Coriander (cilantro) leaves, fresh" },
+      { "canonical_name": "salt", "description": "Salt (table)" }
+    ],
+    "aliases": [
+      { "ingredient_canonical_name": "shallots", "alias_text": "small onion", "language": "en" },
+      { "ingredient_canonical_name": "shallots", "alias_text": "onion", "language": "en" },
+      { "ingredient_canonical_name": "shallots", "alias_text": "sambar onion", "language": "en" },
+      { "ingredient_canonical_name": "red_chilli", "alias_text": "red chillies", "language": "en" },
+      { "ingredient_canonical_name": "red_chilli", "alias_text": "red chilli", "language": "en" },
+      { "ingredient_canonical_name": "red_chilli", "alias_text": "dried red chilli", "language": "en" },
+      { "ingredient_canonical_name": "coriander_leaf", "alias_text": "fresh coriander", "language": "en" },
+      { "ingredient_canonical_name": "coriander_leaf", "alias_text": "coriander leaves", "language": "en" },
+      { "ingredient_canonical_name": "coriander_leaf", "alias_text": "cilantro", "language": "en" },
+      { "ingredient_canonical_name": "ginger", "alias_text": "adrak", "language": "hi" },
+      { "ingredient_canonical_name": "ginger", "alias_text": "inji", "language": "ta" },
+      { "ingredient_canonical_name": "turmeric_powder", "alias_text": "haldi", "language": "hi" }
+    ],
+    "composition_entries": [
+      {
+        "ingredient_canonical_name": "turmeric_powder",
+        "external_source": "USDA_FDC_SR_LEGACY",
+        "external_id": "NDB 02043",
+        "food_name": "Spices, turmeric, ground",
+        "is_primary_for_ingredient": true,
+        "versions": [
+          {
+            "energy_kcal_per_100g": "312",
+            "protein_g_per_100g": "9.68",
+            "fat_g_per_100g": "3.25",
+            "carb_g_per_100g": "67.14",
+            "fiber_g_per_100g": "22.7",
+            "sodium_mg_per_100g": "27",
+            "source_version": "USDA FoodData Central SR Legacy NDB 02043, retrieved 2026-09-09",
+            "effective_from": "2026-09-01T00:00:00Z"
+          }
+        ]
+      },
+      {
+        "ingredient_canonical_name": "red_chilli",
+        "external_source": "USDA_FDC_SR_LEGACY",
+        "external_id": "NDB 11819",
+        "food_name": "Peppers, hot chili, red, raw",
+        "is_primary_for_ingredient": true,
+        "versions": [
+          {
+            "energy_kcal_per_100g": "40",
+            "protein_g_per_100g": "1.87",
+            "fat_g_per_100g": "0.44",
+            "carb_g_per_100g": "8.81",
+            "fiber_g_per_100g": "1.5",
+            "sodium_mg_per_100g": "9",
+            "source_version": "USDA FoodData Central SR Legacy NDB 11819, retrieved 2026-09-09",
+            "effective_from": "2026-09-01T00:00:00Z"
+          }
+        ]
+      },
+      {
+        "ingredient_canonical_name": "ginger",
+        "external_source": "USDA_FDC_SR_LEGACY",
+        "external_id": "NDB 11216",
+        "food_name": "Ginger root, raw",
+        "is_primary_for_ingredient": true,
+        "versions": [
+          {
+            "energy_kcal_per_100g": "80",
+            "protein_g_per_100g": "1.82",
+            "fat_g_per_100g": "0.75",
+            "carb_g_per_100g": "17.77",
+            "fiber_g_per_100g": "2.0",
+            "sodium_mg_per_100g": "13",
+            "source_version": "USDA FoodData Central SR Legacy NDB 11216, retrieved 2026-09-09",
+            "effective_from": "2026-09-01T00:00:00Z"
+          }
+        ]
+      },
+      {
+        "ingredient_canonical_name": "shallots",
+        "external_source": "USDA_FDC_SR_LEGACY",
+        "external_id": "NDB 11677",
+        "food_name": "Shallots, raw",
+        "is_primary_for_ingredient": true,
+        "versions": [
+          {
+            "energy_kcal_per_100g": "72",
+            "protein_g_per_100g": "2.5",
+            "fat_g_per_100g": "0.1",
+            "carb_g_per_100g": "16.8",
+            "fiber_g_per_100g": "3.2",
+            "sodium_mg_per_100g": "12",
+            "source_version": "USDA FoodData Central SR Legacy NDB 11677, retrieved 2026-09-09",
+            "effective_from": "2026-09-01T00:00:00Z"
+          }
+        ]
+      },
+      {
+        "ingredient_canonical_name": "coriander_leaf",
+        "external_source": "USDA_FDC_SR_LEGACY",
+        "external_id": "NDB 11165",
+        "food_name": "Coriander (cilantro) leaves, raw",
+        "is_primary_for_ingredient": true,
+        "versions": [
+          {
+            "energy_kcal_per_100g": "23",
+            "protein_g_per_100g": "2.13",
+            "fat_g_per_100g": "0.52",
+            "carb_g_per_100g": "3.67",
+            "fiber_g_per_100g": "2.8",
+            "sodium_mg_per_100g": "46",
+            "source_version": "USDA FoodData Central SR Legacy NDB 11165, retrieved 2026-09-09",
+            "effective_from": "2026-09-01T00:00:00Z"
+          }
+        ]
+      },
+      {
+        "ingredient_canonical_name": "salt",
+        "external_source": "USDA_FDC_SR_LEGACY",
+        "external_id": "NDB 02047",
+        "food_name": "Salt, table",
+        "is_primary_for_ingredient": true,
+        "versions": [
+          {
+            "energy_kcal_per_100g": "0",
+            "protein_g_per_100g": "0",
+            "fat_g_per_100g": "0",
+            "carb_g_per_100g": "0",
+            "fiber_g_per_100g": "0",
+            "sodium_mg_per_100g": "38758",
+            "source_version": "USDA FoodData Central SR Legacy NDB 02047, retrieved 2026-09-09",
+            "effective_from": "2026-09-01T00:00:00Z"
+          }
+        ]
+      },
+      {
+        "ingredient_canonical_name": "fenugreek_powder",
+        "external_source": "USDA_FDC_SR_LEGACY",
+        "external_id": "NDB 02019",
+        "food_name": "Spices, fenugreek seed (powder shares the seed entry)",
+        "is_primary_for_ingredient": true,
+        "versions": [
+          {
+            "energy_kcal_per_100g": "323",
+            "protein_g_per_100g": "23",
+            "fat_g_per_100g": "6.41",
+            "carb_g_per_100g": "58.4",
+            "fiber_g_per_100g": "24.6",
+            "sodium_mg_per_100g": "67",
+            "source_version": "USDA FDC SR Legacy NDB 02019 (powder shares the seed entry, as coriander_powder)",
+            "effective_from": "2026-09-01T00:00:00Z"
+          }
+        ]
+      },
+      {
+        "ingredient_canonical_name": "curry_leaves",
+        "external_source": "IFCT_2017",
+        "external_id": "curry-leaves-raw",
+        "food_name": "Curry leaves, raw",
+        "is_primary_for_ingredient": true,
+        "versions": [
+          {
+            "energy_kcal_per_100g": "108",
+            "protein_g_per_100g": "6.1",
+            "fat_g_per_100g": "1.0",
+            "carb_g_per_100g": "18.7",
+            "fiber_g_per_100g": "6.4",
+            "sodium_mg_per_100g": null,
+            "source_version": "Indian Food Composition Tables (IFCT 2017), curry leaves raw — no SR Legacy record exists",
+            "effective_from": "2026-09-01T00:00:00Z"
+          }
+        ]
+      }
+    ]
+  }
+}

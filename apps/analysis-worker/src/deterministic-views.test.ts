@@ -7,6 +7,7 @@ import {
   computeView8,
   computeView9,
   DEFAULT_OVERRIDES,
+  extractAmountFromDisplayName,
   H6_DISCLAIMER,
   I6_DISCLAIMER,
   ingredientMassGrams,
@@ -329,7 +330,23 @@ describe('D-19 View 9 mass parsing + assumption merge (I2)', () => {
     expect(ingredientMassGrams('drumstick', '1 Nos', null, null)).toEqual([150, 150]);
     expect(ingredientMassGrams('mango', '1/2 Nos', null, null)).toEqual([120, 120]);
     expect(ingredientMassGrams('coconut_flesh', 'Half Shell', null, null)).toEqual([150, 200]);
-    expect(ingredientMassGrams('fenugreek_powder', '1/2 Tsp', null, null)).toBeNull();
+    // View 9 coverage (R-2026-09-17-006): powder shares the seed entry's mass basis
+    expect(ingredientMassGrams('fenugreek_powder', '1/2 Tsp', null, null)).toEqual([1.25, 1.25]);
+    // bare counts and the "inch" unit now derive a mass too
+    expect(ingredientMassGrams('red_chilli', '5', null, null)).toEqual([15, 15]);
+    expect(ingredientMassGrams('shallots', '1', null, null)).toEqual([25, 25]);
+    expect(ingredientMassGrams('ginger', '1 inch', null, null)).toEqual([6, 6]);
+    expect(ingredientMassGrams('curry_leaves', '10', null, null)).toEqual([5, 5]);
+    // Unicode vulgar fractions parse like their ASCII forms
+    expect(ingredientMassGrams('mango', '½', null, null)).toEqual([120, 120]);
+    expect(ingredientMassGrams('fenugreek_seed', '¼ tsp', null, null)).toEqual([0.5, 0.5]);
+  });
+
+  it('recovers an amount from a display name when amount_text is absent', () => {
+    expect(extractAmountFromDisplayName('Fish — 500 g')).toBe('500 g');
+    expect(extractAmountFromDisplayName('Drumstick – 1')).toBe('1');
+    expect(extractAmountFromDisplayName('Salt – to taste')).toBe('to taste');
+    expect(extractAmountFromDisplayName('Kanyakumari Meen Kuzhambu')).toBeNull();
   });
 
   it('merges a delta over persisted assumptions and round-trips through a payload', () => {

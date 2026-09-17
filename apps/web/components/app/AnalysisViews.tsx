@@ -8,6 +8,7 @@
 // No content is invented: absent/unavailable views show honest empty states.
 
 import { useState } from 'react';
+import { ArrowLeft, ArrowRight } from '@phosphor-icons/react';
 import { Badge, Tag } from '@/components/ui/Badge';
 import { Tabs, TabPanel } from '@/components/ui/Tabs';
 import { Alert } from '@/components/ui/Alert';
@@ -68,6 +69,13 @@ const CHEF_TAB_LABELS: Record<string, string> = {
   'view-9': '9 · Assumption log',
 };
 
+/** Friendly labels for the three editable View 9 assumptions (I2). */
+const ASSUMPTION_LABELS: Record<string, string> = {
+  fish_class: 'Fish class',
+  coconut_grams: 'Coconut',
+  oil_tbsp: 'Tadka oil',
+};
+
 export function AnalysisViews({
   analysis,
   lines,
@@ -82,7 +90,6 @@ export function AnalysisViews({
   const [printError, setPrintError] = useState<string | null>(null);
   const byNumber = new Map(analysis.views.map((v) => [v.view_number, v]));
   const view = (n: number) => byNumber.get(n) ?? null;
-
   /** E6 + I5 (D-31): the home-mode one-pager — snapshot-only PDF print. */
   async function printOnePager(): Promise<void> {
     if (!recipeId) return;
@@ -153,6 +160,9 @@ export function AnalysisViews({
     ...t,
     label: mode === 'chef' ? (CHEF_TAB_LABELS[t.id] ?? t.label) : t.label,
   }));
+
+  const viewOrder = tabs.map((t) => t.id);
+  const viewIndex = viewOrder.indexOf(activeView);
 
   return (
     <section aria-labelledby="result-heading" className="mt-4">
@@ -228,6 +238,28 @@ export function AnalysisViews({
             <div className="mt-5">{t.content}</div>
           </TabPanel>
         ))}
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setActiveView(viewOrder[viewIndex - 1])}
+            disabled={viewIndex <= 0}
+          >
+            <ArrowLeft size={14} aria-hidden="true" weight="bold" />
+            Previous view
+          </Button>
+          <span className="text-caption text-faint">
+            View {viewIndex + 1} of {viewOrder.length}
+          </span>
+          <Button
+            size="sm"
+            onClick={() => setActiveView(viewOrder[viewIndex + 1])}
+            disabled={viewIndex < 0 || viewIndex >= viewOrder.length - 1}
+          >
+            Next view
+            <ArrowRight size={14} aria-hidden="true" weight="bold" />
+          </Button>
+        </div>
       </div>
     </section>
   );
@@ -558,6 +590,9 @@ function renderView9(
   if (!row) return <UnavailableView label="View 9: Calories and micronutrients" />;
   const payload = view9Payload(row.payload);
   if (!payload || row.status !== 'COMPLETE') return <IncompleteView label="View 9" />;
+  const unmappedLines = payload.assumptions
+    .filter((a) => a.key === 'unmapped_ingredient')
+    .map((a) => String(a.value));
   return (
     <div>
       <p className="text-small text-muted">
@@ -610,14 +645,31 @@ function renderView9(
       <div className="mt-4">
         <p className="text-small font-semibold text-ink">Assumptions</p>
         <ul className="mt-2 space-y-1 text-small text-body">
-          {payload.assumptions.map((assumption, index) => (
-            <li key={`${assumption.key}-${index}`} className="flex flex-wrap items-center gap-2">
-              <span className="font-semibold">{assumption.key}:</span>
-              <span>{String(assumption.value)}</span>
-              <Badge tag={assumption.tag as Tag} />
-            </li>
-          ))}
+          {payload.assumptions
+            .filter((a) => a.key !== 'unmapped_ingredient')
+            .map((assumption, index) => (
+              <li key={`${assumption.key}-${index}`} className="flex flex-wrap items-center gap-2">
+                <span className="font-semibold">
+                  {ASSUMPTION_LABELS[assumption.key] ?? assumption.key}:
+                </span>
+                <span>{String(assumption.value)}</span>
+                <Badge tag={assumption.tag as Tag} />
+              </li>
+            ))}
         </ul>
+        {unmappedLines.length > 0 && (
+          <div className="mt-3 rounded-md border border-dashed border-border bg-background p-3">
+            <p className="text-small font-semibold text-ink">Lines left out of the band</p>
+            <p className="mt-0.5 text-caption text-muted">
+              Not in the food table yet, or no measurable amount — excluded, never estimated.
+            </p>
+            <ul className="mt-2 list-inside list-disc text-caption text-muted">
+              {unmappedLines.map((value) => (
+                <li key={value}>{value}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
       {payload.tightening_factors.length > 0 && (
         <p className="mt-3 text-small text-muted">

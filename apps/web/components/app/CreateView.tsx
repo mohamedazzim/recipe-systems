@@ -7,7 +7,7 @@
 // low-confidence lines before analysis.
 
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Camera } from '@phosphor-icons/react';
+import { ArrowLeft, Camera, Check, Lightbulb, X } from '@phosphor-icons/react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Field } from '@/components/ui/Field';
@@ -154,7 +154,7 @@ export function CreateView({ signedIn, accountId, onBack, onParsed, onUploaded }
   };
 
   return (
-    <div className="max-w-4xl">
+    <div className="max-w-none">
       <button
         type="button"
         onClick={onBack}
@@ -181,7 +181,8 @@ export function CreateView({ signedIn, accountId, onBack, onParsed, onUploaded }
         </div>
       )}
 
-      <div className="mt-6 overflow-hidden rounded-lg border border-border bg-surface">
+      <div className="mt-6 grid items-start gap-6 lg:grid-cols-[1.6fr_1fr]">
+        <div className="overflow-hidden rounded-lg border border-border bg-surface">
         <div
           className="flex gap-6 overflow-x-auto border-b border-border px-5"
           role="tablist"
@@ -342,6 +343,51 @@ export function CreateView({ signedIn, accountId, onBack, onParsed, onUploaded }
             Parses or uploads first — review and analysis come next.
           </span>
         </div>
+        </div>
+
+        {/* Formatting tips — fills the blank space on large screens only. */}
+        <aside className="hidden lg:block" aria-label="Formatting tips">
+          <div className="rounded-lg border border-border bg-surface p-5">
+            <div className="flex items-center gap-2">
+              <Lightbulb size={18} aria-hidden="true" className="text-accent" weight="bold" />
+              <h2 className="font-display text-h3 text-ink">Formatting tips</h2>
+            </div>
+            <p className="mt-1 text-caption text-muted">Match this pattern for a clean parse.</p>
+
+            <div className="mt-4 rounded-md border border-positive/30 bg-positive/10 p-3">
+              <p className="flex items-center gap-1.5 text-caption font-semibold text-positive">
+                <Check size={14} aria-hidden="true" weight="bold" />
+                Good
+              </p>
+              <pre className="mt-1.5 whitespace-pre-line font-mono text-caption leading-relaxed text-ink">
+                {'500g fish\n1 tsp fenugreek seeds\na handful curry leaves'}
+              </pre>
+            </div>
+
+            <div className="mt-3 rounded-md border border-positive/30 bg-positive/10 p-3">
+              <p className="flex items-center gap-1.5 text-caption font-semibold text-positive">
+                <Check size={14} aria-hidden="true" weight="bold" />
+                Good
+              </p>
+              <pre className="mt-1.5 whitespace-pre-line font-mono text-caption leading-relaxed text-ink">
+                {'Tamarind, a lime-sized ball'}
+              </pre>
+            </div>
+
+            <div className="mt-3 rounded-md border border-negative/30 bg-negative/10 p-3">
+              <p className="flex items-center gap-1.5 text-caption font-semibold text-negative">
+                <X size={14} aria-hidden="true" weight="bold" />
+                Avoid
+              </p>
+              <pre className="mt-1.5 whitespace-pre-line font-mono text-caption leading-relaxed text-ink">
+                {'Fish (some, not too much)'}
+              </pre>
+              <p className="mt-1 text-caption text-muted">
+                No amount to extract — give a quantity or unit.
+              </p>
+            </div>
+          </div>
+        </aside>
       </div>
 
       {!signedIn && (

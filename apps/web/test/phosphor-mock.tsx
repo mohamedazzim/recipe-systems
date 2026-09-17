@@ -25,6 +25,7 @@ export const CheckCircle = iconStub('CheckCircle');
 export const Clock = iconStub('Clock');
 export const CookingPot = iconStub('CookingPot');
 export const DotsThreeVertical = iconStub('DotsThreeVertical');
+export const Lightbulb = iconStub('Lightbulb');
 export const MagnifyingGlass = iconStub('MagnifyingGlass');
 export const PencilSimple = iconStub('PencilSimple');
 export const Plus = iconStub('Plus');

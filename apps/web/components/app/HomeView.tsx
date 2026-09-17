@@ -58,7 +58,7 @@ export function HomeView({
   const startCard = (
     <section
       aria-labelledby="start-heading"
-      className="flex min-w-0 flex-col rounded-lg border-2 border-accent bg-accent/10 p-6"
+      className="flex min-w-0 flex-col justify-center rounded-lg border-2 border-accent bg-accent/10 p-6"
     >
       <h2 id="start-heading" className="font-display text-h2 text-ink">
         Start a new recipe

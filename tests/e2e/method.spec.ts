@@ -1,6 +1,6 @@
 // D-13 method-attach E2E — the real HTTP surface for RS-US-09 against the live BFF:
 // signed-in paste / inferred / none round-trips on an intake-created recipe (B4 TC-01/02/03),
-// the wire shape {method_tag, method_source, list_only} (API §4), source-less INFERRED
+// the wire shape {method_tag, method_source, method_text, list_only} (API §4), source-less INFERRED
 // rejected (A-13: never a source-less INFERRED), and guest 401 (method selection is
 // client-side for guests — API §4).
 // DB-level truth lives in tests/integration/story_b4_method_attach.test.ts.
@@ -24,6 +24,7 @@ const NAMED_SOURCE = 'CDK 1669 / Mrs. Anitha';
 interface MethodResponse {
   method_tag: 'METHOD' | 'INFERRED' | null;
   method_source: string | null;
+  method_text: string | null;
   list_only: boolean;
 }
 
@@ -63,7 +64,12 @@ test.describe('D-13 method attach (B4) — live BFF', () => {
     });
     expect(res.status()).toBe(200);
     const body: MethodResponse = await res.json();
-    expect(body).toEqual({ method_tag: 'METHOD', method_source: null, list_only: false });
+    expect(body).toEqual({
+      method_tag: 'METHOD',
+      method_source: null,
+      method_text: METHOD_TEXT,
+      list_only: false,
+    });
   });
 
   test('TC-02: inferred attaches the family method → INFERRED with the named source', async ({ page }) => {
@@ -80,6 +86,7 @@ test.describe('D-13 method attach (B4) — live BFF', () => {
     expect(body).toEqual({
       method_tag: 'INFERRED',
       method_source: NAMED_SOURCE,
+      method_text: FAMILY_METHOD,
       list_only: false,
     });
   });
@@ -91,7 +98,12 @@ test.describe('D-13 method attach (B4) — live BFF', () => {
     const res = await patchMethod(req, csrf, recipeId, { method: 'none' });
     expect(res.status()).toBe(200);
     const body: MethodResponse = await res.json();
-    expect(body).toEqual({ method_tag: null, method_source: null, list_only: true });
+    expect(body).toEqual({
+      method_tag: null,
+      method_source: null,
+      method_text: null,
+      list_only: true,
+    });
   });
 
   test('source-less INFERRED is refused at the boundary (A-13: MAJOR otherwise)', async ({ page }) => {

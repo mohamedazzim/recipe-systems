@@ -1,7 +1,7 @@
 // Read-only hydration surface (method-save bug fix 2026-09-10):
 // GET /recipes/:id/method. The controller delegates to the existing D-17
 // RecipeService.getMethodState unchanged — the canonical wire shape
-// {method_tag, method_source, list_only} (same as the PATCH 200).
+// {method_tag, method_source, method_text, list_only} (same as the PATCH 200).
 // Ownership stays enforced inside the service (assertOwned, INV-17).
 
 import { RecipesController } from './recipes.controller';
@@ -17,13 +17,19 @@ describe('RecipesController.getMethod (read-only method hydration)', () => {
     recipes.getMethodState.mockResolvedValue({
       method_tag: 'METHOD',
       method_source: null,
+      method_text: 'Boil; temper; simmer.',
       list_only: false,
     });
     const result = await controller.getMethod(
       { user: { accountId: 'acc-1', email: 'c@t.dev', sub: 's' } } as never,
       'r1',
     );
-    expect(result).toEqual({ method_tag: 'METHOD', method_source: null, list_only: false });
+    expect(result).toEqual({
+      method_tag: 'METHOD',
+      method_source: null,
+      method_text: 'Boil; temper; simmer.',
+      list_only: false,
+    });
     expect(recipes.getMethodState).toHaveBeenCalledWith(
       { kind: 'user', user: { accountId: 'acc-1', email: 'c@t.dev', sub: 's' } },
       'r1',
@@ -34,13 +40,19 @@ describe('RecipesController.getMethod (read-only method hydration)', () => {
     recipes.getMethodState.mockResolvedValue({
       method_tag: null,
       method_source: null,
+      method_text: null,
       list_only: true,
     });
     const result = await controller.getMethod(
       { user: { accountId: 'acc-1', email: 'c@t.dev', sub: 's' } } as never,
       'r2',
     );
-    expect(result).toEqual({ method_tag: null, method_source: null, list_only: true });
+    expect(result).toEqual({
+      method_tag: null,
+      method_source: null,
+      method_text: null,
+      list_only: true,
+    });
   });
 
   it('delegates ownership to the service (INV-17 404 for missing/foreign)', async () => {

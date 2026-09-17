@@ -6,7 +6,7 @@
 //   - B4 TC-02: inferred → tag INFERRED + named source persisted (never source-less, A-13)
 //   - B4 TC-03: none → all three method columns NULL → list_only true (Views 3/7 INCOMPLETE flag)
 //   - transitions: paste → inferred → none on the same recipe; wire shape {method_tag,
-//     method_source, list_only} matches API §4
+//     method_source, method_text, list_only} matches API §4
 //   - Q4 boundary: no recipe_ingredient_line row is ever written by method attach
 //   - INV-17: foreign actor → 404, no write
 
@@ -72,7 +72,12 @@ describe('D-13 method attach (B4) — real Postgres', () => {
     const recipeId = await pasteRecipe(actor);
 
     const state = await recipes.attachMethod(actor, recipeId, { mode: 'paste', methodText: METHOD_TEXT });
-    expect(state).toEqual({ method_tag: 'METHOD', method_source: null, list_only: false });
+    expect(state).toEqual({
+      method_tag: 'METHOD',
+      method_source: null,
+      method_text: METHOD_TEXT,
+      list_only: false,
+    });
 
     const row = await prisma.recipe.findUnique({ where: { id: recipeId } });
     expect(row?.methodText).toBe(METHOD_TEXT);
@@ -92,6 +97,7 @@ describe('D-13 method attach (B4) — real Postgres', () => {
     expect(state).toEqual({
       method_tag: 'INFERRED',
       method_source: NAMED_SOURCE,
+      method_text: FAMILY_METHOD,
       list_only: false,
     });
 
@@ -108,7 +114,12 @@ describe('D-13 method attach (B4) — real Postgres', () => {
     // attach first, then clear — the transition itself is the contract
     await recipes.attachMethod(actor, recipeId, { mode: 'paste', methodText: METHOD_TEXT });
     const state = await recipes.attachMethod(actor, recipeId, { mode: 'none' });
-    expect(state).toEqual({ method_tag: null, method_source: null, list_only: true });
+    expect(state).toEqual({
+      method_tag: null,
+      method_source: null,
+      method_text: null,
+      list_only: true,
+    });
 
     const row = await prisma.recipe.findUnique({ where: { id: recipeId } });
     expect(row?.methodText).toBeNull();
@@ -125,7 +136,12 @@ describe('D-13 method attach (B4) — real Postgres', () => {
     expect(row?.methodSourceTag).toBeNull();
     // the wire derivation from a fresh row:
     const state = await recipes.attachMethod(actor, recipeId, { mode: 'none' });
-    expect(state).toEqual({ method_tag: null, method_source: null, list_only: true });
+    expect(state).toEqual({
+      method_tag: null,
+      method_source: null,
+      method_text: null,
+      list_only: true,
+    });
   });
 
   it('Q4 boundary: method attach never writes recipe_ingredient_line rows', async () => {

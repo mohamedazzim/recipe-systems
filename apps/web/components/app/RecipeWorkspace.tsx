@@ -400,7 +400,7 @@ export function RecipeWorkspace({
 
       {/* Recipe section tabs — one focused section at a time. */}
       <div
-        className="mt-6 flex gap-6 overflow-x-auto border-b border-border"
+        className="mt-6 flex gap-6 overflow-x-auto overflow-y-hidden border-b border-border"
         role="tablist"
         aria-label="Recipe sections"
       >

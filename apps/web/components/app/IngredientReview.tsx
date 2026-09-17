@@ -416,12 +416,6 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
             exactly as entered.
           </p>
         </div>
-        {signedIn && (
-          <Button size="sm" variant="outline" onClick={() => void addLine()} disabled={saving}>
-            <Plus size={14} aria-hidden="true" weight="bold" />
-            Add ingredient
-          </Button>
-        )}
       </div>
 
       {error && (
@@ -757,6 +751,15 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
           );
         })}
       </ul>
+
+      {signedIn && ingredientLines.length > 0 && (
+        <div className="mt-4">
+          <Button size="sm" variant="outline" onClick={() => void addLine()} disabled={saving}>
+            <Plus size={14} aria-hidden="true" weight="bold" />
+            Add ingredient
+          </Button>
+        </div>
+      )}
 
       {headerLines.length > 0 && (
         <div className="mt-4 rounded-lg border border-dashed border-border bg-background p-4">

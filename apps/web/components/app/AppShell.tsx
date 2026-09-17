@@ -89,7 +89,15 @@ export function AppShell({ user, view, onNavigate, onSignOut, children }: AppShe
           </div>
         </div>
       </header>
-      <main className="container-rs py-8 sm:py-10">{children}</main>
+      <main
+        className={
+          view.name === 'workspace'
+            ? 'container-rs py-3 sm:py-4'
+            : 'container-rs py-8 sm:py-10'
+        }
+      >
+        {children}
+      </main>
     </div>
   );
 }

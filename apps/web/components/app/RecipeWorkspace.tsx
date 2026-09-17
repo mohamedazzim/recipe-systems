@@ -287,7 +287,7 @@ export function RecipeWorkspace({
   }, [recipeId, initialLines, initialTitle, signedIn]);
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col lg:h-[calc(100dvh-8.5rem)] lg:overflow-hidden">
+    <div className="mx-auto flex max-w-none flex-col lg:h-[calc(100dvh-5.5rem)] lg:overflow-hidden">
       <div className="shrink-0">
       <button
         type="button"
@@ -428,7 +428,7 @@ export function RecipeWorkspace({
 
       {/* Two-column workspace: the recipe surface on the left, the running
           analysis pinned on the right (a background job, always visible). */}
-      <div className="mt-6 grid min-h-0 flex-1 gap-8 lg:grid-cols-2">
+      <div className="mt-6 grid min-h-0 flex-1 gap-6 lg:grid-cols-2">
         {/* LEFT — the tabbed workflow is the starting content; the logging
             surfaces (cook log, swaps, tags) sit below it. */}
         <div className="min-w-0 lg:overflow-y-auto lg:pe-1">

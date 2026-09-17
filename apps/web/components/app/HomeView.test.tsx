@@ -101,7 +101,7 @@ describe('HomeView', () => {
     expect(screen.queryByLabelText('Search your library')).not.toBeInTheDocument();
   });
 
-  it('signed in: shows exactly the 4 most recent recipes, never the full list', () => {
+  it('signed in: shows exactly the 2 most recent recipes, never the full list', () => {
     const names = ['Recipe one', 'Recipe two', 'Recipe three', 'Recipe four', 'Recipe five'];
     const p = props({
       library: names.map((name, i) => ({
@@ -114,11 +114,11 @@ describe('HomeView', () => {
       })),
     });
     render(<HomeView {...p} />);
-    // newest-first: first four only
+    // newest-first: first two only
     expect(screen.getByText('Recipe one')).toBeInTheDocument();
     expect(screen.getByText('Recipe two')).toBeInTheDocument();
-    expect(screen.getByText('Recipe three')).toBeInTheDocument();
-    expect(screen.getByText('Recipe four')).toBeInTheDocument();
+    expect(screen.queryByText('Recipe three')).not.toBeInTheDocument();
+    expect(screen.queryByText('Recipe four')).not.toBeInTheDocument();
     expect(screen.queryByText('Recipe five')).not.toBeInTheDocument();
   });
 

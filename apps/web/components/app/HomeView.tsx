@@ -58,7 +58,7 @@ export function HomeView({
   const startCard = (
     <section
       aria-labelledby="start-heading"
-      className="flex min-w-0 flex-col justify-center rounded-lg border-2 border-accent bg-accent/10 p-6"
+      className="flex min-w-0 flex-col rounded-lg border-2 border-accent bg-accent/10 p-6"
     >
       <h2 id="start-heading" className="font-display text-h2 text-ink">
         Start a new recipe
@@ -66,7 +66,7 @@ export function HomeView({
       <p className="mt-2 max-w-prose text-small text-body">
         Paste text, fill in a structured form, or upload a photo of a card.
       </p>
-      <div className="mt-6">
+      <div className="mt-4">
         <Button size="lg" block onClick={onCreate}>
           <Plus size={16} aria-hidden="true" weight="bold" />
           New recipe
@@ -138,7 +138,7 @@ export function HomeView({
               <p className="mt-4 text-small text-muted">No recipes yet — start one on the left.</p>
             ) : (
               <ul className="mt-3 divide-y divide-border">
-                {library.slice(0, 4).map((recipe) => (
+                {library.slice(0, 2).map((recipe) => (
                   <li key={recipe.recipe_id}>
                     <button
                       type="button"

@@ -44,6 +44,12 @@ jest.mock('@/components/app/AnalysisPanel', () => ({
 jest.mock('@/components/app/ShoppingSection', () => ({
   ShoppingSection: () => <p>Shopping section</p>,
 }));
+jest.mock('@/components/app/CookSection', () => ({
+  CookSection: () => <p>Cook section</p>,
+}));
+jest.mock('@/components/app/SwapSection', () => ({
+  SwapSection: () => <p>Swap section</p>,
+}));
 
 describe('RecipeWorkspace', () => {
   beforeEach(() => {
@@ -57,15 +63,22 @@ describe('RecipeWorkspace', () => {
     return { recipeId: 'r1', signedIn: true, onBack: jest.fn(), ...overrides };
   }
 
-  it('shows the session title, the four section tabs, and the default Ingredients section', async () => {
+  it('shows the session title, every recipe section, and the pinned Analysis column', async () => {
     recordSessionRecipe('r1', 'Meen Kuzhambu', { kind: 'user', accountId: 'acc-1' });
     render(<RecipeWorkspace {...props()} />);
     expect(await screen.findByRole('heading', { level: 1, name: 'Meen Kuzhambu' })).toBeInTheDocument();
     expect(screen.getByText('Review: Meen Kuzhambu')).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /Ingredients/ })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Method' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Analysis' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Shopping list' })).toBeInTheDocument();
+    expect(screen.getByText('Cook section')).toBeInTheDocument();
+    expect(screen.getByText('Swap section')).toBeInTheDocument();
+    expect(screen.getByText('Tags section')).toBeInTheDocument();
+    expect(screen.getByText('Method section')).toBeInTheDocument();
+    expect(screen.getByText('Shopping section')).toBeInTheDocument();
+    // the analysis is a pinned right-hand column, never a tab
+    expect(screen.getByRole('heading', { name: 'Analysis' })).toBeInTheDocument();
+    expect(screen.getByText(/runs in the background/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Analyse now' })).toBeInTheDocument();
+    expect(screen.getByText(/Panel: none/)).toBeInTheDocument();
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument();
   });
 
   it('passes the enqueued analysis id down to the status panel', async () => {
@@ -79,7 +92,6 @@ describe('RecipeWorkspace', () => {
       return Promise.reject(new Error('unexpected ' + path));
     });
     render(<RecipeWorkspace {...props()} />);
-    await userEvent.click(screen.getByRole('tab', { name: 'Analysis' }));
     await userEvent.click(await screen.findByRole('button', { name: 'Analyse now' }));
     expect(await screen.findByText(/Panel: a-1/)).toBeInTheDocument();
   });
@@ -92,10 +104,9 @@ describe('RecipeWorkspace', () => {
       return Promise.reject(new Error('unexpected ' + path));
     });
     render(<RecipeWorkspace {...props()} />);
-    // the user edits a line (Ingredients is the default tab) — no auto re-enqueue
+    // the user edits a line — no auto re-enqueue
     await userEvent.click(await screen.findByRole('button', { name: 'Simulate edit' }));
-    // switch to Analysis to see the stale marker
-    await userEvent.click(screen.getByRole('tab', { name: 'Analysis' }));
+    // the pinned analysis column reflects the stale marker directly
     expect(await screen.findByRole('button', { name: 'Re-analyse now' })).toBeInTheDocument();
     // editing never POSTs /analyse automatically
     const analyseCalls = (api as jest.Mock).mock.calls.filter(
@@ -122,23 +133,13 @@ describe('RecipeWorkspace', () => {
     expect(p.onBack).toHaveBeenCalled();
   });
 
-  it('steps forward through the sections with the footer next buttons', async () => {
+  it('renders every section at once — no tabs and no step footer', async () => {
     render(<RecipeWorkspace {...props()} />);
-    expect(screen.getByText('Step 1 of 4 — review the parsed lines.')).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Proceed to Method' }));
+    expect(await screen.findByText('Review: Recipe')).toBeInTheDocument();
     expect(screen.getByText('Method section')).toBeInTheDocument();
-    expect(screen.getByText('Step 2 of 4 — attach the method.')).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Proceed to Analysis' }));
-    expect(screen.getByText('Step 3 of 4 — run and read the analysis.')).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Proceed to Shopping list' }));
     expect(screen.getByText('Shopping section')).toBeInTheDocument();
-    expect(screen.getByText('Step 4 of 4 — your shopping list.')).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Back to ingredients' }));
-    expect(screen.getByText('Review: Recipe')).toBeInTheDocument();
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Step 1 of 4/)).not.toBeInTheDocument();
   });
 });
 

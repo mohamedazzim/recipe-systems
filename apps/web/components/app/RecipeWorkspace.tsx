@@ -5,7 +5,7 @@
 // section order; nothing here is decorative.
 
 import { useEffect, useState } from 'react';
-import { ArrowLeft, ArrowRight, DotsThreeVertical } from '@phosphor-icons/react';
+import { ArrowLeft, DotsThreeVertical } from '@phosphor-icons/react';
 import { Heading } from '@/components/ui/Typography';
 import { Button } from '@/components/ui/Button';
 import { api, ApiError, API_BASE_URL } from '@/lib/api';
@@ -65,10 +65,6 @@ export function RecipeWorkspace({
   /** E6 + I5 (D-31): the home-mode one-pager print, surfaced from the header. */
   const [printing, setPrinting] = useState(false);
   const [printError, setPrintError] = useState<string | null>(null);
-  /** Which recipe section is active — Ingredients / Method / Analysis / Shopping. */
-  const [activeTab, setActiveTab] = useState<'ingredients' | 'method' | 'analysis' | 'shopping'>(
-    'ingredients',
-  );
 
   /**
    * D-22 (D1): the visible Save action. The artifact set already persists in
@@ -311,25 +307,8 @@ export function RecipeWorkspace({
               {moreOpen && (
                 <div
                   aria-label="Recipe actions"
-                  className="absolute right-0 top-10 z-20 max-h-[80vh] w-96 max-w-[calc(100vw-2rem)] overflow-y-auto rounded-lg border border-border bg-surface p-3 shadow-card"
+                  className="absolute right-0 top-10 z-20 min-w-44 overflow-hidden rounded-lg border border-border bg-surface py-1 shadow-card"
                 >
-                  <details className="border-b border-border pb-1">
-                    <summary className="cursor-pointer list-none rounded-md px-2 py-2 text-small font-semibold text-ink hover:bg-ink/5">
-                      Cook log
-                    </summary>
-                    <div className="px-2 pb-2">
-                      <CookSection recipeId={recipeId} />
-                      <SwapSection recipeId={recipeId} lines={lines} onApplied={() => void reloadLines()} />
-                    </div>
-                  </details>
-                  <details className="border-b border-border py-1">
-                    <summary className="cursor-pointer list-none rounded-md px-2 py-2 text-small font-semibold text-ink hover:bg-ink/5">
-                      Tags
-                    </summary>
-                    <div className="px-2 pb-2">
-                      <TagsSection recipeId={recipeId} signedIn={signedIn} />
-                    </div>
-                  </details>
                   <button
                     type="button"
                     onClick={() => {
@@ -337,7 +316,7 @@ export function RecipeWorkspace({
                       setConfirmingDelete(true);
                     }}
                     disabled={deleting}
-                    className="mt-1 flex w-full items-center gap-2 rounded-md px-2 py-2 text-left text-small font-medium text-negative transition-colors hover:bg-negative/10 disabled:text-faint"
+                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-small font-medium text-negative transition-colors hover:bg-negative/10 disabled:text-faint"
                   >
                     Delete recipe
                   </button>
@@ -398,57 +377,44 @@ export function RecipeWorkspace({
       )}
       {deleteError && <p className="mt-2 text-caption text-negative">{deleteError}</p>}
 
-      {/* Recipe section tabs — one focused section at a time. */}
-      <div
-        className="mt-6 flex gap-6 overflow-x-auto overflow-y-hidden border-b border-border"
-        role="tablist"
-        aria-label="Recipe sections"
-      >
-        {(
-          [
-            ['ingredients', `Ingredients ${lines.length}`],
-            ['method', 'Method'],
-            ['analysis', 'Analysis'],
-            ['shopping', 'Shopping list'],
-          ] as const
-        ).map(([key, label]) => (
-          <button
-            key={key}
-            type="button"
-            role="tab"
-            aria-selected={activeTab === key}
-            onClick={() => setActiveTab(key)}
-            className={`-mb-px whitespace-nowrap border-b-2 px-1 py-3 text-small font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset--2 focus-visible:outline-gold ${
-              activeTab === key ? 'border-accent text-ink' : 'border-transparent text-muted hover:text-ink'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Active section — full-width, one focused workspace. */}
-      <div className="mt-6">
-        {activeTab === 'ingredients' && (
-          <IngredientReview
-            recipeId={recipeId}
-            signedIn={signedIn}
-            title={title}
-            initialLines={initialLines}
-            onLinesLoaded={setLines}
-            onChanged={markAnalysisStale}
-          />
-        )}
-        {activeTab === 'method' && (
+      {/* Two-column workspace: the recipe surface on the left, the running
+          analysis pinned on the right (a background job, always visible). */}
+      <div className="mt-6 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
+        {/* LEFT — the recipe itself, in product-flow order. */}
+        <div className="min-w-0">
+          {signedIn && (
+            <>
+              <CookSection recipeId={recipeId} />
+              <SwapSection recipeId={recipeId} lines={lines} onApplied={() => void reloadLines()} />
+              <TagsSection recipeId={recipeId} signedIn={signedIn} />
+            </>
+          )}
+          <div className="mt-6">
+            <IngredientReview
+              recipeId={recipeId}
+              signedIn={signedIn}
+              title={title}
+              initialLines={initialLines}
+              onLinesLoaded={setLines}
+              onChanged={markAnalysisStale}
+            />
+          </div>
           <MethodSection
             recipeId={recipeId}
             signedIn={signedIn}
             onChange={setMethodState}
             onSaved={markAnalysisStale}
           />
-        )}
-        {activeTab === 'analysis' && (
-          <>
+          <ShoppingSection recipeId={recipeId} />
+        </div>
+
+        {/* RIGHT — analysis: readiness, live status, and the nine views. */}
+        <aside aria-label="Analysis" className="min-w-0 lg:sticky lg:top-6">
+          <h2 className="font-display text-h2 text-ink">Analysis</h2>
+          <p className="mt-1 text-small text-muted">
+            The nine-view analysis runs in the background. Status updates appear below.
+          </p>
+          <div className="mt-4">
             <ReadinessPanel
               recipeId={recipeId}
               signedIn={signedIn}
@@ -458,7 +424,12 @@ export function RecipeWorkspace({
               error={analyseError}
               hasAnalysis={analysisId !== null}
               stale={analysisStale}
-              onReviewLines={() => setActiveTab('ingredients')}
+              onReviewLines={() =>
+                document.getElementById('ingredients-heading')?.scrollIntoView({
+                  behavior: 'smooth',
+                  block: 'start',
+                })
+              }
             />
             <AnalysisPanel
               analysisId={analysisId}
@@ -470,44 +441,8 @@ export function RecipeWorkspace({
               stale={analysisStale}
               onRetry={runAnalysis}
             />
-          </>
-        )}
-        {activeTab === 'shopping' && <ShoppingSection recipeId={recipeId} />}
-      </div>
-
-      {/* Section footer — step forward through the four sections in order. */}
-      <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-        <span className="text-caption text-faint">
-          {activeTab === 'ingredients' && 'Step 1 of 4 — review the parsed lines.'}
-          {activeTab === 'method' && 'Step 2 of 4 — attach the method.'}
-          {activeTab === 'analysis' && 'Step 3 of 4 — run and read the analysis.'}
-          {activeTab === 'shopping' && 'Step 4 of 4 — your shopping list.'}
-        </span>
-        {activeTab === 'shopping' ? (
-          <Button variant="outline" onClick={() => setActiveTab('ingredients')}>
-            <ArrowLeft size={14} aria-hidden="true" weight="bold" />
-            Back to ingredients
-          </Button>
-        ) : (
-          <Button
-            onClick={() =>
-              setActiveTab(
-                activeTab === 'ingredients'
-                  ? 'method'
-                  : activeTab === 'method'
-                    ? 'analysis'
-                    : 'shopping',
-              )
-            }
-          >
-            {activeTab === 'ingredients'
-              ? 'Proceed to Method'
-              : activeTab === 'method'
-                ? 'Proceed to Analysis'
-                : 'Proceed to Shopping list'}
-            <ArrowRight size={14} aria-hidden="true" weight="bold" />
-          </Button>
-        )}
+          </div>
+        </aside>
       </div>
     </div>
   );

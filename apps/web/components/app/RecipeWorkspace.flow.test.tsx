@@ -14,6 +14,12 @@ jest.mock('@/components/app/MethodSection', () => ({
 jest.mock('@/components/app/TagsSection', () => ({
   TagsSection: () => <p>Tags section</p>,
 }));
+jest.mock('@/components/app/CookSection', () => ({
+  CookSection: () => <p>Cook section</p>,
+}));
+jest.mock('@/components/app/SwapSection', () => ({
+  SwapSection: () => <p>Swap section</p>,
+}));
 jest.mock('@/components/app/ReadinessPanel', () => ({
   ReadinessPanel: () => <p>Readiness section</p>,
 }));

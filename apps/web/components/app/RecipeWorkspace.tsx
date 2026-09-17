@@ -5,7 +5,7 @@
 // section order; nothing here is decorative.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, DotsThreeVertical } from '@phosphor-icons/react';
+import { ArrowLeft, ArrowRight, DotsThreeVertical, PencilSimple } from '@phosphor-icons/react';
 import { Heading } from '@/components/ui/Typography';
 import { Button } from '@/components/ui/Button';
 import { api, ApiError, API_BASE_URL } from '@/lib/api';
@@ -95,6 +95,10 @@ export function RecipeWorkspace({
   const [saved, setSaved] = useState<SavedRecipe | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  /** true while the name input is open (unnamed recipe or pencil edit). */
+  const [editingName, setEditingName] = useState(false);
+  /** A real name exists once saved this session or reopened with a DB name. */
+  const named = saved !== null || (initialTitle != null && initialTitle.trim() !== '');
 
   const saveRecipe = async (): Promise<void> => {
     setSaving(true);
@@ -107,6 +111,7 @@ export function RecipeWorkspace({
       setSaved(result);
       setSaveTitle(result.title);
       setTitle(result.title);
+      setEditingName(false);
     } catch (err) {
       setSaved(null);
       setSaveError(err instanceof ApiError ? err.message : 'Could not save the recipe.');
@@ -282,7 +287,8 @@ export function RecipeWorkspace({
   }, [recipeId, initialLines, initialTitle, signedIn]);
 
   return (
-    <div className="mx-auto max-w-7xl">
+    <div className="mx-auto flex max-w-7xl flex-col lg:h-[calc(100dvh-8.5rem)] lg:overflow-hidden">
+      <div className="shrink-0">
       <button
         type="button"
         onClick={onBack}
@@ -346,22 +352,46 @@ export function RecipeWorkspace({
       </div>
 
       {printError && <p className="mt-2 text-caption text-negative">{printError}</p>}
-      {/* Save — a compact control in the hero, never a full card. */}
+      {/* Save — once named, collapse to the name plus an edit pencil. */}
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <input
-          aria-label="Recipe name"
-          value={saveTitle}
-          onChange={(e) => setSaveTitle(e.target.value)}
-          placeholder="Family name (blank = the default)"
-          maxLength={255}
-          className="min-h-11 min-w-52 max-w-full rounded-md border border-border-strong bg-background px-3 py-2 text-body focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
-        />
-        <Button onClick={() => void saveRecipe()} disabled={saving}>
-          {saving ? 'Saving…' : 'Save recipe'}
-        </Button>
+        {named && !editingName ? (
+          <>
+            <span className="text-body font-semibold text-ink">{title}</span>
+            <button
+              type="button"
+              aria-label="Edit recipe name"
+              onClick={() => {
+                setSaveTitle(title);
+                setEditingName(true);
+              }}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-ink/5 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+            >
+              <PencilSimple size={16} aria-hidden="true" weight="bold" />
+            </button>
+          </>
+        ) : (
+          <>
+            <input
+              aria-label="Recipe name"
+              value={saveTitle}
+              onChange={(e) => setSaveTitle(e.target.value)}
+              placeholder="Family name (blank = the default)"
+              maxLength={255}
+              className="min-h-11 min-w-52 max-w-full rounded-md border border-border-strong bg-background px-3 py-2 text-body focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+            />
+            <Button onClick={() => void saveRecipe()} disabled={saving}>
+              {saving ? 'Saving…' : 'Save recipe'}
+            </Button>
+            {editingName && (
+              <Button variant="ghost" size="sm" onClick={() => setEditingName(false)} disabled={saving}>
+                Cancel
+              </Button>
+            )}
+          </>
+        )}
         {saveError && <span className="text-caption text-negative">{saveError}</span>}
       </div>
-      {saved && (
+      {saved && !editingName && (
         <p className="mt-2 text-caption text-body">
           Saved as <span className="font-semibold text-ink">{saved.title}</span> ·{' '}
           {new Date(saved.saved_at).toLocaleString()}
@@ -394,13 +424,14 @@ export function RecipeWorkspace({
         </section>
       )}
       {deleteError && <p className="mt-2 text-caption text-negative">{deleteError}</p>}
+      </div>
 
       {/* Two-column workspace: the recipe surface on the left, the running
           analysis pinned on the right (a background job, always visible). */}
-      <div className="mt-6 grid items-start gap-8 lg:grid-cols-2">
+      <div className="mt-6 grid min-h-0 flex-1 gap-8 lg:grid-cols-2">
         {/* LEFT — the tabbed workflow is the starting content; the logging
             surfaces (cook log, swaps, tags) sit below it. */}
-        <div className="min-w-0">
+        <div className="min-w-0 lg:overflow-y-auto lg:pe-1">
           {/* Workflow tabs — three headings; clicking one opens its view. */}
           <div
             className="flex gap-6 overflow-x-auto overflow-y-hidden border-b border-border"
@@ -493,13 +524,15 @@ export function RecipeWorkspace({
           )}
         </div>
 
-        {/* RIGHT — analysis: readiness, live status, and the nine views. */}
-        <aside aria-label="Analysis" className="min-w-0 lg:sticky lg:top-6">
-          <h2 className="font-display text-h2 text-ink">Analysis</h2>
-          <p className="mt-1 text-small text-muted">
-            The nine-view analysis runs in the background. Status updates appear below.
-          </p>
-          <div className="mt-4">
+        {/* RIGHT — analysis: heading pinned, its panels scroll independently. */}
+        <aside aria-label="Analysis" className="flex min-w-0 flex-col lg:overflow-hidden">
+          <div className="shrink-0">
+            <h2 className="font-display text-h2 text-ink">Analysis</h2>
+            <p className="mt-1 text-small text-muted">
+              The nine-view analysis runs in the background. Status updates appear below.
+            </p>
+          </div>
+          <div className="mt-4 min-h-0 flex-1 lg:overflow-y-auto lg:pe-1">
             <ReadinessPanel
               recipeId={recipeId}
               signedIn={signedIn}

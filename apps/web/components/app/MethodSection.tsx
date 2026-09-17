@@ -128,7 +128,7 @@ export function MethodSection({ recipeId, signedIn, onChange, onSaved }: MethodS
   };
 
   return (
-    <section aria-labelledby="method-heading" className="mt-12 border-t border-border pt-8">
+    <section aria-labelledby="method-heading">
       <h2 id="method-heading" className="font-display text-h2 text-ink">
         Cooking Method
       </h2>

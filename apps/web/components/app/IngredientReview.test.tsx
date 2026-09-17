@@ -77,19 +77,20 @@ describe('IngredientReview (D-12 actions)', () => {
     expect(screen.getByRole('menuitem', { name: 'Clear review' })).toBeInTheDocument();
   });
 
-  it('holds every row action in one kebab menu, nothing persistent on the row', async () => {
+  it('shows fast-access Edit / Clear review / Delete on each row, plus the kebab for the rest', async () => {
     (globalThis.fetch as jest.Mock).mockResolvedValue(
       listResponse([line({ needs_review: true })]),
     );
     render(<IngredientReview {...props()} />);
     await screen.findByText('Fish — 500g');
 
-    // only the kebab trigger is a persistent button on the row
+    // fast-access buttons sit on the row, outside the kebab
+    expect(screen.getByRole('button', { name: 'Edit Fish — 500g' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Clear review for Fish — 500g' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Delete Fish — 500g' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Ingredient actions for Fish — 500g' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Edit Fish — 500g' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Delete Fish — 500g' })).not.toBeInTheDocument();
 
-    // the kebab holds the full action set
+    // the kebab still holds the full action set
     await openActions('Fish — 500g');
     expect(screen.getByRole('menuitem', { name: 'Edit' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Mark as header' })).toBeInTheDocument();
@@ -97,6 +98,54 @@ describe('IngredientReview (D-12 actions)', () => {
     expect(screen.getByRole('menuitem', { name: 'Merge with next' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Clear review' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeInTheDocument();
+  });
+
+  it('persistent Edit button opens the inline editor directly', async () => {
+    (globalThis.fetch as jest.Mock).mockResolvedValue(listResponse(LINES));
+    render(<IngredientReview {...props()} />);
+    await screen.findByText('Fish — 500g');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit Fish — 500g' }));
+    expect(screen.getByLabelText('Display name')).toBeInTheDocument();
+  });
+
+  it('persistent Delete button removes the line (204 contract)', async () => {
+    const mock = globalThis.fetch as jest.Mock;
+    mock.mockResolvedValueOnce(listResponse(LINES)); // initial load
+    mock.mockResolvedValueOnce({ ok: true, status: 204, json: async () => ({}) }); // DELETE
+    mock.mockResolvedValue(listResponse(LINES.slice(1))); // refresh
+
+    render(<IngredientReview {...props()} />);
+    await screen.findByText('Fish — 500g');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Delete Fish — 500g' }));
+    expect(await screen.findByText('Fenugreek seeds 1 tsp')).toBeInTheDocument();
+    expect(screen.queryByText('Fish — 500g')).not.toBeInTheDocument();
+
+    const deleteCalls = mock.mock.calls.filter((c) => {
+      const [url, init] = c as [string, RequestInit];
+      return url.includes('/lines/l1') && init.method === 'DELETE';
+    });
+    expect(deleteCalls.length).toBe(1);
+  });
+
+  it('persistent Clear review sends needs_review false', async () => {
+    const mock = globalThis.fetch as jest.Mock;
+    mock.mockResolvedValueOnce(listResponse([line({ needs_review: true })])); // initial load
+    mock.mockResolvedValueOnce(okResponse({})); // PATCH
+    mock.mockResolvedValue(listResponse([line({ needs_review: false })])); // refresh
+
+    render(<IngredientReview {...props()} />);
+    await screen.findByText('Fish — 500g');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Clear review for Fish — 500g' }));
+
+    const patchCalls = mock.mock.calls.filter((c) => {
+      const [url, init] = c as [string, RequestInit];
+      return url.includes('/lines/l1') && init.method === 'PATCH';
+    });
+    const body = JSON.parse((patchCalls[0] as [string, RequestInit])[1].body as string);
+    expect(body.needs_review).toBe(false);
   });
 
   it('D-11: shows OCR confidence and visibly marks a low-confidence line', async () => {

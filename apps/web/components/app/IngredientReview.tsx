@@ -605,21 +605,54 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
                       )}
                     </div>
 
-                    {/* ACTIONS — one kebab overflow per row; nothing persistent
-                        outside it, so rows stay single-line and quiet. */}
+                    {/* ACTIONS — fast-access Edit / Clear review / Delete on every
+                        row, plus a kebab overflow for the remaining line actions. */}
                     {signedIn && (
-                      <div data-ing-menu className="relative shrink-0">
+                      <div className="flex shrink-0 items-center gap-1">
                         <button
                           type="button"
-                          aria-label={`Ingredient actions for ${line.display_name}`}
-                          aria-haspopup="menu"
-                          aria-expanded={menuOpenId === line.id}
-                          onClick={() => setMenuOpenId(menuOpenId === line.id ? null : line.id)}
-                          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted transition-colors hover:bg-ink/5 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                          aria-label={`Edit ${line.display_name}`}
+                          onClick={() => beginEdit(line)}
+                          disabled={saving}
+                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-caption font-semibold text-muted transition-colors hover:bg-ink/5 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold disabled:text-faint"
                         >
-                          <DotsThreeVertical size={18} aria-hidden="true" weight="bold" />
+                          <PencilSimple size={14} aria-hidden="true" weight="bold" />
+                          Edit
                         </button>
-                        {menuOpenId === line.id && (
+                        {line.needs_review && (
+                          <button
+                            type="button"
+                            aria-label={`Clear review for ${line.display_name}`}
+                            onClick={() => void clearReview(line)}
+                            disabled={saving}
+                            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-caption font-semibold text-gold transition-colors hover:bg-gold/10 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold disabled:text-faint"
+                          >
+                            <Check size={14} aria-hidden="true" weight="bold" />
+                            Clear review
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          aria-label={`Delete ${line.display_name}`}
+                          onClick={() => void removeLine(line)}
+                          disabled={saving}
+                          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-caption font-semibold text-negative transition-colors hover:bg-negative/10 hover:text-negative focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold disabled:text-faint"
+                        >
+                          <Trash size={14} aria-hidden="true" weight="bold" />
+                          Delete
+                        </button>
+                        <div data-ing-menu className="relative shrink-0">
+                          <button
+                            type="button"
+                            aria-label={`Ingredient actions for ${line.display_name}`}
+                            aria-haspopup="menu"
+                            aria-expanded={menuOpenId === line.id}
+                            onClick={() => setMenuOpenId(menuOpenId === line.id ? null : line.id)}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted transition-colors hover:bg-ink/5 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                          >
+                            <DotsThreeVertical size={18} aria-hidden="true" weight="bold" />
+                          </button>
+                          {menuOpenId === line.id && (
                           <div
                             role="menu"
                             aria-label={`Actions for ${line.display_name}`}
@@ -685,6 +718,7 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
                             </button>
                           </div>
                         )}
+                      </div>
                       </div>
                     )}
                   </div>

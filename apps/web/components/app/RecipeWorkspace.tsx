@@ -4,7 +4,7 @@
 // method, readiness + analyse, analysis status). The product flow lives in
 // section order; nothing here is decorative.
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, DotsThreeVertical } from '@phosphor-icons/react';
 import { Heading } from '@/components/ui/Typography';
 import { Button } from '@/components/ui/Button';
@@ -79,6 +79,10 @@ export function RecipeWorkspace({
     }
     sectionTopRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
   }, [activeTab]);
+
+  /** true once the recipe has at least one cook log — swaps only surface then. */
+  const [hasCookLog, setHasCookLog] = useState(false);
+  const handleCookLogsChanged = useCallback((count: number) => setHasCookLog(count > 0), []);
 
   /**
    * D-22 (D1): the visible Save action. The artifact set already persists in
@@ -394,20 +398,12 @@ export function RecipeWorkspace({
       {/* Two-column workspace: the recipe surface on the left, the running
           analysis pinned on the right (a background job, always visible). */}
       <div className="mt-6 grid items-start gap-8 lg:grid-cols-2">
-        {/* LEFT — the recipe surface: logging sections, then the tabbed
-            ingredient/method/shopping workflow. */}
+        {/* LEFT — the tabbed workflow is the starting content; the logging
+            surfaces (cook log, swaps, tags) sit below it. */}
         <div className="min-w-0">
-          {signedIn && (
-            <>
-              <CookSection recipeId={recipeId} />
-              <SwapSection recipeId={recipeId} lines={lines} onApplied={() => void reloadLines()} />
-              <TagsSection recipeId={recipeId} signedIn={signedIn} />
-            </>
-          )}
-
           {/* Workflow tabs — three headings; clicking one opens its view. */}
           <div
-            className="mt-6 flex gap-6 overflow-x-auto overflow-y-hidden border-b border-border"
+            className="flex gap-6 overflow-x-auto overflow-y-hidden border-b border-border"
             role="tablist"
             aria-label="Recipe sections"
           >
@@ -477,6 +473,24 @@ export function RecipeWorkspace({
               </Button>
             )}
           </div>
+
+          {/* Logging surfaces — cook log first; swaps only once a cook exists. */}
+          {signedIn && (
+            <>
+              <CookSection recipeId={recipeId} onLogsChanged={handleCookLogsChanged} />
+              {hasCookLog && (
+                <SwapSection recipeId={recipeId} lines={lines} onApplied={() => void reloadLines()} />
+              )}
+              <details className="mt-6 rounded-lg border border-border bg-surface">
+                <summary className="cursor-pointer list-none px-5 py-4 text-small font-semibold text-ink">
+                  Tags
+                </summary>
+                <div className="border-t border-border px-5 py-4">
+                  <TagsSection recipeId={recipeId} signedIn={signedIn} bare />
+                </div>
+              </details>
+            </>
+          )}
         </div>
 
         {/* RIGHT — analysis: readiness, live status, and the nine views. */}

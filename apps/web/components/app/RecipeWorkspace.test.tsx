@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RecipeWorkspace } from '@/components/app/RecipeWorkspace';
@@ -45,7 +46,11 @@ jest.mock('@/components/app/ShoppingSection', () => ({
   ShoppingSection: () => <p>Shopping section</p>,
 }));
 jest.mock('@/components/app/CookSection', () => ({
-  CookSection: () => <p>Cook section</p>,
+  CookSection: ({ onLogsChanged }: { onLogsChanged?: (count: number) => void }) => {
+    // Simulate an existing cook log so the swaps surface renders in tests.
+    useEffect(() => onLogsChanged?.(1), [onLogsChanged]);
+    return <p>Cook section</p>;
+  },
 }));
 jest.mock('@/components/app/SwapSection', () => ({
   SwapSection: () => <p>Swap section</p>,

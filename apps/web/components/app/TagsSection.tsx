@@ -13,9 +13,12 @@ import { api, ApiError } from '@/lib/api';
 export interface TagsSectionProps {
   recipeId: string;
   signedIn: boolean;
+  /** Render just the content — no card border or heading. The accordion
+   *  wrapper's summary supplies the label. */
+  bare?: boolean;
 }
 
-export function TagsSection({ recipeId, signedIn }: TagsSectionProps) {
+export function TagsSection({ recipeId, signedIn, bare = false }: TagsSectionProps) {
   const [tags, setTags] = useState<string[] | null>(null);
   const [draft, setDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -74,10 +77,15 @@ export function TagsSection({ recipeId, signedIn }: TagsSectionProps) {
   if (!signedIn) return null; // the tags endpoints are Bearer-only
 
   return (
-    <section aria-labelledby="tags-heading" className="mt-6 rounded-lg border border-border bg-surface p-5">
-      <h2 id="tags-heading" className="text-small font-semibold text-ink">
-        Tags
-      </h2>
+    <section
+      aria-labelledby={bare ? undefined : 'tags-heading'}
+      className={bare ? '' : 'mt-6 rounded-lg border border-border bg-surface p-5'}
+    >
+      {!bare && (
+        <h2 id="tags-heading" className="text-small font-semibold text-ink">
+          Tags
+        </h2>
+      )}
       <p className="mt-1 text-caption text-muted">
         Free-text tags help you find this recipe later by name, ingredient, or tag.
       </p>

@@ -49,7 +49,15 @@ function photoUrl(uri: string): string {
   return uri;
 }
 
-export function CookSection({ recipeId }: { recipeId: string }) {
+export function CookSection({
+  recipeId,
+  onLogsChanged,
+}: {
+  recipeId: string;
+  /** Reports the cook-log count after each load — the workspace uses it to
+   *  reveal the swaps surface once the first cook exists. */
+  onLogsChanged?: (count: number) => void;
+}) {
   const [last, setLast] = useState<LastCook | null>(null);
   const [logs, setLogs] = useState<CookLog[]>([]);
   const [open, setOpen] = useState(false);
@@ -91,6 +99,7 @@ export function CookSection({ recipeId }: { recipeId: string }) {
       setLast(lastWire);
       const items = Array.isArray(listWire?.items) ? listWire.items : [];
       setLogs(items);
+      onLogsChanged?.(items.length);
       // D-4: only fetch the photo when the log actually has one — a missing
       // photo is an expected empty state, never a 404 GET (no console noise).
       await loadPhoto(items[0]?.has_photo ? items[0]?.cook_log_id : undefined);
@@ -101,12 +110,13 @@ export function CookSection({ recipeId }: { recipeId: string }) {
       if (err instanceof ApiError && err.status === 404) {
         setLast(null);
         setLogs([]);
+        onLogsChanged?.(0);
         setPhoto(null);
         return;
       }
       setError(err instanceof Error ? err.message : 'Could not load the cook log');
     }
-  }, [recipeId, loadPhoto]);
+  }, [recipeId, loadPhoto, onLogsChanged]);
 
   useEffect(() => {
     void load();

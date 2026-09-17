@@ -154,7 +154,7 @@ export function CreateView({ signedIn, accountId, onBack, onParsed, onUploaded }
   };
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="max-w-4xl">
       <button
         type="button"
         onClick={onBack}
@@ -228,7 +228,8 @@ export function CreateView({ signedIn, accountId, onBack, onParsed, onUploaded }
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                   placeholder="Paste the full recipe here. For example:&#10;Meen Kuzhambu&#10;Fish 500g&#10;Tamarind, a lime-sized ball&#10;Fenugreek seeds 1 tsp&#10;Fenugreek leaves, a handful&#10;..."
-                  rows={14}
+                  rows={5}
+                  autoGrow
                   disabled={submitting}
                 />
               </Field>

@@ -21,6 +21,12 @@ step "schemas build (D-15: consumers import @recipe-systems/schemas via dist)"
 step "llm-adapter build (D-15/D-17: api + worker import it via dist)"
 (cd packages/llm-adapter && npm run build)
 
+step "rendering build (D-23: api + worker import the print engine via dist)"
+(cd packages/rendering && npm run build)
+
+step "ocr-adapter build (D-11: api imports @recipe-systems/ocr-adapter via dist)"
+(cd packages/ocr-adapter && npm run build)
+
 step "lint"
 npm run lint
 

@@ -183,7 +183,7 @@ describe('IngredientReview (D-12 actions)', () => {
     await clickAction('Fish — 500g', 'Edit');
     await userEvent.clear(screen.getByLabelText('Display name'));
     await userEvent.type(screen.getByLabelText('Display name'), 'Fish fillet 500g');
-    await userEvent.click(screen.getByRole('button', { name: 'Save line' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save ingredient' }));
 
     const patchCalls = (globalThis.fetch as jest.Mock).mock.calls.filter((c) => {
       const [url, init] = c as [string, RequestInit];
@@ -251,7 +251,7 @@ describe('IngredientReview (D-12 actions)', () => {
     render(<IngredientReview {...props()} />);
     await screen.findByText('Fish — 500g');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Add line' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Add ingredient' }));
     expect(await screen.findByText('New ingredient')).toBeInTheDocument();
 
     await clickAction('New ingredient', 'Delete');
@@ -266,6 +266,24 @@ describe('IngredientReview (D-12 actions)', () => {
     });
     expect(delCalls.length).toBe(1);
     expect((delCalls[0] as [string, RequestInit])[1].body).toBeUndefined();
+  });
+
+  it('Add ingredient does not mark the analysis stale until Save ingredient', async () => {
+    const created = line({ id: 'l-new', display_name: 'New ingredient' });
+    const afterAdd = [...LINES, created];
+    const onChanged = jest.fn();
+    const mock = globalThis.fetch as jest.Mock;
+
+    mock.mockResolvedValueOnce(listResponse(LINES)); // initial load
+    mock.mockResolvedValueOnce(okResponse(created)); // POST add
+    mock.mockResolvedValue(listResponse(afterAdd)); // refresh + added re-fetch
+
+    render(<IngredientReview {...props({ onChanged })} />);
+    await screen.findByText('Fish — 500g');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Add ingredient' }));
+    expect(await screen.findByLabelText('Display name')).toHaveValue('New ingredient');
+    expect(onChanged).not.toHaveBeenCalled();
   });
 
   it('fires onChanged after a user mutation (never on load)', async () => {
@@ -373,7 +391,7 @@ describe('IngredientReview (D-12 actions)', () => {
     (globalThis.fetch as jest.Mock).mockResolvedValue(listResponse(LINES));
 
     await clickAction('Fish — 500g', 'Edit');
-    await userEvent.click(screen.getByRole('button', { name: 'Save line' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save ingredient' }));
     expect(await screen.findByText(/changed elsewhere/)).toBeInTheDocument();
   });
 

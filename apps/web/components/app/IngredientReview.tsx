@@ -341,14 +341,15 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
         body: JSON.stringify({ display_name: 'New ingredient', include_on_list: true }),
       });
       await refresh();
-      onChanged?.();
+      // NOTE: no onChanged here — creating the draft row must not mark the
+      // analysis stale. The stale mark fires on save (saveEdit) only.
       const added = (await api<{ items: WireLine[] }>(`/recipes/${recipeId}/lines`)).items;
       const last = added[added.length - 1];
       if (last && lines) {
         beginEdit(last);
       }
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not add a line.');
+      setError(err instanceof ApiError ? err.message : 'Could not add the ingredient.');
     } finally {
       setSaving(false);
     }
@@ -418,7 +419,7 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
         {signedIn && (
           <Button size="sm" variant="outline" onClick={() => void addLine()} disabled={saving}>
             <Plus size={14} aria-hidden="true" weight="bold" />
-            Add line
+            Add ingredient
           </Button>
         )}
       </div>
@@ -508,7 +509,7 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Button type="submit" size="sm" disabled={saving || editor.display_name.trim() === ''}>
-                      {saving ? 'Saving...' : 'Save line'}
+                      {saving ? 'Saving...' : 'Save ingredient'}
                     </Button>
                     <Button type="button" size="sm" variant="ghost" onClick={cancelEdit} disabled={saving}>
                       Cancel
@@ -797,7 +798,7 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
             <div className="mt-4">
               <Button size="sm" variant="outline" onClick={() => void addLine()}>
                 <Plus size={14} aria-hidden="true" weight="bold" />
-                Add line
+                Add ingredient
               </Button>
             </div>
           )}

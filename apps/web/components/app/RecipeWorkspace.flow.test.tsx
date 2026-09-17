@@ -107,7 +107,7 @@ describe('authenticated paste → workspace → ingredient lines (reported-bug r
     await userEvent.click(screen.getByRole('menuitem', { name: 'Edit' }));
     await userEvent.clear(screen.getByLabelText('Display name'));
     await userEvent.type(screen.getByLabelText('Display name'), '1 lb ground beef (85/15)');
-    await userEvent.click(screen.getByRole('button', { name: 'Save line' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Save ingredient' }));
 
     const patch = (globalThis.fetch as jest.Mock).mock.calls.find((c) => {
       const [url, init] = c as [string, RequestInit];

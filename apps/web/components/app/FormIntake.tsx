@@ -6,7 +6,7 @@
 // which produces the SAME corrected object as paste/photo — the returned lines
 // feed the existing review/analysis flow unchanged.
 
-import { useState } from 'react';
+import { forwardRef, useImperativeHandle, useState } from 'react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Field } from '@/components/ui/Field';
@@ -19,6 +19,14 @@ export interface FormIntakeProps {
   signedIn: boolean;
   accountId: string | null;
   onParsed: (recipeId: string, lines: WireLine[]) => void;
+  /** Report the form's in-flight state to the shared Add-a-recipe footer. */
+  onBusyChange?: (busy: boolean) => void;
+}
+
+/** Imperative handle so the shared Add-a-recipe footer can drive the form. */
+export interface FormIntakeHandle {
+  submit: () => void;
+  hasAnyName: () => boolean;
 }
 
 interface FormRow {
@@ -30,7 +38,8 @@ interface FormRow {
 let rowSeq = 0;
 const nextKey = (): string => `form-row-${++rowSeq}`;
 
-export function FormIntake({ signedIn, accountId, onParsed }: FormIntakeProps) {
+export const FormIntake = forwardRef<FormIntakeHandle, FormIntakeProps>(
+  function FormIntake({ signedIn, accountId, onParsed, onBusyChange }, ref) {
   const [rows, setRows] = useState<FormRow[]>([{ key: nextKey(), name: '', amount: '' }]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +60,7 @@ export function FormIntake({ signedIn, accountId, onParsed }: FormIntakeProps) {
       }));
     if (ingredients.length === 0) return;
     setSubmitting(true);
+    onBusyChange?.(true);
     setError(null);
     try {
       const result = await api<ParseTextResponse>('/recipes/form', {
@@ -75,10 +85,21 @@ export function FormIntake({ signedIn, accountId, onParsed }: FormIntakeProps) {
           : 'The server could not be reached. Check your connection and try again.',
       );
       setSubmitting(false);
+      onBusyChange?.(false);
     }
   };
 
   const hasAnyName = rows.some((r) => r.name.trim().length > 0);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      submit: () => void submit(),
+      hasAnyName: () => hasAnyName,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rows, submit],
+  );
 
   return (
     <form
@@ -147,13 +168,6 @@ export function FormIntake({ signedIn, accountId, onParsed }: FormIntakeProps) {
           </Alert>
         </div>
       )}
-
-      <div className="mt-5 flex flex-wrap items-center gap-3">
-        <Button type="submit" size="lg" disabled={submitting || !hasAnyName}>
-          {submitting ? 'Saving…' : 'Save and review'}
-        </Button>
-        <p className="text-caption text-faint">Produces the same structured lines as paste/photo.</p>
-      </div>
     </form>
   );
-}
+});

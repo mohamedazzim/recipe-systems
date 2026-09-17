@@ -605,95 +605,86 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
                       )}
                     </div>
 
-                    {/* ACTIONS — Edit / Clear review / Delete sit inline where
-                        the row has room; the remaining transforms stay in the
-                        overflow menu. */}
+                    {/* ACTIONS — one kebab overflow per row; nothing persistent
+                        outside it, so rows stay single-line and quiet. */}
                     {signedIn && (
-                      <div data-ing-menu className="flex w-full flex-wrap items-center justify-end gap-1 sm:w-auto sm:shrink-0">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => beginEdit(line)}
-                          disabled={saving}
-                          aria-label={`Edit ${line.display_name}`}
-                          className="text-ink hover:bg-ink/5 active:bg-ink/10"
+                      <div data-ing-menu className="relative shrink-0">
+                        <button
+                          type="button"
+                          aria-label={`Ingredient actions for ${line.display_name}`}
+                          aria-haspopup="menu"
+                          aria-expanded={menuOpenId === line.id}
+                          onClick={() => setMenuOpenId(menuOpenId === line.id ? null : line.id)}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted transition-colors hover:bg-ink/5 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
                         >
-                          <PencilSimple size={14} aria-hidden="true" weight="bold" />
-                          Edit
-                        </Button>
-                        {line.needs_review && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => void clearReview(line)}
-                            disabled={saving}
-                            aria-label={`Clear review for ${line.display_name}`}
-                            className="text-ink hover:bg-ink/5 active:bg-ink/10"
+                          <DotsThreeVertical size={18} aria-hidden="true" weight="bold" />
+                        </button>
+                        {menuOpenId === line.id && (
+                          <div
+                            role="menu"
+                            aria-label={`Actions for ${line.display_name}`}
+                            className="absolute right-0 top-10 z-20 min-w-44 overflow-hidden rounded-lg border border-border bg-surface py-1 shadow-card"
                           >
-                            <Check size={14} aria-hidden="true" weight="bold" />
-                            Clear review
-                          </Button>
-                        )}
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => void removeLine(line)}
-                          disabled={saving}
-                          aria-label={`Delete ${line.display_name}`}
-                          className="text-negative hover:bg-negative/10 active:bg-negative/15"
-                        >
-                          <Trash size={14} aria-hidden="true" weight="bold" />
-                          Delete
-                        </Button>
-                        <div className="relative">
-                          <button
-                            type="button"
-                            aria-label={`More actions for ${line.display_name}`}
-                            aria-haspopup="menu"
-                            aria-expanded={menuOpenId === line.id}
-                            onClick={() => setMenuOpenId(menuOpenId === line.id ? null : line.id)}
-                            className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted transition-colors hover:bg-ink/5 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
-                          >
-                            <DotsThreeVertical size={18} aria-hidden="true" weight="bold" />
-                          </button>
-                          {menuOpenId === line.id && (
-                            <div
-                              role="menu"
-                              aria-label={`More actions for ${line.display_name}`}
-                              className="absolute right-0 top-10 z-20 min-w-44 overflow-hidden rounded-lg border border-border bg-surface py-1 shadow-card"
+                            <button
+                              role="menuitem"
+                              onClick={() => { setMenuOpenId(null); beginEdit(line); }}
+                              disabled={saving}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-small font-medium text-ink transition-colors hover:bg-ink/5 disabled:text-faint"
                             >
+                              <PencilSimple size={14} aria-hidden="true" weight="bold" />
+                              Edit
+                            </button>
+                            <button
+                              role="menuitem"
+                              onClick={() => { setMenuOpenId(null); void toggleHeader(line); }}
+                              disabled={saving}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-small font-medium text-ink transition-colors hover:bg-ink/5 disabled:text-faint"
+                            >
+                              Mark as header
+                            </button>
+                            <button
+                              role="menuitem"
+                              onClick={() => {
+                                setMenuOpenId(null);
+                                setSplittingId(isSplitting ? null : line.id);
+                                setSplitPoint('');
+                              }}
+                              disabled={saving}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-small font-medium text-ink transition-colors hover:bg-ink/5 disabled:text-faint"
+                            >
+                              <Scissors size={14} aria-hidden="true" weight="bold" />
+                              Split line
+                            </button>
+                            <button
+                              role="menuitem"
+                              onClick={() => { setMenuOpenId(null); void mergeWithNext(line); }}
+                              disabled={saving}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-small font-medium text-ink transition-colors hover:bg-ink/5 disabled:text-faint"
+                            >
+                              Merge with next
+                            </button>
+                            {line.needs_review && (
                               <button
                                 role="menuitem"
-                                onClick={() => { setMenuOpenId(null); void toggleHeader(line); }}
+                                onClick={() => { setMenuOpenId(null); void clearReview(line); }}
                                 disabled={saving}
                                 className="flex w-full items-center gap-2 px-3 py-2 text-left text-small font-medium text-ink transition-colors hover:bg-ink/5 disabled:text-faint"
                               >
-                                Mark as header
+                                Clear review
                               </button>
-                              <button
-                                role="menuitem"
-                                onClick={() => {
-                                  setMenuOpenId(null);
-                                  setSplittingId(isSplitting ? null : line.id);
-                                  setSplitPoint('');
-                                }}
-                                disabled={saving}
-                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-small font-medium text-ink transition-colors hover:bg-ink/5 disabled:text-faint"
-                              >
-                                <Scissors size={14} aria-hidden="true" weight="bold" />
-                                Split line
-                              </button>
-                              <button
-                                role="menuitem"
-                                onClick={() => { setMenuOpenId(null); void mergeWithNext(line); }}
-                                disabled={saving}
-                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-small font-medium text-ink transition-colors hover:bg-ink/5 disabled:text-faint"
-                              >
-                                Merge with next
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                            )}
+                            <div className="my-1 border-t border-border" />
+                            <button
+                              role="menuitem"
+                              onClick={() => { setMenuOpenId(null); void removeLine(line); }}
+                              disabled={saving}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-small font-medium text-negative transition-colors hover:bg-negative/10 disabled:text-faint"
+                            >
+                              <Trash size={14} aria-hidden="true" weight="bold" />
+                              Delete
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
@@ -788,6 +779,9 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
 
       <p className="mt-4 text-caption text-faint">
         {ingredientLines.length} ingredient{ingredientLines.length === 1 ? '' : 's'}
+        {ingredientLines.some((l) => l.needs_review)
+          ? ` · ${ingredientLines.filter((l) => l.needs_review).length} still flagged for review`
+          : ' · none flagged for review'}
         {headerLines.length > 0
           ? ` · ${headerLines.length} header${headerLines.length === 1 ? '' : 's'}`
           : ''}{' '}

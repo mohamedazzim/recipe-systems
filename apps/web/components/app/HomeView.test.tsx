@@ -101,24 +101,25 @@ describe('HomeView', () => {
     expect(screen.queryByLabelText('Search your library')).not.toBeInTheDocument();
   });
 
-  it('signed in: shows exactly the 2 most recent recipes, never the full list', () => {
-    const names = ['Recipe one', 'Recipe two', 'Recipe three', 'Recipe four'];
+  it('signed in: shows exactly the 4 most recent recipes, never the full list', () => {
+    const names = ['Recipe one', 'Recipe two', 'Recipe three', 'Recipe four', 'Recipe five'];
     const p = props({
       library: names.map((name, i) => ({
         recipe_id: `r${i}`,
         name,
-        date: `2026-09-${String(16 - i).padStart(2, '0')}T10:00:00.000Z`,
+        date: `2026-09-${String(17 - i).padStart(2, '0')}T10:00:00.000Z`,
         family: null,
         has_cook_log: false,
         last_cooked_at: null,
       })),
     });
     render(<HomeView {...p} />);
-    // newest-first: first two only
+    // newest-first: first four only
     expect(screen.getByText('Recipe one')).toBeInTheDocument();
     expect(screen.getByText('Recipe two')).toBeInTheDocument();
-    expect(screen.queryByText('Recipe three')).not.toBeInTheDocument();
-    expect(screen.queryByText('Recipe four')).not.toBeInTheDocument();
+    expect(screen.getByText('Recipe three')).toBeInTheDocument();
+    expect(screen.getByText('Recipe four')).toBeInTheDocument();
+    expect(screen.queryByText('Recipe five')).not.toBeInTheDocument();
   });
 
   it('D6: renders the post-delete confirmation notice', () => {

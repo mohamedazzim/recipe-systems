@@ -24,6 +24,9 @@ export function LibraryView({ library, onBack, onOpenRecipe }: LibraryViewProps)
   const [results, setResults] = useState<LibraryRecipe[] | null>(null);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+  /** Client-side status filter — only the two states the list wire carries.
+   *  "Needs review" / tag filters await a list field (TODO, no fabrication). */
+  const [filter, setFilter] = useState<'all' | 'cooked'>('all');
 
   const runSearch = async (q: string): Promise<void> => {
     const value = q.trim();
@@ -53,7 +56,9 @@ export function LibraryView({ library, onBack, onOpenRecipe }: LibraryViewProps)
     setSearchError(null);
   };
 
-  const list = results ?? library ?? [];
+  const list = (results ?? library ?? []).filter(
+    (recipe) => filter === 'all' || recipe.has_cook_log,
+  );
 
   return (
     <div>
@@ -111,6 +116,29 @@ export function LibraryView({ library, onBack, onOpenRecipe }: LibraryViewProps)
         </div>
       )}
 
+      {/* Status filter chips — the pill tier (same treatment as the analysis
+          view tabs). */}
+      <div className="mt-4 flex gap-1" role="group" aria-label="Filter library">
+        {(
+          [
+            ['all', 'All'],
+            ['cooked', 'Has cook log'],
+          ] as const
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            aria-pressed={filter === key}
+            onClick={() => setFilter(key)}
+            className={`whitespace-nowrap rounded-md px-3.5 py-2 text-small font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold ${
+              filter === key ? 'bg-ink text-canvas' : 'text-muted hover:bg-ink/5 hover:text-ink'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       {list.length === 0 ? (
         <div className="mt-6">
           <EmptyState
@@ -132,7 +160,7 @@ export function LibraryView({ library, onBack, onOpenRecipe }: LibraryViewProps)
                 className="group flex w-full items-center justify-between gap-4 rounded-sm px-4 py-4 text-left focus-visible:outline-2 focus-visible:outline-offset--2 focus-visible:outline-gold sm:px-5"
               >
                 <span className="min-w-0">
-                  <span className="block truncate text-small font-semibold text-ink">
+                  <span className="block truncate text-body font-semibold text-ink">
                     {recipe.name}
                   </span>
                   <span className="mt-0.5 block text-caption text-faint">

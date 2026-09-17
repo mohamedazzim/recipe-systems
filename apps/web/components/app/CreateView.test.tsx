@@ -44,12 +44,12 @@ describe('CreateView (paste + photo intake)', () => {
     return new File([new Uint8Array(size)], name, { type });
   }
 
-  it('photo upload control renders behind the Photo tab with a picker and a disabled upload action', async () => {
+  it('photo upload control renders behind the Photo tab with a picker and a shared footer action', async () => {
     render(<CreateView {...props()} />);
     await userEvent.click(screen.getByRole('tab', { name: 'Photo' }));
     expect(screen.getByText('Drop a photo here, or click to choose a file')).toBeInTheDocument();
     expect(screen.getByLabelText('Choose recipe photo')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Upload photo' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Analyze recipe' })).toBeEnabled();
     expect(screen.queryByText('Coming soon.')).not.toBeInTheDocument();
   });
 
@@ -86,9 +86,9 @@ describe('CreateView (paste + photo intake)', () => {
     render(<CreateView {...p} />);
     await userEvent.click(screen.getByRole('tab', { name: 'Photo' }));
     await userEvent.upload(screen.getByLabelText('Choose recipe photo'), imageFile());
-    await userEvent.click(screen.getByRole('button', { name: 'Upload photo' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Analyze recipe' }));
 
-    expect(await screen.findByRole('button', { name: 'Uploading photo & reading the card…' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Working…' })).toBeInTheDocument();
 
     const [url, init] = (globalThis.fetch as jest.Mock).mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/recipes/upload');
@@ -113,7 +113,7 @@ describe('CreateView (paste + photo intake)', () => {
     render(<CreateView {...p} />);
     await userEvent.click(screen.getByRole('tab', { name: 'Photo' }));
     await userEvent.upload(screen.getByLabelText('Choose recipe photo'), imageFile());
-    await userEvent.click(screen.getByRole('button', { name: 'Upload photo' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Analyze recipe' }));
 
     expect(await screen.findByText('OCR is unavailable; the photo was saved. Retry the upload.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
@@ -130,9 +130,9 @@ describe('CreateView (paste + photo intake)', () => {
     const p = props();
     render(<CreateView {...p} />);
     await userEvent.type(screen.getByLabelText('Recipe text'), 'Meen Kuzhambu');
-    await userEvent.click(screen.getByRole('button', { name: 'Parse and review' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Analyze recipe' }));
 
-    expect(await screen.findByRole('button', { name: 'Parsing...' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Working…' })).toBeInTheDocument();
     const [url, init] = (globalThis.fetch as jest.Mock).mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/recipes/parse-text');
     expect(init.method).toBe('POST');
@@ -150,7 +150,7 @@ describe('CreateView (paste + photo intake)', () => {
     });
     render(<CreateView {...props()} />);
     await userEvent.type(screen.getByLabelText('Recipe text'), 'x');
-    await userEvent.click(screen.getByRole('button', { name: 'Parse and review' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Analyze recipe' }));
     expect(await screen.findByText('text must be a non-empty string')).toBeInTheDocument();
   });
 
@@ -173,9 +173,9 @@ describe('CreateView (paste + photo intake)', () => {
     await userEvent.type(screen.getByLabelText('Ingredient 2'), 'Salt');
     await userEvent.type(screen.getByLabelText('Amount 2'), 'to taste');
 
-    await userEvent.click(screen.getByRole('button', { name: 'Save and review' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Analyze recipe' }));
 
-    expect(await screen.findByRole('button', { name: 'Saving…' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Working…' })).toBeInTheDocument();
     const [url, init] = (globalThis.fetch as jest.Mock).mock.calls[0] as [string, RequestInit];
     expect(url).toContain('/recipes/form');
     expect(init.method).toBe('POST');

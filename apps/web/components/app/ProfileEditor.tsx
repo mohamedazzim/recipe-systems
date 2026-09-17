@@ -74,19 +74,11 @@ export function ProfileEditor() {
   };
 
   return (
-    <section aria-labelledby="profile-heading" className="mt-6 rounded-lg border border-border bg-surface p-5">
-      <h3 id="profile-heading" className="text-small font-semibold text-ink">
-        Household restriction profile
-      </h3>
-      <p className="mt-1 text-caption text-muted">
-        Optional. A conflicting recipe highlights the conflicts first; unknown stays unknown. A
-        profile never deletes recipes.
-      </p>
-
+    <div>
       {!profile || !vocabulary ? (
-        <p className="mt-3 text-caption text-muted">Loading…</p>
+        <p className="text-caption text-muted">Loading…</p>
       ) : (
-        <div className="mt-3">
+        <div>
           <p className="text-caption font-semibold text-ink">Allergens</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {vocabulary.allergens.map((allergen) => (
@@ -154,6 +146,6 @@ export function ProfileEditor() {
           {error && <p className="mt-2 text-caption text-negative">{error}</p>}
         </div>
       )}
-    </section>
+    </div>
   );
 }

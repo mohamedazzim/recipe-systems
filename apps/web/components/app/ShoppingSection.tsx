@@ -136,10 +136,10 @@ export function ShoppingSection({ recipeId }: { recipeId: string }) {
       aria-labelledby="shopping-heading"
       className="mt-8 rounded-lg border border-border bg-surface p-5"
     >
-      <h2 id="shopping-heading" className="text-small font-semibold text-ink">
+      <h2 id="shopping-heading" className="font-display text-h2 text-ink">
         Shopping list
       </h2>
-      <p className="mt-1 text-caption text-muted">
+      <p className="mt-1 text-small text-muted">
         Generated from the structured object — one row per ingredient, grouped for the market.
       </p>
 

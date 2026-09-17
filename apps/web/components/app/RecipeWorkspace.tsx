@@ -348,11 +348,7 @@ export function RecipeWorkspace({
         </div>
       </div>
 
-      <p className="mt-2 text-caption text-faint">
-        {mode === 'home' ? 'Home explains.' : 'Chef briefs — the station card leads.'}
-      </p>
       {printError && <p className="mt-2 text-caption text-negative">{printError}</p>}
-
       {/* Save — a compact control in the hero, never a full card. */}
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <input
@@ -361,7 +357,7 @@ export function RecipeWorkspace({
           onChange={(e) => setSaveTitle(e.target.value)}
           placeholder="Family name (blank = the default)"
           maxLength={255}
-          className="min-w-52 max-w-full rounded-md border border-border-strong bg-background px-3 py-2 text-body focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+          className="min-h-11 min-w-52 max-w-full rounded-md border border-border-strong bg-background px-3 py-2 text-body focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
         />
         <Button onClick={() => void saveRecipe()} disabled={saving}>
           {saving ? 'Saving…' : 'Save recipe'}
@@ -462,6 +458,7 @@ export function RecipeWorkspace({
               error={analyseError}
               hasAnalysis={analysisId !== null}
               stale={analysisStale}
+              onReviewLines={() => setActiveTab('ingredients')}
             />
             <AnalysisPanel
               analysisId={analysisId}

@@ -30,6 +30,8 @@ export interface ReadinessPanelProps {
   hasAnalysis: boolean;
   /** The recipe changed since the current analysis — primary action re-analyses. */
   stale: boolean;
+  /** Jump back to the Ingredients panel from a blocked-line "Review" link. */
+  onReviewLines?: () => void;
 }
 
 export function ReadinessPanel({
@@ -41,6 +43,7 @@ export function ReadinessPanel({
   error,
   hasAnalysis,
   stale,
+  onReviewLines,
 }: ReadinessPanelProps) {
   const [state, setState] = useState<EnqueueState | null>(null);
   const [readyError, setReadyError] = useState<string | null>(null);
@@ -102,11 +105,39 @@ export function ReadinessPanel({
                         {state.blockers.length} line{state.blockers.length === 1 ? '' : 's'} need
                         your attention before analysis can begin.
                       </p>
-                      <ul className="mt-2 list-inside list-disc text-small text-body">
+                      <ul className="mt-2 space-y-1 text-small text-body">
                         {state.blockers.map((b) => (
-                          <li key={b.line_id}>{b.display_name}</li>
+                          <li key={b.line_id} className="flex flex-wrap items-center justify-between gap-2">
+                            <span>{b.display_name}</span>
+                            {onReviewLines && (
+                              <button
+                                type="button"
+                                onClick={onReviewLines}
+                                className="text-caption font-semibold text-accent-strong underline-offset-2 hover:underline"
+                              >
+                                Review
+                              </button>
+                            )}
+                          </li>
                         ))}
                       </ul>
+                      {/* Locked preview — communicates what the analysis will
+                          unlock, without rendering live view content. */}
+                      <div className="mt-3 border-t border-gold/30 pt-3" aria-hidden="true">
+                        <p className="text-caption font-semibold text-muted">
+                          Once review is cleared, the analysis will open:
+                        </p>
+                        <ul className="mt-1 flex flex-wrap gap-1 text-caption text-faint">
+                          {['Why it works', 'Balance', 'Process', 'Substitutions', 'Regional'].map((label) => (
+                            <li
+                              key={label}
+                              className="rounded-md border border-border px-2.5 py-1"
+                            >
+                              {label}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     </div>
                   )}
                 </div>

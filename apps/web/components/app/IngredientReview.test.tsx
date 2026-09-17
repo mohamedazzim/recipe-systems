@@ -50,7 +50,7 @@ describe('IngredientReview (D-12 actions)', () => {
   }
 
   async function openActions(name: string) {
-    await userEvent.click(screen.getByRole('button', { name: `More actions for ${name}` }));
+    await userEvent.click(screen.getByRole('button', { name: `Ingredient actions for ${name}` }));
   }
 
   async function clickAction(name: string, label: string) {
@@ -73,28 +73,30 @@ describe('IngredientReview (D-12 actions)', () => {
     );
     render(<IngredientReview {...props()} />);
     expect(await screen.findByText('Review required')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Clear review for Chilli — 5 Nos' })).toBeInTheDocument();
+    await openActions('Chilli — 5 Nos');
+    expect(screen.getByRole('menuitem', { name: 'Clear review' })).toBeInTheDocument();
   });
 
-  it('keeps Edit, Clear review and Delete inline and the transforms in the overflow menu', async () => {
+  it('holds every row action in one kebab menu, nothing persistent on the row', async () => {
     (globalThis.fetch as jest.Mock).mockResolvedValue(
       listResponse([line({ needs_review: true })]),
     );
     render(<IngredientReview {...props()} />);
     await screen.findByText('Fish — 500g');
 
-    // the primary three sit on the row — no menu needed
-    expect(screen.getByRole('button', { name: 'Edit Fish — 500g' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Clear review for Fish — 500g' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Delete Fish — 500g' })).toBeInTheDocument();
+    // only the kebab trigger is a persistent button on the row
+    expect(screen.getByRole('button', { name: 'Ingredient actions for Fish — 500g' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit Fish — 500g' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Delete Fish — 500g' })).not.toBeInTheDocument();
 
-    // the transforms stay tucked in the overflow menu
+    // the kebab holds the full action set
     await openActions('Fish — 500g');
+    expect(screen.getByRole('menuitem', { name: 'Edit' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Mark as header' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Split line' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Merge with next' })).toBeInTheDocument();
-    expect(screen.queryByRole('menuitem', { name: 'Edit' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('menuitem', { name: 'Delete' })).not.toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Clear review' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeInTheDocument();
   });
 
   it('D-11: shows OCR confidence and visibly marks a low-confidence line', async () => {
@@ -129,7 +131,7 @@ describe('IngredientReview (D-12 actions)', () => {
     (globalThis.fetch as jest.Mock).mockResolvedValueOnce(okResponse(line()));
     (globalThis.fetch as jest.Mock).mockResolvedValue(listResponse(LINES));
 
-    await userEvent.click(screen.getByRole('button', { name: 'Edit Fish — 500g' }));
+    await clickAction('Fish — 500g', 'Edit');
     await userEvent.clear(screen.getByLabelText('Display name'));
     await userEvent.type(screen.getByLabelText('Display name'), 'Fish fillet 500g');
     await userEvent.click(screen.getByRole('button', { name: 'Save line' }));
@@ -203,7 +205,7 @@ describe('IngredientReview (D-12 actions)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Add line' }));
     expect(await screen.findByText('New ingredient')).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Delete New ingredient' }));
+    await clickAction('New ingredient', 'Delete');
     expect(await screen.findByText('Fish — 500g')).toBeInTheDocument();
     expect(screen.queryByText('New ingredient')).not.toBeInTheDocument();
     expect(screen.queryByText('Could not remove the line.')).not.toBeInTheDocument();
@@ -233,7 +235,7 @@ describe('IngredientReview (D-12 actions)', () => {
     // loading/hydrating must never be treated as a user change
     expect(onChanged).not.toHaveBeenCalled();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Delete Fish — 500g' }));
+    await clickAction('Fish — 500g', 'Delete');
     expect(onChanged).toHaveBeenCalledTimes(1);
   });
 
@@ -247,7 +249,7 @@ describe('IngredientReview (D-12 actions)', () => {
     });
     render(<IngredientReview {...props()} />);
     await screen.findByText('Fish — 500g');
-    await userEvent.click(screen.getByRole('button', { name: 'Delete Fish — 500g' }));
+    await clickAction('Fish — 500g', 'Delete');
     expect(await screen.findByText('Recipe not found')).toBeInTheDocument();
   });
 
@@ -258,7 +260,7 @@ describe('IngredientReview (D-12 actions)', () => {
 
     render(<IngredientReview {...props()} />);
     await screen.findByText('Review required');
-    await userEvent.click(screen.getByRole('button', { name: 'Clear review for Fish — 500g' }));
+    await clickAction('Fish — 500g', 'Clear review');
 
     const clearCalls = (globalThis.fetch as jest.Mock).mock.calls.filter((c) => {
       const [url, init] = c as [string, RequestInit];
@@ -321,7 +323,7 @@ describe('IngredientReview (D-12 actions)', () => {
     });
     (globalThis.fetch as jest.Mock).mockResolvedValue(listResponse(LINES));
 
-    await userEvent.click(screen.getByRole('button', { name: 'Edit Fish — 500g' }));
+    await clickAction('Fish — 500g', 'Edit');
     await userEvent.click(screen.getByRole('button', { name: 'Save line' }));
     expect(await screen.findByText(/changed elsewhere/)).toBeInTheDocument();
   });

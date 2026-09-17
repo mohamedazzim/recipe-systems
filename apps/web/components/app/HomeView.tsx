@@ -60,7 +60,7 @@ export function HomeView({
       aria-labelledby="start-heading"
       className="flex min-w-0 flex-col justify-center rounded-lg border-2 border-accent bg-accent/10 p-6"
     >
-      <h2 id="start-heading" className="font-display text-h2 text-accent-strong">
+      <h2 id="start-heading" className="font-display text-h2 text-ink">
         Start a new recipe
       </h2>
       <p className="mt-2 max-w-prose text-small text-body">
@@ -98,28 +98,20 @@ export function HomeView({
         </Text>
       </section>
 
-      {/* Four compact dashboard metrics — real where derivable, a truthful "—"
-          where the backend does not yet expose the value. */}
-      <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <div className="rounded-lg border border-border bg-surface p-4">
-          <p className="font-display text-2xl font-medium tabular text-ink">
+      {/* Dashboard metrics — only the two counts the backend actually exposes
+          (saved recipes, cook logs). No placeholder "—" padding. */}
+      <div className="mt-6 grid max-w-2xl grid-cols-2 gap-4">
+        <div className="rounded-lg border border-border bg-surface p-5">
+          <p className="font-display text-metric tabular text-ink">
             {signedIn && library !== null ? library.length : mine.length}
           </p>
-          <p className="mt-0.5 text-caption text-muted">Recipes saved</p>
+          <p className="mt-1 text-caption text-muted">Recipes saved</p>
         </div>
-        <div className="rounded-lg border border-border bg-surface p-4">
-          <p className="font-display text-2xl font-medium tabular text-ink">
+        <div className="rounded-lg border border-border bg-surface p-5">
+          <p className="font-display text-metric tabular text-ink">
             {signedIn && library !== null ? library.filter((r) => r.has_cook_log).length : 0}
           </p>
-          <p className="mt-0.5 text-caption text-muted">With cook logs</p>
-        </div>
-        <div className="rounded-lg border border-border bg-surface p-4">
-          <p className="font-display text-2xl font-medium tabular text-ink">—</p>
-          <p className="mt-0.5 text-caption text-muted">Need review</p>
-        </div>
-        <div className="rounded-lg border border-border bg-surface p-4">
-          <p className="font-display text-2xl font-medium tabular text-ink">—</p>
-          <p className="mt-0.5 text-caption text-muted">Analyses this month</p>
+          <p className="mt-1 text-caption text-muted">With cook logs</p>
         </div>
       </div>
 
@@ -130,7 +122,7 @@ export function HomeView({
 
           <section aria-labelledby="recent-heading" className="min-w-0 rounded-lg border border-border bg-surface p-5">
             <div className="flex items-baseline justify-between gap-4">
-              <h2 id="recent-heading" className="font-display text-h3 text-ink">
+              <h2 id="recent-heading" className="font-display text-h2 text-ink">
                 Recently updated
               </h2>
               <button
@@ -146,7 +138,7 @@ export function HomeView({
               <p className="mt-4 text-small text-muted">No recipes yet — start one on the left.</p>
             ) : (
               <ul className="mt-3 divide-y divide-border">
-                {library.slice(0, 2).map((recipe) => (
+                {library.slice(0, 4).map((recipe) => (
                   <li key={recipe.recipe_id}>
                     <button
                       type="button"
@@ -154,7 +146,7 @@ export function HomeView({
                       className="group flex w-full items-center justify-between gap-4 rounded-sm px-1 py-3 text-left focus-visible:outline-2 focus-visible:outline-offset--2 focus-visible:outline-gold"
                     >
                       <span className="min-w-0">
-                        <span className="block truncate text-small font-semibold text-ink">
+                        <span className="block truncate text-body font-semibold text-ink">
                           {recipe.name}
                         </span>
                         <span className="mt-0.5 block text-caption text-faint">
@@ -268,14 +260,27 @@ export function HomeView({
       )}
 
       {signedIn && (
-        <section aria-labelledby="account-heading" className="mt-12 border-t border-border pt-8">
+        <section aria-labelledby="account-heading" className="mt-8 border-t border-border pt-8">
           <h2 id="account-heading" className="font-display text-h2 text-ink">
             Account
           </h2>
           <p className="mt-2 max-w-prose text-small text-muted">
             Your work is saved to your account. Sign out from the header when you are done.
           </p>
-          <ProfileEditor />
+          <details className="mt-4 rounded-lg border border-border bg-surface">
+            <summary className="cursor-pointer list-none px-5 py-4 font-sans text-h3 text-ink">
+              Household restriction profile
+            </summary>
+            <div className="border-t border-border px-5 py-4">
+              <p className="text-caption text-muted">
+                Optional. A conflicting recipe highlights the conflicts first; unknown stays unknown.
+                A profile never deletes recipes.
+              </p>
+              <div className="mt-3">
+                <ProfileEditor />
+              </div>
+            </div>
+          </details>
           <div className="mt-4">
             <Button variant="outline" onClick={onSignOut}>
               Sign out

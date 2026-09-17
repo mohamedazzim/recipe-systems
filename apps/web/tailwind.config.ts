@@ -56,6 +56,7 @@ const config: Config = {
         h1: ['2rem', { lineHeight: '1.15', letterSpacing: '-0.015em', fontWeight: '600' }],
         h2: ['1.375rem', { lineHeight: '1.25', letterSpacing: '-0.01em', fontWeight: '600' }],
         h3: ['1.0625rem', { lineHeight: '1.35', fontWeight: '600' }],
+        metric: ['1.75rem', { lineHeight: '1.1', fontWeight: '500' }],
         body: ['1rem', { lineHeight: '1.6' }],
         small: ['0.875rem', { lineHeight: '1.55' }],
         caption: ['0.8125rem', { lineHeight: '1.45' }],

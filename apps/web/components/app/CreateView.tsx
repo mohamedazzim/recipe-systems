@@ -6,7 +6,7 @@
 // lines carry ocr_confidence + needs_review so the review surface can flag
 // low-confidence lines before analysis.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Camera } from '@phosphor-icons/react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
@@ -16,7 +16,7 @@ import { Heading, Text } from '@/components/ui/Typography';
 import { api, apiUpload, ApiError } from '@/lib/api';
 import type { ParseTextResponse, UploadResponse, WireLine } from '@/lib/types';
 import { previewOf, recordSessionRecipe } from '@/lib/flow';
-import { FormIntake } from '@/components/app/FormIntake';
+import { FormIntake, FormIntakeHandle } from '@/components/app/FormIntake';
 
 export interface CreateViewProps {
   signedIn: boolean;
@@ -43,6 +43,11 @@ export function CreateView({ signedIn, accountId, onBack, onParsed, onUploaded }
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+  // Shared-footer validation error + the form tab's imperative handle.
+  const [footerError, setFooterError] = useState<string | null>(null);
+  const [formSubmitting, setFormSubmitting] = useState(false);
+  const formRef = useRef<FormIntakeHandle>(null);
 
   useEffect(() => {
     return () => {
@@ -73,8 +78,7 @@ export function CreateView({ signedIn, accountId, onBack, onParsed, onUploaded }
     }
   };
 
-  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    const selected = e.target.files?.[0] ?? null;
+  const handleFile = (selected: File | null): void => {
     if (!selected) return;
     setUploadError(null);
     if (!ACCEPTED_IMAGE_TYPES.includes(selected.type)) {
@@ -92,6 +96,34 @@ export function CreateView({ signedIn, accountId, onBack, onParsed, onUploaded }
     setFile(selected);
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(URL.createObjectURL(selected));
+  };
+
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    handleFile(e.target.files?.[0] ?? null);
+  };
+
+  /** The single shared footer action — validates whichever tab is active. */
+  const handleFooterSubmit = (): void => {
+    setFooterError(null);
+    if (mode === 'paste') {
+      if (text.trim().length === 0) {
+        setFooterError('Paste some recipe text first.');
+        return;
+      }
+      void submit();
+    } else if (mode === 'form') {
+      if (!formRef.current || !formRef.current.hasAnyName()) {
+        setFooterError('Add at least one ingredient.');
+        return;
+      }
+      formRef.current.submit();
+    } else {
+      if (!file) {
+        setFooterError('Choose a photo first.');
+        return;
+      }
+      void upload();
+    }
   };
 
   const upload = async (): Promise<void> => {
@@ -200,17 +232,17 @@ export function CreateView({ signedIn, accountId, onBack, onParsed, onUploaded }
                   disabled={submitting}
                 />
               </Field>
-              <div className="mt-5 flex flex-wrap items-center gap-3">
-                <Button type="submit" size="lg" disabled={submitting || text.trim().length === 0}>
-                  {submitting ? 'Parsing...' : 'Parse and review'}
-                </Button>
-                <p className="text-caption text-faint">Takes a few seconds.</p>
-              </div>
             </form>
           )}
 
           {mode === 'form' && (
-            <FormIntake signedIn={signedIn} accountId={accountId} onParsed={onParsed} />
+            <FormIntake
+              ref={formRef}
+              signedIn={signedIn}
+              accountId={accountId}
+              onParsed={onParsed}
+              onBusyChange={setFormSubmitting}
+            />
           )}
 
           {mode === 'photo' && (
@@ -221,7 +253,21 @@ export function CreateView({ signedIn, accountId, onBack, onParsed, onUploaded }
 
               <label
                 htmlFor="recipe-photo"
-                className="mt-4 block cursor-pointer rounded-lg border-2 border-dashed border-border-strong p-5 text-center transition-colors hover:border-accent hover:bg-accent/5"
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragging(true);
+                }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragging(false);
+                  handleFile(e.dataTransfer.files?.[0] ?? null);
+                }}
+                className={`mt-4 block cursor-pointer rounded-lg border-2 border-dashed p-5 text-center transition-colors ${
+                  dragging
+                    ? 'border-accent bg-accent/10'
+                    : 'border-border-strong hover:border-accent hover:bg-accent/5'
+                }`}
               >
                 {previewUrl ? (
                   <>
@@ -273,14 +319,27 @@ export function CreateView({ signedIn, accountId, onBack, onParsed, onUploaded }
                   </Button>
                 </div>
               )}
-
-              <div className="mt-4">
-                <Button onClick={() => void upload()} disabled={uploading || !file}>
-                  {uploading ? 'Uploading photo & reading the card…' : 'Upload photo'}
-                </Button>
-              </div>
             </div>
           )}
+        </div>
+
+        {/* One shared footer — the single entry point for all three tabs. */}
+        <div className="flex flex-wrap items-center gap-3 border-t border-border bg-canvas/40 px-5 py-4">
+          <Button
+            size="lg"
+            onClick={handleFooterSubmit}
+            disabled={submitting || uploading || formSubmitting}
+          >
+            {submitting || uploading || formSubmitting ? 'Working…' : 'Analyze recipe'}
+          </Button>
+          {footerError && (
+            <span className="text-small text-negative" role="alert">
+              {footerError}
+            </span>
+          )}
+          <span className="text-caption text-faint">
+            Parses or uploads first — review and analysis come next.
+          </span>
         </div>
       </div>
 

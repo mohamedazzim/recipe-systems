@@ -4,7 +4,7 @@
 // method, readiness + analyse, analysis status). The product flow lives in
 // section order; nothing here is decorative.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, DotsThreeVertical } from '@phosphor-icons/react';
 import { Heading } from '@/components/ui/Typography';
 import { Button } from '@/components/ui/Button';
@@ -67,6 +67,18 @@ export function RecipeWorkspace({
   const [printError, setPrintError] = useState<string | null>(null);
   /** Which workflow section is active — Ingredients / Method / Shopping list. */
   const [activeTab, setActiveTab] = useState<'ingredients' | 'method' | 'shopping'>('ingredients');
+  /** Top of the active workflow section — scrolled into view on tab changes so
+   *  the footer's "next" doesn't leave the user stranded at the bottom. */
+  const sectionTopRef = useRef<HTMLDivElement | null>(null);
+  const firstRenderRef = useRef(true);
+
+  useEffect(() => {
+    if (firstRenderRef.current) {
+      firstRenderRef.current = false;
+      return;
+    }
+    sectionTopRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+  }, [activeTab]);
 
   /**
    * D-22 (D1): the visible Save action. The artifact set already persists in
@@ -381,7 +393,7 @@ export function RecipeWorkspace({
 
       {/* Two-column workspace: the recipe surface on the left, the running
           analysis pinned on the right (a background job, always visible). */}
-      <div className="mt-6 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
+      <div className="mt-6 grid items-start gap-8 lg:grid-cols-2">
         {/* LEFT — the recipe surface: logging sections, then the tabbed
             ingredient/method/shopping workflow. */}
         <div className="min-w-0">
@@ -422,7 +434,7 @@ export function RecipeWorkspace({
           </div>
 
           {/* Active section — one focused view at a time. */}
-          <div className="mt-6">
+          <div className="mt-6" ref={sectionTopRef}>
             {activeTab === 'ingredients' && (
               <IngredientReview
                 recipeId={recipeId}

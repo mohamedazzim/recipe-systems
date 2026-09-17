@@ -64,23 +64,21 @@ export function ReadinessPanel({
     };
   }, [recipeId, signedIn, lines]);
 
-  return (
-    <section aria-labelledby="readiness-heading" className="mt-6">
-      <h2 id="readiness-heading" className="font-display text-h2 text-ink">
-        Analysis
-      </h2>
+  // The aside already renders the "Analysis" heading and subtitle; this panel
+  // owns only the readiness/launch content and yields entirely to the status
+  // panel once a current analysis exists.
+  if (hasAnalysis && !stale) {
+    return null;
+  }
 
+  return (
+    <section className="mt-6">
       {!signedIn ? (
         <p className="mt-4 text-small text-muted">
           Analysis needs an account. Sign in to run it on this recipe.
         </p>
-      ) : !hasAnalysis || stale ? (
+      ) : (
         <>
-          {!hasAnalysis && (
-            <p className="mt-1 text-small text-muted">
-              The nine-view analysis runs in the background. Status updates appear below.
-            </p>
-          )}
           {state === null && readyError === null ? (
             <div className="mt-4 flex items-center gap-3 text-small text-muted">
               <Spinner size="sm" label="Checking readiness" />
@@ -177,7 +175,7 @@ export function ReadinessPanel({
             </>
           )}
         </>
-      ) : null}
+      )}
     </section>
   );
 }

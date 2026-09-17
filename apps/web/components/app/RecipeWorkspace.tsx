@@ -301,7 +301,22 @@ export function RecipeWorkspace({
       {/* Recipe hero — identity, mode, and the primary/secondary actions. */}
       <div className="mt-5 flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
         <div className="min-w-0">
-          <Heading level={1}>{title}</Heading>
+          <div className="flex items-center gap-2">
+            <Heading level={1}>{title}</Heading>
+            {named && !editingName && (
+              <button
+                type="button"
+                aria-label="Edit recipe name"
+                onClick={() => {
+                  setSaveTitle(title);
+                  setEditingName(true);
+                }}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-ink/5 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+              >
+                <PencilSimple size={16} aria-hidden="true" weight="bold" />
+              </button>
+            )}
+          </div>
           <p className="mt-1 max-w-prose text-small text-muted">
             Review the lines, attach a method, then run the analysis.
           </p>
@@ -352,45 +367,28 @@ export function RecipeWorkspace({
       </div>
 
       {printError && <p className="mt-2 text-caption text-negative">{printError}</p>}
-      {/* Save — once named, collapse to the name plus an edit pencil. */}
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        {named && !editingName ? (
-          <>
-            <span className="text-body font-semibold text-ink">{title}</span>
-            <button
-              type="button"
-              aria-label="Edit recipe name"
-              onClick={() => {
-                setSaveTitle(title);
-                setEditingName(true);
-              }}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-ink/5 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
-            >
-              <PencilSimple size={16} aria-hidden="true" weight="bold" />
-            </button>
-          </>
-        ) : (
-          <>
-            <input
-              aria-label="Recipe name"
-              value={saveTitle}
-              onChange={(e) => setSaveTitle(e.target.value)}
-              placeholder="Family name (blank = the default)"
-              maxLength={255}
-              className="min-h-11 min-w-52 max-w-full rounded-md border border-border-strong bg-background px-3 py-2 text-body focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
-            />
-            <Button onClick={() => void saveRecipe()} disabled={saving}>
-              {saving ? 'Saving…' : 'Save recipe'}
+      {/* Save — the name input shows only while unnamed or editing. */}
+      {(!named || editingName) && (
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <input
+            aria-label="Recipe name"
+            value={saveTitle}
+            onChange={(e) => setSaveTitle(e.target.value)}
+            placeholder="Family name (blank = the default)"
+            maxLength={255}
+            className="min-h-11 min-w-52 max-w-full rounded-md border border-border-strong bg-background px-3 py-2 text-body focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+          />
+          <Button onClick={() => void saveRecipe()} disabled={saving}>
+            {saving ? 'Saving…' : 'Save recipe'}
+          </Button>
+          {editingName && (
+            <Button variant="ghost" size="sm" onClick={() => setEditingName(false)} disabled={saving}>
+              Cancel
             </Button>
-            {editingName && (
-              <Button variant="ghost" size="sm" onClick={() => setEditingName(false)} disabled={saving}>
-                Cancel
-              </Button>
-            )}
-          </>
-        )}
-        {saveError && <span className="text-caption text-negative">{saveError}</span>}
-      </div>
+          )}
+          {saveError && <span className="text-caption text-negative">{saveError}</span>}
+        </div>
+      )}
       {saved && !editingName && (
         <p className="mt-2 text-caption text-body">
           Saved as <span className="font-semibold text-ink">{saved.title}</span> ·{' '}

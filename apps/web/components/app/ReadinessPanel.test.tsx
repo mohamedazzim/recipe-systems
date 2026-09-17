@@ -96,16 +96,14 @@ describe('ReadinessPanel (D-14 + D-17 launch)', () => {
     expect(screen.getByText('Changes need analysis')).toBeInTheDocument();
   });
 
-  it('current analysis: hides the readiness/CTA so the status panel owns the result', async () => {
+  it('current analysis: renders nothing (the status panel owns the result)', async () => {
     (globalThis.fetch as jest.Mock).mockResolvedValue({
       ok: true,
       status: 200,
       json: async () => ({ can_enqueue: true, blockers: [] }),
     });
-    render(<ReadinessPanel {...props({ hasAnalysis: true, stale: false })} />);
-    expect(await screen.findByRole('heading', { name: 'Analysis' })).toBeInTheDocument();
-    expect(screen.queryByText(/Ready to analyse/)).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /analyse/i })).not.toBeInTheDocument();
+    const { container } = render(<ReadinessPanel {...props({ hasAnalysis: true, stale: false })} />);
+    expect(container).toBeEmptyDOMElement();
   });
 
   it('in-flight shows "Starting analysis…" and disables the button', async () => {

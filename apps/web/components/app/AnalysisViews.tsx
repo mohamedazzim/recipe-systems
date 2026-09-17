@@ -8,9 +8,8 @@
 // No content is invented: absent/unavailable views show honest empty states.
 
 import { useState } from 'react';
-import { ArrowLeft, ArrowRight } from '@phosphor-icons/react';
 import { Badge, Tag } from '@/components/ui/Badge';
-import { Tabs, TabPanel } from '@/components/ui/Tabs';
+import { Accordion, type AccordionItem } from '@/components/ui/Accordion';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Field } from '@/components/ui/Field';
@@ -85,7 +84,6 @@ export function AnalysisViews({
   mode = 'home',
   recipeId,
 }: AnalysisViewsProps) {
-  const [activeView, setActiveView] = useState('view-1');
   const [printing, setPrinting] = useState(false);
   const [printError, setPrintError] = useState<string | null>(null);
   const byNumber = new Map(analysis.views.map((v) => [v.view_number, v]));
@@ -133,17 +131,86 @@ export function AnalysisViews({
     view(5) ? view5Payload(view(5)?.payload ?? null) : null,
   );
 
-  const tabs = [
-    { id: 'view-1', label: '1 · Why it works', content: renderView1(view(1), lines) },
-    { id: 'view-2', label: '2 · Balance', content: renderView2(view(2), lines) },
-    { id: 'view-3', label: '3 · Process', content: renderView3(view(3), lines) },
-    { id: 'view-4', label: '4 · Substitutions', content: renderView4(view(4), lines, recipeId, mode === 'chef') },
-    { id: 'view-5', label: '5 · Regional', content: renderView5(view(5)) },
-    { id: 'view-6', label: '6 · Ratios', content: renderView6(view(6)) },
-    { id: 'view-7', label: '7 · Sensory', content: renderView7(view(7)) },
+  const identificationContent = identification ? (
+    <div>
+      <p className="eyebrow">Identification</p>
+      <p className="mt-2 font-display text-h2 text-ink">{identification.family}</p>
+      <p className="mt-1 max-w-prose text-body">{identification.architecture}</p>
+      <p className="mt-3 inline-flex items-center gap-2 text-small font-semibold text-body">
+        Confidence: {identification.confidence}
+        <Badge tag="INFERRED">
+          {methodState?.method_source
+            ? `Inferred from ${methodState.method_source}`
+            : 'Inferred'}
+        </Badge>
+      </p>
+      {identification.not_this.length > 0 && (
+        <div className="mt-4 border-t border-border pt-3">
+          <p className="text-small font-semibold text-ink">Not this</p>
+          <ul className="mt-1 space-y-1 text-small text-body">
+            {identification.not_this.map((n) => (
+              <li key={n.variant}>
+                <span className="font-semibold">{n.variant}</span>
+                {n.key_difference ? `: ${n.key_difference}` : ''}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  ) : (
+    <Alert tone="info" title="Identification not available">
+      This analysis has no identification content yet.
+    </Alert>
+  );
+
+  const viewItems: AccordionItem[] = [
+    {
+      id: 'view-1',
+      label: '1 · Why it works',
+      description: 'Why each ingredient exists, and what changes without it.',
+      content: renderView1(view(1), lines),
+    },
+    {
+      id: 'view-2',
+      label: '2 · Balance',
+      description: 'The friendly balance table.',
+      content: renderView2(view(2), lines),
+    },
+    {
+      id: 'view-3',
+      label: '3 · Process',
+      description: 'The narrative walkthrough, in order.',
+      content: renderView3(view(3), lines),
+    },
+    {
+      id: 'view-4',
+      label: '4 · Substitutions',
+      description: 'What you could swap, and what changes.',
+      content: renderView4(view(4), lines, recipeId, mode === 'chef'),
+    },
+    {
+      id: 'view-5',
+      label: '5 · Regional',
+      description: 'The regional reading — compare, keep, negotiate.',
+      content: renderView5(view(5)),
+    },
+    {
+      id: 'view-6',
+      label: '6 · Ratios',
+      description: 'Ratios that hold the architecture together.',
+      content: renderView6(view(6)),
+    },
+    {
+      id: 'view-7',
+      label: '7 · Sensory',
+      description: 'What makes the dish memorable, and why.',
+      content: renderView7(view(7)),
+    },
     {
       id: 'view-8',
       label: '8 · Dietary',
+      description: 'A flag view — present / not on card / unknown.',
       content: (
         <>
           <RestrictionHighlight analysisId={analysis.analysis_id} signedIn={signedIn} />
@@ -154,15 +221,23 @@ export function AnalysisViews({
     {
       id: 'view-9',
       label: '9 · Nutrition',
+      description: 'A band, never a point.',
       content: renderView9(view(9), analysis.analysis_id, signedIn, onRefresh),
     },
-  ].map((t) => ({
-    ...t,
-    label: mode === 'chef' ? (CHEF_TAB_LABELS[t.id] ?? t.label) : t.label,
+  ].map((item) => ({
+    ...item,
+    label: mode === 'chef' ? (CHEF_TAB_LABELS[item.id] ?? item.label) : item.label,
   }));
 
-  const viewOrder = tabs.map((t) => t.id);
-  const viewIndex = viewOrder.indexOf(activeView);
+  const accordionItems: AccordionItem[] = [
+    {
+      id: 'identification',
+      label: 'Identification',
+      description: 'Likely name, cuisine and closest match',
+      content: identificationContent,
+    },
+    ...viewItems,
+  ];
 
   return (
     <section aria-labelledby="result-heading" className="mt-4">
@@ -184,39 +259,6 @@ export function AnalysisViews({
         </div>
       )}
 
-      {identification ? (
-        <div className="rounded-lg border border-border bg-surface p-5">
-          <p className="eyebrow">Identification</p>
-          <p className="mt-2 font-display text-h2 text-ink">{identification.family}</p>
-          <p className="mt-1 max-w-prose text-body">{identification.architecture}</p>
-          <p className="mt-3 inline-flex items-center gap-2 text-small font-semibold text-body">
-            Confidence: {identification.confidence}
-            <Badge tag="INFERRED">
-              {methodState?.method_source
-                ? `Inferred from ${methodState.method_source}`
-                : 'Inferred'}
-            </Badge>
-          </p>
-          {identification.not_this.length > 0 && (
-            <div className="mt-4 border-t border-border pt-3">
-              <p className="text-small font-semibold text-ink">Not this</p>
-              <ul className="mt-1 space-y-1 text-small text-body">
-                {identification.not_this.map((n) => (
-                  <li key={n.variant}>
-                    <span className="font-semibold">{n.variant}</span>
-                    {n.key_difference ? `: ${n.key_difference}` : ''}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      ) : (
-        <Alert tone="info" title="Identification not available">
-          This analysis has no identification content yet.
-        </Alert>
-      )}
-
       <div className="mt-6">
         {mode === 'chef' && (
           <div className="mb-6">
@@ -227,39 +269,7 @@ export function AnalysisViews({
             )}
           </div>
         )}
-        <Tabs
-          tabs={tabs.map((t) => ({ id: t.id, label: t.label }))}
-          active={activeView}
-          onSelect={setActiveView}
-          label="Analysis views"
-        />
-        {tabs.map((t) => (
-          <TabPanel key={t.id} id={t.id} active={activeView}>
-            <div className="mt-5">{t.content}</div>
-          </TabPanel>
-        ))}
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setActiveView(viewOrder[viewIndex - 1])}
-            disabled={viewIndex <= 0}
-          >
-            <ArrowLeft size={14} aria-hidden="true" weight="bold" />
-            Previous view
-          </Button>
-          <span className="text-caption text-faint">
-            View {viewIndex + 1} of {viewOrder.length}
-          </span>
-          <Button
-            size="sm"
-            onClick={() => setActiveView(viewOrder[viewIndex + 1])}
-            disabled={viewIndex < 0 || viewIndex >= viewOrder.length - 1}
-          >
-            Next view
-            <ArrowRight size={14} aria-hidden="true" weight="bold" />
-          </Button>
-        </div>
+        <Accordion items={accordionItems} defaultOpen="identification" label="Analysis views" />
       </div>
     </section>
   );

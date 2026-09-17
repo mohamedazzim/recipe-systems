@@ -5,6 +5,45 @@
 
 ---
 
+## 0b. Analysis 9-view accordion + fixed two-pane workspace — 2026-09-17 (UI-only restructure)
+
+Scope: presentation only. Backend contracts, DB schema, analysis generation, worker, DeepSeek
+integration, persistence, and business logic are **unchanged**.
+
+- **Inspected:** `RecipeWorkspace.tsx` (two-pane grid), `AnalysisPanel.tsx` (status), `AnalysisViews.tsx`
+  (the 9 views previously behind `Tabs`), `lib/views.ts` (view payload parsers), `types.ts`,
+  `AppShell.tsx` (shell/header), `IngredientReview`/`MethodSection`/`ShoppingSection` (left pane).
+- **Existing 9-view mapping (accordion sections):**
+  `Identification` (derived from persisted view_5) + `1 · Why it works` (view 1) · `2 · Balance`
+  (view 2) · `3 · Process` (view 3) · `4 · Substitutions` (view 4) · `5 · Regional` (view 5) ·
+  `6 · Ratios` (view 6) · `7 · Sensory` (view 7) · `8 · Dietary` (view 8) · `9 · Nutrition` (view 9).
+  Every view keeps its real `renderViewX` component + persisted payload; none removed, none mocked.
+- **Implemented:** new accessible `components/ui/Accordion.tsx` (real `<button>` headers, `aria-expanded`,
+  `aria-controls`, unique panel ids, `h3` heading wrapper, chevron, one-open-at-a-time, default-open
+  `Identification`); `AnalysisViews` now renders the accordion instead of tabs (+ removed the
+  previous/next pager); the workspace is already a fixed-viewport two-pane layout with independent
+  pane scroll (prior commits) and on-theme slim scrollbars (`globals.css`).
+- **Intentionally unchanged:** `ReadinessPanel` (analysis gating), `AnalysisPanel` (status), the
+  one-writer worker/API/schema, all view payload parsers and their real empty/incomplete states.
+- **Tests:** new `Accordion.test.tsx` (default-open, open/close, one-at-a-time, aria-expanded/controls,
+  Enter/Space keyboard); `AnalysisViews.test.tsx` updated from tab to accordion-button queries (24/24);
+  `AnalysisPanel.test.tsx` updated (tablist → buttons). Full web suite **187/187** · typecheck 0 ·
+  lint 0.
+- **Browser verification:** recipe `Meen Dish` (real DeepSeek analysis) renders 10 accordion sections;
+  Identification open by default with real family/architecture/confidence/not_this; clicking a view
+  header opens it and collapses the previous; View 1 content shows real persisted jobs.
+- **Responsive:** desktop `lg` = 50/50 two panes with independent scroll; below `lg` stacks
+  (single-column) — verified via DOM classes; agent browser viewport limited to 601px so desktop
+  screenshots were not captured.
+- **Known limitations:** `next build` NOT run (dev server live — repo convention forbids build while
+  the dev server holds `apps/web/.next`); desktop fixed-height behavior verified via structure/tests,
+  not a full 1440px browser screenshot.
+- **Resume point:** accordion is shippable; if the brief's full 1440/1280/768/390 screenshot matrix is
+  required, do it on a machine with a real desktop viewport and re-check for any per-breakpoint
+  accordion width/spacing tweaks.
+
+---
+
 ## 0a. E2E defect remediation — 2026-09-16 (D-1/D-2/D-4 fixed · D-3 documented · B2 blocked)
 
 Source of truth: the full E2E product audit (HAS DEFECTS — FIX REQUIRED). Fixes only; no

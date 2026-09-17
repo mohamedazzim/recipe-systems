@@ -69,7 +69,7 @@ describe('AnalysisViews (D-18 home mode, persisted payloads only)', () => {
         methodState={null}
       />,
     );
-    await userEvent.click(screen.getByRole('tab', { name: '1 · Why it works' }));
+    await userEvent.click(screen.getByRole('button', { name: '1 · Why it works' }));
     expect(screen.getAllByText('Fish 500g').length).toBeGreaterThan(0);
     expect(screen.getByText(/Protein, fat. Without it: Not this dish/)).toBeInTheDocument();
     expect(screen.getByText('Body / richness:')).toBeInTheDocument();
@@ -93,7 +93,7 @@ describe('AnalysisViews (D-18 home mode, persisted payloads only)', () => {
         methodState={null}
       />,
     );
-    await userEvent.click(screen.getByRole('tab', { name: '2 · Balance' }));
+    await userEvent.click(screen.getByRole('button', { name: '2 · Balance' }));
     expect(screen.getByText('Bitter')).toBeInTheDocument();
     expect(screen.getByText('Blind spot of this method')).toBeInTheDocument();
     expect(screen.getByText(/under-reports bridge spices/)).toBeInTheDocument();
@@ -116,7 +116,7 @@ describe('AnalysisViews (D-18 home mode, persisted payloads only)', () => {
         methodState={null}
       />,
     );
-    await userEvent.click(screen.getByRole('tab', { name: '3 · Process' }));
+    await userEvent.click(screen.getByRole('button', { name: '3 · Process' }));
     expect(screen.getByText('Build the liquid.')).toBeInTheDocument();
     expect(screen.getByText(/About 5–6 minutes\./)).toBeInTheDocument();
     // UNKNOWN duration renders nothing about duration
@@ -135,7 +135,7 @@ describe('AnalysisViews (D-18 home mode, persisted payloads only)', () => {
         methodState={null}
       />,
     );
-    await userEvent.click(screen.getByRole('tab', { name: '3 · Process' }));
+    await userEvent.click(screen.getByRole('button', { name: '3 · Process' }));
     expect(screen.getByText('No method on the card.')).toBeInTheDocument();
   });
 
@@ -153,7 +153,7 @@ describe('AnalysisViews (D-18 home mode, persisted payloads only)', () => {
         methodState={null}
       />,
     );
-    await userEvent.click(screen.getByRole('tab', { name: '4 · Substitutions' }));
+    await userEvent.click(screen.getByRole('button', { name: '4 · Substitutions' }));
     expect(screen.getByText('Fish 500g → Brinjal')).toBeInTheDocument();
     expect(screen.getByText('Vegetarian version; fish texture lost')).toBeInTheDocument();
   });
@@ -183,7 +183,7 @@ describe('AnalysisViews (D-18 home mode, persisted payloads only)', () => {
         recipeId="recipe-1"
       />,
     );
-    await userEvent.click(screen.getByRole('tab', { name: '4 · Substitutions' }));
+    await userEvent.click(screen.getByRole('button', { name: '4 · Substitutions' }));
     await userEvent.click(screen.getByRole('button', { name: 'Preview shift class' }));
     expect(await screen.findByTestId('substitution-class')).toHaveTextContent('Identity shift');
     // The persisted consequence is shown verbatim — nothing new is generated.
@@ -199,7 +199,7 @@ describe('AnalysisViews (D-18 home mode, persisted payloads only)', () => {
 
   it('unavailable view: honest empty state, never fake content', async () => {
     render(<AnalysisViews analysis={analysis([])} lines={LINES} methodState={null} />);
-    await userEvent.click(screen.getByRole('tab', { name: '1 · Why it works' }));
+    await userEvent.click(screen.getByRole('button', { name: '1 · Why it works' }));
     expect(screen.getByText('View 1: Why each ingredient exists is not available yet')).toBeInTheDocument();
   });
 
@@ -211,7 +211,7 @@ describe('AnalysisViews (D-18 home mode, persisted payloads only)', () => {
         methodState={null}
       />,
     );
-    await userEvent.click(screen.getByRole('tab', { name: '1 · Why it works' }));
+    await userEvent.click(screen.getByRole('button', { name: '1 · Why it works' }));
     expect(screen.getByText('View 1 is incomplete')).toBeInTheDocument();
     expect(screen.getByText(/never published/)).toBeInTheDocument();
   });
@@ -229,7 +229,7 @@ describe('AnalysisViews (D-18 home mode, persisted payloads only)', () => {
         methodState={null}
       />,
     );
-    await userEvent.click(screen.getByRole('tab', { name: '1 · Why it works' }));
+    await userEvent.click(screen.getByRole('button', { name: '1 · Why it works' }));
     expect(screen.getByText('Ingredient gone-lin')).toBeInTheDocument();
   });
 });
@@ -255,7 +255,7 @@ describe('AnalysisViews (D-19 Views 5–9)', () => {
         methodState={null}
       />,
     );
-    await userEvent.click(screen.getByRole('tab', { name: '5 · Regional' }));
+    await userEvent.click(screen.getByRole('button', { name: '5 · Regional' }));
     expect(screen.getAllByText(/Kudampuli instead of tamarind/).length).toBeGreaterThan(0);
     expect(screen.getByText('Regional note pending review')).toBeInTheDocument();
   });
@@ -273,7 +273,7 @@ describe('AnalysisViews (D-19 Views 5–9)', () => {
         methodState={null}
       />,
     );
-    await userEvent.click(screen.getByRole('tab', { name: '6 · Ratios' }));
+    await userEvent.click(screen.getByRole('button', { name: '6 · Ratios' }));
     expect(screen.getByText('chilli powder : coriander: 2 tsp : 1 tsp')).toBeInTheDocument();
     expect(screen.getByText(/salt : liquid/)).toBeInTheDocument();
   });
@@ -291,7 +291,7 @@ describe('AnalysisViews (D-19 Views 5–9)', () => {
         methodState={null}
       />,
     );
-    await userEvent.click(screen.getByRole('tab', { name: '7 · Sensory' }));
+    await userEvent.click(screen.getByRole('button', { name: '7 · Sensory' }));
     expect(screen.getByText('The finish repeats the main ingredient')).toBeInTheDocument();
     rerender(
       <AnalysisViews
@@ -320,7 +320,7 @@ describe('AnalysisViews (D-19 Views 5–9)', () => {
         methodState={null}
       />,
     );
-    await userEvent.click(screen.getByRole('tab', { name: '8 · Dietary' }));
+    await userEvent.click(screen.getByRole('button', { name: '8 · Dietary' }));
     expect(screen.getAllByText('Fish, Mustard, Coconut, Fenugreek').length).toBeGreaterThan(0);
     expect(screen.getByText(/Fish species unknown/)).toBeInTheDocument();
     expect(screen.getByText(H6)).toBeInTheDocument();
@@ -359,7 +359,7 @@ describe('AnalysisViews (D-19 Views 5–9)', () => {
         signedIn
       />,
     );
-    await userEvent.click(screen.getByRole('tab', { name: '9 · Nutrition' }));
+    await userEvent.click(screen.getByRole('button', { name: '9 · Nutrition' }));
     expect(screen.getByText('1,306–2,223 kcal')).toBeInTheDocument();
     expect(screen.getByText('Sodium: Unknown')).toBeInTheDocument();
     expect(screen.getByText(I6)).toBeInTheDocument();
@@ -386,7 +386,7 @@ describe('AnalysisViews (D-19 Views 5–9)', () => {
         signedIn={false}
       />,
     );
-    await userEvent.click(screen.getByRole('tab', { name: '9 · Nutrition' }));
+    await userEvent.click(screen.getByRole('button', { name: '9 · Nutrition' }));
     expect(screen.queryByRole('button', { name: 'Recompute band' })).not.toBeInTheDocument();
     expect(screen.getByText(/Editing assumptions needs an account/)).toBeInTheDocument();
   });
@@ -416,7 +416,7 @@ describe('AnalysisViews (D-19 Views 5–9)', () => {
         onRefresh={onRefresh}
       />,
     );
-    await userEvent.click(screen.getByRole('tab', { name: '9 · Nutrition' }));
+    await userEvent.click(screen.getByRole('button', { name: '9 · Nutrition' }));
     await userEvent.selectOptions(screen.getByLabelText('Fish class'), 'lean');
     await userEvent.click(screen.getByRole('button', { name: 'Recompute band' }));
     expect(await screen.findByText(/Recompute queued — the band updates in a moment/)).toBeInTheDocument();
@@ -451,7 +451,7 @@ describe('AnalysisViews (D-19 Views 5–9)', () => {
         signedIn
       />,
     );
-    await userEvent.click(screen.getByRole('tab', { name: '9 · Nutrition' }));
+    await userEvent.click(screen.getByRole('button', { name: '9 · Nutrition' }));
     await userEvent.type(screen.getByLabelText('Coconut (grams)'), '180');
     await userEvent.click(screen.getByRole('button', { name: 'Recompute band' }));
     expect(await screen.findByText('boom')).toBeInTheDocument();
@@ -493,12 +493,12 @@ describe('AnalysisViews (D-20 chef mode · station card leads, §7 headers)', ()
   it('chef tabs carry the §7 chef-voice labels; home tabs keep the home labels', () => {
     const a = analysis([]);
     const { rerender } = render(<AnalysisViews analysis={a} lines={LINES} methodState={null} mode="home" />);
-    expect(screen.getByRole('tab', { name: '3 · Process' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '3 · Process' })).toBeInTheDocument();
     rerender(<AnalysisViews analysis={a} lines={LINES} methodState={null} mode="chef" />);
-    expect(screen.getByRole('tab', { name: '3 · Sequence, heat, cue' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: '8 · Allergen brief' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: '9 · Assumption log' })).toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: '3 · Process' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '3 · Sequence, heat, cue' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '8 · Allergen brief' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '9 · Assumption log' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '3 · Process' })).not.toBeInTheDocument();
   });
 });
 

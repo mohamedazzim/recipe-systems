@@ -19,6 +19,7 @@ export function iconStub(name: string) {
 export const ArrowLeft = iconStub('ArrowLeft');
 export const ArrowRight = iconStub('ArrowRight');
 export const Camera = iconStub('Camera');
+export const CaretDown = iconStub('CaretDown');
 export const Check = iconStub('Check');
 export const CheckCircle = iconStub('CheckCircle');
 export const Clock = iconStub('Clock');

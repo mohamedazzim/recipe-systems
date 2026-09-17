@@ -72,11 +72,10 @@ describe('AnalysisPanel (D-17 states + D-18 result)', () => {
     expect(await screen.findByText('Analysis complete.')).toBeInTheDocument();
     // The "coming next" placeholder is GONE.
     expect(screen.queryByText(/Detailed recipe views are coming next/)).not.toBeInTheDocument();
-    // The real result surface is present (identification honest state + tabs).
+    // The real result surface is present (identification honest state + accordion).
     expect(screen.getByText('Identification not available')).toBeInTheDocument();
-    expect(screen.getByRole('tablist', { name: 'Analysis views' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: '1 · Why it works' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: '4 · Substitutions' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '1 · Why it works' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '4 · Substitutions' })).toBeInTheDocument();
   });
 
   it('failed: honest failure copy, nothing published, retry offered', async () => {

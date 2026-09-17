@@ -5,7 +5,7 @@
 // section order; nothing here is decorative.
 
 import { useEffect, useState } from 'react';
-import { ArrowLeft, DotsThreeVertical } from '@phosphor-icons/react';
+import { ArrowLeft, ArrowRight, DotsThreeVertical } from '@phosphor-icons/react';
 import { Heading } from '@/components/ui/Typography';
 import { Button } from '@/components/ui/Button';
 import { api, ApiError, API_BASE_URL } from '@/lib/api';
@@ -65,6 +65,8 @@ export function RecipeWorkspace({
   /** E6 + I5 (D-31): the home-mode one-pager print, surfaced from the header. */
   const [printing, setPrinting] = useState(false);
   const [printError, setPrintError] = useState<string | null>(null);
+  /** Which workflow section is active — Ingredients / Method / Shopping list. */
+  const [activeTab, setActiveTab] = useState<'ingredients' | 'method' | 'shopping'>('ingredients');
 
   /**
    * D-22 (D1): the visible Save action. The artifact set already persists in
@@ -380,7 +382,8 @@ export function RecipeWorkspace({
       {/* Two-column workspace: the recipe surface on the left, the running
           analysis pinned on the right (a background job, always visible). */}
       <div className="mt-6 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
-        {/* LEFT — the recipe itself, in product-flow order. */}
+        {/* LEFT — the recipe surface: logging sections, then the tabbed
+            ingredient/method/shopping workflow. */}
         <div className="min-w-0">
           {signedIn && (
             <>
@@ -389,23 +392,79 @@ export function RecipeWorkspace({
               <TagsSection recipeId={recipeId} signedIn={signedIn} />
             </>
           )}
-          <div className="mt-6">
-            <IngredientReview
-              recipeId={recipeId}
-              signedIn={signedIn}
-              title={title}
-              initialLines={initialLines}
-              onLinesLoaded={setLines}
-              onChanged={markAnalysisStale}
-            />
+
+          {/* Workflow tabs — three headings; clicking one opens its view. */}
+          <div
+            className="mt-6 flex gap-6 overflow-x-auto overflow-y-hidden border-b border-border"
+            role="tablist"
+            aria-label="Recipe sections"
+          >
+            {(
+              [
+                ['ingredients', `Ingredients ${lines.length}`],
+                ['method', 'Method'],
+                ['shopping', 'Shopping list'],
+              ] as const
+            ).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === key}
+                onClick={() => setActiveTab(key)}
+                className={`-mb-px whitespace-nowrap border-b-2 px-1 py-3 text-small font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset--2 focus-visible:outline-gold ${
+                  activeTab === key ? 'border-accent text-ink' : 'border-transparent text-muted hover:text-ink'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
-          <MethodSection
-            recipeId={recipeId}
-            signedIn={signedIn}
-            onChange={setMethodState}
-            onSaved={markAnalysisStale}
-          />
-          <ShoppingSection recipeId={recipeId} />
+
+          {/* Active section — one focused view at a time. */}
+          <div className="mt-6">
+            {activeTab === 'ingredients' && (
+              <IngredientReview
+                recipeId={recipeId}
+                signedIn={signedIn}
+                title={title}
+                initialLines={initialLines}
+                onLinesLoaded={setLines}
+                onChanged={markAnalysisStale}
+              />
+            )}
+            {activeTab === 'method' && (
+              <MethodSection
+                recipeId={recipeId}
+                signedIn={signedIn}
+                onChange={setMethodState}
+                onSaved={markAnalysisStale}
+              />
+            )}
+            {activeTab === 'shopping' && <ShoppingSection recipeId={recipeId} />}
+          </div>
+
+          {/* Section footer — step forward through the three sections. */}
+          <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+            <span className="text-caption text-faint">
+              {activeTab === 'ingredients' && 'Step 1 of 3 — review the parsed lines.'}
+              {activeTab === 'method' && 'Step 2 of 3 — attach the method.'}
+              {activeTab === 'shopping' && 'Step 3 of 3 — your shopping list.'}
+            </span>
+            {activeTab === 'shopping' ? (
+              <Button variant="outline" onClick={() => setActiveTab('ingredients')}>
+                <ArrowLeft size={14} aria-hidden="true" weight="bold" />
+                Back to ingredients
+              </Button>
+            ) : (
+              <Button
+                onClick={() => setActiveTab(activeTab === 'ingredients' ? 'method' : 'shopping')}
+              >
+                {activeTab === 'ingredients' ? 'Proceed to Method' : 'Proceed to Shopping list'}
+                <ArrowRight size={14} aria-hidden="true" weight="bold" />
+              </Button>
+            )}
+          </div>
         </div>
 
         {/* RIGHT — analysis: readiness, live status, and the nine views. */}
@@ -424,12 +483,14 @@ export function RecipeWorkspace({
               error={analyseError}
               hasAnalysis={analysisId !== null}
               stale={analysisStale}
-              onReviewLines={() =>
-                document.getElementById('ingredients-heading')?.scrollIntoView({
-                  behavior: 'smooth',
-                  block: 'start',
-                })
-              }
+              onReviewLines={() => {
+                setActiveTab('ingredients');
+                requestAnimationFrame(() =>
+                  document
+                    .getElementById('ingredients-heading')
+                    ?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+                );
+              }}
             />
             <AnalysisPanel
               analysisId={analysisId}

@@ -116,3 +116,39 @@
     font-variant-numeric: tabular-nums;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Sleek scrollbars — thin, soft, on-theme. The default OS chrome
+   scrollbar looks heavy against the paper palette, so every scroll
+   surface gets a quiet pill thumb over a transparent track.
+   ───────────────────────────────────────────────────────────── */
+@supports (scrollbar-width: thin) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--rs-border-strong)) transparent;
+  }
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: rgb(var(--rs-border-strong));
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(var(--rs-muted));
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}

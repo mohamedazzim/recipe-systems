@@ -20,7 +20,6 @@ describe('HomeView', () => {
       onCreateShoppingList: jest.fn(),
       onEnterCookMode: jest.fn(),
       onSignUp: jest.fn(),
-      onSignOut: jest.fn(),
       ...overrides,
     };
   }
@@ -140,8 +139,10 @@ describe('HomeView', () => {
   it('signed in: account section offers sign out', async () => {
     const p = props({ library: [] });
     render(<HomeView {...p} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Sign out' }));
-    expect(p.onSignOut).toHaveBeenCalled();
+    // The bottom Account form was removed (the profile lives on top + its own
+    // view; sign-out lives in the shell) — Home never renders it anymore.
+    expect(screen.queryByRole('heading', { name: 'Account' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Sign out' })).not.toBeInTheDocument();
   });
 
   it('signed in: recent recipes are a preview with a View library link, never the full list', () => {
@@ -164,7 +165,7 @@ describe('HomeView', () => {
     expect(screen.queryByLabelText('Search your library')).not.toBeInTheDocument();
   });
 
-  it('signed in: shows exactly the 4 most recent recipes, never the full list', () => {
+  it('signed in: shows exactly the 2 most recent recipes, never the full list', () => {
     const names = ['Recipe one', 'Recipe two', 'Recipe three', 'Recipe four', 'Recipe five'];
     const p = props({
       library: names.map((name, i) => ({
@@ -177,11 +178,11 @@ describe('HomeView', () => {
       })),
     });
     render(<HomeView {...p} />);
-    // newest-first: the first four only
+    // newest-first: the first two only
     expect(screen.getByText('Recipe one')).toBeInTheDocument();
     expect(screen.getByText('Recipe two')).toBeInTheDocument();
-    expect(screen.getByText('Recipe three')).toBeInTheDocument();
-    expect(screen.getByText('Recipe four')).toBeInTheDocument();
+    expect(screen.queryByText('Recipe three')).not.toBeInTheDocument();
+    expect(screen.queryByText('Recipe four')).not.toBeInTheDocument();
     expect(screen.queryByText('Recipe five')).not.toBeInTheDocument();
   });
 

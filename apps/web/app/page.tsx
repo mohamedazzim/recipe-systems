@@ -202,7 +202,6 @@ export default function Home() {
           onCreateShoppingList={() => openMostRecentAt('shopping')}
           onEnterCookMode={() => openMostRecentAt('cook')}
           onSignUp={startSignup}
-          onSignOut={() => void signOut()}
         />
       )}
       {view.name === 'library' && (

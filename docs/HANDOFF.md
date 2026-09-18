@@ -4719,3 +4719,9 @@ Scope: presentation + read model. No business logic, schema, or writer changes.
   no \<img>\). A surface gradient masks the artwork's baked-in title/subtitle on the
   left where the real DOM content + the three functional intake buttons sit; mobile hides
   the photographic layer. Same existing intake wiring (paste/form/photo).
+- **2026-09-18 Home finalize:** recently updated shows exactly 2 cards; the bottom
+  Account section (household form + sign-out) is REMOVED (the profile lives in the top
+  banner + its own view; sign-out lives in the shell); the signed-in Home is a fixed
+  single-viewport page (\lg:h-[calc(100dvh-7.5625rem-2px)]\ flex column, overflow hidden,
+  the recent section is the only internally-scrollable area; guests keep the normal flow).
+  Verified live: 1440x900 scrollHeight == clientHeight; 390px mobile no horizontal overflow.

@@ -26,7 +26,6 @@ import { Alert } from '@/components/ui/Alert';
 import { Text } from '@/components/ui/Typography';
 import { isOwnedBy, listSessionRecipes, sessionRecipeLines } from '@/lib/flow';
 import { GuestNotice } from '@/components/app/GuestNotice';
-import { ProfileEditor } from '@/components/app/ProfileEditor';
 import { api } from '@/lib/api';
 import { recipePhotoUrl } from '@/lib/photo';
 import type {
@@ -64,7 +63,6 @@ export interface HomeViewProps {
   onCreateShoppingList: () => void;
   onEnterCookMode: () => void;
   onSignUp: () => void;
-  onSignOut: () => void;
 }
 
 function inThisMonth(iso: string): boolean {
@@ -148,7 +146,6 @@ export function HomeView({
   onCreateShoppingList,
   onEnterCookMode,
   onSignUp,
-  onSignOut,
 }: HomeViewProps) {
   const [guestNoticeDismissed, setGuestNoticeDismissed] = useState(false);
   /** The household banner — the real profile + its vocabulary names. */
@@ -305,9 +302,15 @@ export function HomeView({
   );
 
   return (
-    <div>
+    <div
+      className={
+        signedIn && library !== null
+          ? 'lg:flex lg:h-[calc(100dvh-7.5625rem-2px)] lg:flex-col lg:overflow-hidden'
+          : ''
+      }
+    >
       {notice && (
-        <div className="mb-5">
+        <div className="mb-5 lg:shrink-0">
           <Alert tone="success" title={notice} />
         </div>
       )}
@@ -321,7 +324,7 @@ export function HomeView({
       {/* Greeting — name, subtitle, the editorial quote, and the one big CTA. */}
       <section
         aria-labelledby="home-heading"
-        className="flex flex-wrap items-end justify-between gap-x-8 gap-y-5"
+        className="flex flex-wrap items-end justify-between gap-x-8 gap-y-5 lg:shrink-0"
       >
         <div className="min-w-0">
           <h1 id="home-heading" className="font-display text-h1 text-ink">
@@ -344,7 +347,10 @@ export function HomeView({
 
       {/* Four summary cards — real numbers from the library read model. */}
       {stats && (
-        <div className="mt-5 grid grid-cols-2 gap-4 xl:grid-cols-4" aria-label="Recipe statistics">
+        <div
+          className="mt-5 grid grid-cols-2 gap-4 lg:shrink-0 xl:grid-cols-4"
+          aria-label="Recipe statistics"
+        >
           {stats.map((stat) => (
             <StatCard key={stat.label} {...stat} />
           ))}
@@ -352,7 +358,7 @@ export function HomeView({
       )}
 
       {/* Feature row — the three entry modes + the restriction profile. */}
-      <div className={`mt-5 grid items-stretch gap-4 ${signedIn ? 'lg:grid-cols-2' : ''}`}>
+      <div className={`mt-5 grid items-stretch gap-4 lg:shrink-0 ${signedIn ? 'lg:grid-cols-2' : ''}`}>
         {startCard}
 
         {signedIn && (
@@ -417,10 +423,11 @@ export function HomeView({
         )}
       </div>
 
-      {/* Recently updated + quick actions — the bottom row. */}
+      {/* Recently updated + quick actions — the bottom row (the only area that
+          may scroll on short desktop viewports; the page itself never does). */}
       {signedIn && library !== null && (
-        <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_16.5rem]">
-          <section aria-labelledby="recent-heading" className="min-w-0">
+        <div className="mt-6 grid min-h-0 items-start gap-6 lg:flex-1 lg:overflow-hidden lg:grid-cols-[minmax(0,1fr)_16.5rem]">
+          <section aria-labelledby="recent-heading" className="min-w-0 lg:h-full lg:overflow-y-auto lg:pe-1">
             <div className="flex items-baseline justify-between gap-4">
               <h2 id="recent-heading" className="font-display text-h2 text-ink">
                 Recently updated recipes
@@ -438,7 +445,7 @@ export function HomeView({
               <p className="mt-4 text-small text-muted">No recipes yet — start one above.</p>
             ) : (
               <ul className="mt-4 grid gap-4 sm:grid-cols-2">
-                {library.slice(0, 4).map((recipe, index) => (
+                {library.slice(0, 2).map((recipe, index) => (
                   <li key={recipe.recipe_id}>
                     <button
                       type="button"
@@ -613,36 +620,6 @@ export function HomeView({
               </li>
             ))}
           </ul>
-        </section>
-      )}
-
-      {signedIn && (
-        <section aria-labelledby="account-heading" className="mt-8 border-t border-border pt-8">
-          <h2 id="account-heading" className="font-display text-h2 text-ink">
-            Account
-          </h2>
-          <p className="mt-2 max-w-prose text-small text-muted">
-            Your work is saved to your account. Sign out from the account menu when you are done.
-          </p>
-          <details className="mt-4 rounded-lg border border-border bg-surface">
-            <summary className="cursor-pointer list-none px-5 py-4 font-sans text-h3 text-ink">
-              Household restriction profile
-            </summary>
-            <div className="border-t border-border px-5 py-4">
-              <p className="text-caption text-muted">
-                Optional. A conflicting recipe highlights the conflicts first; unknown stays unknown.
-                A profile never deletes recipes.
-              </p>
-              <div className="mt-3">
-                <ProfileEditor />
-              </div>
-            </div>
-          </details>
-          <div className="mt-4">
-            <Button variant="outline" onClick={onSignOut}>
-              Sign out
-            </Button>
-          </div>
         </section>
       )}
     </div>

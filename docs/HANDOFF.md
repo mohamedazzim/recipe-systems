@@ -4713,3 +4713,9 @@ Scope: presentation + read model. No business logic, schema, or writer changes.
   gradient blend for legibility; reference button treatment (leaf icon on the heading,
   document/list/camera icons, green primary + white outline secondaries). Mobile hides
   the photographic layer; icon-composition fallback when the library has no photo.
+- **2026-09-18 hero swap:** the Start panel background is now the user-provided flat-lay
+  asset (pps/web/public/images/start-recipe-hero.png, from the Gemini-generated clean
+  version — no baked-in buttons), used as a CSS ackground-image (right-anchored cover,
+  no \<img>\). A surface gradient masks the artwork's baked-in title/subtitle on the
+  left where the real DOM content + the three functional intake buttons sit; mobile hides
+  the photographic layer. Same existing intake wiring (paste/form/photo).

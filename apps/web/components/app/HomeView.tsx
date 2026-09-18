@@ -251,44 +251,28 @@ export function HomeView({
   const greeting =
     signedIn && userName ? `Welcome back, ${userName}!` : signedIn ? 'Welcome back!' : 'Welcome';
 
-  // The Start panel's culinary treatment — a real stored card photo used as a
-  // CSS background layer with the reference's gradient blend; otherwise the
-  // icon composition. Never a fake image.
-  const heroPhoto = library?.find((r) => r.photo_uri) ?? null;
-  const heroPhotoUrl = heroPhoto ? recipePhotoUrl(heroPhoto.photo_uri!, heroPhoto.recipe_id) : null;
-
   const startCard = (
     <section
       aria-labelledby="start-heading"
       className="relative overflow-hidden rounded-xl border border-border bg-surface p-6 shadow-whisper"
     >
-      {/* The photographic background — responsive right-anchored cover with a
-          surface-to-transparent blend so the content stays legible. */}
-      {heroPhotoUrl && (
-        <>
-          <div
-            aria-hidden="true"
-            className="absolute inset-0 hidden bg-cover bg-right bg-no-repeat sm:block"
-            style={{ backgroundImage: `url("${heroPhotoUrl}")` }}
-          />
-          <div
-            aria-hidden="true"
-            className="absolute inset-0 hidden sm:block"
-            style={{
-              background:
-                'linear-gradient(to right, rgb(var(--rs-surface)) 0%, rgb(var(--rs-surface) / 0.96) 34%, rgb(var(--rs-surface) / 0.55) 64%, rgb(var(--rs-surface) / 0.12) 100%)',
-            }}
-          />
-        </>
-      )}
-      {!heroPhotoUrl && (
-        <div
-          aria-hidden="true"
-          className="absolute inset-y-0 right-0 hidden w-48 items-center justify-center border-l border-border/70 bg-accent/10 sm:flex"
-        >
-          <CookingPot size={34} weight="bold" className="text-accent" />
-        </div>
-      )}
+      {/* The reference artwork — a CSS background layer (never an <img>): the
+          clean flat-lay image, right-anchored cover so the spoon and leaves
+          stay visible, with a short surface gradient on the left where the
+          real content sits over the artwork's own baked-in title area. */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 hidden bg-cover bg-right bg-no-repeat sm:block"
+        style={{ backgroundImage: 'url("/images/start-recipe-hero.png")' }}
+      />
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 hidden sm:block"
+        style={{
+          background:
+            'linear-gradient(to right, rgb(var(--rs-surface)) 0%, rgb(var(--rs-surface)) 62%, rgb(var(--rs-surface) / 0.6) 72%, transparent 80%)',
+        }}
+      />
 
       <div className="relative z-10 flex min-w-0 flex-col justify-between gap-5 lg:flex-row lg:items-center">
         <div className="min-w-0">

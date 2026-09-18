@@ -1,21 +1,20 @@
 'use client';
 
 // Recipe Home — the dashboard surface after sign-in or guest entry. Matches
-// the reference composition: greeting + editorial quote, stat cards, the
-// three entry modes, the household restriction profile, recently updated
+// the reference composition: greeting + editorial quote, four summary cards,
+// the three entry modes, the household restriction profile, recently updated
 // recipes, and quick actions. Every number is derived from the real account
-// library; nothing is fabricated.
+// library read model; nothing is fabricated.
 
 import { useEffect, useState } from 'react';
 import {
   ArrowRight,
-  Books,
+  Basket,
   Camera,
+  ChartBar,
   CheckCircle,
-  Clock,
   CookingPot,
   Plus,
-  Tag,
   UserCirclePlus,
 } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/Button';
@@ -26,7 +25,13 @@ import { isOwnedBy, listSessionRecipes, sessionRecipeLines } from '@/lib/flow';
 import { GuestNotice } from '@/components/app/GuestNotice';
 import { ProfileEditor } from '@/components/app/ProfileEditor';
 import { api } from '@/lib/api';
-import type { LibraryRecipe, RestrictionProfile, WireLine } from '@/lib/types';
+import { photoUrl, recipePhotoUrl } from '@/lib/photo';
+import type {
+  LibraryRecipe,
+  RestrictionProfile,
+  RestrictionVocabulary,
+  WireLine,
+} from '@/lib/types';
 
 export interface HomeViewProps {
   signedIn: boolean;
@@ -52,6 +57,9 @@ export interface HomeViewProps {
   onOpenLibrary: () => void;
   /** Navigate to the Household restriction profile view. */
   onOpenHousehold: () => void;
+  /** Quick actions — open the most recent recipe at the shopping/cook section. */
+  onCreateShoppingList: () => void;
+  onEnterCookMode: () => void;
   onSignUp: () => void;
   onSignOut: () => void;
 }
@@ -93,9 +101,11 @@ interface StatCardProps {
     className?: string;
   }>;
   tint: string;
+  /** Optional real proportion (0–100) — the Analysed card's progress bar. */
+  progress?: number;
 }
 
-function StatCard({ label, value, sub, icon: Icon, tint }: StatCardProps) {
+function StatCard({ label, value, sub, icon: Icon, tint, progress }: StatCardProps) {
   return (
     <div className="rounded-xl border border-border bg-surface p-4 shadow-whisper">
       <div className="flex items-start justify-between gap-3">
@@ -104,8 +114,20 @@ function StatCard({ label, value, sub, icon: Icon, tint }: StatCardProps) {
           <Icon size={17} aria-hidden="true" weight="bold" />
         </span>
       </div>
-      <p className="mt-2 font-display text-h2 text-ink tabular">{value}</p>
-      <p className="mt-0.5 text-caption text-faint">{sub}</p>
+      <p className="mt-1.5 font-display text-h2 text-ink tabular">{value}</p>
+      {progress !== undefined && (
+        <div
+          className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-border"
+          role="img"
+          aria-label={`${Math.round(progress)} percent of recipes analysed`}
+        >
+          <div
+            className="h-full rounded-full bg-accent"
+            style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+          />
+        </div>
+      )}
+      <p className="mt-1 text-caption text-faint">{sub}</p>
     </div>
   );
 }
@@ -120,71 +142,104 @@ export function HomeView({
   onOpenRecipe,
   onOpenLibrary,
   onOpenHousehold,
+  onCreateShoppingList,
+  onEnterCookMode,
   onSignUp,
   onSignOut,
 }: HomeViewProps) {
   const [guestNoticeDismissed, setGuestNoticeDismissed] = useState(false);
-  const [profileCount, setProfileCount] = useState<number | null>(null);
+  /** The household banner — the real profile + its vocabulary names. */
+  const [profileInfo, setProfileInfo] = useState<{
+    allergenNames: string[];
+    patterns: string[];
+    labelPack: string | null;
+  } | null>(null);
   const recipes = listSessionRecipes();
   const owner = signedIn && accountId ? { kind: 'user' as const, accountId } : { kind: 'guest' as const };
   const mine = recipes.filter((r) => isOwnedBy(r, owner));
   const others = recipes.filter((r) => !isOwnedBy(r, owner));
 
-  // The household banner's "N restrictions set" — real profile data only.
+  // The household banner — real profile + vocabulary only.
   useEffect(() => {
     if (!signedIn) return;
     let cancelled = false;
-    api<RestrictionProfile>('/me/restriction-profile')
-      .then((profile) => {
-        if (!cancelled) setProfileCount(profile.allergens.length + profile.diet_patterns.length);
+    Promise.all([
+      api<RestrictionProfile>('/me/restriction-profile'),
+      api<RestrictionVocabulary>('/restriction-vocabulary'),
+    ])
+      .then(([profile, vocabulary]) => {
+        if (cancelled) return;
+        const nameByCode = new Map(
+          vocabulary.allergens.map((a) => [a.code, a.name]),
+        );
+        setProfileInfo({
+          allergenNames: profile.allergens
+            .map((code) => nameByCode.get(code) ?? code.replace(/_/g, ' '))
+            .slice(0, 4),
+          patterns: profile.diet_patterns,
+          labelPack: profile.label_pack,
+        });
       })
       .catch(() => {
-        if (!cancelled) setProfileCount(null);
+        if (!cancelled) setProfileInfo(null);
       });
     return () => {
       cancelled = true;
     };
   }, [signedIn]);
 
+  const total = library?.length ?? 0;
+  const analysed = library?.filter((r) => r.has_analysis === true).length ?? 0;
+  const withList = library?.filter((r) => r.has_shopping_list === true).length ?? 0;
+  const listsThisMonth =
+    library?.filter(
+      (r) => r.shopping_list_generated_at && inThisMonth(r.shopping_list_generated_at),
+    ).length ?? 0;
+  const cooked = library?.filter((r) => r.has_cook_log).length ?? 0;
+  const cookedThisMonth =
+    library?.filter((r) => r.last_cooked_at && inThisMonth(r.last_cooked_at)).length ?? 0;
+  const addedThisMonth = library?.filter((r) => inThisMonth(r.date)).length ?? 0;
+
+  // Four summary cards — the reference concepts that exist in the product.
+  // "Favourite recipes" has no equivalent feature anywhere (no favourites
+  // table, endpoint, or state), so the fourth slot carries the real
+  // cook-mode concept instead of a fabricated number.
   const stats =
     signedIn && library !== null
       ? [
           {
             label: 'Total recipes',
-            value: library.length,
-            sub: (() => {
-              const added = library.filter((r) => inThisMonth(r.date)).length;
-              return added > 0 ? `+${added} this month` : 'saved to your account';
-            })(),
+            value: total,
+            sub: addedThisMonth > 0 ? `+${addedThisMonth} this month` : 'saved to your account',
             icon: CookingPot,
             tint: 'bg-accent/10 text-accent',
           },
           {
-            label: 'Cooked recipes',
-            value: library.filter((r) => r.has_cook_log).length,
-            sub: (() => {
-              const cooked = library.filter(
-                (r) => r.last_cooked_at && inThisMonth(r.last_cooked_at),
-              ).length;
-              return cooked > 0 ? `+${cooked} this month` : 'with a cook log';
-            })(),
-            icon: CheckCircle,
+            label: 'Analysed recipes',
+            value: analysed,
+            sub:
+              total > 0
+                ? `${Math.round((analysed / total) * 100)}% of total`
+                : 'run an analysis to start',
+            icon: ChartBar,
             tint: 'bg-gold/10 text-gold',
+            progress: total > 0 ? (analysed / total) * 100 : 0,
           },
           {
-            label: 'Updated this month',
-            value: library.filter((r) => inThisMonth(r.date)).length,
-            sub: 'kept current',
-            icon: Clock,
+            label: 'Shopping lists',
+            value: withList,
+            sub:
+              listsThisMonth > 0
+                ? `+${listsThisMonth} this month`
+                : 'generated from your recipes',
+            icon: Basket,
             tint: 'bg-positive/10 text-positive',
           },
           {
-            label: 'Families',
-            value: new Set(
-              library.map((r) => r.family).filter((f): f is string => f !== null),
-            ).size,
-            sub: 'across your library',
-            icon: Tag,
+            label: 'Cooked recipes',
+            value: cooked,
+            sub: cookedThisMonth > 0 ? `+${cookedThisMonth} this month` : 'with a cook log',
+            icon: CheckCircle,
             tint: 'bg-negative/10 text-negative',
           },
         ]
@@ -193,12 +248,16 @@ export function HomeView({
   const greeting =
     signedIn && userName ? `Welcome back, ${userName}!` : signedIn ? 'Welcome back!' : 'Welcome';
 
+  // The Start panel's culinary treatment — a real stored card photo when the
+  // library has one; otherwise the existing icon composition. Never a fake image.
+  const heroPhoto = library?.find((r) => r.photo_uri) ?? null;
+
   const startCard = (
     <section
       aria-labelledby="start-heading"
-      className="rounded-xl border border-border bg-surface p-6 shadow-whisper"
+      className="relative overflow-hidden rounded-xl border border-border bg-surface p-6 shadow-whisper"
     >
-      <div className="flex items-start justify-between gap-4">
+      <div className="relative z-10 flex min-w-0 flex-col justify-between gap-5 lg:flex-row lg:items-center">
         <div className="min-w-0">
           <h2 id="start-heading" className="font-display text-h2 text-ink">
             Start a new recipe
@@ -206,23 +265,40 @@ export function HomeView({
           <p className="mt-1.5 max-w-prose text-small text-muted">
             Add a recipe from text, a structured form, or a photo.
           </p>
+          <div className="mt-4 flex flex-wrap gap-2.5">
+            <Button size="sm" onClick={() => onCreate('paste')}>
+              <Plus size={14} aria-hidden="true" weight="bold" />
+              Paste text
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => onCreate('form')}>
+              Structured form
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => onCreate('photo')}>
+              <Camera size={14} aria-hidden="true" weight="bold" />
+              Upload photo
+            </Button>
+          </div>
         </div>
-        <span className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent sm:flex">
-          <CookingPot size={20} aria-hidden="true" weight="bold" />
-        </span>
-      </div>
-      <div className="mt-5 flex flex-wrap gap-2.5">
-        <Button size="sm" onClick={() => onCreate('paste')}>
-          <Plus size={14} aria-hidden="true" weight="bold" />
-          Paste text
-        </Button>
-        <Button size="sm" variant="outline" onClick={() => onCreate('form')}>
-          Structured form
-        </Button>
-        <Button size="sm" variant="outline" onClick={() => onCreate('photo')}>
-          <Camera size={14} aria-hidden="true" weight="bold" />
-          Upload photo
-        </Button>
+        <div aria-hidden="true" className="relative hidden h-24 w-44 shrink-0 overflow-hidden rounded-lg border border-border sm:block">
+          {heroPhoto ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={recipePhotoUrl(heroPhoto.photo_uri!, heroPhoto.recipe_id)}
+              alt=""
+              className="h-full w-full object-cover"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).style.display = 'none';
+              }}
+            />
+          ) : (
+            <span className="flex h-full w-full flex-col items-center justify-center gap-2 bg-accent/10">
+              <CookingPot size={30} aria-hidden="true" weight="bold" className="text-accent" />
+              <span className="font-display text-caption italic text-accent-strong">
+                paste · form · photo
+              </span>
+            </span>
+          )}
+        </div>
       </div>
     </section>
   );
@@ -230,13 +306,13 @@ export function HomeView({
   return (
     <div>
       {notice && (
-        <div className="mb-6">
+        <div className="mb-5">
           <Alert tone="success" title={notice} />
         </div>
       )}
 
       {!signedIn && !guestNoticeDismissed && (
-        <div className="mb-6">
+        <div className="mb-5">
           <GuestNotice onSignUp={onSignUp} onDismiss={() => setGuestNoticeDismissed(true)} />
         </div>
       )}
@@ -244,13 +320,13 @@ export function HomeView({
       {/* Greeting — name, subtitle, the editorial quote, and the one big CTA. */}
       <section
         aria-labelledby="home-heading"
-        className="flex flex-wrap items-end justify-between gap-x-8 gap-y-6"
+        className="flex flex-wrap items-end justify-between gap-x-8 gap-y-5"
       >
         <div className="min-w-0">
           <h1 id="home-heading" className="font-display text-h1 text-ink">
             {greeting}
           </h1>
-          <Text className="mt-2 max-w-prose text-muted">
+          <Text className="mt-1.5 max-w-prose text-muted">
             Continue your cooking journey with AI-powered recipe analysis.
           </Text>
         </div>
@@ -265,17 +341,17 @@ export function HomeView({
         </Button>
       </section>
 
-      {/* Stat cards — real numbers from the account library. */}
+      {/* Four summary cards — real numbers from the library read model. */}
       {stats && (
-        <div className="mt-6 grid grid-cols-2 gap-4 xl:grid-cols-4" aria-label="Recipe statistics">
+        <div className="mt-5 grid grid-cols-2 gap-4 xl:grid-cols-4" aria-label="Recipe statistics">
           {stats.map((stat) => (
             <StatCard key={stat.label} {...stat} />
           ))}
         </div>
       )}
 
-      {/* Feature banners — the three entry modes + the restriction profile. */}
-      <div className={`mt-6 grid items-stretch gap-6 ${signedIn ? 'lg:grid-cols-2' : ''}`}>
+      {/* Feature row — the three entry modes + the restriction profile. */}
+      <div className={`mt-5 grid items-stretch gap-4 ${signedIn ? 'lg:grid-cols-2' : ''}`}>
         {startCard}
 
         {signedIn && (
@@ -296,15 +372,42 @@ export function HomeView({
                 <UserCirclePlus size={20} aria-hidden="true" weight="bold" />
               </span>
             </div>
-            <div className="mt-5 flex flex-wrap items-center gap-3">
+            {profileInfo && (
+              <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                {profileInfo.allergenNames.map((name) => (
+                  <span
+                    key={name}
+                    className="rounded-full border border-border bg-canvas px-2 py-0.5 text-caption font-medium text-muted"
+                  >
+                    {name}
+                  </span>
+                ))}
+                {profileInfo.patterns.map((pattern) => (
+                  <span
+                    key={pattern}
+                    className="rounded-full border border-positive/40 bg-positive/10 px-2 py-0.5 text-caption font-semibold text-positive"
+                  >
+                    {pattern}
+                  </span>
+                ))}
+                {profileInfo.labelPack && (
+                  <span className="rounded-full border border-border bg-canvas px-2 py-0.5 text-caption font-medium text-faint">
+                    {profileInfo.labelPack} label pack
+                  </span>
+                )}
+              </div>
+            )}
+            <div className="mt-4 flex flex-wrap items-center gap-3">
               <Button size="sm" variant="outline" onClick={onOpenHousehold}>
                 View profile
                 <ArrowRight size={14} aria-hidden="true" weight="bold" />
               </Button>
-              {profileCount !== null && (
+              {profileInfo && (
                 <span className="text-caption text-muted">
-                  {profileCount > 0
-                    ? `${profileCount} restriction${profileCount === 1 ? '' : 's'} set`
+                  {profileInfo.allergenNames.length + profileInfo.patterns.length > 0
+                    ? `${profileInfo.allergenNames.length + profileInfo.patterns.length} restriction${
+                        profileInfo.allergenNames.length + profileInfo.patterns.length === 1 ? '' : 's'
+                      } set`
                     : 'No restrictions set'}
                 </span>
               )}
@@ -315,11 +418,11 @@ export function HomeView({
 
       {/* Recently updated + quick actions — the bottom row. */}
       {signedIn && library !== null && (
-        <div className="mt-10 grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_17rem]">
+        <div className="mt-8 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_16.5rem]">
           <section aria-labelledby="recent-heading" className="min-w-0">
             <div className="flex items-baseline justify-between gap-4">
               <h2 id="recent-heading" className="font-display text-h2 text-ink">
-                Recently updated
+                Recently updated recipes
               </h2>
               <button
                 type="button"
@@ -341,12 +444,30 @@ export function HomeView({
                       onClick={() => onOpenRecipe(recipe.recipe_id, null, recipe.name)}
                       className="group w-full overflow-hidden rounded-xl border border-border bg-surface text-left shadow-whisper transition-shadow hover:shadow-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
                     >
-                      <span
-                        className={`flex h-20 items-center justify-center ${MONOGRAM_TINTS[index % MONOGRAM_TINTS.length]}`}
-                        aria-hidden="true"
-                      >
-                        <span className="font-display text-3xl font-semibold">
-                          {(recipe.name.trim().charAt(0) || 'R').toUpperCase()}
+                      <span className="relative block h-28 w-full overflow-hidden bg-canvas">
+                        {recipe.photo_uri ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={recipePhotoUrl(recipe.photo_uri, recipe.recipe_id)}
+                            alt=""
+                            className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
+                            onError={(e) => {
+                              // Broken/expired asset — fall back to the monogram.
+                              (e.currentTarget as HTMLImageElement).style.display = 'none';
+                              const sib = (e.currentTarget as HTMLImageElement).nextElementSibling;
+                              if (sib instanceof HTMLElement) sib.style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <span
+                          className={`${
+                            recipe.photo_uri ? 'hidden' : 'flex'
+                          } h-full w-full items-center justify-center ${MONOGRAM_TINTS[index % MONOGRAM_TINTS.length]}`}
+                          aria-hidden="true"
+                        >
+                          <span className="font-display text-3xl font-semibold">
+                            {(recipe.name.trim().charAt(0) || 'R').toUpperCase()}
+                          </span>
                         </span>
                       </span>
                       <span className="block p-4">
@@ -356,19 +477,19 @@ export function HomeView({
                         <span className="mt-0.5 block text-caption text-faint">
                           Updated {timeAgo(recipe.date)}
                         </span>
-                        <span className="mt-2.5 flex flex-wrap gap-1.5">
+                        <span className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                          {recipe.has_analysis ? (
+                            <span className="rounded-full border border-positive/40 bg-positive/10 px-2 py-0.5 text-caption font-semibold text-positive">
+                              Analysed
+                            </span>
+                          ) : (
+                            <span className="rounded-full border border-negative/30 bg-negative/10 px-2 py-0.5 text-caption font-semibold text-negative">
+                              Not analysed
+                            </span>
+                          )}
                           {recipe.family && (
                             <span className="rounded-full border border-border bg-canvas px-2 py-0.5 text-caption font-medium text-muted">
                               {recipe.family}
-                            </span>
-                          )}
-                          {recipe.has_cook_log ? (
-                            <span className="rounded-full border border-positive/40 bg-positive/10 px-2 py-0.5 text-caption font-semibold text-positive">
-                              Cooked
-                            </span>
-                          ) : (
-                            <span className="rounded-full border border-border bg-canvas px-2 py-0.5 text-caption font-medium text-faint">
-                              Not cooked
                             </span>
                           )}
                         </span>
@@ -385,13 +506,13 @@ export function HomeView({
             className="rounded-xl border border-border bg-surface p-5 shadow-whisper"
           >
             <h2 className="font-display text-h3 text-ink">Quick actions</h2>
-            <div className="mt-3 flex flex-col gap-1">
+            <div className="mt-2 flex flex-col gap-0.5">
               {(
                 [
                   { label: 'Add a new recipe', icon: Plus, onClick: () => onCreate() },
                   { label: 'Upload a recipe photo', icon: Camera, onClick: () => onCreate('photo') },
-                  { label: 'Open your library', icon: Books, onClick: onOpenLibrary },
-                  { label: 'Manage restrictions', icon: UserCirclePlus, onClick: onOpenHousehold },
+                  { label: 'Create shopping list', icon: Basket, onClick: onCreateShoppingList },
+                  { label: 'Enter cook mode', icon: CookingPot, onClick: onEnterCookMode },
                 ] as const
               ).map((action) => {
                 const Icon = action.icon;
@@ -408,6 +529,10 @@ export function HomeView({
                 );
               })}
             </div>
+            <p className="mt-3 border-t border-border pt-3 text-caption text-faint">
+              Shopping lists and cook mode live inside each recipe — these open your most recent
+              one.
+            </p>
           </aside>
         </div>
       )}

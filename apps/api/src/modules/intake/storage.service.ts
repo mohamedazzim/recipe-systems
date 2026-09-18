@@ -10,12 +10,14 @@ import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import {
   CreateBucketCommand,
   DeleteObjectCommand,
+  GetObjectCommand,
   HeadBucketCommand,
   HeadObjectCommand,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
 import { randomUUID } from 'node:crypto';
+import type { Readable } from 'node:stream';
 
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 export const IMAGE_CONTENT_TYPES = ['image/jpeg', 'image/png'] as const;
@@ -120,6 +122,21 @@ export class StorageService {
       return true;
     } catch {
       return false;
+    }
+  }
+
+  /** Read-only fetch for the authenticated asset route — returns the object's
+   *  byte stream + stored content type, or null when the object is gone. */
+  async getImage(key: string): Promise<{ stream: Readable; contentType: string | null } | null> {
+    try {
+      const output = await this.client.send(new GetObjectCommand({ Bucket: this.bucket, Key: key }));
+      if (!output.Body) return null;
+      return {
+        stream: output.Body as Readable,
+        contentType: output.ContentType ?? null,
+      };
+    } catch {
+      return null;
     }
   }
 }

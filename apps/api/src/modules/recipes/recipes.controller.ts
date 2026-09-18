@@ -27,13 +27,17 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  NotFoundException,
   Param,
   Patch,
   Put,
   Query,
   Req,
+  Res,
+  StreamableFile,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { z } from 'zod';
 import { CsrfGuard } from '../../common/guards/csrf.guard';
 import { Actor, ActorRequest, GuestOrJwtGuard } from '../../common/guards/guest-or-jwt.guard';
@@ -84,6 +88,29 @@ export class RecipesController {
         ? await this.recipes.search(actor, q)
         : await this.recipes.listLibrary(actor);
     return { recipes };
+  }
+
+  /** Read-only asset route (2026-09-18 dashboard cards): the recipe's stored
+   *  card photo bytes. Bearer-only like the library; INV-17 ownership-gated
+   *  (404 for missing AND foreign recipes). */
+  @Get(':recipeId/photo')
+  @UseGuards(JwtAuthGuard)
+  async recipePhoto(
+    @Req() req: AuthedRequest,
+    @Param('recipeId') recipeId: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const actor: Actor = { kind: 'user', user: req.user! };
+    const photo = await this.recipes.photoBytes(actor, recipeId);
+    if (!photo) {
+      throw new NotFoundException({
+        code: 'PHOTO_NOT_FOUND',
+        message: 'No photo stored for this recipe',
+      });
+    }
+    res.setHeader('Content-Type', photo.contentType);
+    res.setHeader('Cache-Control', 'private, max-age=300');
+    return new StreamableFile(photo.stream);
   }
 
   /** D-25 (D3): the recipe's persisted free-text tags (read-only). */

@@ -14,6 +14,7 @@ jest.mock('@aws-sdk/client-s3', () => {
     PutObjectCommand: jest.fn((args: any) => ({ name: 'PutObject', args })),
     DeleteObjectCommand: jest.fn((args: any) => ({ name: 'DeleteObject', args })),
     HeadObjectCommand: jest.fn((args: any) => ({ name: 'HeadObject', args })),
+    GetObjectCommand: jest.fn((args: any) => ({ name: 'GetObject', args })),
   };
 });
 
@@ -107,5 +108,20 @@ describe('StorageService', () => {
 
     send.mockRejectedValueOnce(new Error('down'));
     await expect(svc.tryDeleteObject('recipes/y.jpg')).resolves.toBe(false);
+  });
+
+  it('getImage returns the stored bytes + content type (read-only asset route)', async () => {
+    const { send } = mockSend();
+    const stream = {} as never;
+    send.mockResolvedValueOnce({ Body: stream, ContentType: 'image/png' });
+    const svc = new StorageService();
+    const image = await svc.getImage('recipes/x.png');
+    expect(send.mock.calls[0][0].name).toBe('GetObject');
+    expect(image).toEqual({ stream, contentType: 'image/png' });
+
+    send.mockResolvedValueOnce({ Body: undefined });
+    await expect(svc.getImage('recipes/missing.png')).resolves.toBeNull();
+    send.mockRejectedValueOnce(new Error('404'));
+    await expect(svc.getImage('recipes/gone.png')).resolves.toBeNull();
   });
 });

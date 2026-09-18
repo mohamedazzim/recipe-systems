@@ -4680,3 +4680,31 @@ system, Home/Chef modes, cook mode, the restriction profile, and all workflows a
   section links switch workspace tabs; top-bar search deep-links; Ctrl K focuses search; theme
   toggle flips the dark class; 390px mobile: rail hidden, compact bar visible, no horizontal
   overflow (workspace included).
+---
+
+## 0d. Home dashboard v2 — reference metrics, real card photos, quick actions — 2026-09-18 (read-model + UI)
+
+Scope: presentation + read model. No business logic, schema, or writer changes.
+
+- **Read-model extension (read-only):** GET /recipes rows now also carry photo_uri
+  (recipe.photo_uri), has_analysis (EXISTS analysis row), has_shopping_list +
+  shopping_list_generated_at (newest generation) — batched lookups in
+  RecipeService.toLibraryRows (one analysis + one shopping query per library load).
+- **Authenticated asset route:** GET /recipes/:recipeId/photo (JwtAuthGuard, INV-17
+  ownership 404, PHOTO_NOT_FOUND when absent) streams the stored card photo via
+  StorageService.getImage (read-only GetObject). The object store itself is not
+  anonymously readable, so card imagery now renders everywhere the library is shown.
+- **Home:** four summary cards from real read-model data — Total recipes, Analysed
+  recipes (with real % progress bar), Shopping lists, Cooked recipes. NOTE: the
+  reference's "Favourite recipes" has NO equivalent anywhere (no table, endpoint, or
+  state) — per the no-fabrication rule the fourth slot uses the real cook-mode
+  concept instead. Start-a-new-recipe panel uses a real stored card photo when one
+  exists (icon composition otherwise). Household card shows real allergen/diet chips
+  + label pack from the profile endpoints. Recently updated cards show real card
+  photos, Analysed/Not analysed + family badges. Quick actions: the four reference
+  actions wired to real routes — Create shopping list / Enter cook mode open the
+  most recent recipe at that section.
+- **Tests:** storage.getImage, RecipeService.photoBytes (ownership/no-photo/foreign
+  404), controller photo streaming + PHOTO_NOT_FOUND; HomeView metric-card + quick
+  action tests updated. Web 23 suites / 197 tests · API 29 / 360 · integration
+  26 / 162 (Git-Bash PATH fix for qg2_gates, WSL shim). Typecheck + lint clean.

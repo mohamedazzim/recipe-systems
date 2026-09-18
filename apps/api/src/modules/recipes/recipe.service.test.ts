@@ -13,11 +13,12 @@ function mockPrisma() {
       update: jest.fn(),
     },
     recipeInput: { count: jest.fn(), findMany: jest.fn() },
-    analysis: { findFirst: jest.fn() },
+    analysis: { findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
     analysisView: { findUnique: jest.fn() },
     recipeIngredientLine: { count: jest.fn() },
     cookLog: { count: jest.fn(), findMany: jest.fn(), findFirst: jest.fn() },
     cookLogPhoto: { findMany: jest.fn() },
+    shoppingListGeneration: { findMany: jest.fn().mockResolvedValue([]) },
     recipeTag: { findMany: jest.fn(), deleteMany: jest.fn(), createMany: jest.fn() },
     $transaction: jest.fn(async (fn: any) => fn(prisma)),
   };
@@ -316,12 +317,17 @@ describe('RecipeService — D-22 save + library (D1/D2)', () => {
   it('library returns canonical D2 AC-1 rows with the cook-log indicator and D-24 last cooked', async () => {
     const prisma = mockD22();
     prisma.recipe.findMany.mockResolvedValue([
-      { id: RECIPE_ID, title: 'Sunday fish curry', createdAt: new Date('2026-09-10T11:00:00Z') },
-      { id: '22222222-2222-4222-8222-222222222222', title: FAMILY, createdAt: new Date('2026-09-09T11:00:00Z') },
+      { id: RECIPE_ID, title: 'Sunday fish curry', createdAt: new Date('2026-09-10T11:00:00Z'), photoUri: 's3://recipe-assets/recipes/a.jpg' },
+      { id: '22222222-2222-4222-8222-222222222222', title: FAMILY, createdAt: new Date('2026-09-09T11:00:00Z'), photoUri: null },
     ]);
     prisma.cookLog.findFirst
       .mockResolvedValueOnce({ cookedAt: new Date('2026-09-12T00:00:00Z') })
       .mockResolvedValueOnce(null);
+    // Dashboard read-model extras — batched existence lookups.
+    prisma.analysis.findMany.mockResolvedValue([{ recipeId: RECIPE_ID }]);
+    prisma.shoppingListGeneration.findMany.mockResolvedValue([
+      { recipeId: RECIPE_ID, generatedAt: new Date('2026-09-15T09:00:00Z') },
+    ]);
     const svc = new RecipeService(prisma);
     const rows = await svc.listLibrary(userActor);
     expect(prisma.recipe.findMany).toHaveBeenCalledWith(
@@ -338,6 +344,10 @@ describe('RecipeService — D-22 save + library (D1/D2)', () => {
         family: FAMILY,
         has_cook_log: true,
         last_cooked_at: '2026-09-12',
+        photo_uri: 's3://recipe-assets/recipes/a.jpg',
+        has_analysis: true,
+        has_shopping_list: true,
+        shopping_list_generated_at: '2026-09-15T09:00:00.000Z',
       },
       {
         recipe_id: '22222222-2222-4222-8222-222222222222',
@@ -346,6 +356,10 @@ describe('RecipeService — D-22 save + library (D1/D2)', () => {
         family: FAMILY,
         has_cook_log: false,
         last_cooked_at: null,
+        photo_uri: null,
+        has_analysis: false,
+        has_shopping_list: false,
+        shopping_list_generated_at: null,
       },
     ]);
   });
@@ -355,6 +369,49 @@ describe('RecipeService — D-22 save + library (D1/D2)', () => {
     const svc = new RecipeService(prisma);
     expect(await svc.listLibrary(guestActor)).toEqual([]);
     expect(prisma.recipe.findMany).not.toHaveBeenCalled();
+  });
+
+  it('photoBytes: ownership-gated read of the stored card photo (read-only asset route)', async () => {
+    const prisma = mockD22();
+    prisma.recipe.findUnique.mockResolvedValue({
+      id: RECIPE_ID,
+      accountId: 'acc-1',
+      guestSessionId: null,
+      title: UNTITLED_RECIPE,
+      rawText: null,
+      photoUri: 's3://recipe-assets/recipes/card.jpg',
+    });
+    const stream = {} as never;
+    const storage = {
+      getImage: jest.fn().mockResolvedValue({ stream, contentType: 'image/jpeg' }),
+    };
+    const svc = new RecipeService(prisma, storage as never);
+    const photo = await svc.photoBytes(userActor, RECIPE_ID);
+    expect(photo).toEqual({ stream, contentType: 'image/jpeg' });
+    expect(storage.getImage).toHaveBeenCalledWith('recipes/card.jpg');
+
+    // no photo → null, storage never touched
+    prisma.recipe.findUnique.mockResolvedValue({
+      id: RECIPE_ID,
+      accountId: 'acc-1',
+      guestSessionId: null,
+      title: UNTITLED_RECIPE,
+      rawText: null,
+      photoUri: null,
+    });
+    await expect(svc.photoBytes(userActor, RECIPE_ID)).resolves.toBeNull();
+    expect(storage.getImage).toHaveBeenCalledTimes(1);
+
+    // foreign recipe → 404 (INV-17 — no existence leak)
+    prisma.recipe.findUnique.mockResolvedValue({
+      id: RECIPE_ID,
+      accountId: 'acc-OTHER',
+      guestSessionId: null,
+      title: UNTITLED_RECIPE,
+      rawText: null,
+      photoUri: 's3://recipe-assets/recipes/card.jpg',
+    });
+    await expect(svc.photoBytes(userActor, RECIPE_ID)).rejects.toBeInstanceOf(NotFoundException);
   });
 });
 

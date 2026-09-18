@@ -21,6 +21,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError, apiUpload } from '@/lib/api';
+import { photoUrl } from '@/lib/photo';
 import type { CookLog, LastCook, PlatePhoto } from '@/lib/types';
 import { Button } from '@/components/ui/Button';
 
@@ -35,18 +36,6 @@ function localToday(): string {
 /** Date-only wire strings render at local noon so no timezone can shift the day. */
 function formatDate(isoDate: string): string {
   return new Date(`${isoDate}T12:00:00`).toLocaleDateString();
-}
-
-/** `s3://<bucket>/<key>` → a browser-loadable URL. In production this points at
- *  the authorized/expiring asset URL service (ADR §5); in dev it is MinIO. */
-function photoUrl(uri: string): string {
-  if (/^https?:\/\//i.test(uri)) return uri;
-  const match = /^s3:\/\/([^/]+)\/(.+)$/.exec(uri);
-  if (match) {
-    const base = process.env.NEXT_PUBLIC_ASSET_BASE_URL ?? 'http://localhost:9000';
-    return `${base.replace(/\/$/, '')}/${match[1]}/${match[2]}`;
-  }
-  return uri;
 }
 
 export function CookSection({

@@ -113,7 +113,10 @@ export interface SavedRecipe {
 }
 
 /** D-22 (D2): one canonical library row (AC-1 fields exactly). D-24 (F1 AC-3)
- *  adds `last_cooked_at` — date-only, null when never cooked. */
+ *  adds `last_cooked_at` — date-only, null when never cooked. The dashboard
+ *  read-model extension (2026-09-18) adds the stored card photo, analysis
+ *  presence, and the latest shopping-list generation. Optional here so older
+ *  fixtures stay valid. */
 export interface LibraryRecipe {
   recipe_id: string;
   name: string;
@@ -121,6 +124,10 @@ export interface LibraryRecipe {
   family: string | null;
   has_cook_log: boolean;
   last_cooked_at: string | null;
+  photo_uri?: string | null;
+  has_analysis?: boolean;
+  has_shopping_list?: boolean;
+  shopping_list_generated_at?: string | null;
 }
 
 /** D-24 (F1/F2/F6): one cook log (API §8 — POST/GET/PATCH wire). */

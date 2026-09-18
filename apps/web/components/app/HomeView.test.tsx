@@ -17,6 +17,8 @@ describe('HomeView', () => {
       onOpenRecipe: jest.fn(),
       onOpenLibrary: jest.fn(),
       onOpenHousehold: jest.fn(),
+      onCreateShoppingList: jest.fn(),
+      onEnterCookMode: jest.fn(),
       onSignUp: jest.fn(),
       onSignOut: jest.fn(),
       ...overrides,
@@ -46,10 +48,47 @@ describe('HomeView', () => {
   it('signed-in: quick actions are wired to real destinations', async () => {
     const p = props({ library: [] });
     render(<HomeView {...p} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Open your library' }));
-    expect(p.onOpenLibrary).toHaveBeenCalled();
-    await userEvent.click(screen.getByRole('button', { name: 'Manage restrictions' }));
-    expect(p.onOpenHousehold).toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'Create shopping list' }));
+    expect(p.onCreateShoppingList).toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'Enter cook mode' }));
+    expect(p.onEnterCookMode).toHaveBeenCalled();
+  });
+
+  it('signed-in: the four summary cards derive from the library read model', () => {
+    const p = props({
+      library: [
+        {
+          recipe_id: 'r1',
+          name: 'Meen Kuzhambu',
+          date: '2026-09-10T11:00:00.000Z',
+          family: 'South Indian',
+          has_cook_log: true,
+          last_cooked_at: '2026-09-12',
+          has_analysis: true,
+          has_shopping_list: true,
+          shopping_list_generated_at: '2026-09-11T10:00:00.000Z',
+        },
+        {
+          recipe_id: 'r2',
+          name: 'Dal Tadka',
+          date: '2026-09-09T11:00:00.000Z',
+          family: 'North Indian',
+          has_cook_log: false,
+          last_cooked_at: null,
+          has_analysis: false,
+          has_shopping_list: false,
+          shopping_list_generated_at: null,
+        },
+      ],
+    });
+    render(<HomeView {...p} />);
+    expect(screen.getByText('Total recipes')).toBeInTheDocument();
+    expect(screen.getByText('Analysed recipes')).toBeInTheDocument();
+    expect(screen.getByText('Shopping lists')).toBeInTheDocument();
+    expect(screen.getByText('Cooked recipes')).toBeInTheDocument();
+    // real numbers: 2 total, 1 analysed, 1 list, 1 cooked
+    expect(screen.getByText('50% of total')).toBeInTheDocument();
+    expect(screen.getByLabelText('50 percent of recipes analysed')).toBeInTheDocument();
   });
 
   it('shows a helpful empty state when no session recipes exist', () => {
@@ -119,7 +158,7 @@ describe('HomeView', () => {
       ],
     });
     render(<HomeView {...p} />);
-    expect(screen.getByRole('heading', { name: 'Recently updated' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Recently updated recipes' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'View library' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Your library' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Search your library')).not.toBeInTheDocument();

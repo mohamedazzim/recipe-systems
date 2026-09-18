@@ -58,6 +58,22 @@ export default function Home() {
     setSectionRequest({ section, n: Date.now() });
   }, []);
 
+  /** Quick actions — open the most recent recipe at its real shopping/cook
+   *  surface; with an empty library, route to the Library to pick one. */
+  const openMostRecentAt = useCallback(
+    (section: 'shopping' | 'cook') => {
+      const latest = library?.[0];
+      if (latest) {
+        if (section === 'shopping') setWorkspaceTab('shopping');
+        setSectionRequest({ section, n: Date.now() });
+        setView({ name: 'workspace', recipeId: latest.recipe_id, initialTitle: latest.name });
+      } else {
+        setView({ name: 'library' });
+      }
+    },
+    [library],
+  );
+
   const loadLibrary = useCallback(() => {
     api<{ recipes: LibraryRecipe[] }>('/recipes')
       .then((result) => setLibrary(result.recipes))
@@ -183,6 +199,8 @@ export default function Home() {
           }
           onOpenLibrary={() => setView({ name: 'library' })}
           onOpenHousehold={() => setView({ name: 'household' })}
+          onCreateShoppingList={() => openMostRecentAt('shopping')}
+          onEnterCookMode={() => openMostRecentAt('cook')}
           onSignUp={startSignup}
           onSignOut={() => void signOut()}
         />

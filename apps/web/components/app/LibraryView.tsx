@@ -11,6 +11,7 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Alert } from '@/components/ui/Alert';
 import { Heading, Text } from '@/components/ui/Typography';
 import { api, ApiError } from '@/lib/api';
+import { recipePhotoUrl } from '@/lib/photo';
 import type { LibraryRecipe } from '@/lib/types';
 
 export interface LibraryViewProps {
@@ -180,12 +181,29 @@ export function LibraryView({ library, initialQuery, onBack, onOpenRecipe }: Lib
                 onClick={() => onOpenRecipe(recipe.recipe_id, null, recipe.name)}
                 className="group w-full overflow-hidden rounded-xl border border-border bg-surface text-left shadow-whisper transition-shadow hover:shadow-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
               >
-                <span
-                  className={`flex h-16 items-center justify-center ${MONOGRAM_TINTS[index % MONOGRAM_TINTS.length]}`}
-                  aria-hidden="true"
-                >
-                  <span className="font-display text-2xl font-semibold">
-                    {(recipe.name.trim().charAt(0) || 'R').toUpperCase()}
+                <span className="relative block h-20 w-full overflow-hidden bg-canvas">
+                  {recipe.photo_uri ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={recipePhotoUrl(recipe.photo_uri, recipe.recipe_id)}
+                      alt=""
+                      className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).style.display = 'none';
+                        const sib = (e.currentTarget as HTMLImageElement).nextElementSibling;
+                        if (sib instanceof HTMLElement) sib.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                  <span
+                    className={`${
+                      recipe.photo_uri ? 'hidden' : 'flex'
+                    } h-full w-full items-center justify-center ${MONOGRAM_TINTS[index % MONOGRAM_TINTS.length]}`}
+                    aria-hidden="true"
+                  >
+                    <span className="font-display text-2xl font-semibold">
+                      {(recipe.name.trim().charAt(0) || 'R').toUpperCase()}
+                    </span>
                   </span>
                 </span>
                 <span className="block p-4">
@@ -197,8 +215,17 @@ export function LibraryView({ library, initialQuery, onBack, onOpenRecipe }: Lib
                     {recipe.family ? ` · ${recipe.family}` : ' · Family unknown'}
                   </span>
                   <span className="mt-2.5 flex flex-wrap items-center gap-1.5">
-                    {recipe.has_cook_log ? (
+                    {recipe.has_analysis ? (
                       <span className="rounded-full border border-positive/40 bg-positive/10 px-2 py-0.5 text-caption font-semibold text-positive">
+                        Analysed
+                      </span>
+                    ) : (
+                      <span className="rounded-full border border-negative/30 bg-negative/10 px-2 py-0.5 text-caption font-semibold text-negative">
+                        Not analysed
+                      </span>
+                    )}
+                    {recipe.has_cook_log ? (
+                      <span className="rounded-full border border-border bg-canvas px-2 py-0.5 text-caption font-medium text-muted">
                         {recipe.last_cooked_at
                           ? `Cooked ${new Date(`${recipe.last_cooked_at}T12:00:00`).toLocaleDateString()}`
                           : 'Cooked'}

@@ -22,6 +22,7 @@ export const Basket = iconStub('Basket');
 export const Books = iconStub('Books');
 export const Camera = iconStub('Camera');
 export const CaretDown = iconStub('CaretDown');
+export const ChartBar = iconStub('ChartBar');
 export const Check = iconStub('Check');
 export const CheckCircle = iconStub('CheckCircle');
 export const Clock = iconStub('Clock');

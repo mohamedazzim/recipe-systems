@@ -4,6 +4,7 @@
 // {method_tag, method_source, method_text, list_only} (same as the PATCH 200).
 // Ownership stays enforced inside the service (assertOwned, INV-17).
 
+import { StreamableFile } from '@nestjs/common';
 import { RecipesController } from './recipes.controller';
 import { RecipeService } from './recipe.service';
 
@@ -65,6 +66,42 @@ describe('RecipesController.getMethod (read-only method hydration)', () => {
         'foreign',
       ),
     ).rejects.toMatchObject({ response: { code: 'RECIPE_NOT_FOUND' } });
+  });
+});
+
+describe('RecipesController.recipePhoto (read-only card-photo asset route)', () => {
+  const recipes = {
+    photoBytes: jest.fn(),
+  };
+  const controller = new RecipesController(recipes as unknown as RecipeService);
+  const userReq = { user: { accountId: 'acc-1', email: 'c@t.dev', sub: 's' } } as never;
+  const RECIPE_ID = '11111111-1111-4111-8111-111111111111';
+
+  beforeEach(() => {
+    recipes.photoBytes.mockClear();
+  });
+
+  it('streams the stored photo with its content type and private caching', async () => {
+    const stream = {} as never;
+    recipes.photoBytes.mockResolvedValue({ stream, contentType: 'image/png' });
+    const res = { setHeader: jest.fn() };
+    const result = await controller.recipePhoto(userReq, RECIPE_ID, res as never);
+    expect(recipes.photoBytes).toHaveBeenCalledWith(
+      { kind: 'user', user: { accountId: 'acc-1', email: 'c@t.dev', sub: 's' } },
+      RECIPE_ID,
+    );
+    expect(res.setHeader).toHaveBeenCalledWith('Content-Type', 'image/png');
+    expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'private, max-age=300');
+    expect(result).toBeInstanceOf(StreamableFile);
+  });
+
+  it('404 PHOTO_NOT_FOUND when the recipe has no stored photo', async () => {
+    recipes.photoBytes.mockResolvedValue(null);
+    const res = { setHeader: jest.fn() };
+    await expect(controller.recipePhoto(userReq, RECIPE_ID, res as never)).rejects.toMatchObject({
+      response: { code: 'PHOTO_NOT_FOUND' },
+    });
+    expect(res.setHeader).not.toHaveBeenCalled();
   });
 });
 

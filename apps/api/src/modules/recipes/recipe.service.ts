@@ -17,6 +17,7 @@ import {
 } from '@nestjs/common';
 import { Prisma, PrismaClient, Recipe } from '@recipe-systems/database';
 import { View5PayloadSchema } from '@recipe-systems/schemas';
+import type { Readable } from 'node:stream';
 import type { Actor } from '../../common/guards/guest-or-jwt.guard';
 import { StorageService } from '../intake/storage.service';
 
@@ -65,7 +66,10 @@ export interface SavedRecipeWire {
 
 /** D-22 (D2): one canonical library row (AC-1 fields exactly). D-24 (F1 AC-3)
  *  adds `last_cooked_at` — the newest cook_log.cooked_at, date-only, null when
- *  the recipe has no cook logs. */
+ *  the recipe has no cook logs. The 2026-09-18 dashboard read-model extension
+ *  adds `photo_uri` (the stored card photo), `has_analysis`, and
+ *  `has_shopping_list`/`shopping_list_generated_at` — all read from existing
+ *  rows; no business behavior changed. */
 export interface LibraryRecipeRow {
   recipe_id: string;
   name: string;
@@ -73,6 +77,10 @@ export interface LibraryRecipeRow {
   family: string | null;
   has_cook_log: boolean;
   last_cooked_at: string | null;
+  photo_uri: string | null;
+  has_analysis: boolean;
+  has_shopping_list: boolean;
+  shopping_list_generated_at: string | null;
 }
 
 /** D-25 (D3): the recipe_tag write + search surface. The recipes module is the
@@ -142,6 +150,22 @@ export class RecipeService {
       throw new NotFoundException({ code: 'RECIPE_NOT_FOUND', message: 'Recipe not found' });
     }
     return recipe;
+  }
+
+  /** Read-only asset route: the recipe's stored card photo bytes, ownership-gated
+   *  (INV-17 — 404 for missing AND foreign recipes). Null when the recipe has no
+   *  photo or the stored object is gone. Never writes anything. */
+  async photoBytes(
+    actor: Actor,
+    recipeId: string,
+  ): Promise<{ stream: Readable; contentType: string } | null> {
+    const recipe = await this.assertOwned(actor, recipeId);
+    if (!recipe.photoUri || !this.storage) return null;
+    if (!recipe.photoUri.startsWith('s3://')) return null;
+    const key = recipe.photoUri.slice(recipe.photoUri.indexOf('/', 5) + 1);
+    const image = await this.storage.getImage(key);
+    if (!image) return null;
+    return { stream: image.stream, contentType: image.contentType ?? 'image/jpeg' };
   }
 
   /** Compensation path (D-10K): remove an intake-created recipe ONLY when no intake
@@ -369,16 +393,39 @@ export class RecipeService {
     const recipes = await this.prisma.recipe.findMany({
       where: { accountId: actor.user.accountId, deletedAt: null },
       orderBy: { updatedAt: 'desc' },
-      select: { id: true, title: true, createdAt: true },
+      select: { id: true, title: true, createdAt: true, photoUri: true },
     });
     return this.toLibraryRows(recipes);
   }
 
-  /** Shared enrichment for library + search: family, cook-log indicator, and the
-   *  D-24 last_cooked_at stamp. Read-only. */
+  /** Shared enrichment for library + search: family, cook-log indicator, the
+   *  D-24 last_cooked_at stamp, and the dashboard read-model extras (photo,
+   *  analysis presence, latest shopping-list generation). Read-only. */
   private async toLibraryRows(
-    recipes: Array<{ id: string; title: string; createdAt: Date }>,
+    recipes: Array<{ id: string; title: string; createdAt: Date; photoUri: string | null }>,
   ): Promise<LibraryRecipeRow[]> {
+    const ids = recipes.map((r) => r.id);
+    // Batch the existence lookups — one round-trip each, then join in memory.
+    const [analysisRows, listRows] = await Promise.all([
+      ids.length === 0
+        ? []
+        : this.prisma.analysis.findMany({
+            where: { recipeId: { in: ids } },
+            select: { recipeId: true },
+          }),
+      ids.length === 0
+        ? []
+        : this.prisma.shoppingListGeneration.findMany({
+            where: { recipeId: { in: ids } },
+            orderBy: { generatedAt: 'desc' },
+            select: { recipeId: true, generatedAt: true },
+          }),
+    ]);
+    const analysed = new Set(analysisRows.map((a) => a.recipeId));
+    const latestList = new Map<string, Date>();
+    for (const row of listRows) {
+      if (!latestList.has(row.recipeId)) latestList.set(row.recipeId, row.generatedAt);
+    }
     return Promise.all(
       recipes.map(async (recipe) => {
         const lastLog = await this.prisma.cookLog.findFirst({
@@ -393,6 +440,12 @@ export class RecipeService {
           family: await this.identificationFamily(recipe.id),
           has_cook_log: lastLog !== null,
           last_cooked_at: lastLog ? lastLog.cookedAt.toISOString().slice(0, 10) : null,
+          photo_uri: recipe.photoUri,
+          has_analysis: analysed.has(recipe.id),
+          has_shopping_list: latestList.has(recipe.id),
+          shopping_list_generated_at: latestList.has(recipe.id)
+            ? latestList.get(recipe.id)!.toISOString()
+            : null,
         };
       }),
     );
@@ -423,7 +476,7 @@ export class RecipeService {
         ],
       },
       orderBy: { updatedAt: 'desc' },
-      select: { id: true, title: true, createdAt: true },
+      select: { id: true, title: true, createdAt: true, photoUri: true },
     });
     return this.toLibraryRows(recipes);
   }

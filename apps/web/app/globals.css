@@ -115,6 +115,18 @@
   .tabular {
     font-variant-numeric: tabular-nums;
   }
+
+  /* The signed-in Home pins to a single viewport on desktop — only when the
+     window is tall enough. Shorter windows (e.g. a laptop's default browser
+     size) fall back to the normal scrollable flow so nothing is clipped. */
+  @media (min-width: 1024px) and (min-height: 840px) {
+    .rs-home-fixed {
+      display: flex;
+      flex-direction: column;
+      height: calc(100dvh - 7.5625rem - 2px);
+      overflow: hidden;
+    }
+  }
 }
 
 /* ─────────────────────────────────────────────────────────────

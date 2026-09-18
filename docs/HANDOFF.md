@@ -4725,3 +4725,8 @@ Scope: presentation + read model. No business logic, schema, or writer changes.
   single-viewport page (\lg:h-[calc(100dvh-7.5625rem-2px)]\ flex column, overflow hidden,
   the recent section is the only internally-scrollable area; guests keep the normal flow).
   Verified live: 1440x900 scrollHeight == clientHeight; 390px mobile no horizontal overflow.
+- **2026-09-18 responsive fix:** the fixed single-viewport Home is now height-gated —
+  it only pins at \(min-width: 1024px) and (min-height: 840px)\ (the \s-home-fixed\
+  utility in globals.css). At 1440x900 the dashboard is a single non-scrolling page;
+  shorter default windows (e.g. 1366x768 laptops) keep the normal scrollable flow so
+  every section — banners, recent recipes, quick actions — stays reachable.

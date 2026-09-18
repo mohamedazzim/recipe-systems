@@ -302,13 +302,11 @@ export function HomeView({
   );
 
   return (
-    <div
-      className={
-        signedIn && library !== null
-          ? 'lg:flex lg:h-[calc(100dvh-7.5625rem-2px)] lg:flex-col lg:overflow-hidden'
-          : ''
-      }
-    >
+    // `rs-home-fixed` (see globals.css) pins the signed-in dashboard to one
+    // viewport on desktop — but ONLY when the window is tall enough (≥840px).
+    // Shorter windows keep the normal scrollable flow so every section stays
+    // reachable (e.g. the browser's default window on a laptop screen).
+    <div className={signedIn && library !== null ? 'rs-home-fixed' : ''}>
       {notice && (
         <div className="mb-5 lg:shrink-0">
           <Alert tone="success" title={notice} />

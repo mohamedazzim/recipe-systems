@@ -512,12 +512,15 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
                 </form>
               ) : (
                 <div>
-                  <div className="flex flex-wrap items-start gap-3">
+                  <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
                     <span className="mt-1 w-6 shrink-0 text-right font-display text-caption font-semibold tabular text-faint">
                       {String(index + 1).padStart(2, '0')}
                     </span>
 
-                    <div className="min-w-0 flex-1">
+                    {/* min-w-[16rem] stops the action buttons from crushing the
+                        name into mid-word breaks on narrow laptop panes — the
+                        actions wrap to their own line below instead. */}
+                    <div className="min-w-[16rem] flex-1">
                       <p className="break-words font-semibold leading-snug text-ink">
                         {line.display_name}
                       </p>
@@ -603,7 +606,7 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
                     {/* ACTIONS — fast-access Edit / Clear review / Delete on every
                         row, plus a kebab overflow for the remaining line actions. */}
                     {signedIn && (
-                      <div className="flex shrink-0 items-center gap-1">
+                      <div className="ml-auto flex shrink-0 items-center gap-1">
                         <button
                           type="button"
                           aria-label={`Edit ${line.display_name}`}

@@ -4777,3 +4777,8 @@ Scope: presentation + read model. No business logic, schema, or writer changes.
   search box; Home stays active/enabled; Sign out stays hidden for visitors. The mobile
   New-recipe CTA still routes to sign-in. LandingPage lost its own wordmark header +
   container (the shell provides both). Web 23 suites / 202 tests.
+- **2026-09-18 laptop-width fix:** ingredient rows no longer let the action buttons
+  crush the name into mid-word breaks — the name column now keeps a 16rem minimum
+  (\min-w-[16rem] flex-1\) so on narrow panes the Edit/Clear review/Delete row wraps
+  to its own line below (\ml-auto\) instead. Verified live at 1024/1280/1366:
+  \"Kanyakumari Meen Kuzhambu\" renders on one line, no horizontal overflow.

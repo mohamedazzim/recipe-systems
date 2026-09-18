@@ -4742,3 +4742,11 @@ Scope: presentation + read model. No business logic, schema, or writer changes.
   the description line (flex row beside the paragraph), and both feature cards dropped
   p-6→p-5 with tightened vertical rhythm (214px → 166px tall) — no dead space in the
   Start panel. Allergen/diet chips still render below only when actually set.
+- **2026-09-18 dark-theme contrast fix:** root cause was \layout.tsx\ hardcoding
+  \g-rice-flour text-charred-cumin\ on \<body>\ — Tailwind utilities override the
+  token layer, so the page canvas NEVER flipped to dark while cards did, leaving light
+  token text (ink 234,231,220) on a light beige page = invisible headings. Fixed: body
+  now uses the token layer (\--rs-canvas\/\--rs-body\ from globals.css) so both themes
+  flip together; Button danger hover/active swapped \#A03624\ for \g-negative/90\.
+  Verified computed styles: dark canvas 23,27,21 / ink 234 / cards 31,36,25 / primary
+  CTA light-green bg with dark label; light mode unchanged (canvas 242,239,228).

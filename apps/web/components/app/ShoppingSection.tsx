@@ -8,7 +8,18 @@ import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError, API_BASE_URL } from '@/lib/api';
 import type { ShoppingList, ShoppingItem } from '@/lib/types';
 
-export function ShoppingSection({ recipeId }: { recipeId: string }) {
+export function ShoppingSection({
+  recipeId,
+  skipInitialLoad = false,
+  onGenerated,
+}: {
+  recipeId: string;
+  /** The workspace already knows (library read model) that no list exists for
+   *  this recipe — show the empty state directly instead of a doomed 404 GET. */
+  skipInitialLoad?: boolean;
+  /** Fired after a successful generation — the workspace drops the skip flag. */
+  onGenerated?: () => void;
+}) {
   const [list, setList] = useState<ShoppingList | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -38,8 +49,14 @@ export function ShoppingSection({ recipeId }: { recipeId: string }) {
   }, [recipeId]);
 
   useEffect(() => {
+    if (skipInitialLoad) {
+      // Known absent — render the empty state without a 404 round-trip.
+      setLoading(false);
+      setList(null);
+      return;
+    }
     void load();
-  }, [load]);
+  }, [load, skipInitialLoad]);
 
   const generate = async () => {
     setBusy(true);
@@ -50,6 +67,7 @@ export function ShoppingSection({ recipeId }: { recipeId: string }) {
         body: JSON.stringify({}),
       });
       setList(wire);
+      onGenerated?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not generate the shopping list');
     } finally {

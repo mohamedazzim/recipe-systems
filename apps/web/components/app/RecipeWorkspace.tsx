@@ -42,6 +42,11 @@ export interface RecipeWorkspaceProps {
   /** A section request from the shell (tabs, analysis, cook mode). The counter
    *  makes repeated requests of the same section observable. */
   sectionRequest?: { section: WorkspaceSection; n: number } | null;
+  /** Library read-model hints (2026-09-18): 'none' skips the mount-time
+   *  GET /analysis (a new recipe has no row to find — no doomed 404).
+   *  `initialHasShoppingList: false` skips the shopping GET the same way. */
+  initialAnalysisHint?: 'none' | 'present' | 'unknown';
+  initialHasShoppingList?: boolean | null;
 }
 
 export function RecipeWorkspace({
@@ -55,6 +60,8 @@ export function RecipeWorkspace({
   tab,
   onTabChange,
   sectionRequest,
+  initialAnalysisHint = 'unknown',
+  initialHasShoppingList = null,
 }: RecipeWorkspaceProps) {
   const [analysisId, setAnalysisId] = useState<string | null>(null);
   /** true when the recipe changed since the current analysis (D-25/C6: never
@@ -121,6 +128,11 @@ export function RecipeWorkspace({
   /** true once the recipe has at least one cook log — swaps only surface then. */
   const [hasCookLog, setHasCookLog] = useState(false);
   const handleCookLogsChanged = useCallback((count: number) => setHasCookLog(count > 0), []);
+  /** The library says no shopping list exists yet — skip the doomed GET until
+   *  one is actually generated in this session. */
+  const [shoppingKnownAbsent, setShoppingKnownAbsent] = useState(
+    initialHasShoppingList === false,
+  );
 
   /**
    * D-22 (D1): the visible Save action. The artifact set already persists in
@@ -307,6 +319,10 @@ export function RecipeWorkspace({
       // console-noise 404 — the panel renders the guest copy instead.
       return;
     }
+    if (initialAnalysisHint === 'none') {
+      // A new recipe has no analysis row yet — skip the doomed 404 discovery.
+      return;
+    }
     // Reopen the workspace on the latest persisted analysis (API §5, read-only).
     let cancelled = false;
     api<AnalysisState>(`/recipes/${recipeId}/analysis`)
@@ -322,7 +338,7 @@ export function RecipeWorkspace({
     return () => {
       cancelled = true;
     };
-  }, [recipeId, initialLines, initialTitle, signedIn]);
+  }, [recipeId, initialLines, initialTitle, signedIn, initialAnalysisHint]);
 
   return (
     <div className="mx-auto flex max-w-none flex-col lg:h-[calc(100dvh-5rem)] lg:overflow-hidden">
@@ -516,7 +532,13 @@ export function RecipeWorkspace({
                 onSaved={markAnalysisStale}
               />
             )}
-            {activeTab === 'shopping' && <ShoppingSection recipeId={recipeId} />}
+            {activeTab === 'shopping' && (
+              <ShoppingSection
+                recipeId={recipeId}
+                skipInitialLoad={shoppingKnownAbsent}
+                onGenerated={() => setShoppingKnownAbsent(false)}
+              />
+            )}
           </div>
 
           {/* Section footer — step forward through the three sections. */}

@@ -242,6 +242,18 @@ export default function Home() {
           tab={workspaceTab}
           onTabChange={setWorkspaceTab}
           sectionRequest={sectionRequest}
+          initialAnalysisHint={
+            !user || library === null
+              ? 'unknown'
+              : library.some((r) => r.recipe_id === view.recipeId && r.has_analysis === true)
+                ? 'present'
+                : 'none'
+          }
+          initialHasShoppingList={
+            !user || library === null
+              ? null
+              : (library.find((r) => r.recipe_id === view.recipeId)?.has_shopping_list ?? null)
+          }
           onDeleted={() => {
             setView({ name: 'home' });
             setHomeNotice('Recipe deleted.');

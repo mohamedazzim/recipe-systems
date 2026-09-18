@@ -4763,3 +4763,11 @@ Scope: presentation + read model. No business logic, schema, or writer changes.
   collapse toggle — the rail collapses to a 4.75rem icon column (brand mark, icons with
   sr-only labels, quote hidden) and expands back; state persists in localStorage
   (rs-nav-collapsed). Keyboard-accessible via title + sr-only labels.
+- **2026-09-18 404-noise fix:** the duplicate console 404s (GET /recipes/:id/analysis and
+  /shopping-list) were doomed lookups for brand-new recipes (React StrictMode doubles
+  effects in dev). The workspace now uses the library read model as a hint:
+  \initialAnalysisHint='none'\ (no library row / has_analysis=false) skips the mount
+  GET /analysis entirely; \initialHasShoppingList=false\ makes ShoppingSection render
+  the empty state without a GET and drop the skip after a successful generation.
+  Recipes WITH an analysis still discover it (live-verified: new recipe = 0 analysis /
+  shopping requests; Meen Kuzhambhu = /analysis fetched, 200). Web 23 suites / 201 tests.

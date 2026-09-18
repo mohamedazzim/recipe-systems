@@ -87,6 +87,20 @@ describe('ShoppingSection (D-30)', () => {
     expect(await screen.findByRole('button', { name: 'Generate shopping list' })).toBeInTheDocument();
   });
 
+  it('skipInitialLoad renders the empty state without a doomed 404 GET', async () => {
+    render(<ShoppingSection recipeId="recipe-1" skipInitialLoad />);
+    expect(await screen.findByRole('button', { name: 'Generate shopping list' })).toBeInTheDocument();
+    expect(fetchMock()).not.toHaveBeenCalled();
+  });
+
+  it('onGenerated fires after a successful generation (workspace drops the skip flag)', async () => {
+    fetchMock().mockResolvedValue(jsonResponse(LIST));
+    const onGenerated = jest.fn();
+    render(<ShoppingSection recipeId="recipe-1" skipInitialLoad onGenerated={onGenerated} />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Generate shopping list' }));
+    expect(onGenerated).toHaveBeenCalled();
+  });
+
   it('renders the grouped list: five-group names, two distinct fenugreeks, qualifiers, allergen line', async () => {
     fetchMock().mockResolvedValue(jsonResponse(LIST));
     render(<ShoppingSection recipeId="recipe-1" />);

@@ -103,6 +103,13 @@ describe('RecipeWorkspace', () => {
     expect(await screen.findByText(/Panel: a-1/)).toBeInTheDocument();
   });
 
+  it('skips the doomed analysis discovery when the library hint says none (no 404 noise)', async () => {
+    (api as jest.Mock).mockImplementation(() => Promise.reject(new Error('unexpected call')));
+    render(<RecipeWorkspace {...props({ initialAnalysisHint: 'none' })} />);
+    expect(await screen.findByRole('heading', { level: 1, name: 'Recipe' })).toBeInTheDocument();
+    expect(api).not.toHaveBeenCalled();
+  });
+
   it('editing an ingredient marks the analysis stale and flips the action to Re-analyse', async () => {
     (api as jest.Mock).mockImplementation((path: string) => {
       if (path.endsWith('/analysis')) {

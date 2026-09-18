@@ -4782,3 +4782,10 @@ Scope: presentation + read model. No business logic, schema, or writer changes.
   (\min-w-[16rem] flex-1\) so on narrow panes the Edit/Clear review/Delete row wraps
   to its own line below (\ml-auto\) instead. Verified live at 1024/1280/1366:
   \"Kanyakumari Meen Kuzhambu\" renders on one line, no horizontal overflow.
+- **2026-09-18 laptop viewport fix:** the sidebar rail is now \lg:sticky lg:top-0
+  lg:h-[100dvh]\ — it stays viewport-height instead of stretching with the page, so the
+  quote card no longer lands in a big empty strip below the content. The workspace root
+  height calc corrected to \calc(100dvh-5.5625rem-2px)\ (57px header + 32px main
+  padding), removing the 9px page scroll on short windows. Verified live: workspace has
+  scrollHeight == clientHeight at 1024x640, 1280x720, 1366x768, 1440x900; panes scroll
+  internally; the landing page's rail quote card pins inside the viewport.

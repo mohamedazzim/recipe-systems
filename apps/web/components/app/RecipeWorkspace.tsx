@@ -341,7 +341,7 @@ export function RecipeWorkspace({
   }, [recipeId, initialLines, initialTitle, signedIn, initialAnalysisHint]);
 
   return (
-    <div className="mx-auto flex max-w-none flex-col lg:h-[calc(100dvh-5rem)] lg:overflow-hidden">
+    <div className="mx-auto flex max-w-none flex-col lg:h-[calc(100dvh-5.5625rem-2px)] lg:overflow-hidden">
       <div className="shrink-0">
       <button
         type="button"

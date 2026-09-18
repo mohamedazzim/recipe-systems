@@ -180,10 +180,12 @@ export function AppShell({
         navCollapsed ? 'lg:grid-cols-[4.75rem_minmax(0,1fr)]' : 'lg:grid-cols-[16.5rem_minmax(0,1fr)]'
       }`}
     >
-      {/* LEFT — the navigation rail. Desktop only; mobile keeps the compact bar. */}
+      {/* LEFT — the navigation rail. Desktop only; mobile keeps the compact bar.
+          Sticky + viewport-height so the quote card stays pinned at the bottom
+          of the screen even when the page content is taller than the viewport. */}
       <aside
         aria-label="Primary"
-        className="hidden border-r border-border bg-surface lg:flex lg:flex-col"
+        className="hidden border-r border-border bg-surface lg:sticky lg:top-0 lg:flex lg:h-[100dvh] lg:flex-col"
       >
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-4 pt-5">
           <button

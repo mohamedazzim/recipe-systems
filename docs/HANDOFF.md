@@ -4708,3 +4708,8 @@ Scope: presentation + read model. No business logic, schema, or writer changes.
   404), controller photo streaming + PHOTO_NOT_FOUND; HomeView metric-card + quick
   action tests updated. Web 23 suites / 197 tests · API 29 / 360 · integration
   26 / 162 (Git-Bash PATH fix for qg2_gates, WSL shim). Typecheck + lint clean.
+- **2026-09-18 follow-up:** the Start panel photo is now a CSS background layer
+  (ackground-image, right-anchored cover, no \<img>\) with a surface-to-transparent
+  gradient blend for legibility; reference button treatment (leaf icon on the heading,
+  document/list/camera icons, green primary + white outline secondaries). Mobile hides
+  the photographic layer; icon-composition fallback when the library has no photo.

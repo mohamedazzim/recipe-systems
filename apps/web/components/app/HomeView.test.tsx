@@ -16,6 +16,7 @@ describe('HomeView', () => {
       onCreate: jest.fn(),
       onOpenRecipe: jest.fn(),
       onOpenLibrary: jest.fn(),
+      onOpenHousehold: jest.fn(),
       onSignUp: jest.fn(),
       onSignOut: jest.fn(),
       ...overrides,
@@ -24,8 +25,31 @@ describe('HomeView', () => {
 
   it('renders the product heading and the primary create action', () => {
     render(<HomeView {...props()} />);
-    expect(screen.getByRole('heading', { level: 1, name: 'Welcome back' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'New recipe' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Welcome back!' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add new recipe' })).toBeInTheDocument();
+  });
+
+  it('greets the signed-in user by derived first name', () => {
+    render(<HomeView {...props({ userName: 'Chef' })} />);
+    expect(screen.getByRole('heading', { level: 1, name: 'Welcome back, Chef!' })).toBeInTheDocument();
+  });
+
+  it('signed-in: the entry-mode buttons and restriction banner are present', () => {
+    const p = props({ library: [] });
+    render(<HomeView {...p} />);
+    expect(screen.getByRole('button', { name: 'Paste text' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Structured form' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Upload photo' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Household restriction profile' })).toBeInTheDocument();
+  });
+
+  it('signed-in: quick actions are wired to real destinations', async () => {
+    const p = props({ library: [] });
+    render(<HomeView {...p} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Open your library' }));
+    expect(p.onOpenLibrary).toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'Manage restrictions' }));
+    expect(p.onOpenHousehold).toHaveBeenCalled();
   });
 
   it('shows a helpful empty state when no session recipes exist', () => {
@@ -49,7 +73,7 @@ describe('HomeView', () => {
     render(<HomeView {...p} />);
     expect(screen.getByText(/exploring as a guest/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Create account and claim' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'New recipe' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add new recipe' })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Dismiss the guest notice' }));
     expect(screen.queryByText(/exploring as a guest/i)).not.toBeInTheDocument();
   });
@@ -101,7 +125,7 @@ describe('HomeView', () => {
     expect(screen.queryByLabelText('Search your library')).not.toBeInTheDocument();
   });
 
-  it('signed in: shows exactly the 2 most recent recipes, never the full list', () => {
+  it('signed in: shows exactly the 4 most recent recipes, never the full list', () => {
     const names = ['Recipe one', 'Recipe two', 'Recipe three', 'Recipe four', 'Recipe five'];
     const p = props({
       library: names.map((name, i) => ({
@@ -114,11 +138,11 @@ describe('HomeView', () => {
       })),
     });
     render(<HomeView {...p} />);
-    // newest-first: first two only
+    // newest-first: the first four only
     expect(screen.getByText('Recipe one')).toBeInTheDocument();
     expect(screen.getByText('Recipe two')).toBeInTheDocument();
-    expect(screen.queryByText('Recipe three')).not.toBeInTheDocument();
-    expect(screen.queryByText('Recipe four')).not.toBeInTheDocument();
+    expect(screen.getByText('Recipe three')).toBeInTheDocument();
+    expect(screen.getByText('Recipe four')).toBeInTheDocument();
     expect(screen.queryByText('Recipe five')).not.toBeInTheDocument();
   });
 

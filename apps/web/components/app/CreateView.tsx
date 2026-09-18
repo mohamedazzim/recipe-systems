@@ -22,6 +22,8 @@ export interface CreateViewProps {
   signedIn: boolean;
   /** The current identity's accountId (null when guest). */
   accountId: string | null;
+  /** The intake tab to open on (deep links from the Home entry modes). */
+  initialMode?: 'paste' | 'form' | 'photo';
   onBack: () => void;
   onParsed: (recipeId: string, lines: WireLine[]) => void;
   /** D-11 (B2): navigate after a completed photo upload, with the OCR draft. */
@@ -31,12 +33,19 @@ export interface CreateViewProps {
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png'];
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
-export function CreateView({ signedIn, accountId, onBack, onParsed, onUploaded }: CreateViewProps) {
+export function CreateView({
+  signedIn,
+  accountId,
+  initialMode,
+  onBack,
+  onParsed,
+  onUploaded,
+}: CreateViewProps) {
   const [text, setText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // D-10A (B5): text/paste vs structured form vs photo — paste stays the default.
-  const [mode, setMode] = useState<'paste' | 'form' | 'photo'>('paste');
+  const [mode, setMode] = useState<'paste' | 'form' | 'photo'>(initialMode ?? 'paste');
 
   // Photo upload state (D-11 B2).
   const [file, setFile] = useState<File | null>(null);
@@ -184,7 +193,7 @@ export function CreateView({ signedIn, accountId, onBack, onParsed, onUploaded }
       <div className="mt-6 grid items-start gap-6 lg:grid-cols-[1.6fr_1fr]">
         <div className="overflow-hidden rounded-lg border border-border bg-surface">
         <div
-          className="flex gap-6 overflow-x-auto border-b border-border px-5"
+          className="flex gap-1.5 overflow-x-auto border-b border-border px-5 py-3"
           role="tablist"
           aria-label="Input mode"
         >
@@ -201,8 +210,10 @@ export function CreateView({ signedIn, accountId, onBack, onParsed, onUploaded }
               role="tab"
               aria-selected={mode === key}
               onClick={() => setMode(key)}
-              className={`-mb-px whitespace-nowrap border-b-2 px-1 py-3 text-small font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset--2 focus-visible:outline-gold ${
-                mode === key ? 'border-accent text-ink' : 'border-transparent text-muted hover:text-ink'
+              className={`whitespace-nowrap rounded-md px-3.5 py-1.5 text-small font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold ${
+                mode === key
+                  ? 'bg-accent text-surface hover:bg-accent-strong'
+                  : 'text-muted hover:bg-ink/5 hover:text-ink'
               }`}
             >
               {label}

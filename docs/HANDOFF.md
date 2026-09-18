@@ -4651,3 +4651,32 @@ Verdict: PASS (with one confirmed regression found and fixed; suites green:
 worker 57/57, adapter 103/103, API 208/208, web 104/104, integration 106/106,
 gates 8/8, contract OK, lint/typecheck 0, verify-local ALL STEPS PASSED,
 secret sweep clean, CI green at the verification commit).
+---
+
+## 0c. Visual redesign — reference design system applied app-wide — 2026-09-18 (UI-only)
+
+Scope: presentation only. Backend contracts, DB schema, routes, APIs, the nine-view analysis
+system, Home/Chef modes, cook mode, the restriction profile, and all workflows are unchanged.
+
+- **Reference visual language applied:** left navigation rail (brand + tagline, grouped nav with
+  tinted active item, workspace section links while a recipe is open, editorial quote card),
+  compact top utility bar (search with Ctrl K, theme toggle, avatar menu), warm paper tokens kept.
+- **Home:** greeting + quote + primary CTA; four stat cards derived ONLY from the real account
+  library (total recipes, cooked, updated this month, distinct families — no fabricated metrics);
+  "Start a new recipe" banner with the three real intake modes (deep-link to the matching tab);
+  "Household restriction profile" banner (real profile count via GET /me/restriction-profile,
+  "View profile" routes to the new Household view); "Recently updated" card grid (monogram tiles —
+  the library wire carries no photos) + Quick actions.
+- **New surfaces:** HouseholdView (profile as a first-class view; guests get an honest sign-up
+  explanation — the profile endpoints are Bearer-only). Sidebar "Household profile" and the Home
+  banner route here.
+- **Wiring:** page.tsx lifts the workspace section tab; the shell's "Recipe workspace" nav
+  (Ingredients / Method / Shopping list / Analysis views / Cook mode) switches tabs and scrolls to
+  the analysis/cook surfaces. Top-bar search routes to Library with the query pre-seeded
+  (LibraryView.initialQuery). CreateView.initialMode deep-links the Home entry-mode buttons.
+  Theme toggle drives the existing .dark token layer.
+- **Verified:** web typecheck 0 · lint 0 · jest 23 suites / 196 tests · live browser at 1440px
+  (signed-in chef): Home/Library/Workspace/Household/Add-recipe all render with real data; sidebar
+  section links switch workspace tabs; top-bar search deep-links; Ctrl K focuses search; theme
+  toggle flips the dark class; 390px mobile: rail hidden, compact bar visible, no horizontal
+  overflow (workspace included).

@@ -5,10 +5,11 @@ import { API_BASE_URL, api } from '@/lib/api';
 import { User } from '@/lib/types';
 import { LoadingScreen } from '@/components/ui/Spinner';
 import { LandingPage } from '@/components/home/LandingPage';
-import { AppShell, AppView } from '@/components/app/AppShell';
+import { AppShell, AppView, WorkspaceSection, greetName } from '@/components/app/AppShell';
 import { HomeView } from '@/components/app/HomeView';
 import { LibraryView } from '@/components/app/LibraryView';
 import { CreateView } from '@/components/app/CreateView';
+import { HouseholdView } from '@/components/app/HouseholdView';
 import { RecipeWorkspace } from '@/components/app/RecipeWorkspace';
 import { claimSessionRecords } from '@/lib/flow';
 import type { LibraryRecipe, WireLine } from '@/lib/types';
@@ -37,6 +38,25 @@ export default function Home() {
    *  browser state). null = not loaded / no account (guests keep their
    *  session-local surface). */
   const [library, setLibrary] = useState<LibraryRecipe[] | null>(null);
+  /** Top-bar search routes to the Library with this pre-seeded query. */
+  const [libraryQuery, setLibraryQuery] = useState('');
+  /** The workspace section tab — lifted so the shell's workspace nav can
+   *  drive it (Ingredients / Method / Shopping list). */
+  const [workspaceTab, setWorkspaceTab] = useState<'ingredients' | 'method' | 'shopping'>(
+    'ingredients',
+  );
+  /** A workspace section request from the shell (tabs, analysis, cook mode).
+   *  The counter makes repeat requests of the same section observable. */
+  const [sectionRequest, setSectionRequest] = useState<{ section: WorkspaceSection; n: number } | null>(
+    null,
+  );
+
+  const handleWorkspaceSection = useCallback((section: WorkspaceSection) => {
+    if (section === 'ingredients' || section === 'method' || section === 'shopping') {
+      setWorkspaceTab(section);
+    }
+    setSectionRequest({ section, n: Date.now() });
+  }, []);
 
   const loadLibrary = useCallback(() => {
     api<{ recipes: LibraryRecipe[] }>('/recipes')
@@ -135,18 +155,34 @@ export default function Home() {
   const user = state.phase === 'signed-in' ? state.user : null;
 
   return (
-    <AppShell user={user} view={view} onNavigate={setView} onSignOut={() => void signOut()}>
+    <AppShell
+      user={user}
+      view={view}
+      onNavigate={setView}
+      onSignOut={() => void signOut()}
+      onSearch={(query) => {
+        setLibraryQuery(query);
+        setView({ name: 'library' });
+      }}
+      workspaceSections={
+        view.name === 'workspace'
+          ? { active: workspaceTab, onSelect: handleWorkspaceSection }
+          : undefined
+      }
+    >
       {view.name === 'home' && (
         <HomeView
           signedIn={state.phase === 'signed-in'}
           accountId={user?.id ?? null}
+          userName={greetName(user)}
           library={user ? library : null}
           notice={homeNotice}
-          onCreate={() => setView({ name: 'create' })}
+          onCreate={(mode) => setView({ name: 'create', mode })}
           onOpenRecipe={(recipeId, lines, title) =>
             setView({ name: 'workspace', recipeId, initialLines: lines ?? null, initialTitle: title })
           }
           onOpenLibrary={() => setView({ name: 'library' })}
+          onOpenHousehold={() => setView({ name: 'household' })}
           onSignUp={startSignup}
           onSignOut={() => void signOut()}
         />
@@ -154,7 +190,11 @@ export default function Home() {
       {view.name === 'library' && (
         <LibraryView
           library={user ? library : null}
-          onBack={() => setView({ name: 'home' })}
+          initialQuery={libraryQuery}
+          onBack={() => {
+            setView({ name: 'home' });
+            setLibraryQuery('');
+          }}
           onOpenRecipe={(recipeId, lines, title) =>
             setView({ name: 'workspace', recipeId, initialLines: lines ?? null, initialTitle: title })
           }
@@ -164,9 +204,17 @@ export default function Home() {
         <CreateView
           signedIn={state.phase === 'signed-in'}
           accountId={user?.id ?? null}
+          initialMode={view.mode}
           onBack={() => setView({ name: 'home' })}
           onParsed={(recipeId, lines) => setView({ name: 'workspace', recipeId, initialLines: lines })}
           onUploaded={(recipeId, lines) => setView({ name: 'workspace', recipeId, initialLines: lines })}
+        />
+      )}
+      {view.name === 'household' && (
+        <HouseholdView
+          signedIn={state.phase === 'signed-in'}
+          onBack={() => setView({ name: 'home' })}
+          onSignUp={startSignup}
         />
       )}
       {view.name === 'workspace' && (
@@ -174,6 +222,9 @@ export default function Home() {
           recipeId={view.recipeId}
           signedIn={state.phase === 'signed-in'}
           initialTitle={view.initialTitle}
+          tab={workspaceTab}
+          onTabChange={setWorkspaceTab}
+          sectionRequest={sectionRequest}
           onDeleted={() => {
             setView({ name: 'home' });
             setHomeNotice('Recipe deleted.');

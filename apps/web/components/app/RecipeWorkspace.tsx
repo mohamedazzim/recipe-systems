@@ -20,6 +20,7 @@ import { SwapSection } from '@/components/app/SwapSection';
 import { TagsSection } from '@/components/app/TagsSection';
 import { ReadinessPanel } from '@/components/app/ReadinessPanel';
 import { AnalysisPanel } from '@/components/app/AnalysisPanel';
+import type { WorkspaceSection } from '@/components/app/AppShell';
 
 export interface RecipeWorkspaceProps {
   recipeId: string;
@@ -35,6 +36,12 @@ export interface RecipeWorkspaceProps {
   initialTitle?: string;
   /** D-20 (C3): the account's saved mode preference (default home). */
   preferredMode?: 'home' | 'chef';
+  /** Lifted section tab — the shell's workspace nav drives it when present. */
+  tab?: 'ingredients' | 'method' | 'shopping';
+  onTabChange?: (tab: 'ingredients' | 'method' | 'shopping') => void;
+  /** A section request from the shell (tabs, analysis, cook mode). The counter
+   *  makes repeated requests of the same section observable. */
+  sectionRequest?: { section: WorkspaceSection; n: number } | null;
 }
 
 export function RecipeWorkspace({
@@ -45,6 +52,9 @@ export function RecipeWorkspace({
   initialLines = null,
   initialTitle,
   preferredMode = 'home',
+  tab,
+  onTabChange,
+  sectionRequest,
 }: RecipeWorkspaceProps) {
   const [analysisId, setAnalysisId] = useState<string | null>(null);
   /** true when the recipe changed since the current analysis (D-25/C6: never
@@ -65,8 +75,19 @@ export function RecipeWorkspace({
   /** E6 + I5 (D-31): the home-mode one-pager print, surfaced from the header. */
   const [printing, setPrinting] = useState(false);
   const [printError, setPrintError] = useState<string | null>(null);
-  /** Which workflow section is active — Ingredients / Method / Shopping list. */
-  const [activeTab, setActiveTab] = useState<'ingredients' | 'method' | 'shopping'>('ingredients');
+  /** Which workflow section is active — Ingredients / Method / Shopping list.
+   *  Controlled by the shell's workspace nav when `tab` is provided. */
+  const [internalTab, setInternalTab] = useState<'ingredients' | 'method' | 'shopping'>(
+    'ingredients',
+  );
+  const activeTab = tab ?? internalTab;
+  const selectTab = useCallback(
+    (next: 'ingredients' | 'method' | 'shopping') => {
+      if (tab !== undefined) onTabChange?.(next);
+      else setInternalTab(next);
+    },
+    [tab, onTabChange],
+  );
   /** Top of the active workflow section — scrolled into view on tab changes so
    *  the footer's "next" doesn't leave the user stranded at the bottom. */
   const sectionTopRef = useRef<HTMLDivElement | null>(null);
@@ -79,6 +100,23 @@ export function RecipeWorkspace({
     }
     sectionTopRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
   }, [activeTab]);
+
+  /** Shell section requests — tabs scroll to the section top; the analysis and
+   *  cook-mode links scroll to their surfaces (stacked below on small screens). */
+  const analysisRef = useRef<HTMLElement | null>(null);
+  const cookRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!sectionRequest) return;
+    const { section } = sectionRequest;
+    if (section === 'analysis') {
+      analysisRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+    } else if (section === 'cook') {
+      cookRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+    } else {
+      sectionTopRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+    }
+  }, [sectionRequest]);
 
   /** true once the recipe has at least one cook log — swaps only surface then. */
   const [hasCookLog, setHasCookLog] = useState(false);
@@ -287,7 +325,7 @@ export function RecipeWorkspace({
   }, [recipeId, initialLines, initialTitle, signedIn]);
 
   return (
-    <div className="mx-auto flex max-w-none flex-col lg:h-[calc(100dvh-5.5rem)] lg:overflow-hidden">
+    <div className="mx-auto flex max-w-none flex-col lg:h-[calc(100dvh-5rem)] lg:overflow-hidden">
       <div className="shrink-0">
       <button
         type="button"
@@ -448,7 +486,7 @@ export function RecipeWorkspace({
                 type="button"
                 role="tab"
                 aria-selected={activeTab === key}
-                onClick={() => setActiveTab(key)}
+                onClick={() => selectTab(key)}
                 className={`-mb-px whitespace-nowrap border-b-2 px-1 py-3 text-small font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset--2 focus-visible:outline-gold ${
                   activeTab === key ? 'border-accent text-ink' : 'border-transparent text-muted hover:text-ink'
                 }`}
@@ -489,13 +527,13 @@ export function RecipeWorkspace({
               {activeTab === 'shopping' && 'Step 3 of 3 — your shopping list.'}
             </span>
             {activeTab === 'shopping' ? (
-              <Button variant="outline" onClick={() => setActiveTab('ingredients')}>
+              <Button variant="outline" onClick={() => selectTab('ingredients')}>
                 <ArrowLeft size={14} aria-hidden="true" weight="bold" />
                 Back to ingredients
               </Button>
             ) : (
               <Button
-                onClick={() => setActiveTab(activeTab === 'ingredients' ? 'method' : 'shopping')}
+                onClick={() => selectTab(activeTab === 'ingredients' ? 'method' : 'shopping')}
               >
                 {activeTab === 'ingredients' ? 'Proceed to Method' : 'Proceed to Shopping list'}
                 <ArrowRight size={14} aria-hidden="true" weight="bold" />
@@ -506,7 +544,9 @@ export function RecipeWorkspace({
           {/* Logging surfaces — cook log first; swaps only once a cook exists. */}
           {signedIn && (
             <>
-              <CookSection recipeId={recipeId} onLogsChanged={handleCookLogsChanged} />
+              <div ref={cookRef} id="cook-section">
+                <CookSection recipeId={recipeId} onLogsChanged={handleCookLogsChanged} />
+              </div>
               {hasCookLog && (
                 <SwapSection recipeId={recipeId} lines={lines} onApplied={() => void reloadLines()} />
               )}
@@ -523,7 +563,11 @@ export function RecipeWorkspace({
         </div>
 
         {/* RIGHT — analysis: heading pinned, its panels scroll independently. */}
-        <aside aria-label="Analysis" className="flex min-w-0 flex-col lg:overflow-hidden">
+        <aside
+          ref={analysisRef}
+          aria-label="Analysis"
+          className="flex min-w-0 flex-col lg:overflow-hidden"
+        >
           <div className="shrink-0">
             <h2 className="font-display text-h2 text-ink">Analysis</h2>
             <p className="mt-1 text-small text-muted">
@@ -541,7 +585,7 @@ export function RecipeWorkspace({
               hasAnalysis={analysisId !== null}
               stale={analysisStale}
               onReviewLines={() => {
-                setActiveTab('ingredients');
+                selectTab('ingredients');
                 requestAnimationFrame(() =>
                   document
                     .getElementById('ingredients-heading')

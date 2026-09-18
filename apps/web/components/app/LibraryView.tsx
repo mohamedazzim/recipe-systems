@@ -4,7 +4,7 @@
 // shell "Library" nav and the Home "View library" link. Search is account-
 // scoped GET /recipes?q=; the full list is the canonical GET /recipes rows.
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, MagnifyingGlass, X } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -15,11 +15,20 @@ import type { LibraryRecipe } from '@/lib/types';
 
 export interface LibraryViewProps {
   library: LibraryRecipe[] | null;
+  /** A query pre-seeded by the shell search — runs once on mount. */
+  initialQuery?: string;
   onBack: () => void;
   onOpenRecipe: (recipeId: string, initialLines: null, title?: string) => void;
 }
 
-export function LibraryView({ library, onBack, onOpenRecipe }: LibraryViewProps) {
+const MONOGRAM_TINTS = [
+  'bg-accent/10 text-accent',
+  'bg-gold/10 text-gold',
+  'bg-positive/10 text-positive',
+  'bg-negative/10 text-negative',
+];
+
+export function LibraryView({ library, initialQuery, onBack, onOpenRecipe }: LibraryViewProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<LibraryRecipe[] | null>(null);
   const [searching, setSearching] = useState(false);
@@ -49,6 +58,18 @@ export function LibraryView({ library, onBack, onOpenRecipe }: LibraryViewProps)
       setSearching(false);
     }
   };
+
+  // Top-bar search deep link: seed the query and run it once on mount.
+  const seeded = useRef(false);
+  useEffect(() => {
+    if (seeded.current) return;
+    if (initialQuery && initialQuery.trim() !== '') {
+      seeded.current = true;
+      setQuery(initialQuery);
+      void runSearch(initialQuery);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialQuery]);
 
   const clearSearch = (): void => {
     setQuery('');
@@ -151,15 +172,23 @@ export function LibraryView({ library, onBack, onOpenRecipe }: LibraryViewProps)
           />
         </div>
       ) : (
-        <ul className="mt-6 divide-y divide-border rounded-lg border border-border bg-surface">
-          {list.map((recipe) => (
+        <ul className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {list.map((recipe, index) => (
             <li key={recipe.recipe_id}>
               <button
                 type="button"
                 onClick={() => onOpenRecipe(recipe.recipe_id, null, recipe.name)}
-                className="group flex w-full items-center justify-between gap-4 rounded-sm px-4 py-4 text-left focus-visible:outline-2 focus-visible:outline-offset--2 focus-visible:outline-gold sm:px-5"
+                className="group w-full overflow-hidden rounded-xl border border-border bg-surface text-left shadow-whisper transition-shadow hover:shadow-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
               >
-                <span className="min-w-0">
+                <span
+                  className={`flex h-16 items-center justify-center ${MONOGRAM_TINTS[index % MONOGRAM_TINTS.length]}`}
+                  aria-hidden="true"
+                >
+                  <span className="font-display text-2xl font-semibold">
+                    {(recipe.name.trim().charAt(0) || 'R').toUpperCase()}
+                  </span>
+                </span>
+                <span className="block p-4">
                   <span className="block truncate text-body font-semibold text-ink">
                     {recipe.name}
                   </span>
@@ -167,22 +196,24 @@ export function LibraryView({ library, onBack, onOpenRecipe }: LibraryViewProps)
                     {new Date(recipe.date).toLocaleDateString()}
                     {recipe.family ? ` · ${recipe.family}` : ' · Family unknown'}
                   </span>
-                </span>
-                <span className="flex shrink-0 items-center gap-3">
-                  {recipe.has_cook_log ? (
-                    <span className="rounded-sm border border-border px-2 py-0.5 text-caption font-semibold text-body">
-                      {recipe.last_cooked_at
-                        ? `Cooked ${new Date(`${recipe.last_cooked_at}T12:00:00`).toLocaleDateString()}`
-                        : 'Cooked'}
-                    </span>
-                  ) : (
-                    <span className="text-caption text-faint">No cook log yet</span>
-                  )}
-                  <ArrowRight
-                    size={16}
-                    aria-hidden="true"
-                    className="shrink-0 text-faint transition-transform group-hover:translate-x-0.5 group-hover:text-accent"
-                  />
+                  <span className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                    {recipe.has_cook_log ? (
+                      <span className="rounded-full border border-positive/40 bg-positive/10 px-2 py-0.5 text-caption font-semibold text-positive">
+                        {recipe.last_cooked_at
+                          ? `Cooked ${new Date(`${recipe.last_cooked_at}T12:00:00`).toLocaleDateString()}`
+                          : 'Cooked'}
+                      </span>
+                    ) : (
+                      <span className="rounded-full border border-border bg-canvas px-2 py-0.5 text-caption font-medium text-faint">
+                        No cook log yet
+                      </span>
+                    )}
+                    <ArrowRight
+                      size={14}
+                      aria-hidden="true"
+                      className="ml-auto shrink-0 text-faint transition-transform group-hover:translate-x-0.5 group-hover:text-accent"
+                    />
+                  </span>
                 </span>
               </button>
             </li>

@@ -10,6 +10,7 @@ import {
   CanActivate,
   ExecutionContext,
   Injectable,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaClient } from '@recipe-systems/database';
 import { Inject } from '@nestjs/common';
@@ -63,9 +64,9 @@ export class GuestOrJwtGuard implements CanActivate {
       const session = await this.prisma.guestSession.findUnique({
         where: { id: guestToken },
       });
-      if (!session) return false;
-      if (session.expiresAt.getTime() <= Date.now()) return false;
-      if (session.claimedAt) return false; // claimed sessions are audit-only
+      if (!session) return this.noIdentity();
+      if (session.expiresAt.getTime() <= Date.now()) return this.noIdentity();
+      if (session.claimedAt) return this.noIdentity(); // claimed sessions are audit-only
       req.guest = {
         kind: 'guest',
         guestSessionId: session.id,
@@ -75,6 +76,17 @@ export class GuestOrJwtGuard implements CanActivate {
       return true;
     }
 
-    return false; // no identity — route returns 401/403 as appropriate
+    return this.noIdentity(); // no cookie at all — 401, never a bare 403
+  }
+
+  /** No usable identity (no cookies, or an expired/claimed guest session): a
+   *  clean 401 so the web layer can tell the user to sign in again. Guards
+   *  returning `false` would surface as a bare 403 "Forbidden resource". */
+  private noIdentity(): boolean {
+    throw new UnauthorizedException({
+      code: 'SESSION_REQUIRED',
+      message:
+        'Sign in to continue — your session may have expired. Reload the page to sign in again.',
+    });
   }
 }

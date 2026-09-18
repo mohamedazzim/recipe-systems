@@ -4750,3 +4750,11 @@ Scope: presentation + read model. No business logic, schema, or writer changes.
   flip together; Button danger hover/active swapped \#A03624\ for \g-negative/90\.
   Verified computed styles: dark canvas 23,27,21 / ink 234 / cards 31,36,25 / primary
   CTA light-green bg with dark label; light mode unchanged (canvas 242,239,228).
+- **2026-09-18 upload 403 root cause + fix:** the 403 on POST /recipes/upload was NOT an
+  upload bug — the browser's BFF session cookies had expired (verified: /auth/me 401,
+  document.cookie empty) while the SPA kept stale signed-in state. With no identity,
+  GuestOrJwtGuard returned false → Nest's bare 403 \"Forbidden resource\". Fix: the guard
+  now throws 401 { code: SESSION_REQUIRED } with a sign-in-again message for missing/
+  expired/claimed identities, so the UI can guide the user instead of a cryptic 403.
+  Live-verified the full flow after re-login: photo upload → DeepSeek OCR → workspace
+  with 26 extracted lines. API 29 suites / 360 tests green.

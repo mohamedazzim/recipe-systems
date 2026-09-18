@@ -130,7 +130,7 @@ describe('GuestOrJwtGuard', () => {
     expect((req.actor as { kind: string }).kind).toBe('guest');
   });
 
-  it('rejects an expired or claimed guest session', async () => {
+  it('rejects an expired or claimed guest session with a clean 401', async () => {
     const guard = guardWith({
       guestSession: {
         findUnique: jest.fn().mockResolvedValue({
@@ -140,7 +140,9 @@ describe('GuestOrJwtGuard', () => {
         }),
       },
     });
-    await expect(guard.canActivate(ctx({ cookies: { recipe_guest_session: 'g1' } }))).resolves.toBe(false);
+    await expect(guard.canActivate(ctx({ cookies: { recipe_guest_session: 'g1' } }))).rejects.toMatchObject({
+      response: { code: 'SESSION_REQUIRED' },
+    });
 
     const claimed = guardWith({
       guestSession: {
@@ -151,11 +153,15 @@ describe('GuestOrJwtGuard', () => {
         }),
       },
     });
-    await expect(claimed.canActivate(ctx({ cookies: { recipe_guest_session: 'g1' } }))).resolves.toBe(false);
+    await expect(claimed.canActivate(ctx({ cookies: { recipe_guest_session: 'g1' } }))).rejects.toMatchObject({
+      response: { code: 'SESSION_REQUIRED' },
+    });
   });
 
-  it('returns false when no identity is present', async () => {
+  it('throws a clean 401 SESSION_REQUIRED when no identity is present (never a bare 403)', async () => {
     const guard = guardWith({});
-    await expect(guard.canActivate(ctx({ cookies: {} }))).resolves.toBe(false);
+    await expect(guard.canActivate(ctx({ cookies: {} }))).rejects.toMatchObject({
+      response: { code: 'SESSION_REQUIRED' },
+    });
   });
 });

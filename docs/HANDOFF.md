@@ -4730,3 +4730,11 @@ Scope: presentation + read model. No business logic, schema, or writer changes.
   utility in globals.css). At 1440x900 the dashboard is a single non-scrolling page;
   shorter default windows (e.g. 1366x768 laptops) keep the normal scrollable flow so
   every section — banners, recent recipes, quick actions — stays reachable.
+- **2026-09-18 OS-scaling breakpoint fix:** the stat-cards grid moved from
+  \xl:grid-cols-4\ (1280px) to \md:grid-cols-4\ (768px) and the feature banners
+  from \lg:\ to \md:grid-cols-2\, so a normal browser window under Windows display
+  scaling (125%/150% — effective CSS viewport 1152/960/911px) keeps the reference
+  4-up stats row and side-by-side banners. No JS/rem viewport font scaler exists in the
+  app (verified); perceived text enlargement is OS zoom, which the lower breakpoints
+  now tolerate. Verified live at 768/960/1024/1152/1280/1440/1536: 4 stat columns +
+  side-by-side banners at every width.

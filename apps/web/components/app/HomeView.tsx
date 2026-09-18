@@ -343,10 +343,12 @@ export function HomeView({
         </Button>
       </section>
 
-      {/* Four summary cards — real numbers from the library read model. */}
+      {/* Four summary cards — real numbers from the library read model.
+          `md:` (not `xl:`) keeps the single row under OS display scaling
+          (125%/150%) where the effective CSS viewport is much smaller. */}
       {stats && (
         <div
-          className="mt-5 grid grid-cols-2 gap-4 lg:shrink-0 xl:grid-cols-4"
+          className="mt-5 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4 lg:shrink-0"
           aria-label="Recipe statistics"
         >
           {stats.map((stat) => (
@@ -356,7 +358,7 @@ export function HomeView({
       )}
 
       {/* Feature row — the three entry modes + the restriction profile. */}
-      <div className={`mt-5 grid items-stretch gap-4 lg:shrink-0 ${signedIn ? 'lg:grid-cols-2' : ''}`}>
+      <div className={`mt-5 grid items-stretch gap-4 lg:shrink-0 ${signedIn ? 'md:grid-cols-2' : ''}`}>
         {startCard}
 
         {signedIn && (

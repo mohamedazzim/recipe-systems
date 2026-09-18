@@ -445,7 +445,15 @@ export function HomeView({
               </button>
             </div>
             {library.length === 0 ? (
-              <p className="mt-4 text-small text-muted">No recipes yet — start one above.</p>
+              <figure className="mt-4 overflow-hidden rounded-xl border border-border bg-surface shadow-whisper">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/images/empty-library-hero.png"
+                  alt="Your recipe collection awaits — save your favourite recipes, analyse them with AI, create shopping lists and make cooking more joyful."
+                  className="block h-auto w-full"
+                  loading="lazy"
+                />
+              </figure>
             ) : (
               <ul className="mt-4 grid gap-4 sm:grid-cols-2">
                 {library.slice(0, 2).map((recipe, index) => (

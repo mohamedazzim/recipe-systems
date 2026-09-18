@@ -4758,3 +4758,8 @@ Scope: presentation + read model. No business logic, schema, or writer changes.
   expired/claimed identities, so the UI can guide the user instead of a cryptic 403.
   Live-verified the full flow after re-login: photo upload → DeepSeek OCR → workspace
   with 26 extracted lines. API 29 suites / 360 tests green.
+- **2026-09-18 sidebar:** removed \"Analysis views\" + \"Cook mode\" from the recipe
+  workspace rail (they remain reachable inside the workspace itself), and added a
+  collapse toggle — the rail collapses to a 4.75rem icon column (brand mark, icons with
+  sr-only labels, quote hidden) and expands back; state persists in localStorage
+  (rs-nav-collapsed). Keyboard-accessible via title + sr-only labels.

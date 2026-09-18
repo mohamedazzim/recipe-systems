@@ -68,6 +68,28 @@ describe('AppShell', () => {
     render(<AppShell {...p} />);
     expect(screen.getByRole('navigation', { name: 'Recipe workspace' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Ingredients' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Cook mode' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Shopping list' })).toBeInTheDocument();
+    // Analysis views + Cook mode were removed from the rail (they live in the workspace).
+    expect(screen.queryByRole('button', { name: 'Analysis views' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Cook mode' })).not.toBeInTheDocument();
+  });
+
+  it('collapses to an icon rail and expands again', async () => {
+    const p = props();
+    render(<AppShell {...p} />);
+    expect(screen.getByText('Good food brings people together.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Collapse sidebar' }));
+    expect(screen.getByRole('button', { name: 'Expand sidebar' })).toBeInTheDocument();
+    // quote + group labels are hidden in the collapsed rail
+    expect(screen.queryByText('Good food brings people together.')).not.toBeInTheDocument();
+    expect(screen.queryByText('Account')).not.toBeInTheDocument();
+    // nav stays keyboard-accessible via sr-only labels inside the rail
+    expect(
+      within(screen.getByRole('complementary', { name: 'Primary' })).getByRole('button', {
+        name: 'Library',
+      }),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Expand sidebar' }));
+    expect(screen.getByText('Good food brings people together.')).toBeInTheDocument();
   });
 });

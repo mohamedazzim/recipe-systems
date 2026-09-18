@@ -11,8 +11,8 @@ import {
   Basket,
   Books,
   CaretDown,
-  CookingPot,
-  Flask,
+  CaretLeft,
+  CaretRight,
   ForkKnife,
   House,
   ListChecks,
@@ -79,8 +79,6 @@ const WORKSPACE_ITEMS = [
   { key: 'ingredients', label: 'Ingredients', icon: ListChecks },
   { key: 'method', label: 'Method', icon: ListNumbers },
   { key: 'shopping', label: 'Shopping list', icon: Basket },
-  { key: 'analysis', label: 'Analysis views', icon: Flask },
-  { key: 'cook', label: 'Cook mode', icon: CookingPot },
 ] as const;
 
 export function AppShell({
@@ -95,6 +93,7 @@ export function AppShell({
   const [dark, setDark] = useState(false);
   const [query, setQuery] = useState('');
   const [accountOpen, setAccountOpen] = useState(false);
+  const [navCollapsed, setNavCollapsed] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
   // Theme — the token layer ships both palettes; this is the switch.
@@ -113,6 +112,18 @@ export function AppShell({
       window.localStorage.setItem('rs-theme', dark ? 'dark' : 'light');
     }
   }, [dark]);
+
+  // Sidebar collapse — persisted like the theme.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    setNavCollapsed(window.localStorage.getItem('rs-nav-collapsed') === '1');
+  }, []);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('rs-nav-collapsed', navCollapsed ? '1' : '0');
+    }
+  }, [navCollapsed]);
 
   // Ctrl+K focuses the top-bar search (the reference's shortcut).
   useEffect(() => {
@@ -150,14 +161,20 @@ export function AppShell({
   const groupLabel =
     'px-3 pt-6 pb-1.5 text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-faint';
   const navItem = (active: boolean) =>
-    `flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-small font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset--2 focus-visible:outline-gold ${
+    `flex items-center gap-2.5 rounded-lg text-small font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset--2 focus-visible:outline-gold ${
+      navCollapsed ? 'mx-auto w-10 justify-center px-0 py-2.5' : 'w-full px-3 py-2'
+    } ${
       active
         ? 'bg-accent/10 font-semibold text-accent-strong'
         : 'text-muted hover:bg-ink/5 hover:text-ink'
     }`;
 
   return (
-    <div className="min-h-[100dvh] lg:grid lg:grid-cols-[16.5rem_minmax(0,1fr)]">
+    <div
+      className={`min-h-[100dvh] lg:grid ${
+        navCollapsed ? 'lg:grid-cols-[4.75rem_minmax(0,1fr)]' : 'lg:grid-cols-[16.5rem_minmax(0,1fr)]'
+      }`}
+    >
       {/* LEFT — the navigation rail. Desktop only; mobile keeps the compact bar. */}
       <aside
         aria-label="Primary"
@@ -167,17 +184,22 @@ export function AppShell({
           <button
             type="button"
             onClick={go({ name: 'home' })}
-            className="flex items-center gap-3 rounded-lg px-2 py-1.5 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+            title={navCollapsed ? 'Recipe Systems — Home' : undefined}
+            className={`flex items-center gap-3 rounded-lg text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold ${
+              navCollapsed ? 'justify-center px-1 py-1.5' : 'px-2 py-1.5'
+            }`}
           >
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-surface shadow-card">
               <ForkKnife size={20} aria-hidden="true" weight="fill" />
             </span>
-            <span className="min-w-0">
-              <span className="block font-display text-lg font-semibold leading-tight tracking-tight text-ink">
-                Recipe Systems
+            {!navCollapsed && (
+              <span className="min-w-0">
+                <span className="block font-display text-lg font-semibold leading-tight tracking-tight text-ink">
+                  Recipe Systems
+                </span>
+                <span className="block text-caption text-muted">Understand. Cook. Enjoy.</span>
               </span>
-              <span className="block text-caption text-muted">Understand. Cook. Enjoy.</span>
-            </span>
+            )}
           </button>
 
           <nav aria-label="Primary" className="mt-6">
@@ -190,10 +212,11 @@ export function AppShell({
                   type="button"
                   onClick={go(item.key === 'create' ? { name: 'create' } : { name: item.key })}
                   aria-current={active ? 'page' : undefined}
+                  title={navCollapsed ? item.label : undefined}
                   className={navItem(active)}
                 >
                   <Icon size={17} aria-hidden="true" weight={active ? 'fill' : 'regular'} />
-                  {item.label}
+                  <span className={navCollapsed ? 'sr-only' : ''}>{item.label}</span>
                 </button>
               );
             })}
@@ -201,22 +224,21 @@ export function AppShell({
 
           {workspaceSections && view.name === 'workspace' && (
             <nav aria-label="Recipe workspace">
-              <p className={groupLabel}>Recipe workspace</p>
+              {!navCollapsed && <p className={groupLabel}>Recipe workspace</p>}
               {WORKSPACE_ITEMS.map((item) => {
                 const Icon = item.icon;
-                const isTab =
-                  item.key === 'ingredients' || item.key === 'method' || item.key === 'shopping';
-                const active = isTab && workspaceSections.active === item.key;
+                const active = workspaceSections.active === item.key;
                 return (
                   <button
                     key={item.key}
                     type="button"
                     onClick={() => workspaceSections.onSelect(item.key)}
                     aria-current={active ? 'true' : undefined}
+                    title={navCollapsed ? item.label : undefined}
                     className={navItem(active)}
                   >
                     <Icon size={17} aria-hidden="true" weight={active ? 'fill' : 'regular'} />
-                    {item.label}
+                    <span className={navCollapsed ? 'sr-only' : ''}>{item.label}</span>
                   </button>
                 );
               })}
@@ -224,10 +246,11 @@ export function AppShell({
           )}
 
           <nav aria-label="Account">
-            <p className={groupLabel}>Account</p>
+            {!navCollapsed && <p className={groupLabel}>Account</p>}
             <button
               type="button"
               onClick={go({ name: 'household' })}
+              title={navCollapsed ? 'Household profile' : undefined}
               className={navItem(view.name === 'household')}
             >
               <UserCirclePlus
@@ -235,24 +258,48 @@ export function AppShell({
                 aria-hidden="true"
                 weight={view.name === 'household' ? 'fill' : 'regular'}
               />
-              Household profile
+              <span className={navCollapsed ? 'sr-only' : ''}>Household profile</span>
             </button>
             {user && (
-              <button type="button" onClick={onSignOut} className={navItem(false)}>
+              <button
+                type="button"
+                onClick={onSignOut}
+                title={navCollapsed ? 'Sign out' : undefined}
+                className={navItem(false)}
+              >
                 <SignOut size={17} aria-hidden="true" />
-                Sign out
+                <span className={navCollapsed ? 'sr-only' : ''}>Sign out</span>
               </button>
             )}
           </nav>
 
-          {/* Editorial footnote — the rail's quiet close. */}
-          <div className="mt-auto pt-6">
-            <div className="rounded-xl border border-accent/20 bg-accent/10 p-4">
-              <Plant size={18} aria-hidden="true" className="text-accent" weight="fill" />
-              <p className="mt-2.5 font-display text-small italic leading-relaxed text-ink">
-                Good food brings people together.
-              </p>
+          {/* Editorial footnote — the rail's quiet close (expanded only). */}
+          {!navCollapsed && (
+            <div className="mt-auto pt-6">
+              <div className="rounded-xl border border-accent/20 bg-accent/10 p-4">
+                <Plant size={18} aria-hidden="true" className="text-accent" weight="fill" />
+                <p className="mt-2.5 font-display text-small italic leading-relaxed text-ink">
+                  Good food brings people together.
+                </p>
+              </div>
             </div>
+          )}
+
+          {/* Collapse/expand toggle — the rail's only control. */}
+          <div className={`pt-4 ${navCollapsed ? 'mt-auto flex justify-center' : 'mt-2 flex justify-end'}`}>
+            <button
+              type="button"
+              aria-label={navCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              title={navCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              onClick={() => setNavCollapsed(!navCollapsed)}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border-strong bg-surface text-muted transition-colors hover:border-ink/40 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+            >
+              {navCollapsed ? (
+                <CaretRight size={16} aria-hidden="true" weight="bold" />
+              ) : (
+                <CaretLeft size={16} aria-hidden="true" weight="bold" />
+              )}
+            </button>
           </div>
         </div>
       </aside>

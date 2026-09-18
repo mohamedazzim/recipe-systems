@@ -74,6 +74,19 @@ describe('AppShell', () => {
     expect(screen.queryByRole('button', { name: 'Cook mode' })).not.toBeInTheDocument();
   });
 
+  it('landing: the rail shows with login-gated items disabled and Home active', () => {
+    render(<AppShell {...props({ view: { name: 'landing' } as const })} />);
+    const rail = screen.getByRole('complementary', { name: 'Primary' });
+    expect(within(rail).getByRole('button', { name: 'Home' })).toBeEnabled();
+    expect(within(rail).getByRole('button', { name: 'Library' })).toBeDisabled();
+    expect(within(rail).getByRole('button', { name: 'Add recipe' })).toBeDisabled();
+    expect(within(rail).getByRole('button', { name: 'Household profile' })).toBeDisabled();
+    expect(
+      screen.getByLabelText('Search your recipes, ingredients or cuisines'),
+    ).toBeDisabled();
+    expect(screen.queryAllByRole('button', { name: 'Sign out' })).toHaveLength(0);
+  });
+
   it('collapses to an icon rail and expands again', async () => {
     const p = props();
     render(<AppShell {...p} />);

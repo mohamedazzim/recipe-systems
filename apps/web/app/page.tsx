@@ -148,9 +148,18 @@ export default function Home() {
 
   if (state.phase === 'anonymous') {
     return (
-      <main>
+      <AppShell
+        user={null}
+        view={{ name: 'landing' }}
+        onNavigate={(target) => {
+          // The landing rail disables login-gated items; anything else that
+          // lands here (e.g. the mobile New recipe CTA) routes to sign-in.
+          if (target.name !== 'landing' && target.name !== 'home') startLogin();
+        }}
+        onSignOut={() => undefined}
+      >
         {state.error && (
-          <div className="container-rs mt-6">
+          <div className="mb-6">
             <div className="rounded-md border border-negative/40 bg-negative/8 px-4 py-3">
               <p className="text-small font-semibold text-negative">Something went wrong</p>
               <p className="mt-0.5 text-small text-body">{state.error}</p>
@@ -164,7 +173,7 @@ export default function Home() {
           onStartLogin={startLogin}
           onStartSignup={startSignup}
         />
-      </main>
+      </AppShell>
     );
   }
 

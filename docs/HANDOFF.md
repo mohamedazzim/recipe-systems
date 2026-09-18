@@ -4771,3 +4771,9 @@ Scope: presentation + read model. No business logic, schema, or writer changes.
   the empty state without a GET and drop the skip after a successful generation.
   Recipes WITH an analysis still discover it (live-verified: new recipe = 0 analysis /
   shopping requests; Meen Kuzhambhu = /analysis fetched, 200). Web 23 suites / 201 tests.
+- **2026-09-18 landing shell:** the signed-out landing page now renders inside the same
+  AppShell (rail + top bar). Login-gated destinations are visibly disabled there with a
+  \"Sign in to use this\" tooltip — Library, Add recipe, Household profile, and the
+  search box; Home stays active/enabled; Sign out stays hidden for visitors. The mobile
+  New-recipe CTA still routes to sign-in. LandingPage lost its own wordmark header +
+  container (the shell provides both). Web 23 suites / 202 tests.

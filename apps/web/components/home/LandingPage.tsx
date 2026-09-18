@@ -33,16 +33,9 @@ export function LandingPage({
   onStartSignup,
 }: LandingPageProps) {
   return (
-    <div className="container-rs">
-      {/* Slim top bar — wordmark only; every action lives in one clear place below. */}
-      <header className="flex min-h-16 items-center border-b border-border">
-        <p className="font-display text-lg font-semibold tracking-tight text-ink">
-          Recipe Systems
-        </p>
-      </header>
-
+    <div>
       {error && (
-        <div className="mt-6">
+        <div className="mb-6">
           <Alert tone="error" title={errorTitle}>
             {error}
           </Alert>
@@ -50,7 +43,7 @@ export function LandingPage({
       )}
 
       {/* Hero — the product in one viewport: what it is, one primary action. */}
-      <section className="pb-10 pt-12 sm:pt-14">
+      <section className="pb-10 pt-2 sm:pt-4">
         <div className="grid items-center gap-10 lg:grid-cols-[1.1fr_1fr]">
           <div>
             <Eyebrow>Recipe analysis</Eyebrow>

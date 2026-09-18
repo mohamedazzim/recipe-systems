@@ -35,6 +35,7 @@ export type AppView =
   | { name: 'library' }
   | { name: 'create'; mode?: 'paste' | 'form' | 'photo' }
   | { name: 'household' }
+  | { name: 'landing' }
   | { name: 'workspace'; recipeId: string; initialLines?: WireLine[] | null; initialTitle?: string };
 
 export interface AppShellProps {
@@ -158,6 +159,10 @@ export function AppShell({
 
   const go = (target: AppView) => () => onNavigate(target);
 
+  // The signed-out landing page shares the shell; everything that needs an
+  // account is visibly disabled there instead of dead-ending.
+  const isLanding = view.name === 'landing';
+
   const groupLabel =
     'px-3 pt-6 pb-1.5 text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-faint';
   const navItem = (active: boolean) =>
@@ -206,14 +211,18 @@ export function AppShell({
             {NAV_ITEMS.map((item) => {
               const Icon = item.icon;
               const active = view.name === item.key;
+              const disabled = isLanding && item.key !== 'home';
               return (
                 <button
                   key={item.key}
                   type="button"
+                  disabled={disabled}
                   onClick={go(item.key === 'create' ? { name: 'create' } : { name: item.key })}
                   aria-current={active ? 'page' : undefined}
-                  title={navCollapsed ? item.label : undefined}
-                  className={navItem(active)}
+                  title={disabled ? 'Sign in to use this' : navCollapsed ? item.label : undefined}
+                  className={`${navItem(active)} ${
+                    disabled ? 'cursor-not-allowed opacity-45' : ''
+                  }`}
                 >
                   <Icon size={17} aria-hidden="true" weight={active ? 'fill' : 'regular'} />
                   <span className={navCollapsed ? 'sr-only' : ''}>{item.label}</span>
@@ -249,9 +258,12 @@ export function AppShell({
             {!navCollapsed && <p className={groupLabel}>Account</p>}
             <button
               type="button"
+              disabled={isLanding}
               onClick={go({ name: 'household' })}
-              title={navCollapsed ? 'Household profile' : undefined}
-              className={navItem(view.name === 'household')}
+              title={isLanding ? 'Sign in to use this' : navCollapsed ? 'Household profile' : undefined}
+              className={`${navItem(view.name === 'household')} ${
+                isLanding ? 'cursor-not-allowed opacity-45' : ''
+              }`}
             >
               <UserCirclePlus
                 size={17}
@@ -363,7 +375,9 @@ export function AppShell({
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search your recipes, ingredients or cuisines..."
                   maxLength={100}
-                  className="h-9 w-full rounded-md border border-border-strong bg-canvas pl-9 pr-14 text-small text-ink placeholder:text-faint focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                  disabled={isLanding}
+                  title={isLanding ? 'Sign in to search your library' : undefined}
+                  className="h-9 w-full rounded-md border border-border-strong bg-canvas pl-9 pr-14 text-small text-ink placeholder:text-faint focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold disabled:cursor-not-allowed disabled:opacity-60"
                 />
                 <kbd className="pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 rounded border border-border bg-surface px-1.5 py-0.5 text-[0.625rem] font-semibold text-faint sm:inline-block">
                   Ctrl K

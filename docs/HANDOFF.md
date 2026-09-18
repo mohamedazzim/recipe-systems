@@ -4738,3 +4738,7 @@ Scope: presentation + read model. No business logic, schema, or writer changes.
   app (verified); perceived text enlargement is OS zoom, which the lower breakpoints
   now tolerate. Verified live at 768/960/1024/1152/1280/1440/1536: 4 stat columns +
   side-by-side banners at every width.
+- **2026-09-18 card compaction:** the Household card's "N label pack" chip now rides
+  the description line (flex row beside the paragraph), and both feature cards dropped
+  p-6→p-5 with tightened vertical rhythm (214px → 166px tall) — no dead space in the
+  Start panel. Allergen/diet chips still render below only when actually set.

@@ -251,7 +251,7 @@ export function HomeView({
   const startCard = (
     <section
       aria-labelledby="start-heading"
-      className="relative overflow-hidden rounded-xl border border-border bg-surface p-6 shadow-whisper"
+      className="relative overflow-hidden rounded-xl border border-border bg-surface p-5 shadow-whisper"
     >
       {/* The reference artwork — a CSS background layer (never an <img>): the
           clean flat-lay image, right-anchored cover so the spoon and leaves
@@ -271,31 +271,29 @@ export function HomeView({
         }}
       />
 
-      <div className="relative z-10 flex min-w-0 flex-col justify-between gap-5 lg:flex-row lg:items-center">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <Plant size={20} aria-hidden="true" weight="bold" className="text-accent" />
-            <h2 id="start-heading" className="font-display text-h2 text-ink">
-              Start a new recipe
-            </h2>
-          </div>
-          <p className="mt-1.5 max-w-prose text-small text-muted">
-            Add a recipe from text, a structured form, or a photo.
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2.5">
-            <Button size="sm" onClick={() => onCreate('paste')}>
-              <FileText size={14} aria-hidden="true" weight="bold" />
-              Paste text
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => onCreate('form')}>
-              <ListBullets size={14} aria-hidden="true" weight="bold" />
-              Structured form
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => onCreate('photo')}>
-              <Camera size={14} aria-hidden="true" weight="bold" />
-              Upload photo
-            </Button>
-          </div>
+      <div className="relative z-10">
+        <div className="flex items-center gap-2">
+          <Plant size={20} aria-hidden="true" weight="bold" className="text-accent" />
+          <h2 id="start-heading" className="font-display text-h2 text-ink">
+            Start a new recipe
+          </h2>
+        </div>
+        <p className="mt-1 max-w-prose text-small text-muted">
+          Add a recipe from text, a structured form, or a photo.
+        </p>
+        <div className="mt-3.5 flex flex-wrap gap-2.5">
+          <Button size="sm" onClick={() => onCreate('paste')}>
+            <FileText size={14} aria-hidden="true" weight="bold" />
+            Paste text
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => onCreate('form')}>
+            <ListBullets size={14} aria-hidden="true" weight="bold" />
+            Structured form
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => onCreate('photo')}>
+            <Camera size={14} aria-hidden="true" weight="bold" />
+            Upload photo
+          </Button>
         </div>
       </div>
     </section>
@@ -364,47 +362,52 @@ export function HomeView({
         {signedIn && (
           <section
             aria-labelledby="profile-heading"
-            className="rounded-xl border border-border bg-surface p-6 shadow-whisper"
+            className="rounded-xl border border-border bg-surface p-5 shadow-whisper"
           >
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <h2 id="profile-heading" className="font-display text-h2 text-ink">
                   Household restriction profile
                 </h2>
-                <p className="mt-1.5 max-w-prose text-small text-muted">
-                  Manage allergens and dietary preferences for better analysis and safer recipes.
-                </p>
+                {/* The label pack rides the description line, not a row of its own. */}
+                <div className="mt-1 flex items-center gap-x-2">
+                  <p className="min-w-0 flex-1 text-small text-muted">
+                    Manage allergens and dietary preferences for better analysis and safer
+                    recipes.
+                  </p>
+                  {profileInfo?.labelPack && (
+                    <span className="shrink-0 rounded-full border border-border bg-canvas px-2 py-0.5 text-caption font-medium text-faint">
+                      {profileInfo.labelPack} label pack
+                    </span>
+                  )}
+                </div>
               </div>
               <span className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold/10 text-gold sm:flex">
                 <UserCirclePlus size={20} aria-hidden="true" weight="bold" />
               </span>
             </div>
-            {profileInfo && (
-              <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                {profileInfo.allergenNames.map((name) => (
-                  <span
-                    key={name}
-                    className="rounded-full border border-border bg-canvas px-2 py-0.5 text-caption font-medium text-muted"
-                  >
-                    {name}
-                  </span>
-                ))}
-                {profileInfo.patterns.map((pattern) => (
-                  <span
-                    key={pattern}
-                    className="rounded-full border border-positive/40 bg-positive/10 px-2 py-0.5 text-caption font-semibold text-positive"
-                  >
-                    {pattern}
-                  </span>
-                ))}
-                {profileInfo.labelPack && (
-                  <span className="rounded-full border border-border bg-canvas px-2 py-0.5 text-caption font-medium text-faint">
-                    {profileInfo.labelPack} label pack
-                  </span>
-                )}
-              </div>
-            )}
-            <div className="mt-4 flex flex-wrap items-center gap-3">
+            {profileInfo &&
+              (profileInfo.allergenNames.length > 0 || profileInfo.patterns.length > 0) && (
+                <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                  {profileInfo.allergenNames.map((name) => (
+                    <span
+                      key={name}
+                      className="rounded-full border border-border bg-canvas px-2 py-0.5 text-caption font-medium text-muted"
+                    >
+                      {name}
+                    </span>
+                  ))}
+                  {profileInfo.patterns.map((pattern) => (
+                    <span
+                      key={pattern}
+                      className="rounded-full border border-positive/40 bg-positive/10 px-2 py-0.5 text-caption font-semibold text-positive"
+                    >
+                      {pattern}
+                    </span>
+                  ))}
+                </div>
+              )}
+            <div className="mt-3.5 flex flex-wrap items-center gap-3">
               <Button size="sm" variant="outline" onClick={onOpenHousehold}>
                 View profile
                 <ArrowRight size={14} aria-hidden="true" weight="bold" />

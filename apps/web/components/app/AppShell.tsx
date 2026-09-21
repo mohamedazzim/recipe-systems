@@ -7,6 +7,7 @@
 // card at the foot of the rail.
 
 import { useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import {
   Basket,
@@ -14,7 +15,6 @@ import {
   CaretDown,
   CaretLeft,
   CaretRight,
-  ForkKnife,
   House,
   ListChecks,
   ListNumbers,
@@ -207,8 +207,15 @@ export function AppShell({
               navCollapsed ? 'justify-center px-1 py-1.5' : 'px-2 py-1.5'
             }`}
           >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-surface shadow-card">
-              <ForkKnife size={20} aria-hidden="true" weight="fill" />
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-surface-nested shadow-card ring-1 ring-border">
+              <Image
+                src="/images/recipe_systems_icon.png"
+                alt=""
+                width={40}
+                height={40}
+                priority
+                className="h-10 w-10 object-contain"
+              />
             </span>
             {!navCollapsed && (
               <span className="min-w-0">
@@ -337,8 +344,16 @@ export function AppShell({
             <button
               type="button"
               onClick={go({ name: 'home' })}
-              className="font-display text-lg font-medium tracking-tight text-ink focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold lg:hidden"
+              className="flex items-center gap-2 font-display text-lg font-medium tracking-tight text-ink focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold lg:hidden"
             >
+              <Image
+                src="/images/recipe_systems_icon.png"
+                alt=""
+                width={28}
+                height={28}
+                priority
+                className="h-7 w-7 rounded-lg object-contain"
+              />
               Recipe Systems
             </button>
             <nav aria-label="Primary" className="flex items-center gap-1 lg:hidden">

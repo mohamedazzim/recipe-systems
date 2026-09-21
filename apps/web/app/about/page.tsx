@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 
@@ -15,8 +16,16 @@ export default function AboutPage() {
         <div className="container-rs flex min-h-14 flex-wrap items-center gap-x-3 gap-y-2 py-2">
           <Link
             href="/"
-            className="font-display text-lg font-semibold tracking-tight text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+            className="flex items-center gap-2.5 font-display text-lg font-semibold tracking-tight text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
           >
+            <Image
+              src="/images/recipe_systems_icon.png"
+              alt=""
+              width={28}
+              height={28}
+              priority
+              className="h-7 w-7 rounded-lg object-contain"
+            />
             Recipe Systems
           </Link>
           <nav aria-label="About" className="flex items-center gap-1">

@@ -12,7 +12,7 @@ rem       analysis-view generation and card OCR — provider + keys from .env)
 rem    5. Next.js web in its own window (:3000)
 rem    6. Health-checks everything, then opens the app
 rem
-rem  Test account : chef@recipesystems.test / password
+rem  Test account : chef@recipesystems.test / Password@123
 rem  To stop      : close the app windows, then
 rem                 docker compose --profile core --profile identity -f infra\docker\docker-compose.yml down
 rem =====================================================================
@@ -119,8 +119,8 @@ goto wait_kc
 :kc_ok
 echo   Keycloak realm up.
 
-rem --- 2. Prisma migrations ------------------------------------------------
-echo [2/6] Applying Prisma migrations...
+rem --- 2. Prisma migrations + client ------------------------------------------
+echo [2/6] Applying Prisma migrations + generating client...
 pushd packages\database
 call npx prisma migrate deploy
 if errorlevel 1 (
@@ -129,8 +129,15 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
+call npx prisma generate
+if errorlevel 1 (
+  popd
+  echo   ERROR: Prisma client generation failed.
+  pause
+  exit /b 1
+)
 popd
-echo   Migrations applied.
+echo   Migrations applied; Prisma client up to date.
 
 rem --- 3. API ---------------------------------------------------------------
 echo [3/6] API (NestJS)...
@@ -147,9 +154,9 @@ echo [4/6] Analysis worker (pg-boss queue; provider per .env, stub default)...
 call :worker_is_up && goto worker_ok
 rem stale worker processes (dead consumers that never shut down cleanly) are
 rem swept so a fresh window can start
-powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { $_.CommandLine -match 'ts-node' -and $_.CommandLine -match 'src.main' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >nul 2>&1
-start "Recipe Systems - Worker" /D "%~dp0apps\analysis-worker" cmd /k "set RS_WORKER_WINDOW=1 && npx ts-node -T src/main.ts"
-echo   Worker window started (consumes queue "analysis").
+powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { $_.CommandLine -match 'tsx' -and $_.CommandLine -match 'src.main.ts' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >nul 2>&1
+start "Recipe Systems - Worker" /D "%~dp0apps\analysis-worker" cmd /k npm run dev
+echo   Worker window started (consumes the analysis + ingestion + extraction queues).
 set tries=0
 :wait_worker
 call :worker_is_up && goto worker_ok
@@ -230,14 +237,14 @@ echo  Recipe Systems is up
 echo    Web       : http://localhost:3000
 echo    API       : http://localhost:3001/api/v1
 if "%ANALYSIS_LLM_STUB%"=="1" (
-  echo    Worker    : consuming queue "analysis" ^(deterministic stub^)
+  echo    Worker    : consuming "analysis" + "document-ingestion" + "document-extraction" ^(deterministic stub^)
 ) else (
-  echo    Worker    : consuming queue "analysis" ^(MODEL_PROVIDER=%MODEL_PROVIDER%^)
+  echo    Worker    : consuming "analysis" + "document-ingestion" + "document-extraction" ^(MODEL_PROVIDER=%MODEL_PROVIDER%^)
 )
 echo    OCR       : %OCR_PROVIDER% ^(DEEPSEEK_MODEL=%DEEPSEEK_MODEL%^)
 echo    Keycloak  : http://localhost:8081  (realm: recipesystems)
 echo    Postgres  : localhost:5433/recipe
-echo    Sign in   : chef@recipesystems.test / password
+echo    Sign in   : chef@recipesystems.test / Password@123
 echo    Note      : if the DB volume was reset, re-load reference data
 echo                via the reviewed import path (apps\api):
 echo                  npm run reference-data:import -- approve infra\reference-data\imports\<file>.json --reviewer "your name"
@@ -248,8 +255,10 @@ endlocal
 exit /b 0
 
 rem --- helper: is the analysis worker consuming? ----------------------------
-rem The worker window carries the RS_WORKER_WINDOW marker in its cmd command
-rem line (its node children are not distinguishable by command line alone).
+rem The worker (tsx) runs as a node process whose command line carries the
+rem worker's own src/main.ts. Checking the ACTUAL process (not just the cmd
+rem window) means a worker that crashed inside its window is detected and
+rem restarted. Returns 0 when the worker is up, 1 otherwise.
 :worker_is_up
-powershell -NoProfile -Command "exit (Get-CimInstance Win32_Process -Filter \"Name='cmd.exe'\" | Where-Object { $_.CommandLine -match 'RS_WORKER_WINDOW' } | Measure-Object | Select-Object -ExpandProperty Count)"
+powershell -NoProfile -Command "$n = @(Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { $_.CommandLine -match 'tsx' -and $_.CommandLine -match 'src.main.ts' }).Count; if ($n -gt 0) { exit 0 } else { exit 1 }"
 exit /b %errorlevel%

@@ -7,6 +7,7 @@
 // card at the foot of the rail.
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import {
   Basket,
   Books,
@@ -363,11 +364,30 @@ export function AppShell({
               </button>
             </nav>
 
+            {/* Home + About Us — quick links beside the search bar (desktop). */}
+            <nav aria-label="About" className="hidden items-center gap-1 lg:flex">
+              <Link
+                href="/"
+                aria-current={view.name === 'home' ? 'page' : undefined}
+                className={`rounded-md px-2.5 py-1.5 text-small font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold ${
+                  view.name === 'home' ? 'bg-canvas text-ink' : 'text-muted hover:text-ink'
+                }`}
+              >
+                Home
+              </Link>
+              <Link
+                href="/about"
+                className="rounded-md px-2.5 py-1.5 text-small font-medium text-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+              >
+                About Us
+              </Link>
+            </nav>
+
             {/* Search — routes to the Library search on submit. */}
             <form
               role="search"
               aria-label="Search recipes"
-              className="order-last w-full min-w-0 lg:order-none lg:w-auto lg:max-w-xl lg:flex-1"
+              className="order-last w-full min-w-0 lg:order-none lg:w-72"
               onSubmit={(e) => {
                 e.preventDefault();
                 if (query.trim() !== '') onSearch?.(query.trim());
@@ -397,7 +417,7 @@ export function AppShell({
               </div>
             </form>
 
-            <div className="ml-auto flex items-center gap-1.5 lg:ml-0">
+            <div className="ml-auto flex items-center gap-1.5">
               <Button size="sm" onClick={go({ name: 'create' })} className="lg:hidden">
                 <Plus size={14} aria-hidden="true" weight="bold" />
                 New recipe

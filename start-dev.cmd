@@ -121,6 +121,11 @@ echo   Keycloak realm up.
 
 rem --- 2. Prisma migrations + client ------------------------------------------
 echo [2/6] Applying Prisma migrations + generating client...
+rem A running API/worker holds the Prisma engine DLL (query_engine-windows.dll.node)
+rem mapped in memory, so `prisma generate` fails with EPERM on the rename. Sweep
+rem stale API/worker node processes before regenerating (fresh windows start below).
+powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { $_.CommandLine -match 'tsx' -and $_.CommandLine -match 'src.main.ts' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >nul 2>&1
+powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \"Name='node.exe'\" | Where-Object { $_.CommandLine -match 'nest' -or $_.CommandLine -match 'dist.src.main.js' } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >nul 2>&1
 pushd packages\database
 call npx prisma migrate deploy
 if errorlevel 1 (

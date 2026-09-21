@@ -169,13 +169,14 @@ export class IngestionService {
     return this.toWire(ingestion);
   }
 
-  /** Phase 3: trigger structured extraction on a `ready` document. */
+  /** Phase 3: trigger structured extraction on a `ready` document (re-extract
+   *  allowed after a prior `extraction_failed` — the Retry path). */
   async extractStructure(actor: Actor, ingestionId: string): Promise<DocumentIngestionWire> {
     const ingestion = await this.loadOwned(actor, ingestionId);
-    if (ingestion.status !== 'ready') {
+    if (ingestion.status !== 'ready' && ingestion.status !== 'extraction_failed') {
       throw new ConflictException({
         code: 'NOT_READY_FOR_EXTRACTION',
-        message: `Extraction is only available when the document is ready (current: ${ingestion.status})`,
+        message: `Extraction is only available when the document is ready or previously failed (current: ${ingestion.status})`,
       });
     }
 

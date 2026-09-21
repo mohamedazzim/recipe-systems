@@ -231,6 +231,36 @@ describe('IngestionService.extractStructure (Phase 3)', () => {
     expect(queue.enqueueExtraction).not.toHaveBeenCalled();
   });
 
+  it('allows re-extraction after a prior extraction_failed (Retry path)', async () => {
+    const { prisma, queue, svc } = setup();
+    const failedRow = {
+      id: 'ing-1',
+      accountId: 'acc-1',
+      guestSessionId: null,
+      originalFilename: 'recipe.pdf',
+      fileType: 'pdf',
+      fileSizeBytes: 1024,
+      status: 'extraction_failed',
+      rawText: 'Chicken Biryani\n500 g chicken',
+      errorCode: 'INVALID_EXTRACTION',
+      errorMessage: 'No valid recipe structure',
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    prisma.documentIngestion.findUnique
+      .mockResolvedValueOnce(failedRow)
+      .mockResolvedValue({ ...failedRow, status: 'extracting_structure' });
+
+    const wire = await svc.extractStructure(userActor, 'ing-1');
+
+    expect(prisma.documentIngestion.update).toHaveBeenCalledWith({
+      where: { id: 'ing-1' },
+      data: { status: 'extracting_structure', errorCode: null, errorMessage: null },
+    });
+    expect(queue.enqueueExtraction).toHaveBeenCalledWith('ing-1');
+    expect(wire.status).toBe('extracting_structure');
+  });
+
   it('reverts to ready + 503 when the extraction queue is unavailable', async () => {
     const { prisma, queue, svc } = setup();
     prisma.documentIngestion.findUnique.mockResolvedValue({

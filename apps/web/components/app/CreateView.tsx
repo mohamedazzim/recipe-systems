@@ -285,8 +285,8 @@ export function CreateView({
     if (!item.ingestionId) return;
     setBulkItem(item.key, { status: 'extracting_structure', error: undefined });
     try {
-      // A prior upload poll may have timed out while the worker was still
-      // ingesting — make sure the document actually reached `ready` first.
+      // A prior upload/extract may have stopped at any lifecycle point — resume
+      // from wherever the document actually is instead of assuming `ready`.
       const current = await api<DocumentIngestionResponse>(
         `/recipes/import/documents/${item.ingestionId}`,
       );
@@ -297,8 +297,16 @@ export function CreateView({
         });
         return;
       }
+      if (current.status === 'draft_ready') {
+        setBulkItem(item.key, { status: 'draft_ready', error: undefined });
+        return;
+      }
       if (current.status === 'queued' || current.status === 'extracting') {
         await pollIngestion(item.ingestionId, item.key, 'ready');
+      }
+      if (current.status === 'extracting_structure') {
+        await pollIngestion(item.ingestionId, item.key, 'draft_ready');
+        return;
       }
 
       await api<DocumentIngestionResponse>(

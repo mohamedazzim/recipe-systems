@@ -449,4 +449,51 @@ describe('CreateView (paste + photo intake)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(await screen.findByText('Draft ready')).toBeInTheDocument();
   });
+
+  it('Phase 3 resume: Retry on an already-extracted document opens review without re-extracting', async () => {
+    let extractionTriggered = false;
+    let failExtraction = true;
+    (globalThis.fetch as jest.Mock).mockImplementation(async (url: string, init?: RequestInit) => {
+      if (init?.method === 'POST' && url.includes('/extract')) {
+        extractionTriggered = true;
+        return { ok: true, status: 200, json: async () => ingestionResponse({ status: 'extracting_structure' }) };
+      }
+      if (init?.method === 'POST') {
+        return { ok: true, status: 200, json: async () => ingestionResponse({ status: 'queued' }) };
+      }
+      if (extractionTriggered) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () =>
+            ingestionResponse({
+              status: failExtraction ? 'extraction_failed' : 'draft_ready',
+              error_code: failExtraction ? 'INVALID_EXTRACTION' : null,
+              error_message: failExtraction ? 'No valid recipe structure' : null,
+            }),
+        };
+      }
+      return { ok: true, status: 200, json: async () => ingestionResponse({ status: 'ready', has_text: true }) };
+    });
+
+    render(<CreateView {...props()} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Upload' }));
+    await userEvent.upload(screen.getByLabelText('Choose recipe documents'), documentFile('recipe.txt'));
+    await userEvent.click(screen.getByRole('button', { name: 'Upload documents' }));
+
+    expect(await screen.findByText('Ready for recipe extraction')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Extract recipe' }));
+    expect(await screen.findByText('No valid recipe structure')).toBeInTheDocument();
+
+    // The worker actually completed extraction in the meantime — Retry must
+    // resume to the ready draft, never POST /extract again.
+    failExtraction = false;
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+
+    expect(await screen.findByText('Draft ready')).toBeInTheDocument();
+    const extractPosts = (globalThis.fetch as jest.Mock).mock.calls.filter(
+      ([u, i]: [string, RequestInit | undefined]) => i?.method === 'POST' && u.includes('/extract'),
+    );
+    expect(extractPosts).toHaveLength(1);
+  });
 });

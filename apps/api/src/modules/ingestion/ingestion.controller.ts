@@ -3,11 +3,14 @@
 // the mutating route — the same mechanisms as the existing intake routes.
 
 import {
+  BadRequestException,
+  Body,
   Controller,
   Get,
   HttpCode,
   NotFoundException,
   Param,
+  Patch,
   Post,
   Req,
   UploadedFile,
@@ -15,6 +18,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { DraftEditSchema } from '@recipe-systems/schemas';
 import { CsrfGuard } from '../../common/guards/csrf.guard';
 import { ActorRequest, GuestOrJwtGuard } from '../../common/guards/guest-or-jwt.guard';
 import { IngestionService } from './ingestion.service';
@@ -72,5 +76,48 @@ export class IngestionController {
       });
     }
     return { drafts: await this.ingestion.getDrafts(req.actor!, id) };
+  }
+
+  /** Phase 4: persist the user's authoritative edits for one draft. */
+  @Patch('documents/:id/drafts/:draftId')
+  @UseGuards(GuestOrJwtGuard, CsrfGuard)
+  async updateDraft(
+    @Req() req: ActorRequest,
+    @Param('id') id: string,
+    @Param('draftId') draftId: string,
+    @Body() body: unknown,
+  ) {
+    if (!UUID_RE.test(id)) {
+      throw new NotFoundException({ code: 'INGESTION_NOT_FOUND', message: 'Document ingestion not found' });
+    }
+    if (!UUID_RE.test(draftId)) {
+      throw new NotFoundException({ code: 'DRAFT_NOT_FOUND', message: 'Recipe draft not found' });
+    }
+    const parsed = DraftEditSchema.safeParse(body);
+    if (!parsed.success) {
+      throw new BadRequestException({
+        code: 'INVALID_DRAFT',
+        message: 'Draft must contain { title, title_needs_review, ingredients, method_steps }',
+      });
+    }
+    return this.ingestion.updateDraft(req.actor!, id, draftId, parsed.data);
+  }
+
+  /** Phase 4: explicitly confirm the draft and create a real recipe. */
+  @Post('documents/:id/drafts/:draftId/confirm')
+  @HttpCode(200)
+  @UseGuards(GuestOrJwtGuard, CsrfGuard)
+  async confirmDraft(
+    @Req() req: ActorRequest,
+    @Param('id') id: string,
+    @Param('draftId') draftId: string,
+  ) {
+    if (!UUID_RE.test(id)) {
+      throw new NotFoundException({ code: 'INGESTION_NOT_FOUND', message: 'Document ingestion not found' });
+    }
+    if (!UUID_RE.test(draftId)) {
+      throw new NotFoundException({ code: 'DRAFT_NOT_FOUND', message: 'Recipe draft not found' });
+    }
+    return this.ingestion.confirmDraft(req.actor!, id, draftId);
   }
 }

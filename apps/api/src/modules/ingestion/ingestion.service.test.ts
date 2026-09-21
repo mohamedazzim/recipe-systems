@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import type { RecipeExtraction } from '@recipe-systems/schemas';
 import type { Actor } from '../../common/guards/guest-or-jwt.guard';
 import { IngestionQueueUnavailableError } from './ingestion.queue.service';
 import { IngestionService } from './ingestion.service';
@@ -44,6 +45,22 @@ function setup() {
     },
     documentRecipeDraft: {
       findMany: jest.fn().mockResolvedValue([]),
+      findFirst: jest.fn(),
+      update: jest.fn(async (args: { where?: { id?: string }; data: Record<string, unknown> }) => ({
+        id: args.where?.id ?? 'draft-1',
+        ...args.data,
+        draftIndex: 0,
+        title: 'Chicken Biryani',
+        titleNeedsReview: false,
+        needsReview: false,
+        payload: { title: 'Chicken Biryani' },
+        status: (args.data.status as string | undefined) ?? 'draft',
+        recipeId: null,
+        confirmedAt: null,
+        createdAt: NOW,
+        updatedAt: NOW,
+      })),
+      updateMany: jest.fn(),
     },
   };
   const storage = {
@@ -54,8 +71,23 @@ function setup() {
     deleteObject: jest.fn(async () => undefined),
   };
   const queue = { enqueue: jest.fn(async () => undefined), enqueueExtraction: jest.fn(async () => undefined) };
-  const svc = new IngestionService(prisma, storage as never, queue as never);
-  return { prisma, storage, queue, svc };
+  const recipes = {
+    createForIntake: jest.fn(),
+    attachMethod: jest.fn(),
+    saveRecipe: jest.fn(),
+    deleteRecipeInternal: jest.fn(async () => []),
+  };
+  const intake = {
+    recordFormLines: jest.fn(),
+  };
+  const svc = new IngestionService(
+    prisma,
+    storage as never,
+    queue as never,
+    recipes as never,
+    intake as never,
+  );
+  return { prisma, storage, queue, recipes, intake, svc };
 }
 
 describe('IngestionService.ingestDocument', () => {
@@ -255,5 +287,194 @@ describe('IngestionService.getDrafts (Phase 3)', () => {
       status: 'draft_ready',
     });
     await expect(svc.getDrafts(userActor, 'ing-1')).rejects.toThrow(NotFoundException);
+  });
+});
+
+// ───────────────────────── Phase 4 helpers ─────────────────────────
+
+function ownedIngestion() {
+  return { id: 'ing-1', accountId: 'acc-1', guestSessionId: null, status: 'draft_ready' };
+}
+
+function fullPayload(): RecipeExtraction {
+  return {
+    title: 'Chicken Biryani',
+    title_needs_review: false,
+    ingredients: [
+      {
+        name: 'chicken',
+        quantity: '500',
+        unit: 'g',
+        preparation: null,
+        source: '500 g chicken',
+        needs_review: false,
+      },
+    ],
+    method_steps: [{ text: 'Cook the chicken.', source: 'Cook the chicken.', needs_review: false }],
+    needs_review: false,
+    notes: [],
+  };
+}
+
+function draftRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'draft-1',
+    ingestionId: 'ing-1',
+    draftIndex: 0,
+    title: 'Chicken Biryani',
+    titleNeedsReview: false,
+    needsReview: false,
+    payload: fullPayload(),
+    userPayload: null,
+    status: 'draft',
+    recipeId: null,
+    confirmedAt: null,
+    createdAt: NOW,
+    updatedAt: NOW,
+    ...overrides,
+  };
+}
+
+describe('IngestionService.updateDraft (Phase 4)', () => {
+  const edit = {
+    title: 'Spicy Biryani',
+    title_needs_review: false,
+    ingredients: [
+      {
+        name: 'red onions',
+        quantity: '3',
+        unit: null,
+        preparation: null,
+        provenance: 'user_corrected',
+        source: 'onions',
+        needs_review: false,
+      },
+      {
+        name: 'ginger',
+        quantity: null,
+        unit: null,
+        preparation: null,
+        provenance: 'user_added',
+        source: 'FAKE', // must be stripped — user-added rows never fabricate evidence
+        needs_review: false,
+      },
+    ],
+    method_steps: [],
+  };
+
+  it('persists user edits and strips fabricated source from user-added rows', async () => {
+    const { prisma, svc } = setup();
+    prisma.documentIngestion.findUnique.mockResolvedValue(ownedIngestion());
+    prisma.documentRecipeDraft.findFirst.mockResolvedValue(draftRow());
+
+    const wire = await svc.updateDraft(userActor, 'ing-1', 'draft-1', edit as never);
+
+    const updateCall = prisma.documentRecipeDraft.update.mock.calls[0][0];
+    const saved = updateCall.data.userPayload;
+    expect(saved.title).toBe('Spicy Biryani');
+    expect(saved.ingredients[1].source).toBeNull(); // user_added source forced null
+    expect(wire.status).toBe('draft');
+  });
+
+  it('rejects edits to a confirmed draft', async () => {
+    const { prisma, svc } = setup();
+    prisma.documentIngestion.findUnique.mockResolvedValue(ownedIngestion());
+    prisma.documentRecipeDraft.findFirst.mockResolvedValue(
+      draftRow({ status: 'confirmed', recipeId: 'recipe-1' }),
+    );
+    await expect(svc.updateDraft(userActor, 'ing-1', 'draft-1', edit as never)).rejects.toThrow(
+      ConflictException,
+    );
+  });
+
+  it('404s for a missing draft', async () => {
+    const { prisma, svc } = setup();
+    prisma.documentIngestion.findUnique.mockResolvedValue(ownedIngestion());
+    prisma.documentRecipeDraft.findFirst.mockResolvedValue(null);
+    await expect(svc.updateDraft(userActor, 'ing-1', 'draft-1', edit as never)).rejects.toThrow(
+      NotFoundException,
+    );
+  });
+});
+
+describe('IngestionService.confirmDraft (Phase 4)', () => {
+  it('creates a real recipe through the existing path and marks the draft confirmed', async () => {
+    const { prisma, recipes, intake, svc } = setup();
+    prisma.documentIngestion.findUnique.mockResolvedValue(ownedIngestion());
+    prisma.documentRecipeDraft.findFirst.mockResolvedValue(draftRow());
+    prisma.documentRecipeDraft.updateMany.mockResolvedValue({ count: 1 });
+    recipes.createForIntake.mockResolvedValue({ id: 'recipe-1' });
+
+    const res = await svc.confirmDraft(userActor, 'ing-1', 'draft-1');
+
+    expect(recipes.createForIntake).toHaveBeenCalled();
+    expect(intake.recordFormLines).toHaveBeenCalledWith(
+      userActor,
+      'recipe-1',
+      expect.arrayContaining([expect.objectContaining({ displayName: 'chicken' })]),
+    );
+    expect(recipes.attachMethod).toHaveBeenCalledWith(
+      userActor,
+      'recipe-1',
+      expect.objectContaining({ mode: 'paste' }),
+    );
+    expect(recipes.saveRecipe).toHaveBeenCalled();
+    expect(prisma.documentRecipeDraft.update).toHaveBeenCalledWith({
+      where: { id: 'draft-1' },
+      data: expect.objectContaining({ status: 'confirmed', recipeId: 'recipe-1' }),
+    });
+    expect(res).toEqual({ recipe_id: 'recipe-1', status: 'confirmed' });
+  });
+
+  it('is idempotent: a confirmed draft returns its existing recipe', async () => {
+    const { prisma, recipes, svc } = setup();
+    prisma.documentIngestion.findUnique.mockResolvedValue(ownedIngestion());
+    prisma.documentRecipeDraft.findFirst.mockResolvedValue(
+      draftRow({ status: 'confirmed', recipeId: 'recipe-1' }),
+    );
+    const res = await svc.confirmDraft(userActor, 'ing-1', 'draft-1');
+    expect(res).toEqual({ recipe_id: 'recipe-1', status: 'already_confirmed' });
+    expect(recipes.createForIntake).not.toHaveBeenCalled();
+  });
+
+  it('blocks confirmation while review flags remain', async () => {
+    const { prisma, recipes, svc } = setup();
+    prisma.documentIngestion.findUnique.mockResolvedValue(ownedIngestion());
+    const row = draftRow();
+    row.payload = {
+      ...fullPayload(),
+      ingredients: [
+        {
+          name: 'onions',
+          quantity: null,
+          unit: null,
+          preparation: null,
+          source: 'onions',
+          needs_review: true,
+        },
+      ],
+    };
+    prisma.documentRecipeDraft.findFirst.mockResolvedValue(row);
+
+    await expect(svc.confirmDraft(userActor, 'ing-1', 'draft-1')).rejects.toMatchObject({
+      response: { code: 'UNRESOLVED_REVIEW' },
+    });
+    expect(recipes.createForIntake).not.toHaveBeenCalled();
+  });
+
+  it('compensates a failed creation (revert claim + delete partial recipe)', async () => {
+    const { prisma, recipes, intake, svc } = setup();
+    prisma.documentIngestion.findUnique.mockResolvedValue(ownedIngestion());
+    prisma.documentRecipeDraft.findFirst.mockResolvedValue(draftRow());
+    prisma.documentRecipeDraft.updateMany.mockResolvedValue({ count: 1 });
+    recipes.createForIntake.mockResolvedValue({ id: 'recipe-1' });
+    intake.recordFormLines.mockRejectedValue(new Error('boom'));
+
+    await expect(svc.confirmDraft(userActor, 'ing-1', 'draft-1')).rejects.toThrow('boom');
+    expect(prisma.documentRecipeDraft.update).toHaveBeenCalledWith({
+      where: { id: 'draft-1' },
+      data: { status: 'draft' },
+    });
+    expect(recipes.deleteRecipeInternal).toHaveBeenCalledWith('recipe-1');
   });
 });

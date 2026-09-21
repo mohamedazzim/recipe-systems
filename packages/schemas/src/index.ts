@@ -90,3 +90,20 @@ export type {
   ExtractedMethodStep,
   RecipeExtraction,
 } from './extraction';
+
+export {
+  DRAFT_PROVENANCE,
+  DRAFT_STATUS,
+  DraftEditSchema,
+  DraftIngredientSchema,
+  DraftMethodStepSchema,
+  DraftProvenanceSchema,
+  DraftStatusSchema,
+} from './draft';
+export type {
+  DraftEdit,
+  DraftIngredient,
+  DraftMethodStep,
+  DraftProvenance,
+  DraftStatus,
+} from './draft';

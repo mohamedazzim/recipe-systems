@@ -115,8 +115,46 @@ export interface DocumentDraft {
   title_needs_review: boolean;
   needs_review: boolean;
   payload: RecipeDraft;
+  user_payload: DraftEdit | null;
+  status: 'draft' | 'confirming' | 'confirmed';
+  recipe_id: string | null;
+  confirmed_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/** Phase 4: provenance of an editable draft row — source-faithful vs user edit. */
+export type DraftProvenance = 'source' | 'user_corrected' | 'user_added';
+
+export interface DraftIngredient {
+  name: string;
+  quantity: string | null;
+  unit: string | null;
+  preparation: string | null;
+  provenance: DraftProvenance;
+  source: string | null;
+  needs_review: boolean;
+}
+
+export interface DraftMethodStep {
+  text: string;
+  provenance: DraftProvenance;
+  source: string | null;
+  needs_review: boolean;
+}
+
+/** The authoritative, user-editable draft (PATCH body + persisted user_payload). */
+export interface DraftEdit {
+  title: string | null;
+  title_needs_review: boolean;
+  ingredients: DraftIngredient[];
+  method_steps: DraftMethodStep[];
+}
+
+/** Phase 4: POST .../confirm wire. */
+export interface ConfirmDraftResponse {
+  recipe_id: string;
+  status: 'confirmed' | 'already_confirmed';
 }
 
 /** API doc §4 method wire shape (D-13). */

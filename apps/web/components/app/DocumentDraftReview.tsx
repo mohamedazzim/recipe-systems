@@ -1,23 +1,35 @@
 'use client';
 
-// Phase 3 draft review — inspect the source-faithful structured extraction of
-// one document before any recipe is created. Read-only inspection: the source
-// text, the extracted fields, and per-field "needs review" flags. A draft is
-// NOT a recipe yet — no save/confirm action exists in this phase.
+// Phase 4 draft review — the editable, authoritative review surface for one
+// document's extracted drafts. The model extraction (`payload`) is immutable
+// source evidence; the user's edits are the authoritative draft state, saved to
+// `user_payload` and confirmed into a real recipe through the existing path.
 
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Warning } from '@phosphor-icons/react';
+import { ArrowLeft, Check, Plus, Trash, Warning } from '@phosphor-icons/react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
+import { Field } from '@/components/ui/Field';
+import { Input, Textarea } from '@/components/ui/Input';
 import { Spinner } from '@/components/ui/Spinner';
 import { Heading, Text } from '@/components/ui/Typography';
 import { api, ApiError } from '@/lib/api';
-import type { DocumentDraft } from '@/lib/types';
+import type {
+  ConfirmDraftResponse,
+  DocumentDraft,
+  DraftEdit,
+  DraftIngredient,
+  DraftMethodStep,
+  DraftProvenance,
+  RecipeDraft,
+} from '@/lib/types';
 
 export interface DocumentDraftReviewProps {
   ingestionId: string;
   originalFilename: string;
   onBack: () => void;
+  /** Phase 4: navigate to the normal Recipe Workspace after confirmation. */
+  onConfirmed: (recipeId: string, title: string | null) => void;
 }
 
 function ReviewBadge({ active }: { active: boolean }) {
@@ -30,10 +42,332 @@ function ReviewBadge({ active }: { active: boolean }) {
   );
 }
 
+function provenanceLabel(p: DraftProvenance): string {
+  switch (p) {
+    case 'user_corrected':
+      return 'Corrected';
+    case 'user_added':
+      return 'Added';
+    case 'source':
+      return 'From source';
+  }
+}
+
+/** The model extraction mapped into the editable draft shape (provenance = source). */
+function fromPayload(payload: RecipeDraft): DraftEdit {
+  return {
+    title: payload.title,
+    title_needs_review: payload.title_needs_review,
+    ingredients: payload.ingredients.map((i) => ({
+      name: i.name,
+      quantity: i.quantity,
+      unit: i.unit,
+      preparation: i.preparation,
+      provenance: 'source',
+      source: i.source,
+      needs_review: i.needs_review,
+    })),
+    method_steps: payload.method_steps.map((s) => ({
+      text: s.text,
+      provenance: 'source',
+      source: s.source,
+      needs_review: s.needs_review,
+    })),
+  };
+}
+
+const EMPTY_INGREDIENT = (): DraftIngredient => ({
+  name: '',
+  quantity: null,
+  unit: null,
+  preparation: null,
+  provenance: 'user_added',
+  source: null,
+  needs_review: false,
+});
+
+const EMPTY_STEP = (): DraftMethodStep => ({
+  text: '',
+  provenance: 'user_added',
+  source: null,
+  needs_review: false,
+});
+
+interface EditableDraftCardProps {
+  ingestionId: string;
+  draft: DocumentDraft;
+  onConfirmed: (recipeId: string, title: string | null) => void;
+}
+
+function EditableDraftCard({ ingestionId, draft, onConfirmed }: EditableDraftCardProps) {
+  const [edit, setEdit] = useState<DraftEdit>(() => draft.user_payload ?? fromPayload(draft.payload));
+  const [saving, setSaving] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const draftPath = `/recipes/import/documents/${ingestionId}/drafts/${draft.draft_id}`;
+
+  const unresolved =
+    edit.title_needs_review ||
+    edit.ingredients.some((i) => i.needs_review) ||
+    edit.method_steps.some((s) => s.needs_review);
+
+  // Editing a source-faithful row marks it user-corrected and resolves its flag.
+  const markEdited = (provenance: DraftProvenance): DraftProvenance =>
+    provenance === 'user_added' ? 'user_added' : 'user_corrected';
+
+  const setTitle = (title: string) =>
+    setEdit((e) => ({ ...e, title: title || null, title_needs_review: false }));
+  const updateIngredient = (index: number, patch: Partial<DraftIngredient>) =>
+    setEdit((e) => ({
+      ...e,
+      ingredients: e.ingredients.map((ing, i) =>
+        i === index
+          ? { ...ing, ...patch, provenance: markEdited(ing.provenance), needs_review: false }
+          : ing,
+      ),
+    }));
+  const deleteIngredient = (index: number) =>
+    setEdit((e) => ({ ...e, ingredients: e.ingredients.filter((_, i) => i !== index) }));
+  const addIngredient = () =>
+    setEdit((e) => ({ ...e, ingredients: [...e.ingredients, EMPTY_INGREDIENT()] }));
+  const updateStep = (index: number, patch: Partial<DraftMethodStep>) =>
+    setEdit((e) => ({
+      ...e,
+      method_steps: e.method_steps.map((s, i) =>
+        i === index
+          ? { ...s, ...patch, provenance: markEdited(s.provenance), needs_review: false }
+          : s,
+      ),
+    }));
+  const deleteStep = (index: number) =>
+    setEdit((e) => ({ ...e, method_steps: e.method_steps.filter((_, i) => i !== index) }));
+  const addStep = () => setEdit((e) => ({ ...e, method_steps: [...e.method_steps, EMPTY_STEP()] }));
+
+  const save = async () => {
+    setSaving(true);
+    setError(null);
+    setSaved(false);
+    try {
+      const wire = await api<DocumentDraft>(draftPath, {
+        method: 'PATCH',
+        body: JSON.stringify(edit),
+      });
+      if (wire.user_payload) setEdit(wire.user_payload);
+      setSaved(true);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not save the draft.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const confirm = async () => {
+    setCreating(true);
+    setError(null);
+    try {
+      // Always persist the current edits first — the user's final draft is authoritative.
+      await api<DocumentDraft>(draftPath, { method: 'PATCH', body: JSON.stringify(edit) });
+      const res = await api<ConfirmDraftResponse>(`${draftPath}/confirm`, { method: 'POST' });
+      onConfirmed(res.recipe_id, edit.title);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not create the recipe.');
+      setCreating(false);
+    }
+  };
+
+  // A confirmed draft is read-only: show the created-recipe state.
+  if (draft.status === 'confirmed' && draft.recipe_id) {
+    return (
+      <section className="mt-6 rounded-lg border border-border bg-surface">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
+          <div>
+            <h2 className="font-display text-h3 text-ink">{edit.title ?? 'Untitled recipe'}</h2>
+            <p className="mt-0.5 text-caption text-positive">Recipe created from this draft.</p>
+          </div>
+          <Button onClick={() => onConfirmed(draft.recipe_id!, edit.title)}>
+            Open recipe <Check size={14} aria-hidden="true" weight="bold" />
+          </Button>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="mt-6 rounded-lg border border-border bg-surface">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
+        <h2 className="font-display text-h3 text-ink">{edit.title ?? 'Untitled recipe'}</h2>
+        <ReviewBadge active={unresolved} />
+      </div>
+
+      <div className="space-y-6 px-5 py-4">
+        <Field htmlFor={`${draft.draft_id}-title`} label="Recipe title">
+          <Input
+            id={`${draft.draft_id}-title`}
+            value={edit.title ?? ''}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Untitled recipe"
+          />
+          {draft.title === null && edit.title === null && (
+            <p className="text-caption text-faint">No title was present in the source.</p>
+          )}
+        </Field>
+
+        <div>
+          <div className="flex items-center justify-between">
+            <h3 className="text-small font-semibold uppercase tracking-wide text-muted">Ingredients</h3>
+            <Button size="sm" variant="outline" onClick={addIngredient}>
+              <Plus size={14} aria-hidden="true" /> Add ingredient
+            </Button>
+          </div>
+          {edit.ingredients.length === 0 ? (
+            <p className="mt-2 text-caption text-faint">No ingredients — add one above.</p>
+          ) : (
+            <ul className="mt-2 space-y-2">
+              {edit.ingredients.map((ing, i) => (
+                <li key={i} className="rounded-md border border-border bg-canvas px-3 py-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span
+                      className={`text-caption font-semibold ${ing.provenance === 'source' ? 'text-muted' : 'text-accent-strong'}`}
+                    >
+                      {provenanceLabel(ing.provenance)}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <ReviewBadge active={ing.needs_review} />
+                      <button
+                        type="button"
+                        onClick={() => deleteIngredient(i)}
+                        aria-label={`Delete ingredient ${ing.name || i + 1}`}
+                        className="inline-flex items-center rounded-sm text-faint hover:text-negative focus-visible:outline-2 focus-visible:outline-gold"
+                      >
+                        <Trash size={14} aria-hidden="true" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-1.5 grid grid-cols-1 gap-2 sm:grid-cols-4">
+                    <Input
+                      aria-label={`Ingredient name ${i + 1}`}
+                      value={ing.name}
+                      onChange={(e) => updateIngredient(i, { name: e.target.value })}
+                      placeholder="Ingredient"
+                    />
+                    <Input
+                      aria-label={`Ingredient quantity ${i + 1}`}
+                      value={ing.quantity ?? ''}
+                      onChange={(e) => updateIngredient(i, { quantity: e.target.value || null })}
+                      placeholder="Quantity"
+                    />
+                    <Input
+                      aria-label={`Ingredient unit ${i + 1}`}
+                      value={ing.unit ?? ''}
+                      onChange={(e) => updateIngredient(i, { unit: e.target.value || null })}
+                      placeholder="Unit"
+                    />
+                    <Input
+                      aria-label={`Ingredient preparation ${i + 1}`}
+                      value={ing.preparation ?? ''}
+                      onChange={(e) => updateIngredient(i, { preparation: e.target.value || null })}
+                      placeholder="Preparation"
+                    />
+                  </div>
+                  {ing.source && (
+                    <span className="mt-1 block text-caption text-faint">Source: “{ing.source}”</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between">
+            <h3 className="text-small font-semibold uppercase tracking-wide text-muted">Method</h3>
+            <Button size="sm" variant="outline" onClick={addStep}>
+              <Plus size={14} aria-hidden="true" /> Add step
+            </Button>
+          </div>
+          {edit.method_steps.length === 0 ? (
+            <p className="mt-2 text-caption text-faint">No method steps — add one above.</p>
+          ) : (
+            <ol className="mt-2 list-inside list-decimal space-y-2">
+              {edit.method_steps.map((step, i) => (
+                <li key={i} className="rounded-md border border-border bg-canvas px-3 py-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span
+                      className={`text-caption font-semibold ${step.provenance === 'source' ? 'text-muted' : 'text-accent-strong'}`}
+                    >
+                      {provenanceLabel(step.provenance)}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <ReviewBadge active={step.needs_review} />
+                      <button
+                        type="button"
+                        onClick={() => deleteStep(i)}
+                        aria-label={`Delete method step ${i + 1}`}
+                        className="inline-flex items-center rounded-sm text-faint hover:text-negative focus-visible:outline-2 focus-visible:outline-gold"
+                      >
+                        <Trash size={14} aria-hidden="true" />
+                      </button>
+                    </div>
+                  </div>
+                  <Textarea
+                    aria-label={`Method step ${i + 1}`}
+                    value={step.text}
+                    onChange={(e) => updateStep(i, { text: e.target.value })}
+                    rows={2}
+                    autoGrow
+                    className="mt-1.5"
+                  />
+                  {step.source && (
+                    <span className="mt-1 block text-caption text-faint">Source: “{step.source}”</span>
+                  )}
+                </li>
+              ))}
+            </ol>
+          )}
+        </div>
+
+        {error && (
+          <Alert tone="error" title="Something went wrong">
+            {error}
+          </Alert>
+        )}
+        {saved && !error && (
+          <Alert tone="success" title="Saved">
+            Your edits are saved. Reload the page any time — they persist.
+          </Alert>
+        )}
+
+        <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
+          <Button size="lg" onClick={() => void save()} disabled={saving || creating}>
+            {saving ? 'Saving…' : 'Save changes'}
+          </Button>
+          <Button
+            size="lg"
+            variant="outline"
+            onClick={() => void confirm()}
+            disabled={saving || creating || unresolved}
+            title={unresolved ? 'Resolve the “Needs review” items before creating the recipe' : undefined}
+          >
+            {creating ? 'Creating recipe…' : 'Create recipe'}
+          </Button>
+          {unresolved && (
+            <span className="text-small text-muted" role="note">
+              Resolve the flagged items to enable Create recipe.
+            </span>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export function DocumentDraftReview({
   ingestionId,
   originalFilename,
   onBack,
+  onConfirmed,
 }: DocumentDraftReviewProps) {
   const [drafts, setDrafts] = useState<DocumentDraft[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -70,8 +404,9 @@ export function DocumentDraftReview({
         Recipe draft
       </Heading>
       <Text className="mt-1 text-muted">
-        Extracted from <span className="font-semibold text-ink">{originalFilename}</span>. Review
-        the source-faithful draft below — nothing has been saved as a recipe yet.
+        Review and correct the draft extracted from{' '}
+        <span className="font-semibold text-ink">{originalFilename}</span>. Your edits are the
+        authoritative recipe — the source evidence is preserved for every extracted line.
       </Text>
 
       {error && (
@@ -89,91 +424,13 @@ export function DocumentDraftReview({
       )}
 
       {drafts !== null &&
-        drafts.map((draft, draftNo) => (
-          <section
+        drafts.map((draft) => (
+          <EditableDraftCard
             key={draft.draft_id}
-            aria-label={draft.title ?? `Recipe ${draft.draft_index + 1}`}
-            className="mt-6 rounded-lg border border-border bg-surface"
-          >
-            <div className="border-b border-border px-5 py-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <h2 className="font-display text-h3 text-ink">
-                  {draft.title ?? 'Untitled recipe'}
-                </h2>
-                <ReviewBadge active={draft.title_needs_review || draft.needs_review} />
-              </div>
-              {draft.title === null && (
-                <p className="mt-1 text-caption text-faint">No title was present in the source.</p>
-              )}
-            </div>
-
-            <div className="px-5 py-4">
-              <h3 className="text-small font-semibold uppercase tracking-wide text-muted">
-                Ingredients
-              </h3>
-              {draft.payload.ingredients.length === 0 ? (
-                <p className="mt-2 text-caption text-faint">No ingredients were extracted.</p>
-              ) : (
-                <ul className="mt-2 space-y-2">
-                  {draft.payload.ingredients.map((ing, i) => (
-                    <li key={i} className="rounded-md border border-border bg-canvas px-3 py-2">
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-small font-semibold text-ink">
-                          {[ing.name, ing.quantity, ing.unit, ing.preparation]
-                            .filter(Boolean)
-                            .join(' · ')}
-                        </span>
-                        <ReviewBadge active={ing.needs_review} />
-                      </div>
-                      <span className="mt-0.5 block text-caption text-faint">
-                        Source: “{ing.source}”
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <div className="border-t border-border px-5 py-4">
-              <h3 className="text-small font-semibold uppercase tracking-wide text-muted">
-                Method
-              </h3>
-              {draft.payload.method_steps.length === 0 ? (
-                <p className="mt-2 text-caption text-faint">No method steps were extracted.</p>
-              ) : (
-                <ol className="mt-2 list-inside list-decimal space-y-2">
-                  {draft.payload.method_steps.map((step, i) => (
-                    <li key={i} className="rounded-md border border-border bg-canvas px-3 py-2">
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-small text-ink">{step.text}</span>
-                        <ReviewBadge active={step.needs_review} />
-                      </div>
-                      {step.source && (
-                        <span className="mt-0.5 block text-caption text-faint">
-                          Source: “{step.source}”
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </div>
-
-            {draft.payload.notes.length > 0 && (
-              <div className="border-t border-border px-5 py-4">
-                <h3 className="text-small font-semibold uppercase tracking-wide text-muted">
-                  Review notes
-                </h3>
-                <ul className="mt-2 list-inside list-disc space-y-1">
-                  {draft.payload.notes.map((note, i) => (
-                    <li key={i} className="text-small text-muted">
-                      {note}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </section>
+            ingestionId={ingestionId}
+            draft={draft}
+            onConfirmed={onConfirmed}
+          />
         ))}
     </div>
   );

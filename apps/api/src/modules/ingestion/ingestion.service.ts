@@ -10,15 +10,18 @@ import {
   Injectable,
   NotFoundException,
   ServiceUnavailableException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { PrismaClient } from '@recipe-systems/database';
-import type { RecipeExtraction } from '@recipe-systems/schemas';
+import type { DraftEdit, RecipeExtraction } from '@recipe-systems/schemas';
 import type { Actor } from '../../common/guards/guest-or-jwt.guard';
+import { formRawText, IntakeService, type FormLineEntry } from '../intake/intake.service';
 import {
   documentFileTypeOf,
   MAX_DOCUMENT_BYTES,
   StorageService,
 } from '../intake/storage.service';
+import { RecipeService } from '../recipes/recipe.service';
 import {
   IngestionQueueService,
   IngestionQueueUnavailableError,
@@ -46,7 +49,9 @@ export interface DocumentIngestionWire {
   updated_at: string;
 }
 
-/** Phase 3: one source-faithful recipe draft, still NOT a confirmed recipe. */
+/** Phase 3: one source-faithful recipe draft, still NOT a confirmed recipe.
+ *  Phase 4: `payload` is the immutable model extraction; `user_payload` is the
+ *  authoritative user-edited state; `status` + `recipe_id` track confirmation. */
 export interface DocumentDraftWire {
   draft_id: string;
   draft_index: number;
@@ -54,8 +59,35 @@ export interface DocumentDraftWire {
   title_needs_review: boolean;
   needs_review: boolean;
   payload: RecipeExtraction;
+  user_payload: DraftEdit | null;
+  status: 'draft' | 'confirming' | 'confirmed';
+  recipe_id: string | null;
+  confirmed_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/** Phase 4: the confirmation result — the created recipe id (normal recipe). */
+export interface ConfirmDraftWire {
+  recipe_id: string;
+  status: 'confirmed' | 'already_confirmed';
+}
+
+/** The document_recipe_draft row shape this service reads (Prisma-generated). */
+interface DocumentDraftRow {
+  id: string;
+  ingestionId: string;
+  draftIndex: number;
+  title: string | null;
+  titleNeedsReview: boolean;
+  needsReview: boolean;
+  payload: unknown;
+  userPayload: unknown;
+  status: string;
+  recipeId: string | null;
+  confirmedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 @Injectable()
@@ -64,6 +96,10 @@ export class IngestionService {
     @Inject('PRISMA') private readonly prisma: PrismaClient,
     private readonly storage: StorageService,
     private readonly queue: IngestionQueueService,
+    /** Phase 4: the EXISTING recipe creation path (never duplicated here). */
+    private readonly recipes: RecipeService,
+    /** Phase 4: the EXISTING intake writer for recipe_input + ingredient lines. */
+    private readonly intake: IntakeService,
   ) {}
 
   /** Store the original document + create the `queued` record + enqueue extraction. */
@@ -177,16 +213,207 @@ export class IngestionService {
       where: { ingestionId: ingestion.id },
       orderBy: { draftIndex: 'asc' },
     });
-    return drafts.map((d) => ({
+    return drafts.map((d) => this.toDraftWire(d));
+  }
+
+  /** Phase 4: persist the user's authoritative edits. The model payload is
+   *  never overwritten — edits land in user_payload; user-added rows must not
+   *  fabricate source evidence (source forced null). */
+  async updateDraft(
+    actor: Actor,
+    ingestionId: string,
+    draftId: string,
+    edit: DraftEdit,
+  ): Promise<DocumentDraftWire> {
+    const draft = await this.loadOwnedDraft(actor, ingestionId, draftId);
+    if (draft.status !== 'draft') {
+      throw new ConflictException({
+        code: 'DRAFT_NOT_EDITABLE',
+        message: 'This draft has already been confirmed and can no longer be edited',
+      });
+    }
+    const sanitized: DraftEdit = {
+      title: edit.title?.trim() ? edit.title.trim() : null,
+      title_needs_review: edit.title_needs_review,
+      ingredients: edit.ingredients.map((i) => ({
+        name: i.name.trim(),
+        quantity: i.quantity ?? null,
+        unit: i.unit ?? null,
+        preparation: i.preparation ?? null,
+        provenance: i.provenance,
+        // No fabricated source evidence for user-added rows (provenance rule).
+        source: i.provenance === 'user_added' ? null : i.source ?? null,
+        needs_review: i.needs_review,
+      })),
+      method_steps: edit.method_steps.map((s) => ({
+        text: s.text.trim(),
+        provenance: s.provenance,
+        source: s.provenance === 'user_added' ? null : s.source ?? null,
+        needs_review: s.needs_review,
+      })),
+    };
+    const updated = await this.prisma.documentRecipeDraft.update({
+      where: { id: draft.id },
+      data: { userPayload: sanitized },
+    });
+    return this.toDraftWire(updated);
+  }
+
+  /** Phase 4: explicitly confirm the draft and create a REAL recipe through the
+   *  existing recipe-creation path (RecipeService.createForIntake + IntakeService
+   *  for the lines + attachMethod + saveRecipe). Idempotent: a second confirm
+   *  returns the already-created recipe; a failed create is fully compensated so
+   *  a retry never duplicates. */
+  async confirmDraft(
+    actor: Actor,
+    ingestionId: string,
+    draftId: string,
+  ): Promise<ConfirmDraftWire> {
+    const draft = await this.loadOwnedDraft(actor, ingestionId, draftId);
+
+    // Idempotency: a confirmed draft is a no-op returning its existing recipe.
+    if (draft.status === 'confirmed' && draft.recipeId) {
+      return { recipe_id: draft.recipeId, status: 'already_confirmed' };
+    }
+
+    const effective = this.effectiveDraft(draft);
+    this.assertConfirmable(effective);
+
+    // Claim the draft so concurrent confirms serialize (no duplicate recipes).
+    const claimed = await this.prisma.documentRecipeDraft.updateMany({
+      where: { id: draft.id, status: 'draft' },
+      data: { status: 'confirming' },
+    });
+    if (claimed.count === 0) {
+      const current = await this.prisma.documentRecipeDraft.findUnique({
+        where: { id: draft.id },
+      });
+      if (current?.status === 'confirmed' && current.recipeId) {
+        return { recipe_id: current.recipeId, status: 'already_confirmed' };
+      }
+      throw new ConflictException({
+        code: 'CONFIRM_IN_PROGRESS',
+        message: 'Confirmation is already in progress — try again shortly',
+      });
+    }
+
+    const entries: FormLineEntry[] = effective.ingredients.map((i) => ({
+      displayName: i.preparation ? `${i.name}, ${i.preparation}` : i.name,
+      amountText: i.quantity ?? null,
+      unit: i.unit ?? null,
+      amount: null, // quantity is free text; never parsed here
+      groupName: null,
+    }));
+    const rawText = formRawText(entries);
+    const methodText =
+      effective.method_steps.length > 0
+        ? effective.method_steps.map((s) => s.text).join('\n\n')
+        : null;
+    const title = effective.title?.trim() || null;
+
+    let recipeId: string | null = null;
+    try {
+      const recipe = await this.recipes.createForIntake(actor, { rawText });
+      recipeId = recipe.id;
+      await this.intake.recordFormLines(actor, recipe.id, entries);
+      if (methodText) {
+        await this.recipes.attachMethod(actor, recipe.id, { mode: 'paste', methodText });
+      }
+      await this.recipes.saveRecipe(actor, recipe.id, title ? { title } : {});
+
+      await this.prisma.documentRecipeDraft.update({
+        where: { id: draft.id },
+        data: { status: 'confirmed', recipeId: recipe.id, confirmedAt: new Date() },
+      });
+      return { recipe_id: recipe.id, status: 'confirmed' };
+    } catch (err) {
+      // Revert the claim (retryable) + fully remove the partial recipe subtree.
+      await this.prisma.documentRecipeDraft
+        .update({ where: { id: draft.id }, data: { status: 'draft' } })
+        .catch(() => undefined);
+      if (recipeId) {
+        await this.recipes.deleteRecipeInternal(recipeId).catch(() => undefined);
+      }
+      throw err;
+    }
+  }
+
+  /** The authoritative draft: user edits win, else the immutable extraction. */
+  private effectiveDraft(draft: DocumentDraftRow): DraftEdit {
+    if (draft.userPayload) {
+      return draft.userPayload as DraftEdit;
+    }
+    const payload = draft.payload as RecipeExtraction;
+    return {
+      title: payload.title,
+      title_needs_review: payload.title_needs_review,
+      ingredients: payload.ingredients.map((i) => ({
+        name: i.name,
+        quantity: i.quantity,
+        unit: i.unit,
+        preparation: i.preparation,
+        provenance: 'source',
+        source: i.source,
+        needs_review: i.needs_review,
+      })),
+      method_steps: payload.method_steps.map((s) => ({
+        text: s.text,
+        provenance: 'source',
+        source: s.source,
+        needs_review: s.needs_review,
+      })),
+    };
+  }
+
+  /** Confirmation gate (spec §9): unresolved review flags block creation —
+   *  never silently ignore ambiguity. */
+  private assertConfirmable(effective: DraftEdit): void {
+    const blockers: string[] = [];
+    if (effective.title_needs_review) blockers.push('title');
+    if (effective.ingredients.some((i) => i.needs_review)) blockers.push('ingredient');
+    if (effective.method_steps.some((s) => s.needs_review)) blockers.push('method step');
+    if (blockers.length > 0) {
+      throw new UnprocessableEntityException({
+        code: 'UNRESOLVED_REVIEW',
+        message: `Resolve the flagged ${blockers.join(', ')} review items before creating the recipe`,
+      });
+    }
+  }
+
+  /** Load one draft, enforcing document ownership + draft existence (INV-17). */
+  private async loadOwnedDraft(
+    actor: Actor,
+    ingestionId: string,
+    draftId: string,
+  ): Promise<DocumentDraftRow> {
+    const ingestion = await this.loadOwned(actor, ingestionId);
+    const draft = await this.prisma.documentRecipeDraft.findFirst({
+      where: { id: draftId, ingestionId: ingestion.id },
+    });
+    if (!draft) {
+      throw new NotFoundException({
+        code: 'DRAFT_NOT_FOUND',
+        message: 'Recipe draft not found',
+      });
+    }
+    return draft;
+  }
+
+  private toDraftWire(d: DocumentDraftRow): DocumentDraftWire {
+    return {
       draft_id: d.id,
       draft_index: d.draftIndex,
       title: d.title,
       title_needs_review: d.titleNeedsReview,
       needs_review: d.needsReview,
       payload: d.payload as RecipeExtraction,
+      user_payload: (d.userPayload as DraftEdit | null) ?? null,
+      status: d.status as DocumentDraftWire['status'],
+      recipe_id: d.recipeId,
+      confirmed_at: d.confirmedAt ? d.confirmedAt.toISOString() : null,
       created_at: d.createdAt.toISOString(),
       updated_at: d.updatedAt.toISOString(),
-    }));
+    };
   }
 
   /** Load a document, enforcing ownership (INV-17: missing AND foreign 404). */

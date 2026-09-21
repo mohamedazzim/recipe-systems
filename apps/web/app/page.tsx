@@ -257,6 +257,10 @@ export default function Home() {
           ingestionId={view.ingestionId}
           originalFilename={view.originalFilename}
           onBack={() => setView({ name: 'create', mode: 'upload' })}
+          onConfirmed={(recipeId, title) => {
+            loadLibrary(); // the new recipe shows in the Library immediately
+            setView({ name: 'workspace', recipeId, initialTitle: title ?? undefined });
+          }}
         />
       )}
       {view.name === 'household' && (

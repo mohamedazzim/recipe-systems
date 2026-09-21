@@ -467,7 +467,7 @@ model DocumentIngestion {
   fileSizeBytes    Int       @map("file_size_bytes")
   storageKey       String    @map("storage_key") @db.VarChar(512)
   storageUri       String    @map("storage_uri") @db.VarChar(512)
-  status           String    @default("queued") @map("status") @db.VarChar(16) // CHECK queued/extracting/ready/extracting_structure/draft_ready/extraction_failed
+  status           String    @default("queued") @map("status") @db.VarChar(32) // CHECK queued/extracting/ready/extracting_structure/draft_ready/extraction_failed
   rawText          String?   @map("raw_text") // source-faithful extraction; null until ready
   errorCode        String?   @map("error_code") @db.VarChar(64)
   errorMessage     String?   @map("error_message") @db.VarChar(512)
@@ -484,21 +484,28 @@ model DocumentIngestion {
 }
 
 // Phase 3: the structured recipe DRAFT extracted from a document (source-faithful).
-// NOT a confirmed recipe — no recipe/line/method rows are created from a draft.
+// Phase 4: `payload` is the immutable model extraction; `user_payload` is the
+// authoritative user-edited state (provenance-tagged). Confirmation sets
+// `status` = confirmed and links `recipe_id` — still never hand-written here.
 
 model DocumentRecipeDraft {
-  id               String   @id @default(uuid()) @db.Uuid
-  ingestionId      String   @map("ingestion_id") @db.Uuid
-  draftIndex       Int      @map("draft_index") // 0-based position within the document
-  title            String?  @db.VarChar(255) // null when the source has no clear title
-  titleNeedsReview Boolean  @default(false) @map("title_needs_review")
-  needsReview      Boolean  @default(false) @map("needs_review")
-  payload          Json // the validated DocumentExtraction (ingredients + method_steps + notes)
-  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id               String    @id @default(uuid()) @db.Uuid
+  ingestionId      String    @map("ingestion_id") @db.Uuid
+  draftIndex       Int       @map("draft_index") // 0-based position within the document
+  title            String?   @db.VarChar(255) // model title — null when the source has no clear title
+  titleNeedsReview Boolean   @default(false) @map("title_needs_review")
+  needsReview      Boolean   @default(false) @map("needs_review")
+  payload          Json // the validated DocumentExtraction (immutable source evidence)
+  userPayload      Json?     @map("user_payload") // Phase 4: authoritative user edits (DraftEdit)
+  status           String    @default("draft") @db.VarChar(16) // CHECK draft/confirming/confirmed
+  recipeId         String?   @map("recipe_id") @db.Uuid // the created recipe (ON DELETE SET NULL in SQL)
+  confirmedAt      DateTime? @map("confirmed_at") @db.Timestamptz(6)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   ingestion DocumentIngestion @relation(fields: [ingestionId], references: [id], onDelete: Cascade)
 
   @@unique([ingestionId, draftIndex], map: "uq_document_recipe_draft_ingestion_index")
+  @@index([recipeId], map: "ix_document_recipe_draft_recipe")
   @@map("document_recipe_draft")
 }

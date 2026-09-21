@@ -62,6 +62,20 @@ export interface UploadResponse {
   lines: WireLine[];
 }
 
+/** Phase 2 (bulk upload): POST/GET /recipes/import/documents wire shape. */
+export interface DocumentIngestionResponse {
+  ingestion_id: string;
+  original_filename: string;
+  file_type: string;
+  file_size_bytes: number;
+  status: 'queued' | 'extracting' | 'ready' | 'failed';
+  has_text: boolean;
+  error_code: string | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 /** API doc §4 method wire shape (D-13). */
 export interface MethodState {
   method_tag: 'METHOD' | 'INFERRED' | null;

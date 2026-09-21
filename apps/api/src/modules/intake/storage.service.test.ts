@@ -1,5 +1,5 @@
 import { S3Client } from '@aws-sdk/client-s3';
-import { StorageService } from './storage.service';
+import { documentFileTypeOf, StorageService } from './storage.service';
 
 jest.mock('@aws-sdk/client-s3', () => {
   class MockS3Client {
@@ -46,6 +46,28 @@ describe('StorageService', () => {
     const svc = new StorageService();
     const stored = await svc.uploadImage(Buffer.from('png-bytes'), 'image/png');
     expect(stored.key).toMatch(/\.png$/);
+  });
+
+  it('Phase 2: uploads a document with a server-generated key + original-filename metadata', async () => {
+    const { send } = mockSend();
+    send.mockResolvedValue({});
+    const svc = new StorageService();
+    const stored = await svc.uploadDocument(Buffer.from('doc-bytes'), 'Family Recipes.pdf', 'pdf');
+    expect(stored.key).toMatch(/^documents\/[0-9a-f-]+\.pdf$/);
+    expect(stored.uri).toBe(`s3://recipe-assets/${stored.key}`);
+    const put = send.mock.calls[0][0] as any;
+    expect(put.args.Bucket).toBe('recipe-assets');
+    expect(put.args.ContentType).toBe('application/pdf');
+    expect(put.args.Metadata).toEqual({ 'original-filename': 'Family Recipes.pdf' });
+    expect(Buffer.isBuffer(put.args.Body)).toBe(true);
+  });
+
+  it('Phase 2: documentFileTypeOf resolves case-insensitive extensions and rejects others', () => {
+    expect(documentFileTypeOf('a.PDF')).toBe('pdf');
+    expect(documentFileTypeOf('b.docx')).toBe('docx');
+    expect(documentFileTypeOf('c.txt')).toBe('txt');
+    expect(documentFileTypeOf('d.jpg')).toBeNull();
+    expect(documentFileTypeOf('noext')).toBeNull();
   });
 
   it('QG4: upload failure surfaces as STORAGE_UPLOAD_FAILED — callers persist no URI', async () => {

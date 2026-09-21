@@ -12,6 +12,11 @@ import {
   View9RecomputeJobData,
 } from './analysis-job.handler';
 import { resolveAdapter } from './adapter';
+import {
+  DOCUMENT_INGESTION_QUEUE,
+  DocumentIngestionJobData,
+  DocumentIngestionJobHandler,
+} from './ingestion/ingestion-job.handler';
 
 // pg-boss v10 is CJS with `module.exports = PgBoss` (class directly). The worker
 // tsconfig HAS esModuleInterop while the API's does not — the namespace +
@@ -73,6 +78,7 @@ export async function main(): Promise<void> {
   const notify = await createNotifier(DATABASE_URL);
   const adapter = resolveAdapter(process.env);
   const handler = new AnalysisJobHandler(prisma, adapter, notify);
+  const ingestionHandler = new DocumentIngestionJobHandler(prisma);
   // Q9-6: observable provider selection, never secrets.
   const describable = adapter as unknown as { describe?: () => string };
   const describe =
@@ -90,7 +96,8 @@ export async function main(): Promise<void> {
   await boss.start();
   await boss.createQueue(QUEUE_NAME);
   await boss.createQueue(VIEW9_RECOMPUTE_QUEUE);
-  console.log('analysis-worker: consuming queue "analysis" + "view9-recompute"');
+  await boss.createQueue(DOCUMENT_INGESTION_QUEUE);
+  console.log('analysis-worker: consuming queues "analysis" + "view9-recompute" + "document-ingestion"');
 
   // pg-boss v10.4+ delivers a BATCH (array) to the work handler.
   await boss.work(QUEUE_NAME, async (jobs: unknown) => {
@@ -128,6 +135,20 @@ export async function main(): Promise<void> {
       if (!job || !job.data) continue;
       console.log(`analysis-worker: view9-recompute job ${job.id ?? 'unknown'} for analysis ${job.data.analysis_id}`);
       await handler.handleView9Recompute(job.data);
+    }
+  });
+
+  // Phase 2: document ingestion — same batch delivery contract, kept separate
+  // from recipe analysis (no LLM, no recipe rows; only document → raw text).
+  await boss.work(DOCUMENT_INGESTION_QUEUE, async (jobs: unknown) => {
+    const batch = (Array.isArray(jobs) ? jobs : [jobs]) as Array<{
+      id?: string;
+      data?: DocumentIngestionJobData;
+    }>;
+    for (const job of batch) {
+      if (!job || !job.data) continue;
+      console.log(`analysis-worker: document-ingestion job ${job.id ?? 'unknown'} for document ${job.data.ingestion_id}`);
+      await ingestionHandler.handle(job.data);
     }
   });
 

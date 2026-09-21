@@ -49,7 +49,7 @@ export interface HomeViewProps {
   /** D-22 (D6): transient confirmation shown after a confirmed delete. */
   notice?: string | null;
   /** Create a recipe; the mode deep-links to the matching intake tab. */
-  onCreate: (mode?: 'paste' | 'form' | 'photo') => void;
+  onCreate: (mode?: 'paste' | 'form' | 'photo' | 'upload') => void;
   /** QA-B1 fix: guest-owned records carry their parse-response lines so a
    *  read-only reopen renders them (guests can't fetch Bearer-only routes).
    *  D-22: library rows pass their saved DB name so the workspace title is the

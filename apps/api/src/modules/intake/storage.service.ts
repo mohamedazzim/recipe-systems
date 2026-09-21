@@ -23,6 +23,27 @@ export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 export const IMAGE_CONTENT_TYPES = ['image/jpeg', 'image/png'] as const;
 export type ImageContentType = (typeof IMAGE_CONTENT_TYPES)[number];
 
+/** Phase 2 bulk-upload document scope — pdf/docx/txt only, 10 MB per file. */
+export const DOCUMENT_EXTENSIONS = ['pdf', 'docx', 'txt'] as const;
+export type DocumentFileType = (typeof DOCUMENT_EXTENSIONS)[number];
+export const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
+
+const DOCUMENT_CONTENT_TYPES: Record<DocumentFileType, string> = {
+  pdf: 'application/pdf',
+  docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  txt: 'text/plain',
+};
+
+/** Resolve the document type from the original filename extension (case-insensitive). */
+export function documentFileTypeOf(filename: string): DocumentFileType | null {
+  const dot = filename.lastIndexOf('.');
+  if (dot === -1) return null;
+  const ext = filename.slice(dot + 1).toLowerCase();
+  return (DOCUMENT_EXTENSIONS as readonly string[]).includes(ext)
+    ? (ext as DocumentFileType)
+    : null;
+}
+
 export interface StoredImage {
   key: string;
   uri: string;
@@ -86,6 +107,34 @@ export class StorageService {
       throw new ServiceUnavailableException({
         code: 'STORAGE_UPLOAD_FAILED',
         message: 'Image storage unavailable; nothing was persisted',
+      });
+    }
+    return { key, uri: this.objectUri(key) };
+  }
+
+  /** Upload an original recipe document (pdf/docx/txt). The storage key is
+   *  server-generated (never the raw filename — path-traversal safe); the
+   *  original filename rides S3 object metadata. Throws on failure (QG4). */
+  async uploadDocument(
+    buffer: Buffer,
+    filename: string,
+    fileType: DocumentFileType,
+  ): Promise<StoredImage> {
+    const key = `documents/${randomUUID()}.${fileType}`;
+    try {
+      await this.client.send(
+        new PutObjectCommand({
+          Bucket: this.bucket,
+          Key: key,
+          Body: buffer,
+          ContentType: DOCUMENT_CONTENT_TYPES[fileType],
+          Metadata: { 'original-filename': filename },
+        }),
+      );
+    } catch {
+      throw new ServiceUnavailableException({
+        code: 'STORAGE_UPLOAD_FAILED',
+        message: 'Document storage unavailable; nothing was persisted',
       });
     }
     return { key, uri: this.objectUri(key) };

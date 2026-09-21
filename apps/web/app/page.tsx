@@ -27,11 +27,22 @@ function readAuthError(): string | null {
   return value ? decodeURIComponent(value) : null;
 }
 
+/** Deep link into a create intake tab (e.g. /?mode=upload). Without a valid
+ *  mode the app keeps its default home entry — direct navigation is unchanged. */
+function initialViewFromUrl(): AppView {
+  if (typeof window === 'undefined') return { name: 'home' };
+  const mode = new URLSearchParams(window.location.search).get('mode');
+  if (mode === 'paste' || mode === 'form' || mode === 'photo' || mode === 'upload') {
+    return { name: 'create', mode };
+  }
+  return { name: 'home' };
+}
+
 export default function Home() {
   const [state, setState] = useState<State>({ phase: 'loading' });
   const [guestSessionId, setGuestSessionId] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(readAuthError());
-  const [view, setView] = useState<AppView>({ name: 'home' });
+  const [view, setView] = useState<AppView>(initialViewFromUrl);
   /** D-22 (D6): transient confirmation after a confirmed recipe delete. */
   const [homeNotice, setHomeNotice] = useState<string | null>(null);
   /** D-22 (D2): the canonical account library (persisted DB rows, never
@@ -224,6 +235,7 @@ export default function Home() {
           onOpenRecipe={(recipeId, lines, title) =>
             setView({ name: 'workspace', recipeId, initialLines: lines ?? null, initialTitle: title })
           }
+          onBulkUpload={() => setView({ name: 'create', mode: 'upload' })}
         />
       )}
       {view.name === 'create' && (

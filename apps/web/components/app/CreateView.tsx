@@ -7,14 +7,14 @@
 // low-confidence lines before analysis.
 
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Camera, Check, Lightbulb, X } from '@phosphor-icons/react';
+import { ArrowLeft, Camera, Check, Files, Lightbulb, X } from '@phosphor-icons/react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Field } from '@/components/ui/Field';
 import { Textarea } from '@/components/ui/Input';
 import { Heading, Text } from '@/components/ui/Typography';
 import { api, apiUpload, ApiError } from '@/lib/api';
-import type { ParseTextResponse, UploadResponse, WireLine } from '@/lib/types';
+import type { DocumentIngestionResponse, ParseTextResponse, UploadResponse, WireLine } from '@/lib/types';
 import { previewOf, recordSessionRecipe } from '@/lib/flow';
 import { FormIntake, FormIntakeHandle } from '@/components/app/FormIntake';
 
@@ -23,7 +23,7 @@ export interface CreateViewProps {
   /** The current identity's accountId (null when guest). */
   accountId: string | null;
   /** The intake tab to open on (deep links from the Home entry modes). */
-  initialMode?: 'paste' | 'form' | 'photo';
+  initialMode?: 'paste' | 'form' | 'photo' | 'upload';
   onBack: () => void;
   onParsed: (recipeId: string, lines: WireLine[]) => void;
   /** D-11 (B2): navigate after a completed photo upload, with the OCR draft. */
@@ -32,6 +32,52 @@ export interface CreateViewProps {
 
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png'];
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+
+/** Phase 1 bulk-upload document scope — the only formats the Upload tab
+ *  accepts (Phase 2 will parse these; no parsing happens yet). */
+const BULK_DOCUMENT_EXTENSIONS = ['.pdf', '.docx', '.txt'];
+const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
+
+function fileExtension(name: string): string {
+  const dot = name.lastIndexOf('.');
+  return dot === -1 ? '' : name.slice(dot).toLowerCase();
+}
+
+interface BulkFileItem {
+  key: string;
+  file: File;
+  status: 'pending' | 'uploading' | 'extracting' | 'ready' | 'failed';
+  error?: string;
+}
+
+function bulkStatusLabel(item: BulkFileItem): string {
+  switch (item.status) {
+    case 'uploading':
+      return 'Uploading…';
+    case 'extracting':
+      return 'Extracting…';
+    case 'ready':
+      return 'Ready for recipe extraction';
+    case 'failed':
+      return item.error ?? 'Failed';
+    case 'pending':
+      return 'Ready to upload';
+  }
+}
+
+function bulkStatusTint(status: BulkFileItem['status']): string {
+  switch (status) {
+    case 'ready':
+      return 'text-positive';
+    case 'failed':
+      return 'text-negative';
+    case 'uploading':
+    case 'extracting':
+      return 'text-muted';
+    case 'pending':
+      return 'text-faint';
+  }
+}
 
 export function CreateView({
   signedIn,
@@ -45,7 +91,7 @@ export function CreateView({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // D-10A (B5): text/paste vs structured form vs photo — paste stays the default.
-  const [mode, setMode] = useState<'paste' | 'form' | 'photo'>(initialMode ?? 'paste');
+  const [mode, setMode] = useState<'paste' | 'form' | 'photo' | 'upload'>(initialMode ?? 'paste');
 
   // Photo upload state (D-11 B2).
   const [file, setFile] = useState<File | null>(null);
@@ -53,6 +99,12 @@ export function CreateView({
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  // Phase 2 bulk-upload state: selected documents with per-file lifecycle.
+  const [bulkFiles, setBulkFiles] = useState<BulkFileItem[]>([]);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+  const [bulkDragging, setBulkDragging] = useState(false);
+  const [bulkUploading, setBulkUploading] = useState(false);
+  const bulkKeyRef = useRef(0);
   // Shared-footer validation error + the form tab's imperative handle.
   const [footerError, setFooterError] = useState<string | null>(null);
   const [formSubmitting, setFormSubmitting] = useState(false);
@@ -111,6 +163,101 @@ export function CreateView({
     handleFile(e.target.files?.[0] ?? null);
   };
 
+  /** Phase 2: accumulate selected documents (validation only — no processing here). */
+  const addBulkFiles = (incoming: File[]): void => {
+    setBulkError(null);
+    const accepted = incoming.filter(
+      (f) => BULK_DOCUMENT_EXTENSIONS.includes(fileExtension(f.name)) && f.size <= MAX_DOCUMENT_BYTES,
+    );
+    const skipped = incoming.length - accepted.length;
+    if (skipped > 0) {
+      setBulkError(
+        skipped === 1
+          ? 'One file was skipped — only PDF, DOCX, or TXT files up to 10 MB are accepted.'
+          : `${skipped} files were skipped — only PDF, DOCX, or TXT files up to 10 MB are accepted.`,
+      );
+    }
+    if (accepted.length > 0) {
+      setBulkFiles((prev) => [
+        ...prev,
+        ...accepted.map((file) => ({
+          key: `bulk-${Date.now()}-${bulkKeyRef.current++}`,
+          file,
+          status: 'pending' as const,
+        })),
+      ]);
+    }
+  };
+
+  const onBulkChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    addBulkFiles(Array.from(e.target.files ?? []));
+  };
+
+  const removeBulkFile = (key: string): void => {
+    setBulkFiles((prev) => prev.filter((f) => f.key !== key));
+  };
+
+  const setBulkItem = (key: string, patch: Partial<BulkFileItem>): void => {
+    setBulkFiles((prev) => prev.map((f) => (f.key === key ? { ...f, ...patch } : f)));
+  };
+
+  /** Poll one document's lifecycle until it reaches ready or failed. */
+  const pollIngestion = async (ingestionId: string, key: string): Promise<void> => {
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      try {
+        const status = await api<DocumentIngestionResponse>(
+          `/recipes/import/documents/${ingestionId}`,
+        );
+        if (status.status === 'ready') {
+          setBulkItem(key, { status: 'ready', error: undefined });
+          return;
+        }
+        if (status.status === 'failed') {
+          setBulkItem(key, {
+            status: 'failed',
+            error: status.error_message ?? 'Document extraction failed.',
+          });
+          return;
+        }
+      } catch {
+        // transient poll error — retry next tick
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+    setBulkItem(key, { status: 'failed', error: 'Timed out waiting for extraction.' });
+  };
+
+  /** Upload one document independently — a failure here never affects others. */
+  const uploadOneDocument = async (item: BulkFileItem): Promise<void> => {
+    setBulkItem(item.key, { status: 'uploading', error: undefined });
+    try {
+      const form = new FormData();
+      form.append('file', item.file);
+      const result = await apiUpload<DocumentIngestionResponse>('/recipes/import/documents', form);
+      setBulkItem(item.key, { status: 'extracting', error: undefined });
+      await pollIngestion(result.ingestion_id, item.key);
+    } catch (err) {
+      setBulkItem(item.key, {
+        status: 'failed',
+        error:
+          err instanceof ApiError
+            ? err.message
+            : 'The server could not be reached. Check your connection and try again.',
+      });
+    }
+  };
+
+  const uploadBulk = async (): Promise<void> => {
+    const pending = bulkFiles.filter((f) => f.status !== 'ready');
+    if (pending.length === 0) {
+      setFooterError('Choose at least one document first.');
+      return;
+    }
+    setBulkUploading(true);
+    await Promise.all(pending.map((item) => uploadOneDocument(item)));
+    setBulkUploading(false);
+  };
+
   /** The single shared footer action — validates whichever tab is active. */
   const handleFooterSubmit = (): void => {
     setFooterError(null);
@@ -126,6 +273,8 @@ export function CreateView({
         return;
       }
       formRef.current.submit();
+    } else if (mode === 'upload') {
+      void uploadBulk();
     } else {
       if (!file) {
         setFooterError('Choose a photo first.');
@@ -202,6 +351,7 @@ export function CreateView({
               ['paste', 'Paste text'],
               ['form', 'Structured form'],
               ['photo', 'Photo'],
+              ['upload', 'Upload'],
             ] as const
           ).map(([key, label]) => (
             <button
@@ -334,6 +484,94 @@ export function CreateView({
               )}
             </div>
           )}
+
+          {mode === 'upload' && (
+            <div>
+              <p className="text-small text-muted">
+                Select one or more recipe documents to upload in bulk. PDF, DOCX, or TXT, up to 10 MB each.
+              </p>
+
+              <label
+                htmlFor="bulk-upload"
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setBulkDragging(true);
+                }}
+                onDragLeave={() => setBulkDragging(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setBulkDragging(false);
+                  addBulkFiles(Array.from(e.dataTransfer.files ?? []));
+                }}
+                className={`mt-4 block cursor-pointer rounded-lg border-2 border-dashed p-5 text-center transition-colors ${
+                  bulkDragging
+                    ? 'border-accent bg-accent/10'
+                    : 'border-border-strong hover:border-accent hover:bg-accent/5'
+                }`}
+              >
+                <Files size={24} aria-hidden="true" className="mx-auto text-muted" />
+                <span className="mt-2 block text-small font-semibold text-ink">
+                  Drop documents here, or click to choose files
+                </span>
+                <span className="mt-1 block text-caption text-faint">
+                  PDF, DOCX, or TXT, up to 10 MB each — select multiple
+                </span>
+                <input
+                  id="bulk-upload"
+                  type="file"
+                  accept=".pdf,.docx,.txt"
+                  multiple
+                  aria-label="Choose recipe documents"
+                  onChange={onBulkChange}
+                  className="sr-only"
+                />
+              </label>
+
+              {bulkError && (
+                <div className="mt-3">
+                  <Alert tone="error" title="Some files were skipped">
+                    {bulkError}
+                  </Alert>
+                </div>
+              )}
+
+              {bulkFiles.length > 0 && (
+                <ul className="mt-4 space-y-2" aria-label="Selected files">
+                  {bulkFiles.map((item) => (
+                    <li
+                      key={item.key}
+                      className="flex items-center justify-between gap-3 rounded-md border border-border bg-canvas px-3 py-2"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <span className="block truncate text-small text-ink">{item.file.name}</span>
+                        <span className={`mt-0.5 block text-caption ${bulkStatusTint(item.status)}`}>
+                          {bulkStatusLabel(item)}
+                        </span>
+                      </div>
+                      {item.status === 'failed' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => void uploadOneDocument(item)}
+                        >
+                          Retry
+                        </Button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeBulkFile(item.key)}
+                        aria-label={`Remove ${item.file.name}`}
+                        disabled={item.status === 'uploading' || item.status === 'extracting'}
+                        className="inline-flex shrink-0 items-center rounded-sm text-faint hover:text-negative disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                      >
+                        <X size={16} aria-hidden="true" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
 
         {/* One shared footer — the single entry point for all three tabs. */}
@@ -341,9 +579,15 @@ export function CreateView({
           <Button
             size="lg"
             onClick={handleFooterSubmit}
-            disabled={submitting || uploading || formSubmitting}
+            disabled={submitting || uploading || formSubmitting || bulkUploading}
           >
-            {submitting || uploading || formSubmitting ? 'Working…' : 'Analyze recipe'}
+            {submitting || uploading || formSubmitting
+              ? 'Working…'
+              : bulkUploading
+                ? 'Uploading…'
+                : mode === 'upload'
+                  ? 'Upload documents'
+                  : 'Analyze recipe'}
           </Button>
           {footerError && (
             <span className="text-small text-negative" role="alert">
@@ -351,7 +595,9 @@ export function CreateView({
             </span>
           )}
           <span className="text-caption text-faint">
-            Parses or uploads first — review and analysis come next.
+            {mode === 'upload'
+              ? 'Each document is extracted to source-faithful text — recipe extraction comes in a later phase.'
+              : 'Parses or uploads first — review and analysis come next.'}
           </span>
         </div>
         </div>

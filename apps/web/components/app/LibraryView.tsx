@@ -5,7 +5,7 @@
 // scoped GET /recipes?q=; the full list is the canonical GET /recipes rows.
 
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, MagnifyingGlass, X } from '@phosphor-icons/react';
+import { ArrowLeft, ArrowRight, MagnifyingGlass, UploadSimple, X } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Alert } from '@/components/ui/Alert';
@@ -20,6 +20,8 @@ export interface LibraryViewProps {
   initialQuery?: string;
   onBack: () => void;
   onOpenRecipe: (recipeId: string, initialLines: null, title?: string) => void;
+  /** Phase 1 bulk-upload entry: routes to Add Recipe with Upload selected. */
+  onBulkUpload: () => void;
 }
 
 const MONOGRAM_TINTS = [
@@ -29,7 +31,7 @@ const MONOGRAM_TINTS = [
   'bg-negative/10 text-negative',
 ];
 
-export function LibraryView({ library, initialQuery, onBack, onOpenRecipe }: LibraryViewProps) {
+export function LibraryView({ library, initialQuery, onBack, onOpenRecipe, onBulkUpload }: LibraryViewProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<LibraryRecipe[] | null>(null);
   const [searching, setSearching] = useState(false);
@@ -128,6 +130,11 @@ export function LibraryView({ library, initialQuery, onBack, onOpenRecipe }: Lib
             </Button>
           )}
         </form>
+
+        <Button size="sm" variant="outline" onClick={onBulkUpload}>
+          <UploadSimple size={14} aria-hidden="true" weight="bold" />
+          Bulk upload recipes
+        </Button>
       </div>
 
       {searchError && (

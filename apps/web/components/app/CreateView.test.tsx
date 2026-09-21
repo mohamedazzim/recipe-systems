@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CreateView } from '@/components/app/CreateView';
 
@@ -42,6 +42,31 @@ describe('CreateView (paste + photo intake)', () => {
 
   function imageFile(name = 'card.jpg', type = 'image/jpeg', size = 1024): File {
     return new File([new Uint8Array(size)], name, { type });
+  }
+
+  function documentFile(name = 'recipe.txt', size = 1024): File {
+    const type = name.toLowerCase().endsWith('.pdf')
+      ? 'application/pdf'
+      : name.toLowerCase().endsWith('.docx')
+        ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        : 'text/plain';
+    return new File([new Uint8Array(size)], name, { type });
+  }
+
+  function ingestionResponse(overrides: Record<string, unknown> = {}) {
+    return {
+      ingestion_id: 'ing-1',
+      original_filename: 'recipe.txt',
+      file_type: 'txt',
+      file_size_bytes: 1024,
+      status: 'queued',
+      has_text: false,
+      error_code: null,
+      error_message: null,
+      created_at: '2026-09-21T00:00:00.000Z',
+      updated_at: '2026-09-21T00:00:00.000Z',
+      ...overrides,
+    };
   }
 
   it('photo upload control renders behind the Photo tab with a picker and a shared footer action', async () => {
@@ -195,5 +220,123 @@ describe('CreateView (paste + photo intake)', () => {
     expect(screen.getByText(/As a guest you can paste/)).toBeInTheDocument();
     rerender(<CreateView {...props({ signedIn: true })} />);
     expect(screen.queryByText(/As a guest you can paste/)).not.toBeInTheDocument();
+  });
+
+  it('selects the Upload tab when initialMode is "upload" (bulk entry)', () => {
+    render(<CreateView {...props({ initialMode: 'upload' })} />);
+    expect(screen.getByRole('tab', { name: 'Upload' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText('Drop documents here, or click to choose files')).toBeInTheDocument();
+    expect(screen.getByLabelText('Choose recipe documents')).toBeInTheDocument();
+  });
+
+  it('lists a single selected bulk document', async () => {
+    render(<CreateView {...props()} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Upload' }));
+    await userEvent.upload(screen.getByLabelText('Choose recipe documents'), documentFile('recipe.txt'));
+    const list = screen.getByRole('list', { name: 'Selected files' });
+    expect(within(list).getByText('recipe.txt')).toBeInTheDocument();
+  });
+
+  it('lists multiple selected bulk documents and removes one', async () => {
+    render(<CreateView {...props()} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Upload' }));
+    await userEvent.upload(screen.getByLabelText('Choose recipe documents'), [
+      documentFile('one.pdf'),
+      documentFile('two.docx'),
+    ]);
+    const list = screen.getByRole('list', { name: 'Selected files' });
+    expect(within(list).getByText('one.pdf')).toBeInTheDocument();
+    expect(within(list).getByText('two.docx')).toBeInTheDocument();
+
+    await userEvent.click(within(list).getByRole('button', { name: 'Remove one.pdf' }));
+    expect(within(list).queryByText('one.pdf')).not.toBeInTheDocument();
+    expect(within(list).getByText('two.docx')).toBeInTheDocument();
+  });
+
+  it('skips non-document files in the Upload tab', async () => {
+    render(<CreateView {...props()} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Upload' }));
+    await userEvent.upload(
+      screen.getByLabelText('Choose recipe documents'),
+      imageFile('card.jpg'),
+      { applyAccept: false },
+    );
+    expect(
+      await screen.findByText('One file was skipped — only PDF, DOCX, or TXT files up to 10 MB are accepted.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('list', { name: 'Selected files' })).not.toBeInTheDocument();
+  });
+
+  it('Phase 2: uploads selected documents and shows the ready state', async () => {
+    (globalThis.fetch as jest.Mock).mockImplementation(async (url: string, init?: RequestInit) => {
+      if (init?.method === 'POST') {
+        return { ok: true, status: 200, json: async () => ingestionResponse({ status: 'queued' }) };
+      }
+      return { ok: true, status: 200, json: async () => ingestionResponse({ status: 'ready', has_text: true }) };
+    });
+    render(<CreateView {...props()} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Upload' }));
+    await userEvent.upload(screen.getByLabelText('Choose recipe documents'), documentFile('recipe.txt'));
+    await userEvent.click(screen.getByRole('button', { name: 'Upload documents' }));
+
+    expect(await screen.findByText('Ready for recipe extraction')).toBeInTheDocument();
+    const postCall = (globalThis.fetch as jest.Mock).mock.calls.find(
+      (c) => (c[1] as RequestInit | undefined)?.method === 'POST',
+    ) as [string, RequestInit];
+    expect(postCall[0]).toContain('/recipes/import/documents');
+    expect(postCall[1].body).toBeInstanceOf(FormData);
+  });
+
+  it('Phase 2: shows extracting then ready as the worker progresses', async () => {
+    let polls = 0;
+    (globalThis.fetch as jest.Mock).mockImplementation(async (url: string, init?: RequestInit) => {
+      if (init?.method === 'POST') {
+        return { ok: true, status: 200, json: async () => ingestionResponse({ status: 'queued' }) };
+      }
+      polls += 1;
+      return {
+        ok: true,
+        status: 200,
+        json: async () =>
+          ingestionResponse({ status: polls === 1 ? 'queued' : 'ready', has_text: polls !== 1 }),
+      };
+    });
+    render(<CreateView {...props()} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Upload' }));
+    await userEvent.upload(screen.getByLabelText('Choose recipe documents'), documentFile('recipe.txt'));
+    await userEvent.click(screen.getByRole('button', { name: 'Upload documents' }));
+
+    expect(await screen.findByText('Extracting…')).toBeInTheDocument();
+    expect(await screen.findByText('Ready for recipe extraction', {}, { timeout: 3000 })).toBeInTheDocument();
+  });
+
+  it('Phase 2: shows failed state and recovers via Retry', async () => {
+    let shouldFail = true;
+    (globalThis.fetch as jest.Mock).mockImplementation(async (url: string, init?: RequestInit) => {
+      if (init?.method === 'POST') {
+        if (shouldFail) {
+          return {
+            ok: false,
+            status: 400,
+            json: async () => ({
+              error: { code: 'INVALID_DOCUMENT', message: 'Only PDF, DOCX, or TXT documents are accepted' },
+            }),
+          };
+        }
+        return { ok: true, status: 200, json: async () => ingestionResponse({ status: 'queued' }) };
+      }
+      return { ok: true, status: 200, json: async () => ingestionResponse({ status: 'ready', has_text: true }) };
+    });
+    render(<CreateView {...props()} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Upload' }));
+    await userEvent.upload(screen.getByLabelText('Choose recipe documents'), documentFile('recipe.txt'));
+    await userEvent.click(screen.getByRole('button', { name: 'Upload documents' }));
+
+    expect(await screen.findByText('Only PDF, DOCX, or TXT documents are accepted')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+
+    shouldFail = false;
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('Ready for recipe extraction')).toBeInTheDocument();
   });
 });

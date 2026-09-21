@@ -33,7 +33,7 @@ export type WorkspaceSection = 'ingredients' | 'method' | 'shopping' | 'analysis
 export type AppView =
   | { name: 'home' }
   | { name: 'library' }
-  | { name: 'create'; mode?: 'paste' | 'form' | 'photo' }
+  | { name: 'create'; mode?: 'paste' | 'form' | 'photo' | 'upload' }
   | { name: 'household' }
   | { name: 'landing' }
   | { name: 'workspace'; recipeId: string; initialLines?: WireLine[] | null; initialTitle?: string };

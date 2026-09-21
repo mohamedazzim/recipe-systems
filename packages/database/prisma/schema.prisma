@@ -37,6 +37,7 @@ model Account {
   restrictionProfile AccountRestrictionProfile?
   recipes            Recipe[]
   guestClaims        GuestSession[]             @relation("claimedBy")
+  documentIngestions DocumentIngestion[]
 
   @@map("account")
 }
@@ -49,7 +50,8 @@ model GuestSession {
   claimedByAccountId String?   @map("claimed_by_account_id") @db.Uuid // FK → account.id; audit trail only
   claimedByAccount   Account?  @relation("claimedBy", fields: [claimedByAccountId], references: [id])
 
-  recipes Recipe[]
+  recipes            Recipe[]
+  documentIngestions DocumentIngestion[]
 
   @@map("guest_session")
 }
@@ -450,4 +452,32 @@ model NutritionFoodCompositionVersion {
   entry NutritionFoodCompositionEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
 
   @@map("nutrition_food_composition_version")
+}
+
+// ───────────────────────────── §11 Document ingestion (bulk upload) ─────────────────────────────
+// Phase 2: one row per uploaded recipe DOCUMENT (pdf/docx/txt). A document is NOT
+// a recipe yet — no recipe/line/method/analysis rows are created from it.
+
+model DocumentIngestion {
+  id               String    @id @default(uuid()) @db.Uuid
+  accountId        String?   @map("account_id") @db.Uuid // XOR with guest_session_id (chk_document_ingestion_owner_xor)
+  guestSessionId   String?   @map("guest_session_id") @db.Uuid // XOR with account_id
+  originalFilename String    @map("original_filename") @db.VarChar(255)
+  fileType         String    @map("file_type") @db.VarChar(16) // CHECK pdf/docx/txt
+  fileSizeBytes    Int       @map("file_size_bytes")
+  storageKey       String    @map("storage_key") @db.VarChar(512)
+  storageUri       String    @map("storage_uri") @db.VarChar(512)
+  status           String    @default("queued") @map("status") @db.VarChar(16) // CHECK queued/extracting/ready/failed
+  rawText          String?   @map("raw_text") // source-faithful extraction; null until ready
+  errorCode        String?   @map("error_code") @db.VarChar(64)
+  errorMessage     String?   @map("error_message") @db.VarChar(512)
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  account      Account?      @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  guestSession GuestSession? @relation(fields: [guestSessionId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, createdAt(sort: Desc)], map: "ix_document_ingestion_account_created")
+  @@index([guestSessionId, createdAt(sort: Desc)], map: "ix_document_ingestion_guest_created")
+  @@map("document_ingestion")
 }

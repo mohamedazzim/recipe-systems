@@ -8,6 +8,7 @@ function props(overrides: Partial<Parameters<typeof LibraryView>[0]> = {}) {
     library: [] as LibraryRecipe[],
     onBack: jest.fn(),
     onOpenRecipe: jest.fn(),
+    onBulkUpload: jest.fn(),
     ...overrides,
   };
 }
@@ -64,6 +65,13 @@ describe('LibraryView — D-22 library (D2)', () => {
     render(<LibraryView {...p} />);
     await userEvent.click(screen.getByRole('button', { name: /Back to home/ }));
     expect(p.onBack).toHaveBeenCalled();
+  });
+
+  it('routes to Add Recipe with Upload selected via the bulk upload action', async () => {
+    const p = props();
+    render(<LibraryView {...p} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Bulk upload recipes' }));
+    expect(p.onBulkUpload).toHaveBeenCalled();
   });
 });
 

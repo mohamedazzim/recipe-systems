@@ -1,0 +1,22 @@
+# Exclude local artifacts from Railway CLI uploads (repo remains intact)
+node_modules/
+.git/
+.next/
+dist/
+build/
+coverage/
+ocr_q10*/
+test-results/
+playwright-report/
+docs/
+infra/docker/
+infra/nginx/
+tests/
+scripts/check-perf-baselines.js
+scripts/contract-check.sh
+scripts/corpus-check.js
+scripts/dev.sh
+scripts/golden-check.js
+scripts/ocr-benchmark.js
+scripts/regression-gates.sh
+scripts/verify-local.sh

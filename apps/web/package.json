@@ -14,7 +14,7 @@
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
     "@recipe-systems/schemas": "*",
-    "next": "15.1.4",
+    "next": "15.1.11",
     "react": "19.0.0",
     "react-dom": "19.0.0"
   },
@@ -28,7 +28,7 @@
     "@types/react-dom": "^19.0.0",
     "autoprefixer": "^10.4.20",
     "eslint": "^8.57.0",
-    "eslint-config-next": "15.1.4",
+    "eslint-config-next": "15.1.11",
     "jest": "^30.5.1",
     "jest-environment-jsdom": "^30.5.1",
     "postcss": "^8.4.49",

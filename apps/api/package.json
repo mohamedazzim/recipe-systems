@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "npm run build -w @recipe-systems/database && nest start --watch",
     "build": "npm run build -w @recipe-systems/database && nest build",
-    "start": "npm run build -w @recipe-systems/database && node dist/main.js",
-    "start:prod": "node dist/main.js",
+    "start": "npm run build -w @recipe-systems/database && node dist/src/main.js",
+    "start:prod": "node dist/src/main.js",
+    "start:prod:all": "node ../analysis-worker/dist/main.js & node dist/src/main.js",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "jest --config jest.config.js",

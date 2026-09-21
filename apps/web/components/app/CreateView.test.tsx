@@ -341,6 +341,43 @@ describe('CreateView (paste + photo intake)', () => {
     expect(await screen.findByText('Ready for recipe extraction')).toBeInTheDocument();
   });
 
+  it('Phase 2 ingestion failure: Retry surfaces the ingestion error instead of extracting', async () => {
+    let extractCalls = 0;
+    (globalThis.fetch as jest.Mock).mockImplementation(async (url: string, init?: RequestInit) => {
+      if (init?.method === 'POST' && (url as string).includes('/extract')) {
+        extractCalls += 1;
+        return { ok: true, status: 200, json: async () => ingestionResponse({ status: 'extracting_structure' }) };
+      }
+      if (init?.method === 'POST') {
+        return { ok: true, status: 200, json: async () => ingestionResponse({ status: 'queued' }) };
+      }
+      // The worker failed the raw-text extraction (e.g. scanned PDF).
+      return {
+        ok: true,
+        status: 200,
+        json: async () =>
+          ingestionResponse({
+            status: 'failed',
+            error_code: 'NO_TEXT_EXTRACTED',
+            error_message: 'No text could be extracted from this document.',
+          }),
+      };
+    });
+
+    render(<CreateView {...props()} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Upload' }));
+    await userEvent.upload(screen.getByLabelText('Choose recipe documents'), documentFile('recipe.pdf'));
+    await userEvent.click(screen.getByRole('button', { name: 'Upload documents' }));
+
+    expect(await screen.findByText('No text could be extracted from this document.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+
+    // Retry must NOT POST /extract against a failed ingestion — it re-reads the
+    // status and keeps the real error visible.
+    expect(extractCalls).toBe(0);
+    expect(await screen.findByText('No text could be extracted from this document.')).toBeInTheDocument();
+  });
+
   it('Phase 3: shows Extract recipe, then Draft ready, and opens review', async () => {
     let extractionTriggered = false;
     (globalThis.fetch as jest.Mock).mockImplementation(async (url: string, init?: RequestInit) => {

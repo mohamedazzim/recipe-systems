@@ -245,7 +245,15 @@ export function CreateView({
       }
       await new Promise((resolve) => setTimeout(resolve, 1000));
     }
-    setBulkItem(key, { status: 'failed', error: 'Timed out waiting for extraction.' });
+    // The target-specific message disambiguates a slow/absent worker (ingestion
+    // never leaves `queued`) from a slow LLM extraction (draft never appears).
+    setBulkItem(key, {
+      status: 'failed',
+      error:
+        target === 'ready'
+          ? 'Timed out waiting for the document to be processed. Retry — if this repeats, the worker may be down.'
+          : 'Timed out waiting for recipe extraction. Retry — the draft may still be generating.',
+    });
   };
 
   /** Upload one document independently — a failure here never affects others. */
@@ -277,6 +285,22 @@ export function CreateView({
     if (!item.ingestionId) return;
     setBulkItem(item.key, { status: 'extracting_structure', error: undefined });
     try {
+      // A prior upload poll may have timed out while the worker was still
+      // ingesting — make sure the document actually reached `ready` first.
+      const current = await api<DocumentIngestionResponse>(
+        `/recipes/import/documents/${item.ingestionId}`,
+      );
+      if (current.status === 'failed') {
+        setBulkItem(item.key, {
+          status: 'failed',
+          error: current.error_message ?? 'Document ingestion failed.',
+        });
+        return;
+      }
+      if (current.status === 'queued' || current.status === 'extracting') {
+        await pollIngestion(item.ingestionId, item.key, 'ready');
+      }
+
       await api<DocumentIngestionResponse>(
         `/recipes/import/documents/${item.ingestionId}/extract`,
         { method: 'POST' },

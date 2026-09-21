@@ -28,6 +28,8 @@ export interface OcrResult {
   recognized_text: string;
   lines: OcrLine[];
   source_metadata: Record<string, unknown>;
+  /** Best-effort recipe title extracted from the card (LLM providers only). */
+  title?: string | null;
 }
 
 export interface OcrAdapter {

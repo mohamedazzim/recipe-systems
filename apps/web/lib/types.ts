@@ -54,6 +54,8 @@ export interface UploadResponse {
   recipe_id: string;
   image_id: string;
   file_key: string;
+  /** Dish title transcribed from the card (null when the card has none). */
+  title?: string | null;
   ocr: {
     status: 'complete' | 'disabled';
     draft_line_count: number;

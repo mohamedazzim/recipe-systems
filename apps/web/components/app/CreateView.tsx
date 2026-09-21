@@ -26,8 +26,9 @@ export interface CreateViewProps {
   initialMode?: 'paste' | 'form' | 'photo' | 'upload';
   onBack: () => void;
   onParsed: (recipeId: string, lines: WireLine[]) => void;
-  /** D-11 (B2): navigate after a completed photo upload, with the OCR draft. */
-  onUploaded: (recipeId: string, lines: WireLine[]) => void;
+  /** D-11 (B2): navigate after a completed photo upload, with the OCR draft and
+   *  the card's transcribed title (null when the card has none). */
+  onUploaded: (recipeId: string, lines: WireLine[], title?: string | null) => void;
   /** Phase 3: navigate to the source-faithful draft review for a document. */
   onOpenDraftReview: (ingestionId: string, originalFilename: string) => void;
 }
@@ -370,13 +371,14 @@ export function CreateView({
       const form = new FormData();
       form.append('file', file);
       const result = await apiUpload<UploadResponse>('/recipes/upload', form);
+      const title = result.title?.trim() || null;
       recordSessionRecipe(
         result.recipe_id,
-        `Photo: ${file.name}`,
+        title ?? `Photo: ${file.name}`,
         signedIn && accountId ? { kind: 'user', accountId } : { kind: 'guest' },
         result.lines,
       );
-      onUploaded(result.recipe_id, result.lines);
+      onUploaded(result.recipe_id, result.lines, title);
     } catch (err) {
       // The uploaded photo + input row stay durable on OCR failure (503/422) —
       // keep the selected file so Retry re-POSTs it. Map to a plain message.

@@ -71,6 +71,9 @@ export function RecipeWorkspace({
   const [analysing, setAnalysing] = useState(false);
   /** error from the last analyse attempt. */
   const [analyseError, setAnalyseError] = useState<string | null>(null);
+  /** true once the user runs the analysis — the analysis takes the full width
+   *  and the workflow sections collapse back to the tabs above. */
+  const [analysisFullscreen, setAnalysisFullscreen] = useState(false);
   const [lines, setLines] = useState<WireLine[]>(initialLines ?? []);
   const [methodState, setMethodState] = useState<MethodState | null>(null);
   const [title, setTitle] = useState('Recipe');
@@ -90,6 +93,7 @@ export function RecipeWorkspace({
   const activeTab = tab ?? internalTab;
   const selectTab = useCallback(
     (next: 'ingredients' | 'method' | 'shopping') => {
+      setAnalysisFullscreen(false);
       if (tab !== undefined) onTabChange?.(next);
       else setInternalTab(next);
     },
@@ -117,10 +121,11 @@ export function RecipeWorkspace({
     if (!sectionRequest) return;
     const { section } = sectionRequest;
     if (section === 'analysis') {
-      analysisRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+      setAnalysisFullscreen(true);
     } else if (section === 'cook') {
       cookRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
     } else {
+      setAnalysisFullscreen(false);
       sectionTopRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
     }
   }, [sectionRequest]);
@@ -231,6 +236,7 @@ export function RecipeWorkspace({
       });
       setAnalysisId(ack.analysis_id);
       setAnalysisStale(false);
+      setAnalysisFullscreen(true);
     } catch (err) {
       if (err instanceof ApiError && err.code === 'ENQUEUE_BLOCKED') {
         setAnalyseError('Analysis is blocked: some lines still need review.');
@@ -339,6 +345,51 @@ export function RecipeWorkspace({
       cancelled = true;
     };
   }, [recipeId, initialLines, initialTitle, signedIn, initialAnalysisHint]);
+
+  const readinessPanel = (
+    <ReadinessPanel
+      recipeId={recipeId}
+      signedIn={signedIn}
+      lines={lines}
+      onAnalyse={runAnalysis}
+      analysing={analysing}
+      error={analyseError}
+      hasAnalysis={analysisId !== null}
+      stale={analysisStale}
+      onReviewLines={() => {
+        selectTab('ingredients');
+        requestAnimationFrame(() =>
+          document
+            .getElementById('ingredients-heading')
+            ?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+        );
+      }}
+    />
+  );
+
+  const analysisContent = (
+    <>
+      <div className="shrink-0">
+        <h2 className="font-display text-h2 text-ink">Analysis</h2>
+        <p className="mt-1 text-small text-muted">
+          The nine-view analysis runs in the background. Status updates appear below.
+        </p>
+      </div>
+      <div className="mt-4">
+        {readinessPanel}
+        <AnalysisPanel
+          analysisId={analysisId}
+          recipeId={recipeId}
+          lines={lines}
+          methodState={methodState}
+          signedIn={signedIn}
+          mode={mode}
+          stale={analysisStale}
+          onRetry={runAnalysis}
+        />
+      </div>
+    </>
+  );
 
   return (
     <div className="mx-auto flex max-w-none flex-col lg:h-[calc(100dvh-5.5625rem-2px)] lg:overflow-hidden">
@@ -478,42 +529,68 @@ export function RecipeWorkspace({
       {deleteError && <p className="mt-2 text-caption text-negative">{deleteError}</p>}
       </div>
 
-      {/* Two-column workspace: the recipe surface on the left, the running
-          analysis pinned on the right (a background job, always visible). */}
-      <div className="mt-6 grid min-h-0 flex-1 gap-6 lg:grid-cols-2">
-        {/* LEFT — the tabbed workflow is the starting content; the logging
-            surfaces (cook log, swaps, tags) sit below it. */}
-        <div className="min-w-0 lg:overflow-y-auto lg:pe-1">
-          {/* Workflow tabs — three headings; clicking one opens its view. */}
-          <div
-            className="flex gap-6 overflow-x-auto overflow-y-hidden border-b border-border"
-            role="tablist"
-            aria-label="Recipe sections"
-          >
-            {(
-              [
-                ['ingredients', `Ingredients ${lines.length}`],
-                ['method', 'Method'],
-                ['shopping', 'Shopping list'],
-              ] as const
-            ).map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                role="tab"
-                aria-selected={activeTab === key}
-                onClick={() => selectTab(key)}
-                className={`-mb-px whitespace-nowrap border-b-2 px-1 py-3 text-small font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset--2 focus-visible:outline-gold ${
-                  activeTab === key ? 'border-accent text-ink' : 'border-transparent text-muted hover:text-ink'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+      {/* Workflow tabs — always visible so the user can switch between the
+          recipe sections and (once it exists) the full-screen analysis. */}
+      <div className="mt-6 shrink-0">
+        <div
+          className="flex gap-6 overflow-x-auto overflow-y-hidden border-b border-border"
+          role="tablist"
+          aria-label="Recipe sections"
+        >
+          {(
+            [
+              ['ingredients', `Ingredients ${lines.length}`],
+              ['method', 'Method'],
+              ['shopping', 'Shopping list'],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={!analysisFullscreen && activeTab === key}
+              onClick={() => selectTab(key)}
+              className={`-mb-px whitespace-nowrap border-b-2 px-1 py-3 text-small font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset--2 focus-visible:outline-gold ${
+                !analysisFullscreen && activeTab === key
+                  ? 'border-accent text-ink'
+                  : 'border-transparent text-muted hover:text-ink'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+          {analysisId !== null && (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={analysisFullscreen}
+              onClick={() => setAnalysisFullscreen(true)}
+              className={`-mb-px whitespace-nowrap border-b-2 px-1 py-3 text-small font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset--2 focus-visible:outline-gold ${
+                analysisFullscreen
+                  ? 'border-accent text-ink'
+                  : 'border-transparent text-muted hover:text-ink'
+              }`}
+            >
+              Analysis
+            </button>
+          )}
+        </div>
+      </div>
 
+      {analysisFullscreen ? (
+        /* Analysis — full width after the user runs it. */
+        <section
+          ref={analysisRef}
+          aria-label="Analysis"
+          className="mt-6 flex min-w-0 flex-1 flex-col lg:overflow-hidden"
+        >
+          <div className="min-h-0 flex-1 overflow-y-auto lg:pe-1">{analysisContent}</div>
+        </section>
+      ) : (
+        /* Recipe surface — full width; the analysis is hidden until it runs. */
+        <div className="mt-6 min-h-0 flex-1 overflow-y-auto lg:pe-1">
           {/* Active section — one focused view at a time. */}
-          <div className="mt-6" ref={sectionTopRef}>
+          <div ref={sectionTopRef}>
             {activeTab === 'ingredients' && (
               <IngredientReview
                 recipeId={recipeId}
@@ -563,6 +640,9 @@ export function RecipeWorkspace({
             )}
           </div>
 
+          {/* Readiness + Analyse entry — lives with the recipe (not a pinned column). */}
+          <div className="mt-6">{readinessPanel}</div>
+
           {/* Logging surfaces — cook log first; swaps only once a cook exists. */}
           {signedIn && (
             <>
@@ -583,51 +663,7 @@ export function RecipeWorkspace({
             </>
           )}
         </div>
-
-        {/* RIGHT — analysis: heading pinned, its panels scroll independently. */}
-        <aside
-          ref={analysisRef}
-          aria-label="Analysis"
-          className="flex min-w-0 flex-col lg:overflow-hidden"
-        >
-          <div className="shrink-0">
-            <h2 className="font-display text-h2 text-ink">Analysis</h2>
-            <p className="mt-1 text-small text-muted">
-              The nine-view analysis runs in the background. Status updates appear below.
-            </p>
-          </div>
-          <div className="mt-4 min-h-0 flex-1 lg:overflow-y-auto lg:pe-1">
-            <ReadinessPanel
-              recipeId={recipeId}
-              signedIn={signedIn}
-              lines={lines}
-              onAnalyse={runAnalysis}
-              analysing={analysing}
-              error={analyseError}
-              hasAnalysis={analysisId !== null}
-              stale={analysisStale}
-              onReviewLines={() => {
-                selectTab('ingredients');
-                requestAnimationFrame(() =>
-                  document
-                    .getElementById('ingredients-heading')
-                    ?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
-                );
-              }}
-            />
-            <AnalysisPanel
-              analysisId={analysisId}
-              recipeId={recipeId}
-              lines={lines}
-              methodState={methodState}
-              signedIn={signedIn}
-              mode={mode}
-              stale={analysisStale}
-              onRetry={runAnalysis}
-            />
-          </div>
-        </aside>
-      </div>
+      )}
     </div>
   );
 }

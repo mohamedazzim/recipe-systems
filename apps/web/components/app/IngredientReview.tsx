@@ -210,6 +210,28 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
     }
   };
 
+  /** D-14C bulk: clear the review flag on every active line in one call. */
+  const clearAllReviews = async (): Promise<void> => {
+    setSaving(true);
+    setNotice(null);
+    try {
+      const result = await api<{ cleared: number }>(`/recipes/${recipeId}/lines/clear-review`, {
+        method: 'POST',
+      });
+      setNotice(
+        result.cleared === 0
+          ? 'No review flags to clear.'
+          : `Cleared review on ${result.cleared} ${result.cleared === 1 ? 'line' : 'lines'}.`,
+      );
+      await refresh();
+      onChanged?.();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Could not clear the review flags.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   /** D-25 B6: accept the resolved canonical for an ambiguous line. Records the
    *  canonical in confirmed_sense and NEVER rewrites display_name — the original
    *  captured text stays preserved. */
@@ -403,6 +425,7 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
 
   const ingredientLines = lines.filter((l) => !l.is_header);
   const headerLines = lines.filter((l) => l.is_header);
+  const flaggedCount = ingredientLines.filter((l) => l.needs_review).length;
 
   return (
     <section aria-labelledby="ingredients-heading">
@@ -416,6 +439,18 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
             exactly as entered.
           </p>
         </div>
+        {signedIn && flaggedCount > 0 && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => void clearAllReviews()}
+            disabled={saving}
+            aria-label="Clear review for all lines"
+          >
+            <Check size={14} aria-hidden="true" weight="bold" />
+            Clear review for all
+          </Button>
+        )}
       </div>
 
       {error && (

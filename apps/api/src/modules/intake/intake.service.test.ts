@@ -43,6 +43,7 @@ function mockPrisma(recipeService?: Partial<RecipeService>) {
       findMany: jest.fn(),
       findFirst: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
       aggregate: jest.fn(),
     },
     ingredientAlias: { findMany: jest.fn().mockResolvedValue([]) },
@@ -751,6 +752,18 @@ describe('IntakeService — D-14 needs_review enqueue gate (INV-05)', () => {
     await svc.updateLine(userActor, 'r1', 'l1', { displayName: 'renamed' }, line.updatedAt.toISOString());
     const data = prisma.recipeIngredientLine.update.mock.calls[0][0].data;
     expect(data.needsReview).toBeUndefined();
+  });
+
+  it('clearAllReviews: clears needs_review on every active flagged line in one pass (D-14C bulk)', async () => {
+    const { prisma, recipes } = mockPrisma();
+    prisma.recipeIngredientLine.updateMany.mockResolvedValue({ count: 5 });
+    const svc = new IntakeService(prisma, recipes);
+    const cleared = await svc.clearAllReviews(userActor, 'r1');
+    expect(cleared).toBe(5);
+    expect(prisma.recipeIngredientLine.updateMany).toHaveBeenCalledWith({
+      where: { recipeId: 'r1', deletedAt: null, needsReview: true },
+      data: { needsReview: false },
+    });
   });
 });
 

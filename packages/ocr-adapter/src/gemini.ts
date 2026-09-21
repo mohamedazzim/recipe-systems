@@ -38,10 +38,11 @@ export function geminiOcrMaxRetries(env: Record<string, string | undefined>): nu
 export const GEMINI_OCR_PROMPT = [
   'You are a recipe-card transcription engine. Read the card image and return STRICT JSON',
   '(no markdown fences, no commentary) with exactly this shape:',
-  '{ "ingredients": [ { "name": "...", "amount": "..." } ], "method_steps": [ "...", "..." ] }',
+  '{ "title": "...", "ingredients": [ { "name": "...", "amount": "..." } ], "method_steps": [ "...", "..." ] }',
   '',
   'RULES (non-negotiable):',
   '- Transcribe EXACTLY the text visibly written; never correct, translate, infer, or "improve" it.',
+  '- Put the recipe name (the dish title at the top of the card) into "title". If the card has no title, use "title": "".',
   '- Split every ingredient into its name and its amount: "Dal (split green gram, cherupayar parippu): 1 cup" becomes name "Dal (split green gram, cherupayar parippu)" and amount "1 cup".',
   '- Preserve amounts exactly as written (e.g. "1/2 tsp", "500 g", "2 tbsp", "to taste"). If an ingredient has no amount, use "amount": "".',
   '- Preserve distinctions between similar ingredients: "Fenugreek Seeds" and "Fenugreek Powder" are DIFFERENT entries — never merge them.',
@@ -83,6 +84,7 @@ export function normalizeGeminiResponse(text: string, model: string): OcrResult 
 /** The structured shape the prompt requests (best-effort — the JSON parse is
  *  validated loosely and a malformed payload falls back to plain lines). */
 interface GeminiStructuredOcr {
+  title?: unknown;
   ingredients?: Array<{ name?: unknown; amount?: unknown }>;
   method_steps?: unknown[];
 }
@@ -112,6 +114,7 @@ export function parseGeminiStructuredOcr(text: string): GeminiStructuredOcr | nu
 /** Normalize the structured JSON into OcrResult — ingredients split into name +
  *  amount; method steps kept out of the ingredient list. */
 export function normalizeGeminiStructured(parsed: GeminiStructuredOcr, model: string): OcrResult {
+  const title = asText(parsed.title).trim();
   const lines: OcrLine[] = [];
   for (const ing of parsed.ingredients ?? []) {
     const name = asText(ing?.name).trim();
@@ -124,13 +127,15 @@ export function normalizeGeminiStructured(parsed: GeminiStructuredOcr, model: st
     if (text.length === 0) continue;
     lines.push({ text, kind: 'method' });
   }
-  const recognized_text = lines
+  const body = lines
     .map((l) => (l.kind === 'ingredient' && l.amountText ? `${l.text}: ${l.amountText}` : l.text))
     .join('\n');
+  const recognized_text = title ? `${title}\n${body}` : body;
   return {
     recognized_text,
     lines,
     source_metadata: { provider: GEMINI_OCR_PROVIDER, model },
+    title: title.length > 0 ? title : null,
   };
 }
 

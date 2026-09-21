@@ -68,7 +68,7 @@ describe('RecipeWorkspace', () => {
     return { recipeId: 'r1', signedIn: true, onBack: jest.fn(), ...overrides };
   }
 
-  it('shows the session title, the three workflow tabs, and the pinned Analysis column', async () => {
+  it('shows the session title, the three workflow tabs, and the Analyse entry (analysis hidden until it runs)', async () => {
     recordSessionRecipe('r1', 'Meen Kuzhambu', { kind: 'user', accountId: 'acc-1' });
     render(<RecipeWorkspace {...props()} />);
     expect(await screen.findByRole('heading', { level: 1, name: 'Meen Kuzhambu' })).toBeInTheDocument();
@@ -76,16 +76,15 @@ describe('RecipeWorkspace', () => {
     expect(screen.getByText('Cook section')).toBeInTheDocument();
     expect(screen.getByText('Swap section')).toBeInTheDocument();
     expect(screen.getByText('Tags section')).toBeInTheDocument();
-    // three workflow tabs — Ingredients is the default, Analysis is NOT a tab
+    // three workflow tabs — Ingredients is the default, Analysis is NOT a tab yet
     expect(screen.getByRole('tab', { name: /Ingredients/ })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Method' })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Shopping list' })).toBeInTheDocument();
     expect(screen.queryByRole('tab', { name: 'Analysis' })).not.toBeInTheDocument();
-    // the analysis is a pinned right-hand column
-    expect(screen.getByRole('heading', { name: 'Analysis' })).toBeInTheDocument();
-    expect(screen.getByText(/runs in the background/)).toBeInTheDocument();
+    // the Analyse entry is present; the analysis results stay hidden until it runs
     expect(screen.getByRole('button', { name: 'Analyse now' })).toBeInTheDocument();
-    expect(screen.getByText(/Panel: none/)).toBeInTheDocument();
+    expect(screen.queryByText(/Panel: none/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Analysis' })).not.toBeInTheDocument();
   });
 
   it('passes the enqueued analysis id down to the status panel', async () => {
@@ -101,6 +100,40 @@ describe('RecipeWorkspace', () => {
     render(<RecipeWorkspace {...props()} />);
     await userEvent.click(await screen.findByRole('button', { name: 'Analyse now' }));
     expect(await screen.findByText(/Panel: a-1/)).toBeInTheDocument();
+  });
+
+  it('running the analysis goes full-screen; clicking a tab returns to the workflow', async () => {
+    (api as jest.Mock).mockImplementation((path: string) => {
+      if (path.endsWith('/analysis')) {
+        return Promise.reject(new ApiError(404, 'ANALYSIS_NOT_FOUND', 'Analysis not found'));
+      }
+      if (path.endsWith('/analyse')) {
+        return Promise.resolve({ analysis_id: 'a-1', status: 'queued', prompt_version: 'v2' });
+      }
+      return Promise.reject(new Error('unexpected ' + path));
+    });
+    render(<RecipeWorkspace {...props()} />);
+    expect(await screen.findByText('Review: Recipe')).toBeInTheDocument();
+    expect(screen.queryByText(/Panel: a-1/)).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Analyse now' }));
+
+    // full-screen analysis: the workflow section collapses, an Analysis tab appears
+    expect(await screen.findByText(/Panel: a-1/)).toBeInTheDocument();
+    expect(screen.queryByText('Review: Recipe')).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Ingredients/ })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Method' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Analysis' })).toBeInTheDocument();
+
+    // clicking a tab returns to the workflow and hides the analysis
+    await userEvent.click(screen.getByRole('tab', { name: 'Method' }));
+    expect(screen.getByText('Method section')).toBeInTheDocument();
+    expect(screen.queryByText('Review: Recipe')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Panel: a-1/)).not.toBeInTheDocument();
+
+    // clicking the Analysis tab reopens the full-screen analysis
+    await userEvent.click(screen.getByRole('tab', { name: 'Analysis' }));
+    expect(screen.getByText(/Panel: a-1/)).toBeInTheDocument();
   });
 
   it('skips the doomed analysis discovery when the library hint says none (no 404 noise)', async () => {

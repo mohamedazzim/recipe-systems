@@ -76,6 +76,7 @@ describe('GeminiVisionOcrAdapter (Q10 third provider)', () => {
     it('normalizeGeminiStructured splits name/amount and keeps method steps out of ingredients', () => {
       const result = normalizeGeminiStructured(
         {
+          title: 'Parippu Curry',
           ingredients: [
             { name: 'Dal (split green gram, cherupayar parippu)', amount: '1 cup' },
             { name: 'Dry red chillies', amount: '2' },
@@ -103,8 +104,18 @@ describe('GeminiVisionOcrAdapter (Q10 third provider)', () => {
       expect(result.lines[3].amountText).toBeNull(); // no amount on the card
       expect(result.lines[4].kind).toBe('method');
       expect(result.lines[5].kind).toBe('method');
+      expect(result.title).toBe('Parippu Curry');
+      expect(result.recognized_text).toContain('Parippu Curry');
       expect(result.recognized_text).toContain('Dal (split green gram, cherupayar parippu): 1 cup');
       expect(result.source_metadata).toEqual({ provider: 'gemini', model: 'gemini-3.8-flash' });
+    });
+
+    it('normalizeGeminiStructured: missing title → null', () => {
+      const result = normalizeGeminiStructured(
+        { ingredients: [{ name: 'Fish', amount: '500 g' }], method_steps: [] },
+        'gemini-3.8-flash',
+      );
+      expect(result.title).toBeNull();
     });
   });
 

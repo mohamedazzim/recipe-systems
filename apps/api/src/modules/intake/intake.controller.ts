@@ -246,10 +246,17 @@ export class IntakeController {
         ? await this.intake.resolveWireLines(await this.intake.listDraftLines(actor, recipeId!))
         : [];
 
+    // If the card carried a dish title, promote it to the recipe name now — the
+    // upload filename must never become the dish name.
+    if (ocr.title) {
+      await this.recipes.saveRecipe(actor, recipeId!, { title: ocr.title });
+    }
+
     return {
       recipe_id: recipeId,
       image_id: input!.id,
       file_key: stored.key,
+      title: ocr.title,
       ocr: {
         status: ocr.status,
         draft_line_count: ocr.draft_line_count,
@@ -389,6 +396,16 @@ export class IntakeController {
   async getLines(@Req() req: AuthedRequest, @Param('recipeId') recipeId: string) {
     const lines = await this.intake.listReviewLines(this.userActor(req), recipeId);
     return { items: await this.intake.resolveWireLines(lines) };
+  }
+
+  /** D-14C bulk: clear the review flag on every active line (explicit user
+   *  confirmation applied to the whole draft at once). */
+  @Post(':recipeId/lines/clear-review')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard, CsrfGuard)
+  async clearAllReviews(@Req() req: AuthedRequest, @Param('recipeId') recipeId: string) {
+    const cleared = await this.intake.clearAllReviews(this.userActor(req), recipeId);
+    return { cleared };
   }
 
   /** B3 AC-6: the corrected object analysis will read + review status (D-12G). */

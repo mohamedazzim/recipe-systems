@@ -122,9 +122,37 @@ describe('CreateView (paste + photo intake)', () => {
     expect(init.body).toBeInstanceOf(FormData);
     expect(init.headers).not.toHaveProperty('Content-Type');
 
-    expect(p.onUploaded).toHaveBeenCalledWith('r7', lines);
+    expect(p.onUploaded).toHaveBeenCalledWith('r7', lines, null);
     const stored = JSON.parse(window.localStorage.getItem('rs.session.recipes') ?? '[]');
     expect(stored[0].owner).toBe('user:acc-1');
+  });
+
+  it('uploads a photo and routes with the card title as the recipe name', async () => {
+    const lines = [
+      { id: 'l1', line_no: 1, display_name: 'Fish - 500g', ocr_confidence: 0.98, needs_review: false, source_tag: 'CARD' },
+    ];
+    (globalThis.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        recipe_id: 'r8',
+        image_id: 'img-2',
+        file_key: 'recipes/y.jpg',
+        title: 'Parippu Curry',
+        ocr: { status: 'complete', draft_line_count: 1, flagged_count: 0 },
+        lines,
+      }),
+    });
+    const p = props();
+    render(<CreateView {...p} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Photo' }));
+    await userEvent.upload(screen.getByLabelText('Choose recipe photo'), imageFile());
+    await userEvent.click(screen.getByRole('button', { name: 'Analyze recipe' }));
+
+    expect(await screen.findByRole('button', { name: 'Working…' })).toBeInTheDocument();
+    expect(p.onUploaded).toHaveBeenCalledWith('r8', lines, 'Parippu Curry');
+    const stored = JSON.parse(window.localStorage.getItem('rs.session.recipes') ?? '[]');
+    expect(stored[0].preview).toBe('Parippu Curry');
   });
 
   it('maps an OCR-unavailable backend error to a recoverable message with Retry', async () => {

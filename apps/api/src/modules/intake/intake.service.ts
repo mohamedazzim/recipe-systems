@@ -39,6 +39,8 @@ export interface OcrIntakeResult {
   draft_line_count: number;
   flagged_count: number;
   source_metadata: Record<string, unknown> | null;
+  /** Best-effort dish title transcribed from the card (null when absent). */
+  title: string | null;
 }
 
 /**
@@ -279,21 +281,23 @@ export class IntakeService {
   ): Promise<OcrIntakeResult> {
     await this.assertOwned(actor, recipeId);
     if (!this.ocr) {
-      return { status: 'disabled', draft_line_count: 0, flagged_count: 0, source_metadata: null };
+      return { status: 'disabled', draft_line_count: 0, flagged_count: 0, source_metadata: null, title: null };
     }
 
     let result: OcrResult;
     try {
       result = await this.ocr.recognize(image, contentType);
     } catch {
-      return { status: 'pending', draft_line_count: 0, flagged_count: 0, source_metadata: null };
+      return { status: 'pending', draft_line_count: 0, flagged_count: 0, source_metadata: null, title: null };
     }
+
+    const title = result.title?.trim() || null;
 
     // Structured providers separate ingredients from method steps; transcription-
     // only providers leave `kind` unset and every line is treated as an ingredient.
     const ingredientLines = result.lines.filter((l) => l.kind !== 'method');
     if (ingredientLines.length === 0) {
-      return { status: 'unreadable', draft_line_count: 0, flagged_count: 0, source_metadata: null };
+      return { status: 'unreadable', draft_line_count: 0, flagged_count: 0, source_metadata: null, title };
     }
 
     const { draftCount, flaggedCount } = await this.persistOcrDraft(inputId, recipeId, result);
@@ -314,6 +318,7 @@ export class IntakeService {
       draft_line_count: draftCount,
       flagged_count: flaggedCount,
       source_metadata: result.source_metadata,
+      title,
     };
   }
 
@@ -570,6 +575,18 @@ export class IntakeService {
       where: { id: lineId },
       data: { deletedAt: new Date() },
     });
+  }
+
+  /** D-14C bulk: clear `needs_review` on every active line in one atomic pass —
+   *  the same explicit user confirmation as the per-line path, applied to the
+   *  whole draft at once. Returns the number of lines cleared. */
+  async clearAllReviews(actor: Actor, recipeId: string): Promise<number> {
+    await this.assertOwned(actor, recipeId);
+    const result = await this.prisma.recipeIngredientLine.updateMany({
+      where: { recipeId, deletedAt: null, needsReview: true },
+      data: { needsReview: false },
+    });
+    return result.count;
   }
 
   /** D-12E: split a wrap-around line at a 1-based character count. Original soft-deleted;

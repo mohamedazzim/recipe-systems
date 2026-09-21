@@ -246,7 +246,9 @@ export default function Home() {
           initialMode={view.mode}
           onBack={() => setView({ name: 'home' })}
           onParsed={(recipeId, lines) => setView({ name: 'workspace', recipeId, initialLines: lines })}
-          onUploaded={(recipeId, lines) => setView({ name: 'workspace', recipeId, initialLines: lines })}
+          onUploaded={(recipeId, lines, title) =>
+            setView({ name: 'workspace', recipeId, initialLines: lines, initialTitle: title ?? undefined })
+          }
           onOpenDraftReview={(ingestionId, originalFilename) =>
             setView({ name: 'draft-review', ingestionId, originalFilename })
           }

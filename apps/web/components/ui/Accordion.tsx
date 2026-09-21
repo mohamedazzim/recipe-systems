@@ -6,7 +6,7 @@
 // label is exposed as the button's accessible name (aria-labelledby) so
 // queries stay exact while the optional description remains supplementary.
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CaretDown } from '@phosphor-icons/react';
 
 export interface AccordionItem {
@@ -31,8 +31,13 @@ export function Accordion({
   label?: string;
 }) {
   const [openIds, setOpenIds] = useState<string[]>(defaultOpen ? [defaultOpen] : []);
+  /** The id of the section last OPENED (not closed) — scrolled into view after
+   *  the layout settles so a section collapsing above never leaves the user
+   *  stranded mid-content. */
+  const lastOpenedIdRef = useRef<string | null>(null);
 
   const toggle = (id: string): void => {
+    if (!openIds.includes(id)) lastOpenedIdRef.current = id;
     setOpenIds((prev) => {
       if (allowMultiple) {
         return prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
@@ -40,6 +45,15 @@ export function Accordion({
       return prev.includes(id) ? [] : [id];
     });
   };
+
+  // Keep the just-opened header at the top of its scroll container so the
+  // start of the section (not its middle) is what the user sees next.
+  useEffect(() => {
+    const id = lastOpenedIdRef.current;
+    if (id === null) return;
+    lastOpenedIdRef.current = null;
+    document.getElementById(`${id}-header`)?.scrollIntoView?.({ block: 'start' });
+  }, [openIds]);
 
   return (
     <div className="space-y-2" aria-label={label}>

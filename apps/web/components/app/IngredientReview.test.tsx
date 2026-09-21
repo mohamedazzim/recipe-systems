@@ -148,6 +148,31 @@ describe('IngredientReview (D-12 actions)', () => {
     expect(body.needs_review).toBe(false);
   });
 
+  it('Clear review for all sends a bulk clear and refreshes the flags', async () => {
+    const mock = globalThis.fetch as jest.Mock;
+    const flagged = [
+      line({ id: 'l1', needs_review: true, display_name: 'Chilli — 5 Nos' }),
+      line({ id: 'l2', line_no: 2, needs_review: true, display_name: 'Tamarind — A Lemon Size' }),
+    ];
+    mock.mockResolvedValueOnce(listResponse(flagged)); // initial load
+    mock.mockResolvedValueOnce(okResponse({ cleared: 2 })); // bulk clear
+    mock.mockResolvedValue(listResponse(flagged.map((l) => ({ ...l, needs_review: false })))); // refresh
+
+    render(<IngredientReview {...props()} />);
+    await screen.findByText('Chilli — 5 Nos');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Clear review for all lines' }));
+
+    const postCalls = mock.mock.calls.filter((c) => {
+      const [url, init] = c as [string, RequestInit];
+      return url.includes('/lines/clear-review') && init.method === 'POST';
+    });
+    expect(postCalls.length).toBe(1);
+
+    expect(await screen.findByText('Cleared review on 2 lines.')).toBeInTheDocument();
+    expect(screen.queryByText('Review required')).not.toBeInTheDocument();
+  });
+
   it('D-11: shows OCR confidence and visibly marks a low-confidence line', async () => {
     (globalThis.fetch as jest.Mock).mockResolvedValue(
       listResponse([

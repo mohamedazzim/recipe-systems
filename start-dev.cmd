@@ -178,12 +178,13 @@ echo   Worker consuming.
 
 rem --- 5. Web --------------------------------------------------------------
 echo [5/6] Web (Next.js)...
+rem A wedged dev server still listens on :3000 while answering 404/500 —
+rem require a real 200 before trusting "already running".
 netstat -ano | findstr /R /C:":3000 " | findstr /C:"LISTENING" >nul
-if not errorlevel 1 (
-  echo   Web already running on :3000 - skipping.
-) else (
-  goto start_web
-)
+if errorlevel 1 goto start_web
+curl -s -f --max-time 8 http://localhost:3000/ >nul 2>&1
+if errorlevel 1 goto start_web
+echo   Web already running on :3000 - skipping.
 goto web_started
 
 :start_web
@@ -199,7 +200,7 @@ echo [6/6] Waiting for the app to answer...
 
 set tries=0
 :wait_api
-curl -s http://localhost:3001/api/v1/health >nul 2>&1 && goto api_ok
+curl -s -f http://localhost:3001/api/v1/health >nul 2>&1 && goto api_ok
 set /a tries+=1
 if !tries! GEQ 60 (
   echo   ERROR: API did not answer on :3001. Check the API window.
@@ -213,7 +214,7 @@ echo   API health OK.
 
 set tries=0
 :wait_web
-curl -s http://localhost:3000/ >nul 2>&1 && goto web_ok
+curl -s -f http://localhost:3000/ >nul 2>&1 && goto web_ok
 set /a tries+=1
 if !tries! GEQ 60 (
   rem the skip-if-running branch above can race a dying dev server — sweep

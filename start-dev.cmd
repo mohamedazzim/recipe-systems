@@ -144,6 +144,16 @@ if errorlevel 1 (
 popd
 echo   Migrations applied; Prisma client up to date.
 
+rem Build the shared workspace packages the API/worker consume from dist. A
+rem package source change (e.g. a new OCR/LLM adapter) would otherwise leave
+rem the compiled dist stale and silently disable that provider at runtime.
+call npm run build -w @recipe-systems/schemas -w @recipe-systems/domain -w @recipe-systems/llm-adapter -w @recipe-systems/ocr-adapter -w @recipe-systems/rendering
+if errorlevel 1 (
+  echo   ERROR: workspace package build failed.
+  pause
+  exit /b 1
+)
+
 rem --- 3. API ---------------------------------------------------------------
 echo [3/6] API (NestJS)...
 netstat -ano | findstr /R /C:":3001 " | findstr /C:"LISTENING" >nul

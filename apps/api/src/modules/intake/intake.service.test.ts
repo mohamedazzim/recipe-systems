@@ -800,6 +800,36 @@ describe('IntakeService — D-11 OCR draft (INV-04)', () => {
     expect(data.every((d: { ocrConfidence: number | null }) => d.ocrConfidence !== null)).toBe(true);
   });
 
+  it('structured provider: split amount persists + method steps attach to the recipe', async () => {
+    const { prisma, recipes } = ocrPrisma();
+    const withMethod = recipes as unknown as { assertOwned: jest.Mock; attachMethod: jest.Mock };
+    withMethod.attachMethod = jest.fn().mockResolvedValue({ list_only: false });
+    const structured = {
+      recognize: jest.fn().mockResolvedValue({
+        recognized_text:
+          'Dry red chillies: 2\nCurry leaves: 2 sprigs\nIn a wok, lightly roast the dal.',
+        lines: [
+          { text: 'Dry red chillies', kind: 'ingredient', amountText: '2' },
+          { text: 'Curry leaves', kind: 'ingredient', amountText: '2 sprigs' },
+          { text: 'In a wok, lightly roast the dal.', kind: 'method' },
+        ],
+        source_metadata: { provider: 'gemini', model: 'gemini-3.8-flash' },
+      }),
+    };
+    const svc = new IntakeService(prisma, recipes as never, structured as never);
+    const result = await svc.ocrPhoto(userActor, 'r1', 'in-1', new Uint8Array([1]), 'image/jpeg');
+
+    expect(result.status).toBe('complete');
+    const data = prisma.recipeIngredientLine.createMany.mock.calls[0][0].data;
+    expect(data).toHaveLength(2); // the method step is NOT an ingredient line
+    expect(data[0]).toMatchObject({ displayName: 'Dry red chillies', amountText: '2' });
+    expect(data[1]).toMatchObject({ displayName: 'Curry leaves', amountText: '2 sprigs' });
+    expect(withMethod.attachMethod).toHaveBeenCalledWith(userActor, 'r1', {
+      mode: 'paste',
+      methodText: 'In a wok, lightly roast the dal.',
+    });
+  });
+
   it('missing confidence → flagged (conservative policy, never invented)', async () => {
     const { prisma, recipes } = ocrPrisma();
     const noConf = {

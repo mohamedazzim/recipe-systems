@@ -5,6 +5,8 @@ import {
   geminiOcrModel,
   geminiOcrTimeoutMs,
   normalizeGeminiResponse,
+  normalizeGeminiStructured,
+  parseGeminiStructuredOcr,
 } from './gemini';
 import { OcrProviderError, OcrTimeoutError } from './errors';
 import { resolveOcrAdapter } from './index';
@@ -61,6 +63,51 @@ describe('GeminiVisionOcrAdapter (Q10 third provider)', () => {
     });
   });
 
+  describe('structured output (ingredients + method)', () => {
+    it('parseGeminiStructuredOcr tolerates code fences and returns null for non-JSON', () => {
+      expect(parseGeminiStructuredOcr('```json\n{"ingredients":[],"method_steps":[]}\n```')).toEqual({
+        ingredients: [],
+        method_steps: [],
+      });
+      expect(parseGeminiStructuredOcr('Fish - 500g\nDrumstick - 1')).toBeNull();
+      expect(parseGeminiStructuredOcr('')).toBeNull();
+    });
+
+    it('normalizeGeminiStructured splits name/amount and keeps method steps out of ingredients', () => {
+      const result = normalizeGeminiStructured(
+        {
+          ingredients: [
+            { name: 'Dal (split green gram, cherupayar parippu)', amount: '1 cup' },
+            { name: 'Dry red chillies', amount: '2' },
+            { name: 'Salt', amount: 'to taste' },
+            { name: 'Curry leaves' },
+          ],
+          method_steps: [
+            'In a wok, lightly roast the dal.',
+            'Grind chilli and turmeric powders with cumin seeds, garlic and grated coconut into a smooth paste.',
+          ],
+        },
+        'gemini-3.8-flash',
+      );
+      expect(result.lines.map((l) => l.text)).toEqual([
+        'Dal (split green gram, cherupayar parippu)',
+        'Dry red chillies',
+        'Salt',
+        'Curry leaves',
+        'In a wok, lightly roast the dal.',
+        'Grind chilli and turmeric powders with cumin seeds, garlic and grated coconut into a smooth paste.',
+      ]);
+      expect(result.lines[0]).toMatchObject({ kind: 'ingredient', amountText: '1 cup' });
+      expect(result.lines[1]).toMatchObject({ kind: 'ingredient', amountText: '2' });
+      expect(result.lines[2]).toMatchObject({ kind: 'ingredient', amountText: 'to taste' });
+      expect(result.lines[3].amountText).toBeNull(); // no amount on the card
+      expect(result.lines[4].kind).toBe('method');
+      expect(result.lines[5].kind).toBe('method');
+      expect(result.recognized_text).toContain('Dal (split green gram, cherupayar parippu): 1 cup');
+      expect(result.source_metadata).toEqual({ provider: 'gemini', model: 'gemini-3.8-flash' });
+    });
+  });
+
   describe('recognize (mocked fetch)', () => {
     const originalFetch = globalThis.fetch;
     afterEach(() => {
@@ -110,6 +157,43 @@ describe('GeminiVisionOcrAdapter (Q10 third provider)', () => {
       expect(body.generationConfig.temperature).toBe(0);
       // Thought parts are NEVER treated as the transcription.
       expect(result.recognized_text).not.toContain('ignored thought');
+    });
+
+    it('normalizes structured JSON into split ingredient amounts and method steps', async () => {
+      globalThis.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  {
+                    text: JSON.stringify({
+                      ingredients: [
+                        { name: 'Dry red chillies', amount: '2' },
+                        { name: 'Curry leaves', amount: '2 sprigs' },
+                      ],
+                      method_steps: ['In a wok, lightly roast the dal.'],
+                    }),
+                  },
+                ],
+              },
+            },
+          ],
+        }),
+      }) as never;
+      const adapter = new GeminiVisionOcrAdapter({ GEMINI_API_KEY: 'test-key' });
+      const result = await adapter.recognize(new Uint8Array([9, 8, 7]), 'image/png');
+      expect(result.lines.map((l) => l.text)).toEqual([
+        'Dry red chillies',
+        'Curry leaves',
+        'In a wok, lightly roast the dal.',
+      ]);
+      expect(result.lines[0]).toMatchObject({ kind: 'ingredient', amountText: '2' });
+      expect(result.lines[1]).toMatchObject({ kind: 'ingredient', amountText: '2 sprigs' });
+      expect(result.lines[2]).toMatchObject({ kind: 'method' });
+      expect(result.recognized_text).toContain('Dry red chillies: 2');
     });
 
     it('maps 401/403/400 to OcrProviderError', async () => {

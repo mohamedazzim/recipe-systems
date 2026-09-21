@@ -36,17 +36,19 @@ export function geminiOcrMaxRetries(env: Record<string, string | undefined>): nu
  * the intake sees. Illegible words become "[unreadable]", never a guess.
  */
 export const GEMINI_OCR_PROMPT = [
-  'You are a recipe-card transcription engine. Transcribe EXACTLY the text visibly',
-  'written on the recipe card image, nothing else.',
+  'You are a recipe-card transcription engine. Read the card image and return STRICT JSON',
+  '(no markdown fences, no commentary) with exactly this shape:',
+  '{ "ingredients": [ { "name": "...", "amount": "..." } ], "method_steps": [ "...", "..." ] }',
   '',
   'RULES (non-negotiable):',
-  '- One ingredient or one step per line, in the order it appears.',
-  '- Preserve the exact wording, quantities, and units as written (e.g. "1/2 tsp", "500 g", "2 tbsp").',
-  '- Preserve distinctions between similar ingredients: "Fenugreek Seeds" and "Fenugreek Powder" are DIFFERENT lines — never merge them.',
-  '- Do NOT correct handwriting using recipe knowledge; do NOT infer missing ingredients; do NOT add, translate, or "improve" text.',
-  '- Do NOT write a method, and do NOT generate analysis, views, or commentary.',
-  '- If a word is illegible, write "[unreadable]" for that word instead of guessing.',
-  '- Output ONLY the transcribed lines. No headings, no explanations, no markdown.',
+  '- Transcribe EXACTLY the text visibly written; never correct, translate, infer, or "improve" it.',
+  '- Split every ingredient into its name and its amount: "Dal (split green gram, cherupayar parippu): 1 cup" becomes name "Dal (split green gram, cherupayar parippu)" and amount "1 cup".',
+  '- Preserve amounts exactly as written (e.g. "1/2 tsp", "500 g", "2 tbsp", "to taste"). If an ingredient has no amount, use "amount": "".',
+  '- Preserve distinctions between similar ingredients: "Fenugreek Seeds" and "Fenugreek Powder" are DIFFERENT entries — never merge them.',
+  '- Put every step of the METHOD section into method_steps, one string per step, in order. Do NOT put ingredients in method_steps, and do NOT put method steps in ingredients.',
+  '- Section headings like "INGREDIENTS", "For tempering", "METHOD" are headers — skip them (do not emit them as ingredients or steps).',
+  '- If a word is illegible, write "[unreadable]".',
+  '- Output ONLY the JSON object.',
 ].join('\n');
 
 /** Strip common assistant decorations (markdown bullets/numbering/code fences)
@@ -73,6 +75,60 @@ export function normalizeGeminiResponse(text: string, model: string): OcrResult 
   }
   return {
     recognized_text: lines.map((l) => l.text).join('\n'),
+    lines,
+    source_metadata: { provider: GEMINI_OCR_PROVIDER, model },
+  };
+}
+
+/** The structured shape the prompt requests (best-effort — the JSON parse is
+ *  validated loosely and a malformed payload falls back to plain lines). */
+interface GeminiStructuredOcr {
+  ingredients?: Array<{ name?: unknown; amount?: unknown }>;
+  method_steps?: unknown[];
+}
+
+function asText(v: unknown): string {
+  return typeof v === 'string' ? v : '';
+}
+
+/** Best-effort JSON extraction from the assistant text (tolerates code fences). */
+export function parseGeminiStructuredOcr(text: string): GeminiStructuredOcr | null {
+  const fenced = text
+    .trim()
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```$/, '');
+  const start = fenced.indexOf('{');
+  const end = fenced.lastIndexOf('}');
+  if (start < 0 || end <= start) return null;
+  try {
+    const parsed = JSON.parse(fenced.slice(start, end + 1)) as unknown;
+    if (parsed && typeof parsed === 'object') return parsed as GeminiStructuredOcr;
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+/** Normalize the structured JSON into OcrResult — ingredients split into name +
+ *  amount; method steps kept out of the ingredient list. */
+export function normalizeGeminiStructured(parsed: GeminiStructuredOcr, model: string): OcrResult {
+  const lines: OcrLine[] = [];
+  for (const ing of parsed.ingredients ?? []) {
+    const name = asText(ing?.name).trim();
+    if (name.length === 0) continue;
+    const amount = asText(ing?.amount).trim();
+    lines.push({ text: name, kind: 'ingredient', amountText: amount.length > 0 ? amount : null });
+  }
+  for (const step of parsed.method_steps ?? []) {
+    const text = asText(step).trim();
+    if (text.length === 0) continue;
+    lines.push({ text, kind: 'method' });
+  }
+  const recognized_text = lines
+    .map((l) => (l.kind === 'ingredient' && l.amountText ? `${l.text}: ${l.amountText}` : l.text))
+    .join('\n');
+  return {
+    recognized_text,
     lines,
     source_metadata: { provider: GEMINI_OCR_PROVIDER, model },
   };
@@ -168,6 +224,19 @@ export class GeminiVisionOcrAdapter implements OcrAdapter {
         const text = candidateTranscription(body.candidates?.[0]);
         // Empty (or whitespace-only) transcription is a VALID outcome → the
         // intake maps it to OCR_UNREADABLE (422); never thrown here.
+        if (text.trim().length === 0) {
+          return normalizeGeminiResponse(text, this.model);
+        }
+        // Prefer the structured parse (ingredients split name/amount, method
+        // steps separated). A non-JSON / malformed payload degrades to the
+        // whole-line transcription so intake still gets the raw text.
+        const structured = parseGeminiStructuredOcr(text);
+        if (
+          structured &&
+          ((structured.ingredients?.length ?? 0) > 0 || (structured.method_steps?.length ?? 0) > 0)
+        ) {
+          return normalizeGeminiStructured(structured, this.model);
+        }
         return normalizeGeminiResponse(text, this.model);
       } catch (err) {
         if (err instanceof OcrProviderError) throw err;

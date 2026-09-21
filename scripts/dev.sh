@@ -129,6 +129,11 @@ migrate() {
   (cd "$REPO_DIR/packages/database" && npx prisma migrate deploy)
 }
 
+build_packages() {
+  log "Building shared workspace packages (dist)"
+  ( cd "$REPO_DIR" && npm run build -w @recipe-systems/schemas -w @recipe-systems/domain -w @recipe-systems/llm-adapter -w @recipe-systems/ocr-adapter -w @recipe-systems/rendering )
+}
+
 start_api() {
   log "NestJS API → $API_URL"
   ( cd "$REPO_DIR/apps/api" && exec npx nest start ) >"$TMP_DIR/api.log" 2>&1 &
@@ -152,7 +157,7 @@ start_web() {
 }
 
 start_worker() {
-  log "Analysis worker (pg-boss queue; DeepSeek views + OCR)"
+  log "Analysis worker (pg-boss queue; Gemini views + OCR)"
   ( cd "$REPO_DIR/apps/analysis-worker" && exec npx ts-node -T src/main.ts ) >"$TMP_DIR/worker.log" 2>&1 &
   local pid=$!
   echo "$pid" >>"$PID_FILE"
@@ -186,6 +191,7 @@ cmd_start() {
   assert_ports_free
   infra_up
   migrate
+  build_packages
   : >"$PID_FILE"
   start_api
   start_web

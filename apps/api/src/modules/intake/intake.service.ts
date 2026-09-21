@@ -289,11 +289,26 @@ export class IntakeService {
       return { status: 'pending', draft_line_count: 0, flagged_count: 0, source_metadata: null };
     }
 
-    if (result.lines.length === 0) {
+    // Structured providers separate ingredients from method steps; transcription-
+    // only providers leave `kind` unset and every line is treated as an ingredient.
+    const ingredientLines = result.lines.filter((l) => l.kind !== 'method');
+    if (ingredientLines.length === 0) {
       return { status: 'unreadable', draft_line_count: 0, flagged_count: 0, source_metadata: null };
     }
 
     const { draftCount, flaggedCount } = await this.persistOcrDraft(inputId, recipeId, result);
+
+    // Method steps ride the recipe's method column (the Method workspace section),
+    // not the ingredient list. Best-effort: a failed attach leaves the durable
+    // ingredient draft intact and the user can re-attach the method manually.
+    const methodSteps = result.lines
+      .filter((l) => l.kind === 'method')
+      .map((l) => l.text.trim())
+      .filter((t) => t.length > 0);
+    if (methodSteps.length > 0) {
+      await this.recipes.attachMethod(actor, recipeId, { mode: 'paste', methodText: methodSteps.join('\n\n') });
+    }
+
     return {
       status: 'complete',
       draft_line_count: draftCount,
@@ -311,19 +326,21 @@ export class IntakeService {
     result: OcrResult,
   ): Promise<{ draftCount: number; flaggedCount: number }> {
     const threshold = this.ocrConfidenceThreshold();
+    const ingredientLines = result.lines.filter((l) => l.kind !== 'method');
     return this.prisma.$transaction(async (tx) => {
       await tx.recipeInput.updateMany({
         where: { id: inputId, ocrText: null },
         data: { ocrText: result.recognized_text },
       });
 
-      const data = result.lines.map((line, index) => {
+      const data = ingredientLines.map((line, index) => {
         const low = line.confidence === undefined || line.confidence < threshold;
         return {
           recipeId,
           shoppingKey: randomUUID(),
           lineNo: index + 1,
           displayName: line.text, // the card's own words as OCR'd (sourceTag CARD)
+          amountText: line.amountText ?? null, // structured providers split name/amount
           sourceTag: 'CARD',
           ocrConfidence: line.confidence ?? null,
           needsReview: low,

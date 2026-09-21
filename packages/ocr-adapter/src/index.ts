@@ -15,6 +15,13 @@ import { GeminiVisionOcrAdapter, GEMINI_OCR_PROVIDER } from './gemini';
 export interface OcrLine {
   text: string;
   confidence?: number;
+  /** Best-effort structured parse (LLM providers only). When `kind` is present,
+   *  intake persists the split name/amount and role instead of the raw line text.
+   *  Providers that only transcribe (paddle/deepseek/stub) leave these unset and
+   *  the existing whole-line behavior is preserved. */
+  kind?: 'ingredient' | 'method';
+  /** Free-text amount separated from the name ("1 cup", "2 sprigs", "to taste"). */
+  amountText?: string | null;
 }
 
 export interface OcrResult {

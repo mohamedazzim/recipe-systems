@@ -259,7 +259,15 @@ export default function Home() {
           onBack={() => setView({ name: 'create', mode: 'upload' })}
           onConfirmed={(recipeId, title) => {
             loadLibrary(); // the new recipe shows in the Library immediately
-            setView({ name: 'workspace', recipeId, initialTitle: title ?? undefined });
+            setView({
+              name: 'workspace',
+              recipeId,
+              initialTitle: title ?? undefined,
+              // A brand-new recipe has no analysis and no shopping list — tell
+              // the workspace so it skips the doomed discovery GETs (no 404).
+              initialAnalysisHint: 'none',
+              initialHasShoppingList: false,
+            });
           }}
         />
       )}
@@ -279,16 +287,18 @@ export default function Home() {
           onTabChange={setWorkspaceTab}
           sectionRequest={sectionRequest}
           initialAnalysisHint={
-            !user || library === null
+            view.initialAnalysisHint ??
+            (!user || library === null
               ? 'unknown'
               : library.some((r) => r.recipe_id === view.recipeId && r.has_analysis === true)
                 ? 'present'
-                : 'none'
+                : 'none')
           }
           initialHasShoppingList={
-            !user || library === null
+            view.initialHasShoppingList ??
+            (!user || library === null
               ? null
-              : (library.find((r) => r.recipe_id === view.recipeId)?.has_shopping_list ?? null)
+              : (library.find((r) => r.recipe_id === view.recipeId)?.has_shopping_list ?? null))
           }
           onDeleted={() => {
             setView({ name: 'home' });

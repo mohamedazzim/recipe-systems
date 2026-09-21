@@ -1,11 +1,23 @@
 # Exclude local artifacts from Railway CLI uploads (repo remains intact)
 node_modules/
+**/node_modules/**
 .git/
+**/.git/**
 .next/
+**/.next/**
 dist/
+**/dist/**
 build/
+**/build/**
 coverage/
+**/coverage/**
 ocr_q10*/
+**/ocr_q10*/**
+packages/database/generated/
+packages/database/src/generated/
+**/generated/**
+*.tsbuildinfo
+**/*.tsbuildinfo
 test-results/
 playwright-report/
 docs/

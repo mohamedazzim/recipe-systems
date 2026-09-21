@@ -10,6 +10,7 @@ import { HomeView } from '@/components/app/HomeView';
 import { LibraryView } from '@/components/app/LibraryView';
 import { CreateView } from '@/components/app/CreateView';
 import { HouseholdView } from '@/components/app/HouseholdView';
+import { DocumentDraftReview } from '@/components/app/DocumentDraftReview';
 import { RecipeWorkspace } from '@/components/app/RecipeWorkspace';
 import { claimSessionRecords } from '@/lib/flow';
 import type { LibraryRecipe, WireLine } from '@/lib/types';
@@ -246,6 +247,16 @@ export default function Home() {
           onBack={() => setView({ name: 'home' })}
           onParsed={(recipeId, lines) => setView({ name: 'workspace', recipeId, initialLines: lines })}
           onUploaded={(recipeId, lines) => setView({ name: 'workspace', recipeId, initialLines: lines })}
+          onOpenDraftReview={(ingestionId, originalFilename) =>
+            setView({ name: 'draft-review', ingestionId, originalFilename })
+          }
+        />
+      )}
+      {view.name === 'draft-review' && (
+        <DocumentDraftReview
+          ingestionId={view.ingestionId}
+          originalFilename={view.originalFilename}
+          onBack={() => setView({ name: 'create', mode: 'upload' })}
         />
       )}
       {view.name === 'household' && (

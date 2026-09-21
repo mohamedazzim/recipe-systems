@@ -5,6 +5,7 @@
 import {
   Controller,
   Get,
+  HttpCode,
   NotFoundException,
   Param,
   Post,
@@ -44,5 +45,32 @@ export class IngestionController {
       });
     }
     return this.ingestion.getStatus(req.actor!, id);
+  }
+
+  /** Phase 3: trigger source-faithful structured extraction on a ready document. */
+  @Post('documents/:id/extract')
+  @HttpCode(200)
+  @UseGuards(GuestOrJwtGuard, CsrfGuard)
+  async extract(@Req() req: ActorRequest, @Param('id') id: string) {
+    if (!UUID_RE.test(id)) {
+      throw new NotFoundException({
+        code: 'INGESTION_NOT_FOUND',
+        message: 'Document ingestion not found',
+      });
+    }
+    return this.ingestion.extractStructure(req.actor!, id);
+  }
+
+  /** Phase 3: return the source-faithful drafts for review (not final recipes). */
+  @Get('documents/:id/drafts')
+  @UseGuards(GuestOrJwtGuard)
+  async getDrafts(@Req() req: ActorRequest, @Param('id') id: string) {
+    if (!UUID_RE.test(id)) {
+      throw new NotFoundException({
+        code: 'INGESTION_NOT_FOUND',
+        message: 'Document ingestion not found',
+      });
+    }
+    return { drafts: await this.ingestion.getDrafts(req.actor!, id) };
   }
 }

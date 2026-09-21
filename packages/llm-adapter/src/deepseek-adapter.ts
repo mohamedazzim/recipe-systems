@@ -22,7 +22,8 @@ import { AnalysisMode } from '@recipe-systems/schemas';
 import { LlmPermanentProviderError, LlmTransientProviderError } from './errors';
 import { extractJson } from './json';
 import { buildViewPrompt } from './prompts/views';
-import type { LlmAdapter, LlmGenerateRequest } from './index';
+import { buildExtractionUserPrompt, EXTRACTION_SYSTEM_PROMPT } from './prompts/extraction';
+import type { LlmAdapter, LlmGenerateRequest, RecipeExtractionRequest } from './index';
 
 // Backward-compatible re-exports (the shared modules are the canonical home).
 export { LlmPermanentProviderError, LlmTransientProviderError } from './errors';
@@ -200,6 +201,13 @@ export class DeepSeekLlmAdapter implements LlmAdapter {
     if (usage && this.onUsage) {
       this.onUsage({ view: request.view, mode: request.mode, ...usage });
     }
+    return extractJson(content);
+  }
+
+  /** Phase 3: source-faithful extraction — same HTTP path, dedicated prompt. */
+  async extractRecipeText(request: RecipeExtractionRequest): Promise<unknown> {
+    const user = buildExtractionUserPrompt(request.source_text);
+    const { content } = await this.chatCompletion(EXTRACTION_SYSTEM_PROMPT, user);
     return extractJson(content);
   }
 }

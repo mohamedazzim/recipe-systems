@@ -77,3 +77,16 @@ export type {
 
 export { AnalysisEnvelopeSchema, ANALYSIS_ENVELOPE_VIEWS } from './envelope';
 export type { AnalysisEnvelope } from './envelope';
+
+export {
+  DocumentExtractionSchema,
+  ExtractedIngredientSchema,
+  ExtractedMethodStepSchema,
+  RecipeExtractionSchema,
+} from './extraction';
+export type {
+  DocumentExtraction,
+  ExtractedIngredient,
+  ExtractedMethodStep,
+  RecipeExtraction,
+} from './extraction';

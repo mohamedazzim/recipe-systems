@@ -22,6 +22,7 @@ describe('CreateView (paste + photo intake)', () => {
       onBack: jest.fn(),
       onParsed: jest.fn(),
       onUploaded: jest.fn(),
+      onOpenDraftReview: jest.fn(),
       ...overrides,
     };
   }
@@ -338,5 +339,77 @@ describe('CreateView (paste + photo intake)', () => {
     shouldFail = false;
     await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
     expect(await screen.findByText('Ready for recipe extraction')).toBeInTheDocument();
+  });
+
+  it('Phase 3: shows Extract recipe, then Draft ready, and opens review', async () => {
+    let extractionTriggered = false;
+    (globalThis.fetch as jest.Mock).mockImplementation(async (url: string, init?: RequestInit) => {
+      if (init?.method === 'POST' && url.includes('/extract')) {
+        extractionTriggered = true;
+        return { ok: true, status: 200, json: async () => ingestionResponse({ status: 'extracting_structure' }) };
+      }
+      if (init?.method === 'POST') {
+        return { ok: true, status: 200, json: async () => ingestionResponse({ status: 'queued' }) };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () =>
+          ingestionResponse({ status: extractionTriggered ? 'draft_ready' : 'ready', has_text: true }),
+      };
+    });
+
+    const p = props();
+    render(<CreateView {...p} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Upload' }));
+    await userEvent.upload(screen.getByLabelText('Choose recipe documents'), documentFile('recipe.txt'));
+    await userEvent.click(screen.getByRole('button', { name: 'Upload documents' }));
+
+    expect(await screen.findByText('Ready for recipe extraction')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Extract recipe' }));
+
+    expect(await screen.findByText('Draft ready')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Review' }));
+    expect(p.onOpenDraftReview).toHaveBeenCalledWith('ing-1', 'recipe.txt');
+  });
+
+  it('Phase 3: extraction failure shows failed and retries extraction', async () => {
+    let extractionTriggered = false;
+    let failExtraction = true;
+    (globalThis.fetch as jest.Mock).mockImplementation(async (url: string, init?: RequestInit) => {
+      if (init?.method === 'POST' && url.includes('/extract')) {
+        extractionTriggered = true;
+        return { ok: true, status: 200, json: async () => ingestionResponse({ status: 'extracting_structure' }) };
+      }
+      if (init?.method === 'POST') {
+        return { ok: true, status: 200, json: async () => ingestionResponse({ status: 'queued' }) };
+      }
+      if (extractionTriggered) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () =>
+            ingestionResponse({
+              status: failExtraction ? 'extraction_failed' : 'draft_ready',
+              error_code: failExtraction ? 'INVALID_EXTRACTION' : null,
+              error_message: failExtraction ? 'No valid recipe structure' : null,
+            }),
+        };
+      }
+      return { ok: true, status: 200, json: async () => ingestionResponse({ status: 'ready', has_text: true }) };
+    });
+
+    render(<CreateView {...props()} />);
+    await userEvent.click(screen.getByRole('tab', { name: 'Upload' }));
+    await userEvent.upload(screen.getByLabelText('Choose recipe documents'), documentFile('recipe.txt'));
+    await userEvent.click(screen.getByRole('button', { name: 'Upload documents' }));
+
+    expect(await screen.findByText('Ready for recipe extraction')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Extract recipe' }));
+
+    expect(await screen.findByText('No valid recipe structure')).toBeInTheDocument();
+    failExtraction = false;
+    await userEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('Draft ready')).toBeInTheDocument();
   });
 });

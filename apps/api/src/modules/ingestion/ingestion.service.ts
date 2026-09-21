@@ -5,12 +5,14 @@
 
 import {
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { PrismaClient } from '@recipe-systems/database';
+import type { RecipeExtraction } from '@recipe-systems/schemas';
 import type { Actor } from '../../common/guards/guest-or-jwt.guard';
 import {
   documentFileTypeOf,
@@ -22,7 +24,14 @@ import {
   IngestionQueueUnavailableError,
 } from './ingestion.queue.service';
 
-export type DocumentIngestionStatus = 'queued' | 'extracting' | 'ready' | 'failed';
+export type DocumentIngestionStatus =
+  | 'queued'
+  | 'extracting'
+  | 'ready'
+  | 'failed'
+  | 'extracting_structure'
+  | 'draft_ready'
+  | 'extraction_failed';
 
 export interface DocumentIngestionWire {
   ingestion_id: string;
@@ -33,6 +42,18 @@ export interface DocumentIngestionWire {
   has_text: boolean;
   error_code: string | null;
   error_message: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Phase 3: one source-faithful recipe draft, still NOT a confirmed recipe. */
+export interface DocumentDraftWire {
+  draft_id: string;
+  draft_index: number;
+  title: string | null;
+  title_needs_review: boolean;
+  needs_review: boolean;
+  payload: RecipeExtraction;
   created_at: string;
   updated_at: string;
 }
@@ -108,6 +129,84 @@ export class IngestionService {
 
   /** Polled by the web client to observe queued → extracting → ready/failed. */
   async getStatus(actor: Actor, ingestionId: string): Promise<DocumentIngestionWire> {
+    const ingestion = await this.loadOwned(actor, ingestionId);
+    return this.toWire(ingestion);
+  }
+
+  /** Phase 3: trigger structured extraction on a `ready` document. */
+  async extractStructure(actor: Actor, ingestionId: string): Promise<DocumentIngestionWire> {
+    const ingestion = await this.loadOwned(actor, ingestionId);
+    if (ingestion.status !== 'ready') {
+      throw new ConflictException({
+        code: 'NOT_READY_FOR_EXTRACTION',
+        message: `Extraction is only available when the document is ready (current: ${ingestion.status})`,
+      });
+    }
+
+    // Transition to extracting_structure BEFORE enqueue so the poll shows progress.
+    await this.prisma.documentIngestion.update({
+      where: { id: ingestion.id },
+      data: { status: 'extracting_structure', errorCode: null, errorMessage: null },
+    });
+
+    try {
+      await this.queue.enqueueExtraction(ingestion.id);
+    } catch (err) {
+      // Revert to ready on enqueue failure so the user can retry.
+      await this.prisma.documentIngestion.update({
+        where: { id: ingestion.id },
+        data: { status: 'ready' },
+      }).catch(() => undefined);
+      if (err instanceof IngestionQueueUnavailableError) {
+        throw new ServiceUnavailableException({
+          code: 'EXTRACTION_QUEUE_UNAVAILABLE',
+          message: 'Recipe extraction is unavailable — try again later',
+        });
+      }
+      throw err;
+    }
+
+    const updated = await this.prisma.documentIngestion.findUnique({ where: { id: ingestion.id } });
+    return this.toWire(updated!);
+  }
+
+  /** Phase 3: return the source-faithful drafts for review (never final recipes). */
+  async getDrafts(actor: Actor, ingestionId: string): Promise<DocumentDraftWire[]> {
+    const ingestion = await this.loadOwned(actor, ingestionId);
+    const drafts = await this.prisma.documentRecipeDraft.findMany({
+      where: { ingestionId: ingestion.id },
+      orderBy: { draftIndex: 'asc' },
+    });
+    return drafts.map((d) => ({
+      draft_id: d.id,
+      draft_index: d.draftIndex,
+      title: d.title,
+      title_needs_review: d.titleNeedsReview,
+      needs_review: d.needsReview,
+      payload: d.payload as RecipeExtraction,
+      created_at: d.createdAt.toISOString(),
+      updated_at: d.updatedAt.toISOString(),
+    }));
+  }
+
+  /** Load a document, enforcing ownership (INV-17: missing AND foreign 404). */
+  private async loadOwned(
+    actor: Actor,
+    ingestionId: string,
+  ): Promise<{
+    id: string;
+    accountId: string | null;
+    guestSessionId: string | null;
+    originalFilename: string;
+    fileType: string;
+    fileSizeBytes: number;
+    status: string;
+    rawText: string | null;
+    errorCode: string | null;
+    errorMessage: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }> {
     const ingestion = await this.prisma.documentIngestion.findUnique({
       where: { id: ingestionId },
     });
@@ -118,7 +217,7 @@ export class IngestionService {
       });
     }
     this.assertOwned(actor, ingestion);
-    return this.toWire(ingestion);
+    return ingestion;
   }
 
   /** INV-17 parity: missing AND foreign ingests are indistinguishable 404s. */

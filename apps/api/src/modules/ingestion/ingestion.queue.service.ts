@@ -8,6 +8,8 @@ import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nest
 import * as pgBossNs from 'pg-boss';
 
 export const DOCUMENT_INGESTION_QUEUE = 'document-ingestion';
+// Phase 3: raw_text → structured draft (LLM extraction, SAME worker).
+export const DOCUMENT_EXTRACTION_QUEUE = 'document-extraction';
 
 export interface BossClient {
   start(): Promise<void>;
@@ -39,8 +41,9 @@ export class IngestionQueueService implements OnModuleInit, OnModuleDestroy {
       });
       await this.boss.start();
       await this.boss.createQueue(DOCUMENT_INGESTION_QUEUE);
+      await this.boss.createQueue(DOCUMENT_EXTRACTION_QUEUE);
       this.started = true;
-      this.logger.log('document ingestion queue ready');
+      this.logger.log('document ingestion + extraction queues ready');
     } catch (err) {
       this.started = false;
       this.logger.warn(`document ingestion queue unavailable at boot: ${(err as Error).message}`);
@@ -52,6 +55,14 @@ export class IngestionQueueService implements OnModuleInit, OnModuleDestroy {
       throw new IngestionQueueUnavailableError();
     }
     await this.boss.send(DOCUMENT_INGESTION_QUEUE, { ingestion_id: ingestionId });
+  }
+
+  /** Phase 3: enqueue structured extraction for a `ready` document. */
+  async enqueueExtraction(ingestionId: string): Promise<void> {
+    if (!this.started || !this.boss) {
+      throw new IngestionQueueUnavailableError();
+    }
+    await this.boss.send(DOCUMENT_EXTRACTION_QUEUE, { ingestion_id: ingestionId });
   }
 
   async onModuleDestroy(): Promise<void> {

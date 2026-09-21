@@ -68,10 +68,53 @@ export interface DocumentIngestionResponse {
   original_filename: string;
   file_type: string;
   file_size_bytes: number;
-  status: 'queued' | 'extracting' | 'ready' | 'failed';
+  status:
+    | 'queued'
+    | 'extracting'
+    | 'ready'
+    | 'failed'
+    | 'extracting_structure'
+    | 'draft_ready'
+    | 'extraction_failed';
   has_text: boolean;
   error_code: string | null;
   error_message: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Phase 3: one source-faithful recipe draft (NOT a confirmed recipe). */
+export interface ExtractedIngredientDraft {
+  name: string;
+  quantity: string | null;
+  unit: string | null;
+  preparation: string | null;
+  source: string;
+  needs_review: boolean;
+}
+
+export interface ExtractedMethodStepDraft {
+  text: string;
+  source: string | null;
+  needs_review: boolean;
+}
+
+export interface RecipeDraft {
+  title: string | null;
+  title_needs_review: boolean;
+  ingredients: ExtractedIngredientDraft[];
+  method_steps: ExtractedMethodStepDraft[];
+  needs_review: boolean;
+  notes: string[];
+}
+
+export interface DocumentDraft {
+  draft_id: string;
+  draft_index: number;
+  title: string | null;
+  title_needs_review: boolean;
+  needs_review: boolean;
+  payload: RecipeDraft;
   created_at: string;
   updated_at: string;
 }

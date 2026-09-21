@@ -1,4 +1,4 @@
-import { BadRequestException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import type { Actor } from '../../common/guards/guest-or-jwt.guard';
 import { IngestionQueueUnavailableError } from './ingestion.queue.service';
 import { IngestionService } from './ingestion.service';
@@ -32,6 +32,18 @@ function setup() {
       })),
       delete: jest.fn().mockResolvedValue({}),
       findUnique: jest.fn(),
+      update: jest.fn(async (args: { where?: { id?: string }; data: Record<string, unknown> }) => ({
+        id: args.where?.id ?? 'ing-1',
+        status: args.data.status ?? 'ready',
+        rawText: 'Chicken Biryani\n500 g chicken',
+        errorCode: args.data.errorCode ?? null,
+        errorMessage: args.data.errorMessage ?? null,
+        createdAt: NOW,
+        updatedAt: NOW,
+      })),
+    },
+    documentRecipeDraft: {
+      findMany: jest.fn().mockResolvedValue([]),
     },
   };
   const storage = {
@@ -41,7 +53,7 @@ function setup() {
     })),
     deleteObject: jest.fn(async () => undefined),
   };
-  const queue = { enqueue: jest.fn(async () => undefined) };
+  const queue = { enqueue: jest.fn(async () => undefined), enqueueExtraction: jest.fn(async () => undefined) };
   const svc = new IngestionService(prisma, storage as never, queue as never);
   return { prisma, storage, queue, svc };
 }
@@ -141,5 +153,107 @@ describe('IngestionService.getStatus', () => {
       status: 'ready',
     });
     await expect(svc.getStatus(userActor, 'ing-1')).rejects.toThrow(NotFoundException);
+  });
+});
+
+describe('IngestionService.extractStructure (Phase 3)', () => {
+  it('transitions a ready document to extracting_structure and enqueues extraction', async () => {
+    const { prisma, queue, svc } = setup();
+    const readyRow = {
+      id: 'ing-1',
+      accountId: 'acc-1',
+      guestSessionId: null,
+      originalFilename: 'recipe.pdf',
+      fileType: 'pdf',
+      fileSizeBytes: 1024,
+      status: 'ready',
+      rawText: 'Chicken Biryani\n500 g chicken',
+      errorCode: null,
+      errorMessage: null,
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    prisma.documentIngestion.findUnique
+      .mockResolvedValueOnce(readyRow)
+      .mockResolvedValue({ ...readyRow, status: 'extracting_structure' });
+
+    const wire = await svc.extractStructure(userActor, 'ing-1');
+
+    expect(prisma.documentIngestion.update).toHaveBeenCalledWith({
+      where: { id: 'ing-1' },
+      data: { status: 'extracting_structure', errorCode: null, errorMessage: null },
+    });
+    expect(queue.enqueueExtraction).toHaveBeenCalledWith('ing-1');
+    expect(wire.status).toBe('extracting_structure');
+  });
+
+  it('rejects extraction when the document is not ready', async () => {
+    const { prisma, queue, svc } = setup();
+    prisma.documentIngestion.findUnique.mockResolvedValue({
+      id: 'ing-1',
+      accountId: 'acc-1',
+      guestSessionId: null,
+      status: 'extracting',
+    });
+    await expect(svc.extractStructure(userActor, 'ing-1')).rejects.toThrow(ConflictException);
+    expect(queue.enqueueExtraction).not.toHaveBeenCalled();
+  });
+
+  it('reverts to ready + 503 when the extraction queue is unavailable', async () => {
+    const { prisma, queue, svc } = setup();
+    prisma.documentIngestion.findUnique.mockResolvedValue({
+      id: 'ing-1',
+      accountId: 'acc-1',
+      guestSessionId: null,
+      status: 'ready',
+      rawText: 'text',
+    });
+    queue.enqueueExtraction.mockRejectedValue(new IngestionQueueUnavailableError());
+
+    await expect(svc.extractStructure(userActor, 'ing-1')).rejects.toThrow(ServiceUnavailableException);
+    expect(prisma.documentIngestion.update).toHaveBeenLastCalledWith({
+      where: { id: 'ing-1' },
+      data: { status: 'ready' },
+    });
+  });
+});
+
+describe('IngestionService.getDrafts (Phase 3)', () => {
+  it('returns the persisted source-faithful drafts', async () => {
+    const { prisma, svc } = setup();
+    prisma.documentIngestion.findUnique.mockResolvedValue({
+      id: 'ing-1',
+      accountId: 'acc-1',
+      guestSessionId: null,
+      status: 'draft_ready',
+    });
+    prisma.documentRecipeDraft.findMany.mockResolvedValue([
+      {
+        id: 'draft-1',
+        draftIndex: 0,
+        title: 'Chicken Biryani',
+        titleNeedsReview: false,
+        needsReview: false,
+        payload: { title: 'Chicken Biryani', title_needs_review: false, ingredients: [], method_steps: [], needs_review: false, notes: [] },
+        createdAt: NOW,
+        updatedAt: NOW,
+      },
+    ]);
+
+    const drafts = await svc.getDrafts(userActor, 'ing-1');
+    expect(drafts).toHaveLength(1);
+    expect(drafts[0].draft_id).toBe('draft-1');
+    expect(drafts[0].title).toBe('Chicken Biryani');
+  });
+
+  it('404s for a foreign ingestion', async () => {
+    const { prisma, svc } = setup();
+    prisma.documentIngestion.findUnique.mockResolvedValue({
+      id: 'ing-1',
+      accountId: 'someone-else',
+      guestSessionId: null,
+      status: 'draft_ready',
+    });
+    await expect(svc.getDrafts(userActor, 'ing-1')).rejects.toThrow(NotFoundException);
   });
 });

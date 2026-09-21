@@ -28,6 +28,8 @@ export interface CreateViewProps {
   onParsed: (recipeId: string, lines: WireLine[]) => void;
   /** D-11 (B2): navigate after a completed photo upload, with the OCR draft. */
   onUploaded: (recipeId: string, lines: WireLine[]) => void;
+  /** Phase 3: navigate to the source-faithful draft review for a document. */
+  onOpenDraftReview: (ingestionId: string, originalFilename: string) => void;
 }
 
 const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/png'];
@@ -46,7 +48,16 @@ function fileExtension(name: string): string {
 interface BulkFileItem {
   key: string;
   file: File;
-  status: 'pending' | 'uploading' | 'extracting' | 'ready' | 'failed';
+  status:
+    | 'pending'
+    | 'uploading'
+    | 'extracting'
+    | 'ready'
+    | 'extracting_structure'
+    | 'draft_ready'
+    | 'failed';
+  /** Set once the Phase 2 upload succeeds (the Phase 3 extract action needs it). */
+  ingestionId?: string;
   error?: string;
 }
 
@@ -55,9 +66,12 @@ function bulkStatusLabel(item: BulkFileItem): string {
     case 'uploading':
       return 'Uploading…';
     case 'extracting':
+    case 'extracting_structure':
       return 'Extracting…';
     case 'ready':
       return 'Ready for recipe extraction';
+    case 'draft_ready':
+      return 'Draft ready';
     case 'failed':
       return item.error ?? 'Failed';
     case 'pending':
@@ -68,11 +82,13 @@ function bulkStatusLabel(item: BulkFileItem): string {
 function bulkStatusTint(status: BulkFileItem['status']): string {
   switch (status) {
     case 'ready':
+    case 'draft_ready':
       return 'text-positive';
     case 'failed':
       return 'text-negative';
     case 'uploading':
     case 'extracting':
+    case 'extracting_structure':
       return 'text-muted';
     case 'pending':
       return 'text-faint';
@@ -86,6 +102,7 @@ export function CreateView({
   onBack,
   onParsed,
   onUploaded,
+  onOpenDraftReview,
 }: CreateViewProps) {
   const [text, setText] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -201,18 +218,22 @@ export function CreateView({
     setBulkFiles((prev) => prev.map((f) => (f.key === key ? { ...f, ...patch } : f)));
   };
 
-  /** Poll one document's lifecycle until it reaches ready or failed. */
-  const pollIngestion = async (ingestionId: string, key: string): Promise<void> => {
+  /** Poll one document's lifecycle until it reaches the target (ready/draft_ready). */
+  const pollIngestion = async (
+    ingestionId: string,
+    key: string,
+    target: 'ready' | 'draft_ready',
+  ): Promise<void> => {
     for (let attempt = 0; attempt < 60; attempt += 1) {
       try {
         const status = await api<DocumentIngestionResponse>(
           `/recipes/import/documents/${ingestionId}`,
         );
-        if (status.status === 'ready') {
-          setBulkItem(key, { status: 'ready', error: undefined });
+        if (status.status === target) {
+          setBulkItem(key, { status: target, error: undefined });
           return;
         }
-        if (status.status === 'failed') {
+        if (status.status === 'failed' || status.status === 'extraction_failed') {
           setBulkItem(key, {
             status: 'failed',
             error: status.error_message ?? 'Document extraction failed.',
@@ -234,8 +255,12 @@ export function CreateView({
       const form = new FormData();
       form.append('file', item.file);
       const result = await apiUpload<DocumentIngestionResponse>('/recipes/import/documents', form);
-      setBulkItem(item.key, { status: 'extracting', error: undefined });
-      await pollIngestion(result.ingestion_id, item.key);
+      setBulkItem(item.key, {
+        status: 'extracting',
+        ingestionId: result.ingestion_id,
+        error: undefined,
+      });
+      await pollIngestion(result.ingestion_id, item.key, 'ready');
     } catch (err) {
       setBulkItem(item.key, {
         status: 'failed',
@@ -247,10 +272,31 @@ export function CreateView({
     }
   };
 
+  /** Phase 3: trigger source-faithful structured extraction on a ready document. */
+  const extractOneDocument = async (item: BulkFileItem): Promise<void> => {
+    if (!item.ingestionId) return;
+    setBulkItem(item.key, { status: 'extracting_structure', error: undefined });
+    try {
+      await api<DocumentIngestionResponse>(
+        `/recipes/import/documents/${item.ingestionId}/extract`,
+        { method: 'POST' },
+      );
+      await pollIngestion(item.ingestionId, item.key, 'draft_ready');
+    } catch (err) {
+      setBulkItem(item.key, {
+        status: 'failed',
+        error:
+          err instanceof ApiError
+            ? err.message
+            : 'Extraction failed. Check your connection and try again.',
+      });
+    }
+  };
+
   const uploadBulk = async (): Promise<void> => {
-    const pending = bulkFiles.filter((f) => f.status !== 'ready');
+    const pending = bulkFiles.filter((f) => f.status === 'pending');
     if (pending.length === 0) {
-      setFooterError('Choose at least one document first.');
+      setFooterError('No documents are waiting to upload.');
       return;
     }
     setBulkUploading(true);
@@ -548,11 +594,26 @@ export function CreateView({
                           {bulkStatusLabel(item)}
                         </span>
                       </div>
+                      {item.status === 'ready' && (
+                        <Button size="sm" onClick={() => void extractOneDocument(item)}>
+                          Extract recipe
+                        </Button>
+                      )}
+                      {item.status === 'draft_ready' && (
+                        <Button
+                          size="sm"
+                          onClick={() => onOpenDraftReview(item.ingestionId!, item.file.name)}
+                        >
+                          Review
+                        </Button>
+                      )}
                       {item.status === 'failed' && (
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => void uploadOneDocument(item)}
+                          onClick={() =>
+                            void (item.ingestionId ? extractOneDocument(item) : uploadOneDocument(item))
+                          }
                         >
                           Retry
                         </Button>
@@ -561,7 +622,11 @@ export function CreateView({
                         type="button"
                         onClick={() => removeBulkFile(item.key)}
                         aria-label={`Remove ${item.file.name}`}
-                        disabled={item.status === 'uploading' || item.status === 'extracting'}
+                        disabled={
+                          item.status === 'uploading' ||
+                          item.status === 'extracting' ||
+                          item.status === 'extracting_structure'
+                        }
                         className="inline-flex shrink-0 items-center rounded-sm text-faint hover:text-negative disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
                       >
                         <X size={16} aria-hidden="true" />

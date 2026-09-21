@@ -28,7 +28,8 @@ import { AnalysisMode } from '@recipe-systems/schemas';
 import { LlmPermanentProviderError, LlmTransientProviderError } from './errors';
 import { extractJson } from './json';
 import { buildViewPrompt } from './prompts/views';
-import type { LlmAdapter, LlmGenerateRequest } from './index';
+import { buildExtractionUserPrompt, EXTRACTION_SYSTEM_PROMPT } from './prompts/extraction';
+import type { LlmAdapter, LlmGenerateRequest, RecipeExtractionRequest } from './index';
 
 /** Official ThinkingLevel enum values (REST JSON string form). */
 export type GeminiThinkingLevel = 'MINIMAL' | 'LOW' | 'MEDIUM' | 'HIGH';
@@ -269,6 +270,13 @@ export class GeminiLlmAdapter implements LlmAdapter {
     if (usage && this.onUsage) {
       this.onUsage({ view: request.view, mode: request.mode, ...usage });
     }
+    return extractJson(content);
+  }
+
+  /** Phase 3: source-faithful extraction — same HTTP path, dedicated prompt. */
+  async extractRecipeText(request: RecipeExtractionRequest): Promise<unknown> {
+    const user = buildExtractionUserPrompt(request.source_text);
+    const { content } = await this.generateContent(EXTRACTION_SYSTEM_PROMPT, user);
     return extractJson(content);
   }
 }

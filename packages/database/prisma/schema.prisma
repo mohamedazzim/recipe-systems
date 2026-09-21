@@ -467,7 +467,7 @@ model DocumentIngestion {
   fileSizeBytes    Int       @map("file_size_bytes")
   storageKey       String    @map("storage_key") @db.VarChar(512)
   storageUri       String    @map("storage_uri") @db.VarChar(512)
-  status           String    @default("queued") @map("status") @db.VarChar(16) // CHECK queued/extracting/ready/failed
+  status           String    @default("queued") @map("status") @db.VarChar(16) // CHECK queued/extracting/ready/extracting_structure/draft_ready/extraction_failed
   rawText          String?   @map("raw_text") // source-faithful extraction; null until ready
   errorCode        String?   @map("error_code") @db.VarChar(64)
   errorMessage     String?   @map("error_message") @db.VarChar(512)
@@ -476,8 +476,29 @@ model DocumentIngestion {
 
   account      Account?      @relation(fields: [accountId], references: [id], onDelete: Cascade)
   guestSession GuestSession? @relation(fields: [guestSessionId], references: [id], onDelete: Cascade)
+  drafts       DocumentRecipeDraft[]
 
   @@index([accountId, createdAt(sort: Desc)], map: "ix_document_ingestion_account_created")
   @@index([guestSessionId, createdAt(sort: Desc)], map: "ix_document_ingestion_guest_created")
   @@map("document_ingestion")
+}
+
+// Phase 3: the structured recipe DRAFT extracted from a document (source-faithful).
+// NOT a confirmed recipe — no recipe/line/method rows are created from a draft.
+
+model DocumentRecipeDraft {
+  id               String   @id @default(uuid()) @db.Uuid
+  ingestionId      String   @map("ingestion_id") @db.Uuid
+  draftIndex       Int      @map("draft_index") // 0-based position within the document
+  title            String?  @db.VarChar(255) // null when the source has no clear title
+  titleNeedsReview Boolean  @default(false) @map("title_needs_review")
+  needsReview      Boolean  @default(false) @map("needs_review")
+  payload          Json // the validated DocumentExtraction (ingredients + method_steps + notes)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  ingestion DocumentIngestion @relation(fields: [ingestionId], references: [id], onDelete: Cascade)
+
+  @@unique([ingestionId, draftIndex], map: "uq_document_recipe_draft_ingestion_index")
+  @@map("document_recipe_draft")
 }

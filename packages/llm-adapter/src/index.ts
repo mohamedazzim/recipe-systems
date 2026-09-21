@@ -10,10 +10,12 @@
 // `recipe_snapshot` stays `unknown` at this seam — Q1 (snapshot persistence
 // mechanism) is OPEN and D-17 builds to the labeled assumption (SCAFFOLD §7).
 
-import { AnalysisMode, StructuredRecipeInput } from '@recipe-systems/schemas';
+import { AnalysisMode, DocumentExtraction, DocumentExtractionSchema, StructuredRecipeInput } from '@recipe-systems/schemas';
 import { buildViewPrompt, isLlmView, ViewNumber } from './prompts/views';
 import { parseViewOutput, ParseViewResult } from './prompts/validate';
 import { GroundingVerdict, validateViewGrounding } from './grounding/validator';
+
+export { EXTRACTION_PROMPT_VERSION } from './prompts/extraction';
 
 export interface LlmGenerateRequest {
   /** Which view the model must produce (1–9; 8/9 are deterministic — D-17 never calls the LLM for them). */
@@ -27,6 +29,32 @@ export interface LlmGenerateRequest {
   model_version: string;
 }
 
+/** Phase 3: the extraction request — raw document text in, parsed JSON out. */
+export interface RecipeExtractionRequest {
+  /** The source-faithful raw text from a document_ingestion row. */
+  source_text: string;
+  /** Reproducibility pins (the EXTRACTION_PROMPT_VERSION + provider model). */
+  prompt_version: string;
+  model_version: string;
+}
+
+/** Phase 3 extraction parse result — same ok/errors shape as parseViewOutput. */
+export type ParseDocumentExtractionResult =
+  | { ok: true; data: DocumentExtraction }
+  | { ok: false; errors: string[] };
+
+/** Validate a raw extraction output against the frozen DocumentExtractionSchema. */
+export function parseDocumentExtraction(raw: unknown): ParseDocumentExtractionResult {
+  const result = DocumentExtractionSchema.safeParse(raw);
+  if (result.success) {
+    return { ok: true, data: result.data };
+  }
+  return {
+    ok: false,
+    errors: result.error.issues.map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`),
+  };
+}
+
 /** The provider-neutral interface. Implementations normalize vendor responses
  *  to plain JSON before returning — validation happens in parseViewOutput. */
 export interface LlmAdapter {
@@ -35,6 +63,8 @@ export interface LlmAdapter {
   /** Optional provenance pin stamped into analysis rows (e.g. deepseek:model). */
   readonly modelVersion?: string;
   generate(request: LlmGenerateRequest): Promise<unknown>;
+  /** Phase 3: source-faithful structured recipe extraction (document text → parsed JSON). */
+  extractRecipeText(request: RecipeExtractionRequest): Promise<unknown>;
 }
 
 /** The canonical prompt pair for a request — exposed so the benchmark harness
@@ -75,6 +105,12 @@ export class MockLlmAdapter implements LlmAdapter {
     }
     // Determinism: serialize-free structured clone per call (no shared refs).
     return JSON.parse(JSON.stringify(output));
+  }
+
+  /** The analysis mock has no extraction fixture — extraction is a separate path. */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async extractRecipeText(_request: RecipeExtractionRequest): Promise<unknown> {
+    throw new Error('MockLlmAdapter: extraction is not supported (analysis fixtures only)');
   }
 }
 

@@ -17,6 +17,11 @@ import {
   DocumentIngestionJobData,
   DocumentIngestionJobHandler,
 } from './ingestion/ingestion-job.handler';
+import {
+  DOCUMENT_EXTRACTION_QUEUE,
+  DocumentExtractionJobData,
+  DocumentExtractionJobHandler,
+} from './ingestion/extraction-job.handler';
 
 // pg-boss v10 is CJS with `module.exports = PgBoss` (class directly). The worker
 // tsconfig HAS esModuleInterop while the API's does not — the namespace +
@@ -79,6 +84,7 @@ export async function main(): Promise<void> {
   const adapter = resolveAdapter(process.env);
   const handler = new AnalysisJobHandler(prisma, adapter, notify);
   const ingestionHandler = new DocumentIngestionJobHandler(prisma);
+  const extractionHandler = new DocumentExtractionJobHandler(prisma, adapter);
   // Q9-6: observable provider selection, never secrets.
   const describable = adapter as unknown as { describe?: () => string };
   const describe =
@@ -97,7 +103,8 @@ export async function main(): Promise<void> {
   await boss.createQueue(QUEUE_NAME);
   await boss.createQueue(VIEW9_RECOMPUTE_QUEUE);
   await boss.createQueue(DOCUMENT_INGESTION_QUEUE);
-  console.log('analysis-worker: consuming queues "analysis" + "view9-recompute" + "document-ingestion"');
+  await boss.createQueue(DOCUMENT_EXTRACTION_QUEUE);
+  console.log('analysis-worker: consuming queues "analysis" + "view9-recompute" + "document-ingestion" + "document-extraction"');
 
   // pg-boss v10.4+ delivers a BATCH (array) to the work handler.
   await boss.work(QUEUE_NAME, async (jobs: unknown) => {
@@ -149,6 +156,20 @@ export async function main(): Promise<void> {
       if (!job || !job.data) continue;
       console.log(`analysis-worker: document-ingestion job ${job.id ?? 'unknown'} for document ${job.data.ingestion_id}`);
       await ingestionHandler.handle(job.data);
+    }
+  });
+
+  // Phase 3: structured recipe extraction — raw_text → source-faithful draft
+  // (LLM via the SAME adapter; no recipe rows; drafts only).
+  await boss.work(DOCUMENT_EXTRACTION_QUEUE, async (jobs: unknown) => {
+    const batch = (Array.isArray(jobs) ? jobs : [jobs]) as Array<{
+      id?: string;
+      data?: DocumentExtractionJobData;
+    }>;
+    for (const job of batch) {
+      if (!job || !job.data) continue;
+      console.log(`analysis-worker: document-extraction job ${job.id ?? 'unknown'} for document ${job.data.ingestion_id}`);
+      await extractionHandler.handle(job.data);
     }
   });
 

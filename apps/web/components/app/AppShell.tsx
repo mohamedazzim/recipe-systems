@@ -36,7 +36,8 @@ export type AppView =
   | { name: 'create'; mode?: 'paste' | 'form' | 'photo' | 'upload' }
   | { name: 'household' }
   | { name: 'landing' }
-  | { name: 'workspace'; recipeId: string; initialLines?: WireLine[] | null; initialTitle?: string };
+  | { name: 'workspace'; recipeId: string; initialLines?: WireLine[] | null; initialTitle?: string }
+  | { name: 'draft-review'; ingestionId: string; originalFilename: string };
 
 export interface AppShellProps {
   user: User | null;

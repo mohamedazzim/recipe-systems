@@ -10,6 +10,7 @@
 import { PaddleOcrAdapter, PADDLE_OCR_PROVIDER } from './paddle';
 import { StubOcrAdapter, STUB_OCR_PROVIDER } from './stub';
 import { DeepSeekVisionOcrAdapter, DEEPSEEK_OCR_PROVIDER } from './deepseek';
+import { GeminiVisionOcrAdapter, GEMINI_OCR_PROVIDER } from './gemini';
 
 export interface OcrLine {
   text: string;
@@ -39,6 +40,8 @@ export const OCR_ADAPTER_SEAM = 'provider-neutral (Tech Stack §11; Q10 OPEN —
  *  - OCR_PROVIDER=paddle   → the local PaddleOCR adapter (config-gated; no credentials).
  *  - OCR_PROVIDER=deepseek → the DeepSeek Vision adapter (server-side key; no per-line
  *                            confidence → conservative needs_review policy).
+ *  - OCR_PROVIDER=gemini   → the Gemini Vision adapter (server-side key; no per-line
+ *                            confidence → conservative needs_review policy).
  *  - OCR_PROVIDER=stub     → the deterministic golden-card stub (CI / local dev).
  *  - anything else         → null (OCR disabled — no draft lines are produced).
  */
@@ -46,6 +49,7 @@ export function resolveOcrAdapter(env: Record<string, string | undefined>): OcrA
   const provider = env.OCR_PROVIDER;
   if (provider === PADDLE_OCR_PROVIDER) return new PaddleOcrAdapter(env);
   if (provider === DEEPSEEK_OCR_PROVIDER) return new DeepSeekVisionOcrAdapter(env);
+  if (provider === GEMINI_OCR_PROVIDER) return new GeminiVisionOcrAdapter(env);
   if (provider === STUB_OCR_PROVIDER) return new StubOcrAdapter();
   return null;
 }
@@ -53,3 +57,4 @@ export function resolveOcrAdapter(env: Record<string, string | undefined>): OcrA
 export { PaddleOcrAdapter, PADDLE_OCR_PROVIDER } from './paddle';
 export { StubOcrAdapter, STUB_OCR_PROVIDER } from './stub';
 export { DeepSeekVisionOcrAdapter, DEEPSEEK_OCR_PROVIDER, DEEPSEEK_OCR_PROMPT, normalizeDeepSeekResponse } from './deepseek';
+export { GeminiVisionOcrAdapter, GEMINI_OCR_PROVIDER, GEMINI_OCR_PROMPT, normalizeGeminiResponse } from './gemini';

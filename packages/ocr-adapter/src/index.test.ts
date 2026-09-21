@@ -1,5 +1,6 @@
 import { OCR_ADAPTER_SEAM, resolveOcrAdapter, OcrProviderError, OcrTimeoutError } from './index';
 import { GOLDEN_OCR_LINES, StubOcrAdapter } from './stub';
+import { GeminiVisionOcrAdapter } from './gemini';
 import {
   normalizePaddleResponse,
   PaddleOcrAdapter,
@@ -14,11 +15,12 @@ describe('ocr-adapter (D-11)', () => {
     expect(OCR_ADAPTER_SEAM).toMatch(/provider-neutral/);
   });
 
-  it('resolveOcrAdapter: disabled/unset → null; stub → StubOcrAdapter; paddle → PaddleOcrAdapter', () => {
+  it('resolveOcrAdapter: disabled/unset → null; stub → StubOcrAdapter; paddle → PaddleOcrAdapter; gemini → GeminiVisionOcrAdapter', () => {
     expect(resolveOcrAdapter({})).toBeNull();
     expect(resolveOcrAdapter({ OCR_PROVIDER: 'disabled' })).toBeNull();
     expect(resolveOcrAdapter({ OCR_PROVIDER: 'stub' })).toBeInstanceOf(StubOcrAdapter);
     expect(resolveOcrAdapter({ OCR_PROVIDER: 'paddle' })).toBeInstanceOf(PaddleOcrAdapter);
+    expect(resolveOcrAdapter({ OCR_PROVIDER: 'gemini' })).toBeInstanceOf(GeminiVisionOcrAdapter);
   });
 
   describe('StubOcrAdapter (CI deterministic)', () => {

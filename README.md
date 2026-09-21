@@ -219,7 +219,7 @@ Use [.env.example](.env.example) as the complete local reference. The main categ
 | `KEYCLOAK_BASE_URL`, `KEYCLOAK_REALM`, `KEYCLOAK_CLIENT_ID`, `KEYCLOAK_CLIENT_SECRET`, `KEYCLOAK_ISSUER_URL` | OIDC configuration |
 | `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY` | Local object storage |
 | `MODEL_PROVIDER`, `ANALYSIS_LLM_STUB`, provider-specific model/key settings | Analysis adapter selection |
-| `OCR_PROVIDER` | OCR adapter selection: disabled, stub, PaddleOCR, or DeepSeek Vision |
+| `OCR_PROVIDER` | OCR adapter selection: disabled, stub, PaddleOCR, DeepSeek Vision, or Gemini Vision |
 | `SESSION_SECRET`, `SESSION_TTL_SECONDS`, `SESSION_SECURE` | BFF session cookies |
 
 Secret values are intentionally omitted. Production secret injection is an operational

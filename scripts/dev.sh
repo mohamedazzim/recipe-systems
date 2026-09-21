@@ -57,14 +57,14 @@ export WEB_ORIGIN="http://localhost:3000"
 export CORS_ORIGINS="http://localhost:3000"
 export PORT=3001
 
-# Providers: DeepSeek drives BOTH analysis-view generation and card OCR. The
+# Providers: Gemini drives BOTH analysis-view generation and card OCR. The
 # .env (loaded above) supplies the keys; these defaults fill the gaps. With no
-# DEEPSEEK_API_KEY the view worker falls back to the deterministic stub.
-export MODEL_PROVIDER="${MODEL_PROVIDER:-deepseek}"
-export LLM_PROVIDER="${LLM_PROVIDER:-deepseek}"
-export OCR_PROVIDER="${OCR_PROVIDER:-deepseek}"
+# GEMINI_API_KEY the view worker falls back to the deterministic stub.
+export MODEL_PROVIDER="${MODEL_PROVIDER:-gemini}"
+export LLM_PROVIDER="${LLM_PROVIDER:-gemini}"
+export OCR_PROVIDER="${OCR_PROVIDER:-gemini}"
 if [ -z "${ANALYSIS_LLM_STUB:-}" ]; then
-  if [ -n "${DEEPSEEK_API_KEY:-}" ]; then
+  if [ -n "${GEMINI_API_KEY:-}" ]; then
     export ANALYSIS_LLM_STUB=0
   else
     export ANALYSIS_LLM_STUB=1

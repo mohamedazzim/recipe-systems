@@ -12,12 +12,14 @@ import { Alert } from '@/components/ui/Alert';
 import { Heading, Text } from '@/components/ui/Typography';
 import { api, ApiError } from '@/lib/api';
 import { recipePhotoUrl } from '@/lib/photo';
-import type { LibraryRecipe } from '@/lib/types';
+import type { LibraryFilter, LibraryRecipe } from '@/lib/types';
 
 export interface LibraryViewProps {
   library: LibraryRecipe[] | null;
   /** A query pre-seeded by the shell search — runs once on mount. */
   initialQuery?: string;
+  /** A status filter pre-seeded by the dashboard stat cards. */
+  initialFilter?: LibraryFilter;
   onBack: () => void;
   onOpenRecipe: (recipeId: string, initialLines: null, title?: string) => void;
   /** Phase 1 bulk-upload entry: routes to Add Recipe with Upload selected. */
@@ -31,14 +33,14 @@ const MONOGRAM_TINTS = [
   'bg-negative/10 text-negative',
 ];
 
-export function LibraryView({ library, initialQuery, onBack, onOpenRecipe, onBulkUpload }: LibraryViewProps) {
+export function LibraryView({ library, initialQuery, initialFilter, onBack, onOpenRecipe, onBulkUpload }: LibraryViewProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<LibraryRecipe[] | null>(null);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
-  /** Client-side status filter — only the two states the list wire carries.
-   *  "Needs review" / tag filters await a list field (TODO, no fabrication). */
-  const [filter, setFilter] = useState<'all' | 'cooked'>('all');
+  /** Client-side status filter — the list wire carries analysed / shopping /
+   *  cook-log states; tag filters await a list field (TODO, no fabrication). */
+  const [filter, setFilter] = useState<LibraryFilter>(initialFilter ?? 'all');
 
   const runSearch = async (q: string): Promise<void> => {
     const value = q.trim();
@@ -74,15 +76,29 @@ export function LibraryView({ library, initialQuery, onBack, onOpenRecipe, onBul
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialQuery]);
 
+  // Deep-linked filter from a dashboard stat card — syncs when it changes.
+  useEffect(() => {
+    if (initialFilter) setFilter(initialFilter);
+  }, [initialFilter]);
+
   const clearSearch = (): void => {
     setQuery('');
     setResults(null);
     setSearchError(null);
   };
 
-  const list = (results ?? library ?? []).filter(
-    (recipe) => filter === 'all' || recipe.has_cook_log,
-  );
+  const list = (results ?? library ?? []).filter((recipe) => {
+    switch (filter) {
+      case 'analysed':
+        return recipe.has_analysis === true;
+      case 'shopping':
+        return recipe.has_shopping_list === true;
+      case 'cooked':
+        return recipe.has_cook_log;
+      default:
+        return true;
+    }
+  });
 
   return (
     <div>
@@ -151,6 +167,8 @@ export function LibraryView({ library, initialQuery, onBack, onOpenRecipe, onBul
         {(
           [
             ['all', 'All'],
+            ['analysed', 'Analysed'],
+            ['shopping', 'With shopping list'],
             ['cooked', 'Has cook log'],
           ] as const
         ).map(([key, label]) => (
@@ -171,11 +189,27 @@ export function LibraryView({ library, initialQuery, onBack, onOpenRecipe, onBul
       {list.length === 0 ? (
         <div className="mt-6">
           <EmptyState
-            title={results !== null ? 'No matches' : 'No saved recipes yet'}
+            title={
+              results !== null
+                ? 'No matches'
+                : filter === 'analysed'
+                  ? 'No analysed recipes'
+                  : filter === 'shopping'
+                    ? 'No shopping lists'
+                    : filter === 'cooked'
+                      ? 'No cooked recipes'
+                      : 'No saved recipes yet'
+            }
             description={
               results !== null
                 ? `Nothing in your library matches “${query.trim()}”.`
-                : 'Recipes you save appear here and survive closing the browser.'
+                : filter === 'analysed'
+                  ? 'Run an analysis on a recipe to see it here.'
+                  : filter === 'shopping'
+                    ? 'Generate a shopping list from a recipe to see it here.'
+                    : filter === 'cooked'
+                      ? 'Log a cook for a recipe to see it here.'
+                      : 'Recipes you save appear here and survive closing the browser.'
             }
           />
         </div>

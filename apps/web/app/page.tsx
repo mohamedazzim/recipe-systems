@@ -218,7 +218,7 @@ export default function Home() {
           onOpenRecipe={(recipeId, lines, title) =>
             setView({ name: 'workspace', recipeId, initialLines: lines ?? null, initialTitle: title })
           }
-          onOpenLibrary={() => setView({ name: 'library' })}
+          onOpenLibrary={(filter) => setView({ name: 'library', filter })}
           onOpenHousehold={() => setView({ name: 'household' })}
           onCreateShoppingList={() => openMostRecentAt('shopping')}
           onEnterCookMode={() => openMostRecentAt('cook')}
@@ -229,6 +229,7 @@ export default function Home() {
         <LibraryView
           library={user ? library : null}
           initialQuery={libraryQuery}
+          initialFilter={view.filter}
           onBack={() => {
             setView({ name: 'home' });
             setLibraryQuery('');

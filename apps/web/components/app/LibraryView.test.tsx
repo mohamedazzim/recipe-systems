@@ -73,6 +73,70 @@ describe('LibraryView — D-22 library (D2)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Bulk upload recipes' }));
     expect(p.onBulkUpload).toHaveBeenCalled();
   });
+
+  it('deep-links to a dashboard filter via initialFilter (analysed)', () => {
+    const p = props({
+      library: [
+        {
+          recipe_id: 'r1',
+          name: 'Analysed Fish',
+          date: '2026-09-10T11:00:00.000Z',
+          family: null,
+          has_cook_log: false,
+          last_cooked_at: null,
+          has_analysis: true,
+          has_shopping_list: false,
+        },
+        {
+          recipe_id: 'r2',
+          name: 'Plain Dal',
+          date: '2026-09-10T11:00:00.000Z',
+          family: null,
+          has_cook_log: false,
+          last_cooked_at: null,
+          has_analysis: false,
+          has_shopping_list: false,
+        },
+      ],
+      initialFilter: 'analysed',
+    });
+    render(<LibraryView {...p} />);
+    expect(screen.getByText('Analysed Fish')).toBeInTheDocument();
+    expect(screen.queryByText('Plain Dal')).not.toBeInTheDocument();
+  });
+
+  it('filter chips switch the list (analysed / shopping / cooked)', async () => {
+    const p = props({
+      library: [
+        {
+          recipe_id: 'r1',
+          name: 'Analysed Fish',
+          date: '2026-09-10T11:00:00.000Z',
+          family: null,
+          has_cook_log: true,
+          last_cooked_at: '2026-09-12',
+          has_analysis: true,
+          has_shopping_list: true,
+        },
+        {
+          recipe_id: 'r2',
+          name: 'Plain Dal',
+          date: '2026-09-10T11:00:00.000Z',
+          family: null,
+          has_cook_log: false,
+          last_cooked_at: null,
+          has_analysis: false,
+          has_shopping_list: false,
+        },
+      ],
+    });
+    render(<LibraryView {...p} />);
+    expect(screen.getByText('Analysed Fish')).toBeInTheDocument();
+    expect(screen.getByText('Plain Dal')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Analysed' }));
+    expect(screen.getByText('Analysed Fish')).toBeInTheDocument();
+    expect(screen.queryByText('Plain Dal')).not.toBeInTheDocument();
+  });
 });
 
 describe('LibraryView — D-25 D3 library search', () => {

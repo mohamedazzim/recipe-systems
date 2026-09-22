@@ -227,6 +227,9 @@ export interface LibraryRecipe {
   shopping_list_generated_at?: string | null;
 }
 
+/** Library status filter — the dashboard stat cards deep-link to these. */
+export type LibraryFilter = 'all' | 'analysed' | 'shopping' | 'cooked';
+
 /** D-24 (F1/F2/F6): one cook log (API §8 — POST/GET/PATCH wire). */
 export interface CookLog {
   cook_log_id: string;

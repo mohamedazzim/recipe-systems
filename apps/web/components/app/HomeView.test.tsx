@@ -90,6 +90,33 @@ describe('HomeView', () => {
     expect(screen.getByLabelText('50 percent of recipes analysed')).toBeInTheDocument();
   });
 
+  it('signed-in: stat cards navigate to the library with the matching filter', async () => {
+    const p = props({
+      library: [
+        {
+          recipe_id: 'r1',
+          name: 'Meen Kuzhambu',
+          date: '2026-09-10T11:00:00.000Z',
+          family: 'South Indian',
+          has_cook_log: true,
+          last_cooked_at: '2026-09-12',
+          has_analysis: true,
+          has_shopping_list: true,
+          shopping_list_generated_at: '2026-09-11T10:00:00.000Z',
+        },
+      ],
+    });
+    render(<HomeView {...p} />);
+    await userEvent.click(screen.getByRole('button', { name: /Total recipes/ }));
+    expect(p.onOpenLibrary).toHaveBeenCalledWith('all');
+    await userEvent.click(screen.getByRole('button', { name: /Analysed recipes/ }));
+    expect(p.onOpenLibrary).toHaveBeenCalledWith('analysed');
+    await userEvent.click(screen.getByRole('button', { name: /Shopping lists/ }));
+    expect(p.onOpenLibrary).toHaveBeenCalledWith('shopping');
+    await userEvent.click(screen.getByRole('button', { name: /Cooked recipes/ }));
+    expect(p.onOpenLibrary).toHaveBeenCalledWith('cooked');
+  });
+
   it('shows a helpful empty state when no session recipes exist', () => {
     render(<HomeView {...props({ signedIn: false, accountId: null })} />);
     expect(screen.getByText('No recipes yet')).toBeInTheDocument();

@@ -117,6 +117,33 @@ describe('GeminiVisionOcrAdapter (Q10 third provider)', () => {
       );
       expect(result.title).toBeNull();
     });
+
+    it('strips a leading serial number from the title (numbered menu card)', () => {
+      const result = normalizeGeminiStructured(
+        {
+          title: '1. Parippu Curry',
+          ingredients: [{ name: 'Dal', amount: '1 cup' }],
+          method_steps: [],
+        },
+        'gemini-3.8-flash',
+      );
+      expect(result.title).toBe('Parippu Curry');
+    });
+
+    it('strips "No."/"S.No" serial prefixes and keeps "3-Cheese" names intact', () => {
+      expect(
+        normalizeGeminiStructured(
+          { title: 'S.No 2. Parippu Curry', ingredients: [], method_steps: [] },
+          'gemini-3.8-flash',
+        ).title,
+      ).toBe('Parippu Curry');
+      expect(
+        normalizeGeminiStructured(
+          { title: '3-Cheese Pasta', ingredients: [], method_steps: [] },
+          'gemini-3.8-flash',
+        ).title,
+      ).toBe('3-Cheese Pasta');
+    });
   });
 
   describe('recognize (mocked fetch)', () => {

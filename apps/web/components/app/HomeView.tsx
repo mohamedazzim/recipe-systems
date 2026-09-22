@@ -29,6 +29,7 @@ import { GuestNotice } from '@/components/app/GuestNotice';
 import { api } from '@/lib/api';
 import { recipePhotoUrl } from '@/lib/photo';
 import type {
+  LibraryFilter,
   LibraryRecipe,
   RestrictionProfile,
   RestrictionVocabulary,
@@ -55,8 +56,9 @@ export interface HomeViewProps {
    *  D-22: library rows pass their saved DB name so the workspace title is the
    *  saved name even after a browser restart (no session record exists then). */
   onOpenRecipe: (recipeId: string, initialLines?: WireLine[] | null, title?: string) => void;
-  /** Navigate to the full Library view (D-25 D3 separation from Home). */
-  onOpenLibrary: () => void;
+  /** Navigate to the full Library view (D-25 D3 separation from Home) with an
+   *  optional status filter pre-applied (the dashboard stat cards). */
+  onOpenLibrary: (filter?: LibraryFilter) => void;
   /** Navigate to the Household restriction profile view. */
   onOpenHousehold: () => void;
   /** Quick actions — open the most recent recipe at the shopping/cook section. */
@@ -104,11 +106,16 @@ interface StatCardProps {
   tint: string;
   /** Optional real proportion (0–100) — the Analysed card's progress bar. */
   progress?: number;
+  onClick: () => void;
 }
 
-function StatCard({ label, value, sub, icon: Icon, tint, progress }: StatCardProps) {
+function StatCard({ label, value, sub, icon: Icon, tint, progress, onClick }: StatCardProps) {
   return (
-    <div className="rounded-xl border border-border bg-surface p-4 shadow-whisper">
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full rounded-xl border border-border bg-surface p-4 text-left shadow-whisper transition-shadow hover:shadow-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+    >
       <div className="flex items-start justify-between gap-3">
         <p className="text-small font-medium text-muted">{label}</p>
         <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${tint}`}>
@@ -129,7 +136,7 @@ function StatCard({ label, value, sub, icon: Icon, tint, progress }: StatCardPro
         </div>
       )}
       <p className="mt-1 text-caption text-faint">{sub}</p>
-    </div>
+    </button>
   );
 }
 
@@ -213,6 +220,7 @@ export function HomeView({
             sub: addedThisMonth > 0 ? `+${addedThisMonth} this month` : 'saved to your account',
             icon: CookingPot,
             tint: 'bg-accent/10 text-accent',
+            filter: 'all' as LibraryFilter,
           },
           {
             label: 'Analysed recipes',
@@ -224,6 +232,7 @@ export function HomeView({
             icon: ChartBar,
             tint: 'bg-gold/10 text-gold',
             progress: total > 0 ? (analysed / total) * 100 : 0,
+            filter: 'analysed' as LibraryFilter,
           },
           {
             label: 'Shopping lists',
@@ -234,6 +243,7 @@ export function HomeView({
                 : 'generated from your recipes',
             icon: Basket,
             tint: 'bg-positive/10 text-positive',
+            filter: 'shopping' as LibraryFilter,
           },
           {
             label: 'Cooked recipes',
@@ -241,6 +251,7 @@ export function HomeView({
             sub: cookedThisMonth > 0 ? `+${cookedThisMonth} this month` : 'with a cook log',
             icon: CheckCircle,
             tint: 'bg-negative/10 text-negative',
+            filter: 'cooked' as LibraryFilter,
           },
         ]
       : null;
@@ -350,7 +361,16 @@ export function HomeView({
           aria-label="Recipe statistics"
         >
           {stats.map((stat) => (
-            <StatCard key={stat.label} {...stat} />
+            <StatCard
+              key={stat.label}
+              label={stat.label}
+              value={stat.value}
+              sub={stat.sub}
+              icon={stat.icon}
+              tint={stat.tint}
+              progress={stat.progress}
+              onClick={() => onOpenLibrary(stat.filter)}
+            />
           ))}
         </div>
       )}
@@ -437,7 +457,7 @@ export function HomeView({
               </h2>
               <button
                 type="button"
-                onClick={onOpenLibrary}
+                onClick={() => onOpenLibrary()}
                 className="inline-flex items-center gap-1 text-caption font-semibold text-accent-strong hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
               >
                 View library

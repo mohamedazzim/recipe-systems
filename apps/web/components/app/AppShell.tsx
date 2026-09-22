@@ -27,13 +27,13 @@ import {
   UserCirclePlus,
 } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/Button';
-import type { User, WireLine } from '@/lib/types';
+import type { LibraryFilter, User, WireLine } from '@/lib/types';
 
 export type WorkspaceSection = 'ingredients' | 'method' | 'shopping' | 'analysis' | 'cook';
 
 export type AppView =
   | { name: 'home' }
-  | { name: 'library' }
+  | { name: 'library'; filter?: LibraryFilter }
   | { name: 'create'; mode?: 'paste' | 'form' | 'photo' | 'upload' }
   | { name: 'household' }
   | { name: 'landing' }

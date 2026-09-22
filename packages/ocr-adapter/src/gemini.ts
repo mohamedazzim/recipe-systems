@@ -43,6 +43,7 @@ export const GEMINI_OCR_PROMPT = [
   'RULES (non-negotiable):',
   '- Transcribe EXACTLY the text visibly written; never correct, translate, infer, or "improve" it.',
   '- Put the recipe name (the dish title at the top of the card) into "title". If the card has no title, use "title": "".',
+  '- For "title", omit any leading list/serial number — write "Parippu Curry", not "1. Parippu Curry".',
   '- Split every ingredient into its name and its amount: "Dal (split green gram, cherupayar parippu): 1 cup" becomes name "Dal (split green gram, cherupayar parippu)" and amount "1 cup".',
   '- Preserve amounts exactly as written (e.g. "1/2 tsp", "500 g", "2 tbsp", "to taste"). If an ingredient has no amount, use "amount": "".',
   '- Preserve distinctions between similar ingredients: "Fenugreek Seeds" and "Fenugreek Powder" are DIFFERENT entries — never merge them.',
@@ -60,6 +61,22 @@ function cleanLine(raw: string): string {
   line = line.replace(/^[-*•]\s*/, '');
   line = line.replace(/^\d+[.)]\s*/, '');
   return line.trim();
+}
+
+/** Strip a leading list serial from a transcribed dish title so a numbered
+ *  menu card yields the bare name: "1. Parippu Curry" → "Parippu Curry",
+ *  "No. 1 Parippu Curry" → "Parippu Curry". Names like "3-Cheese Pasta" are
+ *  left intact (a dash must be followed by whitespace to count as a marker). */
+export function stripSerialPrefix(title: string): string {
+  return title
+    // "S.No 1:" / "No. 1" / "Sl.No 1)" style prefixes
+    .replace(
+      /^(?:s\.?\s*no\.?|sl\.?\s*no\.?|sr\.?\s*no\.?|serial\s*no\.?|no\.?)\s*[:.\-–]?\s*\d+\s*[.):\-–]?\s*/i,
+      '',
+    )
+    // bare number markers: "1." / "1)" / "1:" / "1 - " (space after the dash)
+    .replace(/^\s*\d+\s*(?:[.):]|\s*[-–]\s+)\s*/, '')
+    .trim();
 }
 
 /**
@@ -114,7 +131,7 @@ export function parseGeminiStructuredOcr(text: string): GeminiStructuredOcr | nu
 /** Normalize the structured JSON into OcrResult — ingredients split into name +
  *  amount; method steps kept out of the ingredient list. */
 export function normalizeGeminiStructured(parsed: GeminiStructuredOcr, model: string): OcrResult {
-  const title = asText(parsed.title).trim();
+  const title = stripSerialPrefix(asText(parsed.title));
   const lines: OcrLine[] = [];
   for (const ing of parsed.ingredients ?? []) {
     const name = asText(ing?.name).trim();

@@ -43,6 +43,18 @@ export interface OcrIntakeResult {
   title: string | null;
 }
 
+/** Strip a leading list serial ("1.", "1)", "No. 1", "S.No 1:") from a
+ *  transcribed title so a numbered menu card yields the bare dish name. */
+function stripSerialPrefix(title: string): string {
+  return title
+    .replace(
+      /^(?:s\.?\s*no\.?|sl\.?\s*no\.?|sr\.?\s*no\.?|serial\s*no\.?|no\.?)\s*[:.\-–]?\s*\d+\s*[.):\-–]?\s*/i,
+      '',
+    )
+    .replace(/^\s*\d+\s*(?:[.):]|\s*[-–]\s+)\s*/, '')
+    .trim();
+}
+
 /**
  * Wire shape per API doc §3 + D-12B: `id` and `updated_at` added for line addressing and
  * the stale-edit token; `amount` = amount_text (display), `quantity` = parsed amount,
@@ -291,7 +303,7 @@ export class IntakeService {
       return { status: 'pending', draft_line_count: 0, flagged_count: 0, source_metadata: null, title: null };
     }
 
-    const title = result.title?.trim() || null;
+    const title = stripSerialPrefix(result.title ?? '') || null;
 
     // Structured providers separate ingredients from method steps; transcription-
     // only providers leave `kind` unset and every line is treated as an ingredient.

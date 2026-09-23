@@ -36,6 +36,8 @@ export interface RecipeWorkspaceProps {
   initialTitle?: string;
   /** RS-US servings: the serving count detected from the source text. */
   initialServings?: number | null;
+  /** RS-US servings: true when the count is an LLM estimate (never a stated fact). */
+  initialServingsEstimated?: boolean;
   /** D-20 (C3): the account's saved mode preference (default home). */
   preferredMode?: 'home' | 'chef';
   /** Lifted section tab — the shell's workspace nav drives it when present. */
@@ -59,6 +61,7 @@ export function RecipeWorkspace({
   initialLines = null,
   initialTitle,
   initialServings = null,
+  initialServingsEstimated = false,
   preferredMode = 'home',
   tab,
   onTabChange,
@@ -604,6 +607,7 @@ export function RecipeWorkspace({
                 title={title}
                 initialLines={initialLines}
                 initialServings={initialServings}
+                initialServingsEstimated={initialServingsEstimated}
                 onLinesLoaded={setLines}
                 onChanged={markAnalysisStale}
               />

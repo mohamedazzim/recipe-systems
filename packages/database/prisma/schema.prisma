@@ -92,6 +92,8 @@ model Recipe {
   title                String    @db.VarChar(255) // Editable
   rawText              String?   @map("raw_text")
   photoUri             String?   @map("photo_uri")
+  servings             Int?      @map("servings") // RS-US: stated (source) OR estimated (LLM) serving count
+  servingsEstimated    Boolean   @default(false) @map("servings_estimated") // true = LLM estimate, never a stated fact
   methodText           String?   @map("method_text")
   methodSourceTag      String?   @map("method_source_tag") @db.VarChar(16) // CHECK CARD/METHOD/INFERRED/UNKNOWN
   methodInferredSource String?   @map("method_inferred_source") // Required when tag = INFERRED

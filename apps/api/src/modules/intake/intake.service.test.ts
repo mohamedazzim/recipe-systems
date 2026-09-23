@@ -119,6 +119,133 @@ describe('splitRawLines (B1 raw-text handling)', () => {
   });
 });
 
+describe('IntakeService — RS-US servings resolution', () => {
+  function servingsService(
+    recipes: Partial<RecipeService> = {},
+    llm?: { modelVersion?: string; predictServings: jest.Mock } | null,
+  ) {
+    const { prisma, recipes: base } = mockPrisma();
+    Object.assign(base, { setServings: jest.fn() }, recipes);
+    return {
+      prisma,
+      recipes: base,
+      svc: new IntakeService(
+        prisma,
+        base as unknown as RecipeService,
+        undefined,
+        llm as never,
+      ),
+    };
+  }
+
+  it('resolveServings persists the deterministic stated count (no LLM call)', async () => {
+    const { prisma, recipes, svc } = servingsService({
+      assertOwned: jest.fn().mockResolvedValue({
+        id: 'r1',
+        rawText: 'Serves 4',
+        servings: null,
+        servingsEstimated: false,
+      }),
+    });
+    prisma.recipeInput.findFirst = jest.fn().mockResolvedValue(null);
+    const result = await svc.resolveServings(userActor, 'r1');
+    expect(result).toEqual({ servings: 4, estimated: false });
+    expect(recipes.setServings).toHaveBeenCalledWith(userActor, 'r1', 4, false);
+  });
+
+  it('resolveServings estimates via LLM when the source is silent', async () => {
+    const llm = { modelVersion: 'deepseek:test', predictServings: jest.fn().mockResolvedValue({ servings: 4 }) };
+    const { prisma, recipes, svc } = servingsService(
+      {
+        assertOwned: jest.fn().mockResolvedValue({
+          id: 'r1',
+          rawText: 'Fish — 500g\nSalt — to taste',
+          servings: null,
+          servingsEstimated: false,
+        }),
+      },
+      llm,
+    );
+    prisma.recipeInput.findFirst = jest.fn().mockResolvedValue(null);
+    prisma.recipeIngredientLine.findMany = jest.fn().mockResolvedValue([
+      { displayName: 'Fish — 500g', amountText: '500g' },
+    ]);
+    const result = await svc.resolveServings(userActor, 'r1');
+    expect(result).toEqual({ servings: 4, estimated: true });
+    expect(llm.predictServings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ingredient_lines: [{ name: 'Fish — 500g', amount: '500g' }],
+        prompt_version: 'v1',
+      }),
+    );
+    expect(recipes.setServings).toHaveBeenCalledWith(userActor, 'r1', 4, true);
+  });
+
+  it('resolveServings degrades to null when no LLM adapter is configured', async () => {
+    const { prisma, svc } = servingsService({
+      assertOwned: jest.fn().mockResolvedValue({
+        id: 'r1',
+        rawText: 'Fish — 500g',
+        servings: null,
+        servingsEstimated: false,
+      }),
+    });
+    prisma.recipeInput.findFirst = jest.fn().mockResolvedValue(null);
+    prisma.recipeIngredientLine.findMany = jest.fn().mockResolvedValue([{ displayName: 'Fish — 500g', amountText: '500g' }]);
+    const result = await svc.resolveServings(userActor, 'r1');
+    expect(result).toEqual({ servings: null, estimated: false });
+  });
+
+  it('resolveServings degrades to null when the LLM returns invalid output', async () => {
+    const llm = { modelVersion: 'deepseek:test', predictServings: jest.fn().mockResolvedValue({ servings: 'four' }) };
+    const { prisma, recipes, svc } = servingsService(
+      {
+        assertOwned: jest.fn().mockResolvedValue({
+          id: 'r1',
+          rawText: 'Fish — 500g',
+          servings: null,
+          servingsEstimated: false,
+        }),
+      },
+      llm,
+    );
+    prisma.recipeInput.findFirst = jest.fn().mockResolvedValue(null);
+    prisma.recipeIngredientLine.findMany = jest.fn().mockResolvedValue([{ displayName: 'Fish — 500g', amountText: '500g' }]);
+    const result = await svc.resolveServings(userActor, 'r1');
+    expect(result).toEqual({ servings: null, estimated: false });
+    expect(recipes.setServings).not.toHaveBeenCalled();
+  });
+
+  it('getServings returns the persisted count + estimate flag', async () => {
+    const { prisma, svc } = servingsService({
+      assertOwned: jest.fn().mockResolvedValue({
+        id: 'r1',
+        rawText: 'Fish — 500g',
+        servings: 6,
+        servingsEstimated: true,
+      }),
+    });
+    prisma.recipeInput.findFirst = jest.fn();
+    const result = await svc.getServings(userActor, 'r1');
+    expect(result).toEqual({ servings: 6, estimated: true });
+    expect(prisma.recipeInput.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('getServings falls back to deterministic extraction for legacy rows', async () => {
+    const { prisma, svc } = servingsService({
+      assertOwned: jest.fn().mockResolvedValue({
+        id: 'r1',
+        rawText: 'Makes 3',
+        servings: null,
+        servingsEstimated: false,
+      }),
+    });
+    prisma.recipeInput.findFirst = jest.fn().mockResolvedValue(null);
+    const result = await svc.getServings(userActor, 'r1');
+    expect(result).toEqual({ servings: 3, estimated: false });
+  });
+});
+
 describe('IntakeService — D-10 intake', () => {
   it('regression: semicolon paste keeps raw_text byte-for-byte and creates one line per clause', async () => {
     const { prisma, recipes } = mockPrisma();

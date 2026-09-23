@@ -29,7 +29,8 @@ import { LlmPermanentProviderError, LlmTransientProviderError } from './errors';
 import { extractJson } from './json';
 import { buildViewPrompt } from './prompts/views';
 import { buildExtractionUserPrompt, EXTRACTION_SYSTEM_PROMPT } from './prompts/extraction';
-import type { LlmAdapter, LlmGenerateRequest, RecipeExtractionRequest } from './index';
+import { buildServingsUserPrompt, SERVINGS_SYSTEM_PROMPT } from './prompts/servings';
+import type { LlmAdapter, LlmGenerateRequest, RecipeExtractionRequest, ServingsPredictionRequest } from './index';
 
 /** Official ThinkingLevel enum values (REST JSON string form). */
 export type GeminiThinkingLevel = 'MINIMAL' | 'LOW' | 'MEDIUM' | 'HIGH';
@@ -277,6 +278,13 @@ export class GeminiLlmAdapter implements LlmAdapter {
   async extractRecipeText(request: RecipeExtractionRequest): Promise<unknown> {
     const user = buildExtractionUserPrompt(request.source_text);
     const { content } = await this.generateContent(EXTRACTION_SYSTEM_PROMPT, user);
+    return extractJson(content);
+  }
+
+  /** RS-US servings: estimate the serving count from an ingredient list. */
+  async predictServings(request: ServingsPredictionRequest): Promise<unknown> {
+    const user = buildServingsUserPrompt(request.ingredient_lines);
+    const { content } = await this.generateContent(SERVINGS_SYSTEM_PROMPT, user);
     return extractJson(content);
   }
 }

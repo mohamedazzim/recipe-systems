@@ -46,6 +46,8 @@ export interface ParseTextResponse {
     flags: string[];
     /** RS-US servings: the serving count detected from the source text (null when silent). */
     servings?: number | null;
+    /** RS-US servings: true when the count is an LLM estimate (never a stated fact). */
+    servings_estimated?: boolean;
   };
 }
 
@@ -60,6 +62,8 @@ export interface UploadResponse {
   title?: string | null;
   /** RS-US servings: the serving count detected from the OCR'd text (null when silent). */
   servings?: number | null;
+  /** RS-US servings: true when the count is an LLM estimate (never a stated fact). */
+  servings_estimated?: boolean;
   ocr: {
     status: 'complete' | 'disabled';
     draft_line_count: number;

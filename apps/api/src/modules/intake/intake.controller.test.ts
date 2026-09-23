@@ -71,6 +71,7 @@ describe('IntakeController.formIntake (D-10A B5)', () => {
       recordFormLines: jest.fn().mockResolvedValue({ id: 'in1' }),
       listDraftLines: jest.fn().mockResolvedValue([{ id: 'l1' }]),
       resolveWireLines: jest.fn().mockResolvedValue([{ id: 'l1', display_name: 'Fish' }]),
+      resolveServings: jest.fn().mockResolvedValue({ servings: null, estimated: false }),
     };
     const { controller, recipes } = controllerWith(intake);
 
@@ -95,6 +96,7 @@ describe('IntakeController.formIntake (D-10A B5)', () => {
         lines: [{ id: 'l1', display_name: 'Fish' }],
         flags: [],
         servings: null,
+        servings_estimated: false,
       },
     });
   });

@@ -29,7 +29,6 @@ import { Actor, ActorRequest, GuestOrJwtGuard } from '../../common/guards/guest-
 import { AuthedRequest, JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RecipeService } from '../recipes/recipe.service';
 import { IntakeService, LinePatch, formRawText, type FormLineEntry } from './intake.service';
-import { extractServings } from './amount-parser';
 import { IMAGE_CONTENT_TYPES, ImageContentType, MAX_IMAGE_BYTES, StorageService } from './storage.service';
 
 const parseTextSchema = z.object({ text: z.string().min(1) });
@@ -126,13 +125,15 @@ export class IntakeController {
     await this.intake.recordPaste(actor, recipe.id, rawText);
     const lines = await this.intake.listDraftLines(actor, recipe.id);
     const wireLines = await this.intake.resolveWireLines(lines);
+    const servings = await this.intake.resolveServings(actor, recipe.id);
     return {
       recipe_id: recipe.id, // D-12I: needed to address the RS-US-08 review routes (upload already returns recipe_id)
       recipe: {
         raw_text: rawText,
         lines: wireLines,
         flags: [], // wrap-around detection is parse-review work (D-12)
-        servings: extractServings(rawText),
+        servings: servings.servings,
+        servings_estimated: servings.estimated,
       },
     };
   }
@@ -164,13 +165,15 @@ export class IntakeController {
     await this.intake.recordFormLines(actor, recipe.id, entries);
     const lines = await this.intake.listDraftLines(actor, recipe.id);
     const wireLines = await this.intake.resolveWireLines(lines);
+    const servings = await this.intake.resolveServings(actor, recipe.id);
     return {
       recipe_id: recipe.id,
       recipe: {
         raw_text: rawText,
         lines: wireLines,
         flags: [],
-        servings: extractServings(rawText),
+        servings: servings.servings,
+        servings_estimated: servings.estimated,
       },
     };
   }
@@ -255,12 +258,15 @@ export class IntakeController {
       await this.recipes.saveRecipe(actor, recipeId!, { title: ocr.title });
     }
 
+    const servings = await this.intake.resolveServings(actor, recipeId!);
+
     return {
       recipe_id: recipeId,
       image_id: input!.id,
       file_key: stored.key,
       title: ocr.title,
-      servings: await this.intake.getServings(actor, recipeId!),
+      servings: servings.servings,
+      servings_estimated: servings.estimated,
       ocr: {
         status: ocr.status,
         draft_line_count: ocr.draft_line_count,
@@ -399,9 +405,11 @@ export class IntakeController {
   @UseGuards(JwtAuthGuard)
   async getLines(@Req() req: AuthedRequest, @Param('recipeId') recipeId: string) {
     const lines = await this.intake.listReviewLines(this.userActor(req), recipeId);
+    const servings = await this.intake.getServings(this.userActor(req), recipeId);
     return {
       items: await this.intake.resolveWireLines(lines),
-      servings: await this.intake.getServings(this.userActor(req), recipeId),
+      servings: servings.servings,
+      servings_estimated: servings.estimated,
     };
   }
 

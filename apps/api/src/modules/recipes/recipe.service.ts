@@ -296,6 +296,24 @@ export class RecipeService {
   }
 
   /**
+   * RS-US servings: persist the resolved serving/yield count. `estimated` marks
+   * an LLM estimate (never a stated fact) — the UI shows it as "about N" rather
+   * than "makes N". One-writer rule: this service is the sole writer of `recipe`.
+   */
+  async setServings(
+    actor: Actor,
+    recipeId: string,
+    servings: number | null,
+    estimated: boolean,
+  ): Promise<void> {
+    await this.assertOwned(actor, recipeId);
+    await this.prisma.recipe.update({
+      where: { id: recipeId },
+      data: { servings, servingsEstimated: estimated },
+    });
+  }
+
+  /**
    * D-22 (D6): the canonical hard DELETE (ERD §13 — `deleted_at` is archive/hide
    * only; D6 is a real row removal). Every dependent row disappears through the
    * DB-level ON DELETE CASCADE foreign keys (proven in the D6 integration story):

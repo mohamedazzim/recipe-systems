@@ -47,6 +47,22 @@ describe('RecipeService', () => {
     });
   });
 
+  it('setServings persists the resolved count + estimate flag (one-writer: recipe table)', async () => {
+    const prisma: any = mockPrisma();
+    const recipeId = '11111111-1111-4111-8111-111111111111';
+    prisma.recipe.findUnique.mockResolvedValue({
+      id: recipeId,
+      accountId: 'acc-1',
+      guestSessionId: null,
+    });
+    const svc = new RecipeService(prisma);
+    await svc.setServings(userActor, recipeId, 4, true);
+    expect(prisma.recipe.update).toHaveBeenCalledWith({
+      where: { id: recipeId },
+      data: { servings: 4, servingsEstimated: true },
+    });
+  });
+
   it('creates a guest-owned recipe (XOR: no accountId set)', async () => {
     const prisma: any = mockPrisma();
     prisma.recipe.create.mockResolvedValue({ id: '11111111-1111-4111-8111-111111111111' });

@@ -16,6 +16,12 @@ import { parseViewOutput, ParseViewResult } from './prompts/validate';
 import { GroundingVerdict, validateViewGrounding } from './grounding/validator';
 
 export { EXTRACTION_PROMPT_VERSION } from './prompts/extraction';
+export {
+  SERVINGS_PROMPT_VERSION,
+  SERVINGS_SYSTEM_PROMPT,
+  buildServingsUserPrompt,
+} from './prompts/servings';
+export { resolveLlmAdapter } from './resolve';
 
 export interface LlmGenerateRequest {
   /** Which view the model must produce (1–9; 8/9 are deterministic — D-17 never calls the LLM for them). */
@@ -36,6 +42,43 @@ export interface RecipeExtractionRequest {
   /** Reproducibility pins (the EXTRACTION_PROMPT_VERSION + provider model). */
   prompt_version: string;
   model_version: string;
+}
+
+/** RS-US servings estimation — ingredient list in, {"servings": number|null} out. */
+export interface ServingsPredictionRequest {
+  /** The recipe's ingredient lines (display name + amount text). */
+  ingredient_lines: Array<{ name: string; amount: string | null }>;
+  /** Reproducibility pins (SERVINGS_PROMPT_VERSION + provider model). */
+  prompt_version: string;
+  model_version: string;
+}
+
+/** Parse a raw servings-prediction output into a validated estimate. */
+export type ParseServingsPredictionResult =
+  | { ok: true; servings: number | null }
+  | { ok: false; errors: string[] };
+
+export function parseServingsPrediction(raw: unknown): ParseServingsPredictionResult {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    return { ok: false, errors: ['output is not an object'] };
+  }
+  const obj = raw as Record<string, unknown>;
+  if (!('servings' in obj)) {
+    return { ok: false, errors: ['servings: required'] };
+  }
+  const servings = obj.servings;
+  if (servings === null) {
+    return { ok: true, servings: null };
+  }
+  if (
+    typeof servings !== 'number' ||
+    !Number.isInteger(servings) ||
+    servings < 1 ||
+    servings > 99
+  ) {
+    return { ok: false, errors: ['servings: must be an integer 1–99 or null'] };
+  }
+  return { ok: true, servings };
 }
 
 /** Phase 3 extraction parse result — same ok/errors shape as parseViewOutput. */
@@ -65,6 +108,8 @@ export interface LlmAdapter {
   generate(request: LlmGenerateRequest): Promise<unknown>;
   /** Phase 3: source-faithful structured recipe extraction (document text → parsed JSON). */
   extractRecipeText(request: RecipeExtractionRequest): Promise<unknown>;
+  /** RS-US servings: estimate the serving count from an ingredient list. */
+  predictServings(request: ServingsPredictionRequest): Promise<unknown>;
 }
 
 /** The canonical prompt pair for a request — exposed so the benchmark harness
@@ -111,6 +156,12 @@ export class MockLlmAdapter implements LlmAdapter {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async extractRecipeText(_request: RecipeExtractionRequest): Promise<unknown> {
     throw new Error('MockLlmAdapter: extraction is not supported (analysis fixtures only)');
+  }
+
+  /** The analysis mock has no servings fixture — estimation is a separate path. */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async predictServings(_request: ServingsPredictionRequest): Promise<unknown> {
+    throw new Error('MockLlmAdapter: servings prediction is not supported (analysis fixtures only)');
   }
 }
 

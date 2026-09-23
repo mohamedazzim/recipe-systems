@@ -23,10 +23,46 @@ import {
 import { randomUUID } from 'node:crypto';
 import { Prisma, PrismaClient, RecipeIngredientLine, RecipeInput } from '@recipe-systems/database';
 import { OcrAdapter, OcrResult } from '@recipe-systems/ocr-adapter';
+import {
+  LlmAdapter,
+  parseServingsPrediction,
+  SERVINGS_PROMPT_VERSION,
+} from '@recipe-systems/llm-adapter';
 import type { Actor } from '../../common/guards/guest-or-jwt.guard';
 import { RecipeService } from '../recipes/recipe.service';
 import { OCR_ADAPTER } from '../ocr/ocr.module';
+import { LLM_ADAPTER } from '../llm/llm.module';
 import { parseAmountAndUnit, extractAmountFromDisplayName, extractServings } from './amount-parser';
+
+/** RS-US servings: upper bound on the LLM estimation call so a slow provider can
+ *  never wedge an intake request. On timeout/error the servings stay null (the
+ *  source-faithful deterministic path already ran) — estimation is best-effort. */
+export const SERVINGS_PREDICTION_TIMEOUT_MS = 15_000;
+
+/** RS-US servings wire — the resolved count plus its provenance. `estimated`
+ *  marks an LLM estimate (never presented as a stated fact). */
+export interface ServingsState {
+  servings: number | null;
+  estimated: boolean;
+}
+
+/** Reject a promise after `ms` — bounds the optional LLM estimation call so a
+ *  hung provider degrades to "no estimate" instead of hanging the request. */
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('servings estimation timed out')), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
 
 /** D-11 (P2-2): conservative low-confidence threshold (0–1). Missing confidence
  *  is always flagged (Tech Stack §11: never invent a score). Not canonical — a
@@ -248,6 +284,9 @@ export class IntakeService implements OnModuleInit {
     /** D-11: the OCR adapter (null = OCR disabled). Intake remains the sole
      *  writer of recipe_input / recipe_ingredient_line; the adapter is read-only. */
     @Optional() @Inject(OCR_ADAPTER) private readonly ocr?: OcrAdapter | null,
+    /** RS-US servings: the LLM adapter (null = no provider). Used ONLY for the
+     *  optional servings estimation; analysis generation stays with the worker. */
+    @Optional() @Inject(LLM_ADAPTER) private readonly llm?: LlmAdapter | null,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -554,19 +593,78 @@ export class IntakeService implements OnModuleInit {
     return lines.map((line) => toWireLineResolved(line, map));
   }
 
-  /** RS-US servings: the stated serving/yield count detected from the recipe's
-   *  raw text OR its OCR'd text (deterministic, source-faithful — no inference). */
-  async getServings(actor: Actor, recipeId: string): Promise<number | null> {
-    await this.assertOwned(actor, recipeId);
-    const [recipe, input] = await Promise.all([
-      this.prisma.recipe.findUnique({ where: { id: recipeId }, select: { rawText: true } }),
-      this.prisma.recipeInput.findFirst({
-        where: { recipeId, ocrText: { not: null } },
-        orderBy: { createdAt: 'desc' },
-        select: { ocrText: true },
-      }),
-    ]);
-    return extractServings(recipe?.rawText ?? null) ?? extractServings(input?.ocrText ?? null);
+  /** RS-US servings (read): the persisted count, falling back to deterministic
+   *  extraction for rows that predate the column or never ran resolution. */
+  async getServings(actor: Actor, recipeId: string): Promise<ServingsState> {
+    const recipe = await this.recipes.assertOwned(actor, recipeId);
+    if (recipe.servings != null) {
+      return { servings: recipe.servings, estimated: recipe.servingsEstimated };
+    }
+    const input = await this.prisma.recipeInput.findFirst({
+      where: { recipeId, ocrText: { not: null } },
+      orderBy: { createdAt: 'desc' },
+      select: { ocrText: true },
+    });
+    return {
+      servings: extractServings(recipe.rawText ?? null) ?? extractServings(input?.ocrText ?? null),
+      estimated: false,
+    };
+  }
+
+  /**
+   * RS-US servings (resolve + persist): the canonical intake-time resolution.
+   * 1. Deterministic, source-faithful first — "serves 4" / "4 servings" etc.
+   * 2. If the source is silent AND an LLM adapter is configured, estimate the
+   *    count from the ingredient lines (best-effort, bounded — never blocks
+   *    intake and never fails it).
+   * The result is persisted on the recipe row via RecipeService (one-writer).
+   */
+  async resolveServings(actor: Actor, recipeId: string): Promise<ServingsState> {
+    const recipe = await this.recipes.assertOwned(actor, recipeId);
+    const input = await this.prisma.recipeInput.findFirst({
+      where: { recipeId, ocrText: { not: null } },
+      orderBy: { createdAt: 'desc' },
+      select: { ocrText: true },
+    });
+    const stated = extractServings(recipe.rawText ?? null) ?? extractServings(input?.ocrText ?? null);
+    if (stated != null) {
+      await this.recipes.setServings(actor, recipeId, stated, false);
+      return { servings: stated, estimated: false };
+    }
+
+    const estimated = await this.estimateServings(actor, recipeId);
+    if (estimated != null) {
+      await this.recipes.setServings(actor, recipeId, estimated, true);
+      return { servings: estimated, estimated: true };
+    }
+    return { servings: null, estimated: false };
+  }
+
+  /** RS-US servings: LLM estimation from the draft lines (best-effort). Returns
+   *  null when no adapter is configured, the provider fails/times out, or the
+   *  output is invalid — never throws. */
+  private async estimateServings(actor: Actor, recipeId: string): Promise<number | null> {
+    if (!this.llm) return null;
+    const lines = await this.listDraftLines(actor, recipeId);
+    if (lines.length === 0) return null;
+    const ingredientLines = lines.map((l) => ({
+      name: l.displayName,
+      amount: l.amountText,
+    }));
+    try {
+      const raw = await withTimeout(
+        this.llm.predictServings({
+          ingredient_lines: ingredientLines,
+          prompt_version: SERVINGS_PROMPT_VERSION,
+          model_version: this.llm.modelVersion ?? 'unknown',
+        }),
+        SERVINGS_PREDICTION_TIMEOUT_MS,
+      );
+      const parsed = parseServingsPrediction(raw);
+      return parsed.ok ? parsed.servings : null;
+    } catch {
+      return null;
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────────

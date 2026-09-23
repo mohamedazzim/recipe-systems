@@ -44,6 +44,8 @@ export type AppView =
       initialTitle?: string;
       /** RS-US servings: the serving count detected from the source text. */
       initialServings?: number | null;
+      /** RS-US servings: true when the count is an LLM estimate (never a stated fact). */
+      initialServingsEstimated?: boolean;
       /** Fresh-recipe hints (bulk-upload confirm): skip the doomed discovery
        *  GETs — a brand-new recipe has no analysis and no shopping list. */
       initialAnalysisHint?: 'none' | 'present' | 'unknown';

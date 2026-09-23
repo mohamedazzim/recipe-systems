@@ -13,6 +13,7 @@ import {
   LlmAdapter,
   LlmGenerateRequest,
   RecipeExtractionRequest,
+  ServingsPredictionRequest,
   type GeminiThinkingLevel,
 } from '@recipe-systems/llm-adapter';
 import type { StructuredRecipeInput } from '@recipe-systems/schemas';
@@ -32,6 +33,10 @@ class PendingAdapter implements LlmAdapter {
   }
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async extractRecipeText(_request: RecipeExtractionRequest): Promise<unknown> {
+    throw new ProviderPendingError();
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async predictServings(_request: ServingsPredictionRequest): Promise<unknown> {
     throw new ProviderPendingError();
   }
 }
@@ -140,6 +145,12 @@ class StubAdapter implements LlmAdapter {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async extractRecipeText(_request: RecipeExtractionRequest): Promise<unknown> {
     throw new Error('stub adapter has no extraction fixture (source text extraction is not stubbed)');
+  }
+
+  /** The analysis stub has no servings fixture — estimation is a separate path. */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async predictServings(_request: ServingsPredictionRequest): Promise<unknown> {
+    throw new Error('stub adapter has no servings fixture (servings estimation is not stubbed)');
   }
 }
 

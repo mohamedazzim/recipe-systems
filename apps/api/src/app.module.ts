@@ -4,6 +4,7 @@ import { AccountModule } from './modules/account/account.module';
 import { AnalysisModule } from './modules/analysis/analysis.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { IntakeModule } from './modules/intake/intake.module';
+import { LlmModule } from './modules/llm/llm.module';
 import { IngestionModule } from './modules/ingestion/ingestion.module';
 import { ReferenceDataModule } from './admin/reference-data.module';
 import { ShoppingModule } from './modules/shopping/shopping.module';
@@ -26,6 +27,7 @@ import { HealthController } from './health/health.controller';
     AccountModule,
     AuthModule,
     IntakeModule,
+    LlmModule,
     IngestionModule,
     AnalysisModule,
     ReferenceDataModule,

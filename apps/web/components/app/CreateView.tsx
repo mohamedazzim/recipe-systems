@@ -26,10 +26,10 @@ export interface CreateViewProps {
   /** The intake tab to open on (deep links from the Home entry modes). */
   initialMode?: 'paste' | 'form' | 'photo' | 'upload';
   onBack: () => void;
-  onParsed: (recipeId: string, lines: WireLine[], servings?: number | null) => void;
+  onParsed: (recipeId: string, lines: WireLine[], servings?: number | null, servingsEstimated?: boolean) => void;
   /** D-11 (B2): navigate after a completed photo upload, with the OCR draft and
    *  the card's transcribed title (null when the card has none). */
-  onUploaded: (recipeId: string, lines: WireLine[], title?: string | null, servings?: number | null) => void;
+  onUploaded: (recipeId: string, lines: WireLine[], title?: string | null, servings?: number | null, servingsEstimated?: boolean) => void;
   /** Phase 3: navigate to the source-faithful draft review for a document. */
   onOpenDraftReview: (ingestionId: string, originalFilename: string) => void;
 }
@@ -147,7 +147,7 @@ export function CreateView({
       recordSessionRecipe(result.recipe_id, previewOf(text),
         signedIn && accountId ? { kind: 'user', accountId } : { kind: 'guest' },
         result.recipe.lines);
-      onParsed(result.recipe_id, result.recipe.lines, result.recipe.servings ?? null);
+      onParsed(result.recipe_id, result.recipe.lines, result.recipe.servings ?? null, result.recipe.servings_estimated ?? false);
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
@@ -379,7 +379,7 @@ export function CreateView({
         signedIn && accountId ? { kind: 'user', accountId } : { kind: 'guest' },
         result.lines,
       );
-      onUploaded(result.recipe_id, result.lines, title, result.servings ?? null);
+      onUploaded(result.recipe_id, result.lines, title, result.servings ?? null, result.servings_estimated ?? false);
     } catch (err) {
       // The uploaded photo + input row stay durable on OCR failure (503/422) —
       // keep the selected file so Retry re-POSTs it. Map to a plain message.

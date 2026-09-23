@@ -36,6 +36,8 @@ export interface IngredientReviewProps {
   initialLines?: WireLine[] | null;
   /** RS-US servings: the serving count detected from the source text (null when silent). */
   initialServings?: number | null;
+  /** RS-US servings: true when the count is an LLM estimate (never a stated fact). */
+  initialServingsEstimated?: boolean;
   /** Lift the authoritative lines upward (name resolution for the views). */
   onLinesLoaded?: (lines: WireLine[]) => void;
   /** Fires after a USER mutation (edit/delete/add/split/merge/header) — the
@@ -79,7 +81,7 @@ function roundQuantity(value: number): string {
   return String(rounded);
 }
 
-export function IngredientReview({ recipeId, signedIn, title, initialLines = null, initialServings = null, onLinesLoaded, onChanged }: IngredientReviewProps) {
+export function IngredientReview({ recipeId, signedIn, title, initialLines = null, initialServings = null, initialServingsEstimated = false, onLinesLoaded, onChanged }: IngredientReviewProps) {
   const [lines, setLines] = useState<WireLine[] | null>(
     initialLines ? uniqueLines(initialLines) : initialLines,
   );
@@ -90,6 +92,8 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
   const [notice, setNotice] = useState<string | null>(null);
   /** RS-US servings: the detected baseline (null when the source is silent). */
   const [servings, setServings] = useState<number | null>(initialServings);
+  /** RS-US servings: true when the count is an LLM estimate (never a stated fact). */
+  const [servingsEstimated, setServingsEstimated] = useState<boolean>(initialServingsEstimated);
   /** The user's chosen serving count — ingredient amounts scale by current/baseline. */
   const [currentServings, setCurrentServings] = useState<number>(initialServings ?? 1);
   const scaleFactor = servings && servings > 0 ? currentServings / servings : 1;
@@ -108,10 +112,11 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
   const refresh = useCallback(async (): Promise<void> => {
     setForeignRecipe(false);
     try {
-      const result = await api<{ items: WireLine[]; servings?: number | null }>(`/recipes/${recipeId}/lines`);
+      const result = await api<{ items: WireLine[]; servings?: number | null; servings_estimated?: boolean }>(`/recipes/${recipeId}/lines`);
       const nextLines = uniqueLines(result.items);
       setLines(nextLines);
       setServings(result.servings ?? null);
+      setServingsEstimated(result.servings_estimated ?? false);
       // D-1: header lines are lifted out — the views/readiness read ingredients only.
       onLinesLoaded?.(nextLines.filter((l) => !l.is_header));
       setError(null);
@@ -498,7 +503,9 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
         </div>
         <span className="text-caption text-faint">
           {servings
-            ? `Recipe makes ${servings} — amounts shown for ${currentServings} ${currentServings === 1 ? 'serving' : 'servings'}.`
+            ? servingsEstimated
+              ? `Estimated about ${servings} — amounts shown for ${currentServings} ${currentServings === 1 ? 'serving' : 'servings'}.`
+              : `Recipe makes ${servings} — amounts shown for ${currentServings} ${currentServings === 1 ? 'serving' : 'servings'}.`
             : 'Servings not detected — amounts are shown as written.'}
         </span>
       </div>

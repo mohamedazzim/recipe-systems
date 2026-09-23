@@ -562,7 +562,10 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
                       <p className="mt-0.5 text-small tabular text-muted">
                         <span className="whitespace-nowrap">
                           {line.amount || 'No amount'}
-                          {line.unit ? ` ${line.unit}` : ''}
+                          {line.unit &&
+                          !line.amount?.toLowerCase().includes(line.unit.toLowerCase())
+                            ? ` ${line.unit}`
+                            : ''}
                         </span>
                         {line.category && (
                           <span className="whitespace-nowrap"> · {line.category}</span>

@@ -17,6 +17,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  OnModuleInit,
   Optional,
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
@@ -25,6 +26,7 @@ import { OcrAdapter, OcrResult } from '@recipe-systems/ocr-adapter';
 import type { Actor } from '../../common/guards/guest-or-jwt.guard';
 import { RecipeService } from '../recipes/recipe.service';
 import { OCR_ADAPTER } from '../ocr/ocr.module';
+import { parseAmountAndUnit, extractAmountFromDisplayName } from './amount-parser';
 
 /** D-11 (P2-2): conservative low-confidence threshold (0–1). Missing confidence
  *  is always flagged (Tech Stack §11: never invent a score). Not canonical — a
@@ -239,7 +241,7 @@ export interface EnqueueState {
 }
 
 @Injectable()
-export class IntakeService {
+export class IntakeService implements OnModuleInit {
   constructor(
     @Inject('PRISMA') private readonly prisma: PrismaClient,
     private readonly recipes: RecipeService,
@@ -247,6 +249,51 @@ export class IntakeService {
      *  writer of recipe_input / recipe_ingredient_line; the adapter is read-only. */
     @Optional() @Inject(OCR_ADAPTER) private readonly ocr?: OcrAdapter | null,
   ) {}
+
+  async onModuleInit(): Promise<void> {
+    // Non-blocking background backfill for existing recipes created before amount parsing
+    this.backfillMissingAmounts().catch(() => undefined);
+  }
+
+  /** Backfills numeric amount and unit for lines that only have amount_text. */
+  async backfillMissingAmounts(): Promise<number> {
+    try {
+      const lines = await this.prisma.recipeIngredientLine.findMany({
+        where: {
+          deletedAt: null,
+          amount: null,
+          amountText: { not: null },
+        },
+        select: {
+          id: true,
+          amountText: true,
+          unit: true,
+        },
+        take: 1000,
+      });
+
+      let updatedCount = 0;
+      for (const line of lines) {
+        if (!line.amountText) continue;
+        const parsed = parseAmountAndUnit(line.amountText);
+        if (parsed.amount != null || (line.unit == null && parsed.unit != null)) {
+          await this.prisma.recipeIngredientLine
+            .update({
+              where: { id: line.id },
+              data: {
+                ...(parsed.amount != null ? { amount: new Prisma.Decimal(parsed.amount) } : {}),
+                ...(line.unit == null && parsed.unit != null ? { unit: parsed.unit } : {}),
+              },
+            })
+            .catch(() => undefined);
+          updatedCount++;
+        }
+      }
+      return updatedCount;
+    } catch {
+      return 0;
+    }
+  }
 
   /** INV-17 + D-10 ownership enforcement: intake never writes rows for a recipe the
    *  actor does not own. */
@@ -352,12 +399,16 @@ export class IntakeService {
 
       const data = ingredientLines.map((line, index) => {
         const low = line.confidence === undefined || line.confidence < threshold;
+        const textToParse = line.amountText ?? extractAmountFromDisplayName(line.text);
+        const parsed = textToParse ? parseAmountAndUnit(textToParse) : { amount: null, unit: null };
         return {
           recipeId,
           shoppingKey: randomUUID(),
           lineNo: index + 1,
           displayName: line.text, // the card's own words as OCR'd (sourceTag CARD)
-          amountText: line.amountText ?? null, // structured providers split name/amount
+          amountText: line.amountText ?? extractAmountFromDisplayName(line.text) ?? null, // structured providers split name/amount
+          amount: parsed.amount != null ? parsed.amount : null,
+          unit: parsed.unit ?? null,
           sourceTag: 'CARD',
           ocrConfidence: line.confidence ?? null,
           needsReview: low,
@@ -398,23 +449,29 @@ export class IntakeService {
       const input = await tx.recipeInput.create({
         data: { recipeId, inputType: 'form', rawText },
       });
-      const creates = entries.map((entry, index) =>
-        tx.recipeIngredientLine.create({
+      const creates = entries.map((entry, index) => {
+        const parsed =
+          (entry.amount == null || entry.unit == null) && entry.amountText
+            ? parseAmountAndUnit(entry.amountText)
+            : null;
+        const amount = entry.amount !== undefined && entry.amount !== null ? entry.amount : (parsed?.amount ?? null);
+        const unit = entry.unit !== undefined && entry.unit !== null ? entry.unit : (parsed?.unit ?? null);
+        return tx.recipeIngredientLine.create({
           data: {
             recipeId,
             shoppingKey: randomUUID(),
             lineNo: index + 1,
             displayName: entry.displayName,
             amountText: entry.amountText ?? null,
-            unit: entry.unit ?? null,
-            amount: entry.amount ?? null,
+            unit,
+            amount,
             groupName: entry.groupName ?? null,
             sourceTag: 'CARD',
             needsReview: false,
             includeOnList: true,
           },
-        }),
-      );
+        });
+      });
       await Promise.all(creates);
       return input;
     });
@@ -432,19 +489,24 @@ export class IntakeService {
     rawText: string,
   ): Promise<RecipeIngredientLine[]> {
     const rawLines = splitRawLines(rawText);
-    const creates = rawLines.map((text, index) =>
-      tx.recipeIngredientLine.create({
+    const creates = rawLines.map((text, index) => {
+      const extracted = extractAmountFromDisplayName(text);
+      const parsed = extracted ? parseAmountAndUnit(extracted) : { amount: null, unit: null };
+      return tx.recipeIngredientLine.create({
         data: {
           recipeId,
           shoppingKey: randomUUID(),
           lineNo: index + 1,
           displayName: text, // verbatim: B1 mixed units / "to taste" / vernacular names
+          amountText: extracted ?? null,
+          amount: parsed.amount != null ? parsed.amount : null,
+          unit: parsed.unit ?? null,
           sourceTag: 'CARD', // D-10 decision: draft lines carry the card's own words
           needsReview: false, // low-confidence flagging is OCR work (D-11, deferred)
           includeOnList: true,
         },
-      }),
-    );
+      });
+    });
     return Promise.all(creates);
   }
 
@@ -539,6 +601,12 @@ export class IntakeService {
     };
     if (patch.amount !== undefined) {
       data.amount = patch.amount === null ? null : new Prisma.Decimal(patch.amount);
+    } else if (patch.amountText !== undefined) {
+      const parsed = parseAmountAndUnit(patch.amountText);
+      data.amount = parsed.amount != null ? new Prisma.Decimal(parsed.amount) : null;
+      if (patch.unit === undefined && parsed.unit != null) {
+        data.unit = parsed.unit;
+      }
     }
     if (patch.needsReview === false) {
       // D-14C: explicit user confirmation — the ONLY path that clears the flag.
@@ -723,6 +791,26 @@ export class IntakeService {
     };
     if (patch.amount !== undefined && patch.amount !== null) {
       data.amount = new Prisma.Decimal(patch.amount);
+    } else if (patch.amountText) {
+      const parsed = parseAmountAndUnit(patch.amountText);
+      if (parsed.amount != null) {
+        data.amount = new Prisma.Decimal(parsed.amount);
+      }
+      if (data.unit == null && parsed.unit != null) {
+        data.unit = parsed.unit;
+      }
+    } else {
+      const extracted = extractAmountFromDisplayName(patch.displayName);
+      if (extracted) {
+        const parsed = parseAmountAndUnit(extracted);
+        data.amountText = extracted;
+        if (parsed.amount != null) {
+          data.amount = new Prisma.Decimal(parsed.amount);
+        }
+        if (data.unit == null && parsed.unit != null) {
+          data.unit = parsed.unit;
+        }
+      }
     }
     return this.prisma.recipeIngredientLine.create({ data });
   }

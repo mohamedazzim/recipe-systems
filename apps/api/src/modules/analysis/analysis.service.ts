@@ -22,6 +22,7 @@ import { IntakeService } from '../intake/intake.service';
 import { RecipeService } from '../recipes/recipe.service';
 import { AnalysisQueueService, QueueUnavailableError } from './analysis-queue.service';
 import { classifySubstitution, type SubstitutionClass } from './substitution-preview';
+import { parseAmountAndUnit, extractAmountFromDisplayName } from '../intake/amount-parser';
 
 const UUID_RE =
   /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
@@ -60,18 +61,40 @@ export class AnalysisService {
 
     return {
       structured_recipe: {
-        ingredients: lines.map((l) => ({
-          id: l.id,
-          display_name: l.displayName,
-          canonical_name: null, // alias resolution = dictionary (Q5, Track R)
-          amount_text: l.amountText,
-          quantity: l.amount != null ? Number(l.amount) : null,
-          unit: l.unit,
-          confirmed_sense: l.confirmedSense,
-          category: l.groupName,
-          food_id: null, // FK → food_composition_table (Track R)
-          include_on_list: l.includeOnList,
-        })),
+        ingredients: lines.map((l) => {
+          let quantity = l.amount != null ? Number(l.amount) : null;
+          let unit = l.unit;
+          let amountText = l.amountText;
+
+          if (quantity == null || unit == null) {
+            const textToParse = amountText ?? extractAmountFromDisplayName(l.displayName);
+            if (textToParse) {
+              const parsed = parseAmountAndUnit(textToParse);
+              if (quantity == null && parsed.amount != null) {
+                quantity = parsed.amount;
+              }
+              if (unit == null && parsed.unit != null) {
+                unit = parsed.unit;
+              }
+              if (amountText == null && textToParse) {
+                amountText = textToParse;
+              }
+            }
+          }
+
+          return {
+            id: l.id,
+            display_name: l.displayName,
+            canonical_name: null, // alias resolution = dictionary (Q5, Track R)
+            amount_text: amountText,
+            quantity,
+            unit,
+            confirmed_sense: l.confirmedSense,
+            category: l.groupName,
+            food_id: null, // FK → food_composition_table (Track R)
+            include_on_list: l.includeOnList,
+          };
+        }),
         method_steps:
           methodText != null
             ? [

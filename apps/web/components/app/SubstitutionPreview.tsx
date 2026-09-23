@@ -70,6 +70,24 @@ export function SubstitutionPreview({
     }
   };
 
+  const hideOne = (sub: PersistedSubstitution): void => {
+    setPreviews((prev) => {
+      const next = { ...prev };
+      delete next[sub.ingredient_id];
+      return next;
+    });
+    setError(null);
+  };
+
+  /** The control is a disclosure toggle: first click previews, next click hides. */
+  const toggleOne = (sub: PersistedSubstitution): void => {
+    if (previews[sub.ingredient_id]) {
+      hideOne(sub);
+      return;
+    }
+    void previewOne(sub);
+  };
+
   return (
     <div>
       <p className="text-small text-muted">
@@ -99,11 +117,16 @@ export function SubstitutionPreview({
               {recipeId && (
                 <button
                   type="button"
-                  onClick={() => void previewOne(sub)}
+                  onClick={() => toggleOne(sub)}
                   disabled={busyId === sub.ingredient_id}
+                  aria-expanded={Boolean(preview)}
                   className="mt-2 text-caption font-semibold text-accent underline-offset-2 hover:underline disabled:text-faint"
                 >
-                  {busyId === sub.ingredient_id ? 'Previewing…' : 'Preview shift class'}
+                  {busyId === sub.ingredient_id
+                    ? 'Previewing…'
+                    : preview
+                      ? 'Hide shift class'
+                      : 'Preview shift class'}
                 </button>
               )}
             </li>

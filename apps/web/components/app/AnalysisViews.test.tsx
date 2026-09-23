@@ -195,6 +195,15 @@ describe('AnalysisViews (D-18 home mode, persisted payloads only)', () => {
     expect(JSON.parse((post[1] as RequestInit).body as string)).toEqual({
       ingredient_id: 'line-fish',
     });
+
+    // The same control toggles it back OFF (it used to only ever show).
+    await userEvent.click(screen.getByRole('button', { name: 'Hide shift class' }));
+    expect(screen.queryByTestId('substitution-class')).not.toBeInTheDocument();
+    // Hiding is a pure disclosure — it must not re-hit the API.
+    const posts = (globalThis.fetch as jest.Mock).mock.calls.filter(
+      (c) => (c[1] as RequestInit)?.method === 'POST',
+    );
+    expect(posts).toHaveLength(1);
   });
 
   it('unavailable view: honest empty state, never fake content', async () => {

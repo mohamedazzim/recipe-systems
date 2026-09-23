@@ -10,7 +10,9 @@ import { useEffect, useState } from 'react';
 import {
   ArrowRight,
   Basket,
+  Books,
   Camera,
+  CaretDown,
   ChartBar,
   CheckCircle,
   CookingPot,
@@ -18,10 +20,9 @@ import {
   ListBullets,
   Plant,
   Plus,
-  UserCirclePlus,
+  SquaresFour,
 } from '@phosphor-icons/react';
 import { Button } from '@/components/ui/Button';
-import { EmptyState } from '@/components/ui/EmptyState';
 import { Alert } from '@/components/ui/Alert';
 import { Text } from '@/components/ui/Typography';
 import { isOwnedBy, listSessionRecipes, sessionRecipeLines } from '@/lib/flow';
@@ -262,27 +263,23 @@ export function HomeView({
   const startCard = (
     <section
       aria-labelledby="start-heading"
-      className="relative overflow-hidden rounded-xl border border-border bg-surface p-5 shadow-whisper"
+      className="relative overflow-hidden rounded-[1.5rem] border border-[#dfe7dc] bg-[#edf6ec] p-5 shadow-[0_18px_42px_rgba(27,54,42,0.08)]"
     >
-      {/* The reference artwork — a CSS background layer (never an <img>): the
-          clean flat-lay image, right-anchored cover so the spoon and leaves
-          stay visible, with a short surface gradient on the left where the
-          real content sits over the artwork's own baked-in title area. */}
       <div
         aria-hidden="true"
         className="absolute inset-0 hidden bg-cover bg-right bg-no-repeat sm:block"
-        style={{ backgroundImage: 'url("/images/start-recipe-hero.png")' }}
+        style={{ backgroundImage: 'url("/images/start-recipe-clean.png")' }}
       />
       <div
         aria-hidden="true"
         className="absolute inset-0 hidden sm:block"
         style={{
           background:
-            'linear-gradient(to right, rgb(var(--rs-surface)) 0%, rgb(var(--rs-surface)) 62%, rgb(var(--rs-surface) / 0.6) 72%, transparent 80%)',
+            'linear-gradient(to right, rgba(237,246,236,0.96) 0%, rgba(237,246,236,0.88) 35%, rgba(237,246,236,0.36) 62%, rgba(237,246,236,0.04) 84%, transparent 100%)',
         }}
       />
 
-      <div className="relative z-10">
+      <div className="relative z-10 max-w-[38rem]">
         <div className="flex items-center gap-2">
           <Plant size={20} aria-hidden="true" weight="bold" className="text-accent" />
           <h2 id="start-heading" className="font-display text-h2 text-ink">
@@ -292,8 +289,8 @@ export function HomeView({
         <p className="mt-1 max-w-prose text-small text-muted">
           Add a recipe from text, a structured form, or a photo.
         </p>
-        <div className="mt-3.5 flex flex-wrap gap-2.5">
-          <Button size="sm" onClick={() => onCreate('paste')}>
+        <div className="mt-4 flex flex-wrap gap-2.5">
+          <Button size="sm" onClick={() => onCreate('paste')} className="shadow-sm">
             <FileText size={14} aria-hidden="true" weight="bold" />
             Paste text
           </Button>
@@ -310,12 +307,25 @@ export function HomeView({
     </section>
   );
 
+  // Guest-only building blocks (Image 2 reference layout).
+  const startModes = [
+    { label: 'Paste text', sub: 'Quick & easy', icon: FileText, mode: 'paste', primary: true },
+    { label: 'Structured form', sub: 'Step by step', icon: ListBullets, mode: 'form', primary: false },
+    { label: 'Upload photo', sub: 'From a recipe image', icon: Camera, mode: 'photo', primary: false },
+  ] as const;
+
+  const guestFeatures = [
+    { icon: ChartBar, title: 'Smart analysis', body: 'Ingredients, steps, nutrition & more', tint: 'bg-[#f6e6d6] text-[#c06a2e]' },
+    { icon: Books, title: 'Organise easily', body: 'Keep your favourites in one place', tint: 'bg-[#e9e3f3] text-[#6a5aa8]' },
+    { icon: CookingPot, title: 'Cook better', body: 'Insights to improve your meals', tint: 'bg-[#e2ede0] text-[#4c6b3a]' },
+    { icon: Plant, title: 'For everyone', body: 'Good food brings people together', tint: 'bg-[#f7e0e5] text-[#b3546b]' },
+  ] as const;
+
   return (
-    // `rs-home-fixed` (see globals.css) pins the signed-in dashboard to one
-    // viewport on desktop — but ONLY when the window is tall enough (≥840px).
-    // Shorter windows keep the normal scrollable flow so every section stays
-    // reachable (e.g. the browser's default window on a laptop screen).
-    <div className={signedIn && library !== null ? 'rs-home-fixed' : ''}>
+    // The redesigned home is a scrollable editorial landing page: the shell's
+    // `<main>` provides the normal document flow so every section (hero, stats,
+    // entry modes, profile, recent recipes, quick actions) stays reachable.
+    <div>
       {notice && (
         <div className="mb-5 lg:shrink-0">
           <Alert tone="success" title={notice} />
@@ -328,36 +338,140 @@ export function HomeView({
         </div>
       )}
 
-      {/* Greeting — name, subtitle, the editorial quote, and the one big CTA. */}
-      <section
-        aria-labelledby="home-heading"
-        className="flex flex-wrap items-end justify-between gap-x-8 gap-y-5 lg:shrink-0"
-      >
-        <div className="min-w-0">
-          <h1 id="home-heading" className="font-display text-h1 text-ink">
-            {greeting}
-          </h1>
-          <Text className="mt-1.5 max-w-prose text-muted">
-            Continue your cooking journey with AI-powered recipe analysis.
-          </Text>
-        </div>
-        <div className="hidden max-w-64 lg:block">
-          <p className="font-display text-h3 italic leading-snug text-muted">
-            &ldquo;A good recipe is more than ingredients — it&apos;s a story.&rdquo;
-          </p>
-        </div>
-        <Button size="lg" onClick={() => onCreate()}>
-          <Plus size={16} aria-hidden="true" weight="bold" />
-          Add new recipe
-        </Button>
-      </section>
+      {signedIn ? (
+        <section aria-labelledby="home-heading" className="lg:shrink-0">
+        <div className="overflow-hidden rounded-[1.75rem] border border-[#dfe7dc] bg-[#f5f6f0] shadow-[0_22px_60px_rgba(23,48,37,0.08)]">
+          <div className="grid gap-6 p-5 md:p-8 xl:grid-cols-[1.08fr_0.92fr] xl:items-center">
+            <div className="min-w-0">
+              <p className="mb-4 text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-[#3d6c59]">
+                Welcome to Recipe Systems
+              </p>
+              <h1 id="home-heading" className="font-display text-[2.4rem] leading-[1.05] tracking-[-0.03em] text-ink md:text-[3.4rem]">
+                {greeting}
+              </h1>
+              <p className="mt-2 font-display text-[1.35rem] leading-snug text-accent md:text-[1.6rem]">
+                Good food starts here.
+              </p>
+              <Text className="mt-4 max-w-[30rem] text-base text-muted md:text-lg">
+                Continue your cooking journey with AI-powered recipe analysis. Understand ingredients,
+                discover new ideas, and cook with confidence.
+              </Text>
 
-      {/* Four summary cards — real numbers from the library read model.
-          `md:` (not `xl:`) keeps the single row under OS display scaling
-          (125%/150%) where the effective CSS viewport is much smaller. */}
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Button size="lg" onClick={() => onCreate()}>
+                  <Plus size={16} aria-hidden="true" weight="bold" />
+                  Add new recipe
+                </Button>
+                {signedIn && (
+                  <Button size="lg" variant="outline" onClick={() => onOpenLibrary()}>
+                    <Books size={16} aria-hidden="true" weight="bold" />
+                    Browse library
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            <div className="relative min-h-[16rem] overflow-hidden rounded-[1.5rem] border border-[#e0e2da] bg-[#f0f1ea]">
+              <div
+                aria-hidden="true"
+                className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+                style={{ backgroundImage: 'url("/images/hero-food.png")' }}
+              />
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0.08)_100%)]" />
+              <div className="absolute bottom-4 right-4 max-w-[14rem] rounded-[1.25rem] border border-[#dfe7dc] bg-[rgba(250,249,245,0.78)] p-3 text-sm text-ink shadow-[0_12px_25px_rgba(33,58,49,0.08)] backdrop-blur-sm">
+                <p className="font-display text-[1.15rem] italic leading-snug text-ink">
+                  “A good recipe is more than ingredients — it&apos;s a story.”
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+        </section>
+      ) : (
+        <section aria-labelledby="home-heading" className="lg:shrink-0">
+          <div className="overflow-hidden rounded-[1.75rem] border border-[#dfe7dc] bg-[#f5f6f0] shadow-[0_22px_60px_rgba(23,48,37,0.08)]">
+            <div className="grid gap-6 p-5 md:p-8 xl:grid-cols-[1.08fr_0.92fr] xl:items-center">
+              <div className="min-w-0">
+                <p className="mb-4 text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-[#3d6c59]">
+                  Welcome to Recipe Systems
+                </p>
+                <h1 id="home-heading" className="font-display text-[2.7rem] leading-[0.95] tracking-[-0.04em] text-ink md:text-[4rem]">
+                  Good food<br />
+                  starts <span className="italic text-accent">here.</span>
+                </h1>
+                <Text className="mt-4 max-w-[30rem] text-base text-muted md:text-lg">
+                  Continue your cooking journey with AI-powered recipe analysis. Understand
+                  ingredients, discover new ideas, and cook with confidence.
+                </Text>
+
+                <div className="mt-7 flex flex-wrap items-center gap-x-7 gap-y-4">
+                  <span className="flex items-center gap-2.5">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#f3e2d0] text-[#c06a2e]">
+                      <FileText size={16} aria-hidden="true" weight="bold" />
+                    </span>
+                    <span className="text-small font-semibold leading-snug text-body">
+                      Analyse
+                      <br />
+                      recipes
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-2.5">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#e4ede2] text-[#4c6b3a]">
+                      <ChartBar size={16} aria-hidden="true" weight="bold" />
+                    </span>
+                    <span className="text-small font-semibold leading-snug text-body">
+                      Get insights
+                      <br />
+                      &amp; nutrition
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-2.5">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#e8e4f1] text-[#6a5aa8]">
+                      <Books size={16} aria-hidden="true" weight="bold" />
+                    </span>
+                    <span className="text-small font-semibold leading-snug text-body">
+                      Save to
+                      <br />
+                      your library
+                    </span>
+                  </span>
+                </div>
+
+                <div className="mt-7">
+                  <Button size="lg" onClick={() => onCreate()}>
+                    <Plus size={16} aria-hidden="true" weight="bold" />
+                    Add new recipe
+                  </Button>
+                </div>
+              </div>
+
+              <div className="relative min-h-[18rem] overflow-hidden rounded-[1.5rem] border border-[#e0e2da] bg-[#f0f1ea]">
+                <div
+                  aria-hidden="true"
+                  className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+                  style={{ backgroundImage: 'url("/images/hero-food.png")' }}
+                />
+                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0.12)_100%)]" />
+                <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-[rgba(250,249,245,0.82)] px-3 py-1.5 text-caption font-semibold text-ink shadow-sm backdrop-blur-sm">
+                  Turn ingredients into delicious stories
+                  <ArrowRight size={14} aria-hidden="true" weight="bold" className="text-accent" />
+                </div>
+                <div className="absolute bottom-4 right-4 max-w-[15rem] rounded-[1.25rem] border border-[#dfe7dc] bg-[rgba(250,249,245,0.78)] p-3 text-sm text-ink shadow-[0_12px_25px_rgba(33,58,49,0.08)] backdrop-blur-sm">
+                  <Plant size={16} aria-hidden="true" weight="fill" className="text-accent" />
+                  <p className="mt-1.5 font-display text-[1.1rem] italic leading-snug text-ink">
+                    “A good recipe is more than ingredients — it&apos;s a story.”
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Four summary cards — real numbers from the library read model. */}
       {stats && (
         <div
-          className="mt-5 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4 lg:shrink-0"
+          className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4"
           aria-label="Recipe statistics"
         >
           {stats.map((stat) => (
@@ -375,228 +489,295 @@ export function HomeView({
         </div>
       )}
 
-      {/* Feature row — the three entry modes + the restriction profile. */}
-      <div className={`mt-5 grid items-stretch gap-4 lg:shrink-0 ${signedIn ? 'md:grid-cols-2' : ''}`}>
-        {startCard}
+      {signedIn ? (
+        <div className="mt-6">{startCard}</div>
+      ) : (
+        <section aria-labelledby="start-heading" className="mt-6">
+          <div className="flex items-center gap-2">
+            <Plant size={20} aria-hidden="true" weight="bold" className="text-accent" />
+            <h2 id="start-heading" className="font-display text-h2 text-ink">
+              Start a new recipe
+            </h2>
+          </div>
+          <p className="mt-1 max-w-prose text-small text-muted">
+            Add a recipe from text, a structured form, or a photo.
+          </p>
 
-        {signedIn && (
-          <section
-            aria-labelledby="profile-heading"
-            className="rounded-xl border border-border bg-surface p-5 shadow-whisper"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <h2 id="profile-heading" className="font-display text-h2 text-ink">
-                  Household restriction profile
-                </h2>
-                {/* The label pack rides the description line, not a row of its own. */}
-                <div className="mt-1 flex items-center gap-x-2">
-                  <p className="min-w-0 flex-1 text-small text-muted">
-                    Manage allergens and dietary preferences for better analysis and safer
-                    recipes.
-                  </p>
-                  {profileInfo?.labelPack && (
-                    <span className="shrink-0 rounded-full border border-border bg-canvas px-2 py-0.5 text-caption font-medium text-faint">
-                      {profileInfo.labelPack} label pack
-                    </span>
-                  )}
-                </div>
-              </div>
-              <span className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold/10 text-gold sm:flex">
-                <UserCirclePlus size={20} aria-hidden="true" weight="bold" />
-              </span>
-            </div>
-            {profileInfo &&
-              (profileInfo.allergenNames.length > 0 || profileInfo.patterns.length > 0) && (
-                <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                  {profileInfo.allergenNames.map((name) => (
-                    <span
-                      key={name}
-                      className="rounded-full border border-border bg-canvas px-2 py-0.5 text-caption font-medium text-muted"
-                    >
-                      {name}
-                    </span>
-                  ))}
-                  {profileInfo.patterns.map((pattern) => (
-                    <span
-                      key={pattern}
-                      className="rounded-full border border-positive/40 bg-positive/10 px-2 py-0.5 text-caption font-semibold text-positive"
-                    >
-                      {pattern}
-                    </span>
-                  ))}
-                </div>
-              )}
-            <div className="mt-3.5 flex flex-wrap items-center gap-3">
-              <Button size="sm" variant="outline" onClick={onOpenHousehold}>
-                View profile
-                <ArrowRight size={14} aria-hidden="true" weight="bold" />
-              </Button>
-              {profileInfo && (
-                <span className="text-caption text-muted">
-                  {profileInfo.allergenNames.length + profileInfo.patterns.length > 0
-                    ? `${profileInfo.allergenNames.length + profileInfo.patterns.length} restriction${
-                        profileInfo.allergenNames.length + profileInfo.patterns.length === 1 ? '' : 's'
-                      } set`
-                    : 'No restrictions set'}
-                </span>
-              )}
-            </div>
-          </section>
-        )}
-      </div>
-
-      {/* Recently updated + quick actions — the bottom row (the only area that
-          may scroll on short desktop viewports; the page itself never does). */}
-      {signedIn && library !== null && (
-        <div className="mt-6 grid min-h-0 items-start gap-6 lg:flex-1 lg:overflow-hidden lg:grid-cols-[minmax(0,1fr)_16.5rem]">
-          <section aria-labelledby="recent-heading" className="min-w-0 lg:h-full lg:overflow-y-auto lg:pe-1">
-            <div className="flex items-baseline justify-between gap-4">
-              <h2 id="recent-heading" className="font-display text-h2 text-ink">
-                Recently updated recipes
-              </h2>
-              <button
-                type="button"
-                onClick={() => onOpenLibrary()}
-                className="inline-flex items-center gap-1 text-caption font-semibold text-accent-strong hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
-              >
-                View library
-                <ArrowRight size={14} aria-hidden="true" />
-              </button>
-            </div>
-            {library.length === 0 ? (
-              <figure className="mt-4 overflow-hidden rounded-xl border border-border bg-surface shadow-whisper">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/images/empty-library-hero.png"
-                  alt="Your recipe collection awaits — save your favourite recipes, analyse them with AI, create shopping lists and make cooking more joyful."
-                  className="block h-auto w-full"
-                  loading="lazy"
-                />
-              </figure>
-            ) : (
-              <ul className="mt-4 grid gap-4 sm:grid-cols-2">
-                {library.slice(0, 2).map((recipe, index) => (
-                  <li key={recipe.recipe_id}>
-                    <button
-                      type="button"
-                      onClick={() => onOpenRecipe(recipe.recipe_id, null, recipe.name)}
-                      className="group w-full overflow-hidden rounded-xl border border-border bg-surface text-left shadow-whisper transition-shadow hover:shadow-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
-                    >
-                      <span className="relative block h-28 w-full overflow-hidden bg-canvas">
-                        {recipe.photo_uri ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={recipePhotoUrl(recipe.photo_uri, recipe.recipe_id)}
-                            alt=""
-                            className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
-                            onError={(e) => {
-                              // Broken/expired asset — fall back to the monogram.
-                              (e.currentTarget as HTMLImageElement).style.display = 'none';
-                              const sib = (e.currentTarget as HTMLImageElement).nextElementSibling;
-                              if (sib instanceof HTMLElement) sib.style.display = 'flex';
-                            }}
-                          />
-                        ) : null}
-                        <span
-                          className={`${
-                            recipe.photo_uri ? 'hidden' : 'flex'
-                          } h-full w-full items-center justify-center ${MONOGRAM_TINTS[index % MONOGRAM_TINTS.length]}`}
-                          aria-hidden="true"
-                        >
-                          <span className="font-display text-3xl font-semibold">
-                            {(recipe.name.trim().charAt(0) || 'R').toUpperCase()}
-                          </span>
-                        </span>
-                      </span>
-                      <span className="block p-4">
-                        <span className="block truncate text-body font-semibold text-ink">
-                          {recipe.name}
-                        </span>
-                        <span className="mt-0.5 block text-caption text-faint">
-                          Updated {timeAgo(recipe.date)}
-                        </span>
-                        <span className="mt-2.5 flex flex-wrap items-center gap-1.5">
-                          {recipe.has_analysis ? (
-                            <span className="rounded-full border border-positive/40 bg-positive/10 px-2 py-0.5 text-caption font-semibold text-positive">
-                              Analysed
-                            </span>
-                          ) : (
-                            <span className="rounded-full border border-negative/30 bg-negative/10 px-2 py-0.5 text-caption font-semibold text-negative">
-                              Not analysed
-                            </span>
-                          )}
-                          {recipe.family && (
-                            <span className="rounded-full border border-border bg-canvas px-2 py-0.5 text-caption font-medium text-muted">
-                              {recipe.family}
-                            </span>
-                          )}
-                        </span>
-                      </span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          <aside
-            aria-label="Quick actions"
-            className="rounded-xl border border-border bg-surface p-5 shadow-whisper"
-          >
-            <h2 className="font-display text-h3 text-ink">Quick actions</h2>
-            <div className="mt-2 flex flex-col gap-0.5">
-              {(
-                [
-                  { label: 'Add a new recipe', icon: Plus, onClick: () => onCreate() },
-                  { label: 'Upload a recipe photo', icon: Camera, onClick: () => onCreate('photo') },
-                  { label: 'Create shopping list', icon: Basket, onClick: onCreateShoppingList },
-                  { label: 'Enter cook mode', icon: CookingPot, onClick: onEnterCookMode },
-                ] as const
-              ).map((action) => {
-                const Icon = action.icon;
+          <div className="mt-4 grid items-stretch gap-4 md:grid-cols-[minmax(0,1fr)_18rem]">
+            <div className="grid gap-4 sm:grid-cols-3">
+              {startModes.map((mode) => {
+                const Icon = mode.icon;
                 return (
                   <button
-                    key={action.label}
+                    key={mode.label}
                     type="button"
-                    onClick={action.onClick}
-                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-small font-medium text-body transition-colors hover:bg-ink/5 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                    onClick={() => onCreate(mode.mode)}
+                    className={`group rounded-[1.25rem] border p-4 text-left transition-shadow hover:shadow-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold ${
+                      mode.primary
+                        ? 'border-[#8bb79a] bg-[#d2ead8] shadow-sm'
+                        : 'border-border bg-surface shadow-whisper'
+                    }`}
                   >
-                    <Icon size={16} aria-hidden="true" weight="bold" className="text-accent" />
-                    {action.label}
+                    <span
+                      className={`flex h-10 w-10 items-center justify-center rounded-xl ${
+                        mode.primary ? 'bg-[#1d553f] text-white' : 'bg-accent/10 text-accent'
+                      }`}
+                    >
+                      <Icon size={18} aria-hidden="true" weight="bold" />
+                    </span>
+                    <span className="mt-3 block text-body font-semibold text-ink">
+                      {mode.label}
+                    </span>
+                    <span className="mt-0.5 block text-caption text-faint">
+                      {mode.sub}
+                    </span>
                   </button>
                 );
               })}
             </div>
-            <p className="mt-3 border-t border-border pt-3 text-caption text-faint">
-              Shopping lists and cook mode live inside each recipe — these open your most recent
-              one.
-            </p>
-          </aside>
-        </div>
+
+            <aside className="relative overflow-hidden rounded-[1.25rem] border border-[#e2e5d8] bg-[#eef3eb]">
+              <div
+                aria-hidden="true"
+                className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+                style={{ backgroundImage: 'url("/images/start-recipe-clean.png")' }}
+              />
+              <div
+                aria-hidden="true"
+                className="absolute inset-0 bg-[linear-gradient(135deg,rgba(238,243,235,0.96)_0%,rgba(238,243,235,0.78)_100%)]"
+              />
+              <div className="relative p-5">
+                <p className="font-display text-h3 text-ink">Any recipe, any format</p>
+                <ul className="mt-3 space-y-1.5">
+                  {['Ingredients', 'Instructions', 'Nutrition', 'AI Insights'].map((item) => (
+                    <li key={item} className="flex items-center gap-2 text-small text-body">
+                      <CheckCircle size={15} aria-hidden="true" weight="fill" className="text-accent" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </aside>
+          </div>
+        </section>
+      )}
+
+      {signedIn && (
+        <section
+          aria-labelledby="profile-heading"
+          className="mt-6 rounded-[1.5rem] border border-border bg-surface p-5 shadow-whisper"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h2 id="profile-heading" className="font-display text-h2 text-ink">
+                Household restriction profile
+              </h2>
+              <p className="mt-1 text-small text-muted">
+                Manage allergens and dietary preferences for better analysis and safer recipes.
+              </p>
+            </div>
+            <Button size="sm" variant="outline" onClick={onOpenHousehold}>
+              View profile
+              <ArrowRight size={14} aria-hidden="true" weight="bold" />
+            </Button>
+          </div>
+
+          {profileInfo && (
+            <div className="mt-3.5 flex flex-wrap items-center gap-1.5">
+              {profileInfo.allergenNames.map((name) => (
+                <span
+                  key={name}
+                  className="rounded-full border border-border bg-canvas px-2 py-0.5 text-caption font-medium text-muted"
+                >
+                  {name}
+                </span>
+              ))}
+              {profileInfo.patterns.map((pattern) => (
+                <span
+                  key={pattern}
+                  className="rounded-full border border-positive/40 bg-positive/10 px-2 py-0.5 text-caption font-semibold text-positive"
+                >
+                  {pattern}
+                </span>
+              ))}
+              {!profileInfo.allergenNames.length && !profileInfo.patterns.length && (
+                <span className="text-caption text-muted">No restrictions set</span>
+              )}
+            </div>
+          )}
+        </section>
+      )}
+
+      {signedIn && library !== null && (
+        <>
+          <section aria-labelledby="recent-heading" className="mt-6 min-w-0">
+          <div className="flex items-baseline justify-between gap-4">
+            <h2 id="recent-heading" className="font-display text-h2 text-ink">
+              Recently updated recipes
+            </h2>
+            <button
+              type="button"
+              onClick={() => onOpenLibrary()}
+              className="inline-flex items-center gap-1 text-caption font-semibold text-accent-strong hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+            >
+              View library
+              <ArrowRight size={14} aria-hidden="true" />
+            </button>
+          </div>
+
+          {library.length === 0 ? (
+            <div className="mt-4 overflow-hidden rounded-[1.5rem] border border-dashed border-border bg-surface shadow-whisper">
+              <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
+                <div className="mb-4 rounded-full bg-[#e7f3ea] p-5 text-[#2f6d57]">
+                  <CookingPot size={30} aria-hidden="true" weight="bold" />
+                </div>
+                <h3 className="font-display text-h3 text-ink">No recipes yet</h3>
+                <p className="mt-2 max-w-md text-small text-muted">
+                  Your pasted or created recipes will appear here.
+                </p>
+                <Button className="mt-5" onClick={() => onCreate()}>
+                  <Plus size={16} aria-hidden="true" weight="bold" />
+                  Paste your first recipe
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <ul className="mt-4 grid gap-4 sm:grid-cols-2">
+              {library.slice(0, 2).map((recipe, index) => (
+                <li key={recipe.recipe_id}>
+                  <button
+                    type="button"
+                    onClick={() => onOpenRecipe(recipe.recipe_id, null, recipe.name)}
+                    className="group w-full overflow-hidden rounded-[1.25rem] border border-border bg-surface text-left shadow-whisper transition-shadow hover:shadow-card focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                  >
+                    <span className="relative block h-36 w-full overflow-hidden bg-canvas">
+                      {recipe.photo_uri ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={recipePhotoUrl(recipe.photo_uri, recipe.recipe_id)}
+                          alt=""
+                          className="h-full w-full object-cover transition-transform group-hover:scale-[1.02]"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).style.display = 'none';
+                            const sib = (e.currentTarget as HTMLImageElement).nextElementSibling;
+                            if (sib instanceof HTMLElement) sib.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <span
+                        className={`${
+                          recipe.photo_uri ? 'hidden' : 'flex'
+                        } h-full w-full items-center justify-center ${MONOGRAM_TINTS[index % MONOGRAM_TINTS.length]}`}
+                        aria-hidden="true"
+                      >
+                        <span className="font-display text-4xl font-semibold">
+                          {(recipe.name.trim().charAt(0) || 'R').toUpperCase()}
+                        </span>
+                      </span>
+                    </span>
+                    <span className="block p-4">
+                      <span className="block truncate text-body font-semibold text-ink">
+                        {recipe.name}
+                      </span>
+                      <span className="mt-1 block text-caption text-faint">
+                        Updated {timeAgo(recipe.date)}
+                      </span>
+                      <span className="mt-3 flex flex-wrap items-center gap-1.5">
+                        {recipe.has_analysis ? (
+                          <span className="rounded-full border border-positive/40 bg-positive/10 px-2 py-0.5 text-caption font-semibold text-positive">
+                            Analysed
+                          </span>
+                        ) : (
+                          <span className="rounded-full border border-negative/30 bg-negative/10 px-2 py-0.5 text-caption font-semibold text-negative">
+                            Not analysed
+                          </span>
+                        )}
+                        {recipe.family && (
+                          <span className="rounded-full border border-border bg-canvas px-2 py-0.5 text-caption font-medium text-muted">
+                            {recipe.family}
+                          </span>
+                        )}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <aside
+          aria-label="Quick actions"
+          className="mt-6 rounded-[1.25rem] border border-border bg-surface p-5 shadow-whisper"
+        >
+          <h2 className="font-display text-h3 text-ink">Quick actions</h2>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {(
+              [
+                { label: 'Create shopping list', icon: Basket, onClick: onCreateShoppingList },
+                { label: 'Enter cook mode', icon: CookingPot, onClick: onEnterCookMode },
+                { label: 'Add a new recipe', icon: Plus, onClick: () => onCreate() },
+                { label: 'Upload a recipe photo', icon: Camera, onClick: () => onCreate('photo') },
+              ] as const
+            ).map((action) => {
+              const Icon = action.icon;
+              return (
+                <button
+                  key={action.label}
+                  type="button"
+                  onClick={action.onClick}
+                  className="inline-flex items-center gap-2 rounded-lg border border-border bg-canvas px-3 py-2 text-small font-medium text-body transition-colors hover:bg-ink/5 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                >
+                  <Icon size={16} aria-hidden="true" weight="bold" className="text-accent" />
+                  {action.label}
+                </button>
+              );
+            })}
+          </div>
+        </aside>
+        </>
       )}
 
       {!signedIn && (
         <section aria-labelledby="recent-heading" className="mt-10 border-t border-border pt-8">
-          <div className="flex items-baseline justify-between gap-4">
-            <h2 id="recent-heading" className="font-display text-h2 text-ink">
-              This session
-            </h2>
-            <span className="text-caption text-faint">saved in this browser only</span>
+          <div className="flex flex-wrap items-baseline justify-between gap-4">
+            <div>
+              <h2 id="recent-heading" className="font-display text-h2 text-ink">
+                Your recipes
+              </h2>
+              <p className="mt-1 text-small text-muted">
+                Here&apos;s where your saved recipes will appear.
+              </p>
+            </div>
+            <div className="flex items-center gap-2.5">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-small font-medium text-body">
+                Recently added
+                <CaretDown size={14} aria-hidden="true" />
+              </span>
+              <span className="flex overflow-hidden rounded-lg border border-border bg-surface" aria-hidden="true">
+                <span className="flex h-8 w-8 items-center justify-center border-r border-border text-muted">
+                  <SquaresFour size={15} />
+                </span>
+                <span className="flex h-8 w-8 items-center justify-center text-ink">
+                  <ListBullets size={15} />
+                </span>
+              </span>
+            </div>
           </div>
 
           {recipes.length === 0 ? (
-            <div className="mt-6">
-              <EmptyState
-                title="No recipes yet"
-                description="Your pastes from this browser will appear here."
-                action={
-                  <Button onClick={() => onCreate()} variant="outline">
-                    Paste your first recipe
-                  </Button>
-                }
-                glyph={<CookingPot size={40} aria-hidden="true" />}
-              />
+            <div className="mt-6 flex flex-col items-center justify-center rounded-[1.5rem] border border-dashed border-border bg-surface px-6 py-16 text-center">
+              <div className="mb-4 rounded-full bg-[#e7f3ea] p-5 text-[#2f6d57]">
+                <CookingPot size={30} aria-hidden="true" weight="bold" />
+              </div>
+              <h3 className="font-display text-h3 text-ink">No recipes yet</h3>
+              <p className="mt-2 max-w-md text-small text-muted">
+                Your pasted or created recipes will appear here.
+              </p>
+              <Button className="mt-5" onClick={() => onCreate()}>
+                <Plus size={16} aria-hidden="true" weight="bold" />
+                Paste your first recipe
+              </Button>
             </div>
           ) : (
             <ul className="mt-6 divide-y divide-border rounded-xl border border-border bg-surface">
@@ -630,6 +811,38 @@ export function HomeView({
               ))}
             </ul>
           )}
+
+          <p className="mt-8 border-t border-dashed border-border pt-6 text-center font-display text-small italic tracking-wide text-faint">
+            Discover. Analyse. Cook. Enjoy.
+          </p>
+        </section>
+      )}
+
+      {!signedIn && (
+        <section aria-label="What Recipe Systems offers" className="mt-8">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {guestFeatures.map((feature) => {
+              const Icon = feature.icon;
+              return (
+                <div
+                  key={feature.title}
+                  className="rounded-[1.25rem] border border-border bg-surface p-5 shadow-whisper"
+                >
+                  <span className={`flex h-10 w-10 items-center justify-center rounded-xl ${feature.tint}`}>
+                    <Icon size={18} aria-hidden="true" weight="bold" />
+                  </span>
+                  <h3 className="mt-3 font-display text-body font-semibold text-ink">
+                    {feature.title}
+                  </h3>
+                  <p className="mt-1 text-caption text-muted">{feature.body}</p>
+                </div>
+              );
+            })}
+          </div>
+          <p className="mt-6 flex items-center justify-end gap-2 font-display text-[1.3rem] italic text-muted">
+            Cooking made simple
+            <ArrowRight size={18} aria-hidden="true" weight="bold" className="text-accent" />
+          </p>
         </section>
       )}
 

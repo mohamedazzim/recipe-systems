@@ -246,9 +246,17 @@ export default function Home() {
           accountId={user?.id ?? null}
           initialMode={view.mode}
           onBack={() => setView({ name: 'home' })}
-          onParsed={(recipeId, lines) => setView({ name: 'workspace', recipeId, initialLines: lines })}
-          onUploaded={(recipeId, lines, title) =>
-            setView({ name: 'workspace', recipeId, initialLines: lines, initialTitle: title ?? undefined })
+          onParsed={(recipeId, lines, servings) =>
+            setView({ name: 'workspace', recipeId, initialLines: lines, initialServings: servings ?? null })
+          }
+          onUploaded={(recipeId, lines, title, servings) =>
+            setView({
+              name: 'workspace',
+              recipeId,
+              initialLines: lines,
+              initialTitle: title ?? undefined,
+              initialServings: servings ?? null,
+            })
           }
           onOpenDraftReview={(ingestionId, originalFilename) =>
             setView({ name: 'draft-review', ingestionId, originalFilename })
@@ -286,6 +294,7 @@ export default function Home() {
           recipeId={view.recipeId}
           signedIn={state.phase === 'signed-in'}
           initialTitle={view.initialTitle}
+          initialServings={view.initialServings}
           tab={workspaceTab}
           onTabChange={setWorkspaceTab}
           sectionRequest={sectionRequest}

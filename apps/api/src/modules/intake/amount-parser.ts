@@ -295,3 +295,28 @@ export function extractAmountFromDisplayName(displayName: string): string | null
   if (!/^(\d|[½¼¾⅓⅔]|to taste|a |an |half|for |one|two|three|four)/i.test(tail)) return null;
   return tail;
 }
+
+/**
+ * Detects a stated serving/yield count from raw recipe text. Deterministic and
+ * source-faithful: it only recognizes explicit wording, never infers a number.
+ * Supports "serves 4", "serves: 4 people", "4 servings", "4 portions",
+ * "yield 4", and "makes 4". Returns null when the source is silent.
+ */
+export function extractServings(text: string | null | undefined): number | null {
+  if (!text) return null;
+  const patterns: RegExp[] = [
+    /\bserves?\s*:?\s*(\d{1,2})(?:\s*(?:people|persons))?/i,
+    /(\d{1,2})\s*servings?/i,
+    /(\d{1,2})\s*portions?/i,
+    /\byields?\s*:?\s*(\d{1,2})/i,
+    /\bmakes?\s*(\d{1,2})(?:\s*(?:servings|portions))?/i,
+  ];
+  for (const pattern of patterns) {
+    const match = pattern.exec(text);
+    if (match) {
+      const value = Number(match[1]);
+      if (Number.isInteger(value) && value >= 1 && value <= 99) return value;
+    }
+  }
+  return null;
+}

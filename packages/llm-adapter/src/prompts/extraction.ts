@@ -53,7 +53,8 @@ SCHEMA:
         { "text": string, "source": string | null, "needs_review": boolean }
       ],
       "needs_review": boolean,
-      "notes": string[]
+      "notes": string[],
+      "servings": number | null
     }
   ]
 }`;

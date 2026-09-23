@@ -29,6 +29,11 @@ const config: Config = {
         gold: 'rgb(var(--rs-gold) / <alpha-value>)',
         positive: 'rgb(var(--rs-positive) / <alpha-value>)',
         negative: 'rgb(var(--rs-negative) / <alpha-value>)',
+        forest: 'rgb(var(--rs-forest) / <alpha-value>)',
+        'forest-deep': 'rgb(var(--rs-forest-deep) / <alpha-value>)',
+        'forest-soft': 'rgb(var(--rs-forest-soft) / <alpha-value>)',
+        sage: 'rgb(var(--rs-sage) / <alpha-value>)',
+        cream: 'rgb(var(--rs-cream) / <alpha-value>)',
         // Brand palette layer (culinary names — keep for badges/analysis tags).
         'rice-flour': '#FAF4E6',
         'charred-cumin': '#2B2118',
@@ -48,7 +53,7 @@ const config: Config = {
         'muted-dark': '#8C8272',
       },
       fontFamily: {
-        display: ['Fraunces', 'Georgia', 'serif'],
+        display: ['"Playfair Display"', 'Fraunces', 'Georgia', 'serif'],
         sans: ['"IBM Plex Sans"', 'system-ui', 'sans-serif'],
       },
       fontSize: {

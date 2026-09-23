@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
 
 /* ─────────────────────────────────────────────────────────────
    Recipe Systems — semantic token layer.
@@ -27,6 +27,13 @@
   --rs-gold: 147 105 26;             /* gold: inferred, focus, highlights */
   --rs-positive: 46 107 84;          /* confirmed/success = green */
   --rs-negative: 168 59 44;          /* danger: destructive, errors */
+
+  /* brand surfaces — dark botanical sidebar + editorial neutrals */
+  --rs-forest: 24 52 38;             /* deep forest green (sidebar bg) */
+  --rs-forest-deep: 17 40 29;        /* sidebar hover / pressed */
+  --rs-forest-soft: 39 73 53;        /* sidebar active tint */
+  --rs-sage: 160 178 151;            /* muted sage text on forest */
+  --rs-cream: 244 241 230;           /* cream text on forest */
 }
 
 .dark {

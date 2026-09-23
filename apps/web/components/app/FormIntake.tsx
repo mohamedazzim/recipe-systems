@@ -18,7 +18,7 @@ import type { ParseTextResponse, WireLine } from '@/lib/types';
 export interface FormIntakeProps {
   signedIn: boolean;
   accountId: string | null;
-  onParsed: (recipeId: string, lines: WireLine[]) => void;
+  onParsed: (recipeId: string, lines: WireLine[], servings?: number | null) => void;
   /** Report the form's in-flight state to the shared Add-a-recipe footer. */
   onBusyChange?: (busy: boolean) => void;
 }
@@ -77,7 +77,7 @@ export const FormIntake = forwardRef<FormIntakeHandle, FormIntakeProps>(
         signedIn && accountId ? { kind: 'user', accountId } : { kind: 'guest' },
         result.recipe.lines,
       );
-      onParsed(result.recipe_id, result.recipe.lines);
+      onParsed(result.recipe_id, result.recipe.lines, result.recipe.servings ?? null);
     } catch (err) {
       setError(
         err instanceof ApiError

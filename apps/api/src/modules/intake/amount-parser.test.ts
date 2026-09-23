@@ -1,4 +1,4 @@
-import { parseAmountAndUnit, extractAmountFromDisplayName } from './amount-parser';
+import { parseAmountAndUnit, extractAmountFromDisplayName, extractServings } from './amount-parser';
 
 describe('amount-parser', () => {
   describe('parseAmountAndUnit', () => {
@@ -106,6 +106,28 @@ describe('amount-parser', () => {
       expect(extractAmountFromDisplayName('Dal split green gram')).toBeNull();
       expect(extractAmountFromDisplayName('Pre-cooked dal')).toBeNull();
       expect(extractAmountFromDisplayName('Stir-fry')).toBeNull();
+    });
+  });
+
+  describe('extractServings', () => {
+    it('detects the common servings wordings', () => {
+      expect(extractServings('Meen Kuzhambu\nServes 4')).toBe(4);
+      expect(extractServings('Serves: 4 people')).toBe(4);
+      expect(extractServings('A simple dal. 4 servings.')).toBe(4);
+      expect(extractServings('Yield 6')).toBe(6);
+      expect(extractServings('Makes 4')).toBe(4);
+      expect(extractServings('2 portions')).toBe(2);
+    });
+
+    it('returns null when the source is silent', () => {
+      expect(extractServings('Meen Kuzhambu\nFish 500g')).toBeNull();
+      expect(extractServings(null)).toBeNull();
+      expect(extractServings(undefined)).toBeNull();
+      expect(extractServings('')).toBeNull();
+    });
+
+    it('ignores unrelated numbers (amounts are not servings)', () => {
+      expect(extractServings('500g fish\n1 tsp salt')).toBeNull();
     });
   });
 });

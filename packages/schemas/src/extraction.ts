@@ -38,6 +38,7 @@ export const RecipeExtractionSchema = z
     method_steps: z.array(ExtractedMethodStepSchema),
     needs_review: z.boolean(), // any field flagged → true
     notes: z.array(z.string()), // ambiguity notes (preserved source wording)
+    servings: z.number().int().positive().nullable().optional(), // stated serving/yield count, null when absent
   })
   .strict();
 export type RecipeExtraction = z.infer<typeof RecipeExtractionSchema>;

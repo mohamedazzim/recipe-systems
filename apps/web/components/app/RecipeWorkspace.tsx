@@ -34,6 +34,8 @@ export interface RecipeWorkspaceProps {
   /** D-22: the saved DB name passed from a library row — the authoritative
    *  title after a browser restart, when no session record exists. */
   initialTitle?: string;
+  /** RS-US servings: the serving count detected from the source text. */
+  initialServings?: number | null;
   /** D-20 (C3): the account's saved mode preference (default home). */
   preferredMode?: 'home' | 'chef';
   /** Lifted section tab — the shell's workspace nav drives it when present. */
@@ -56,6 +58,7 @@ export function RecipeWorkspace({
   onDeleted,
   initialLines = null,
   initialTitle,
+  initialServings = null,
   preferredMode = 'home',
   tab,
   onTabChange,
@@ -471,6 +474,9 @@ export function RecipeWorkspace({
         </div>
       </div>
 
+      {/* Editorial banner removed — the recipe workspace keeps the focus on the
+          ingredients, method, shopping list and analysis. */}
+
       {printError && <p className="mt-2 text-caption text-negative">{printError}</p>}
       {/* Save — the name input shows only while unnamed or editing. */}
       {(!named || editingName) && (
@@ -597,6 +603,7 @@ export function RecipeWorkspace({
                 signedIn={signedIn}
                 title={title}
                 initialLines={initialLines}
+                initialServings={initialServings}
                 onLinesLoaded={setLines}
                 onChanged={markAnalysisStale}
               />

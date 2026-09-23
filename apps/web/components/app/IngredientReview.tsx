@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   Check,
   DotsThreeVertical,
+  Minus,
   PencilSimple,
   Plus,
   Scissors,
@@ -33,6 +34,8 @@ export interface IngredientReviewProps {
    *  is Bearer-only (API doc §3). Signed-in users fetch fresh lines but
    *  render these immediately as a first paint. */
   initialLines?: WireLine[] | null;
+  /** RS-US servings: the serving count detected from the source text (null when silent). */
+  initialServings?: number | null;
   /** Lift the authoritative lines upward (name resolution for the views). */
   onLinesLoaded?: (lines: WireLine[]) => void;
   /** Fires after a USER mutation (edit/delete/add/split/merge/header) — the
@@ -70,7 +73,13 @@ function uniqueLines(lines: WireLine[]): WireLine[] {
   });
 }
 
-export function IngredientReview({ recipeId, signedIn, title, initialLines = null, onLinesLoaded, onChanged }: IngredientReviewProps) {
+/** Round a scaled quantity to at most two decimals (trailing zeros dropped). */
+function roundQuantity(value: number): string {
+  const rounded = Math.round(value * 100) / 100;
+  return String(rounded);
+}
+
+export function IngredientReview({ recipeId, signedIn, title, initialLines = null, initialServings = null, onLinesLoaded, onChanged }: IngredientReviewProps) {
   const [lines, setLines] = useState<WireLine[] | null>(
     initialLines ? uniqueLines(initialLines) : initialLines,
   );
@@ -79,8 +88,17 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
    *  (INV-17: foreign recipes 404). Distinct copy, never a raw error. */
   const [foreignRecipe, setForeignRecipe] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editor, setEditor] = useState<EditorState | null>(null);
+  /** RS-US servings: the detected baseline (null when the source is silent). */
+  const [servings, setServings] = useState<number | null>(initialServings);
+  /** The user's chosen serving count — ingredient amounts scale by current/baseline. */
+  const [currentServings, setCurrentServings] = useState<number>(initialServings ?? 1);
+  const scaleFactor = servings && servings > 0 ? currentServings / servings : 1;
+
+  useEffect(() => {
+    setCurrentServings(servings ?? 1);
+  }, [servings]);
+
+  const [editingId, setEditingId] = useState<string | null>(null);  const [editor, setEditor] = useState<EditorState | null>(null);
   const [saving, setSaving] = useState(false);
   const [splittingId, setSplittingId] = useState<string | null>(null);
   const [splitPoint, setSplitPoint] = useState('');
@@ -90,9 +108,10 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
   const refresh = useCallback(async (): Promise<void> => {
     setForeignRecipe(false);
     try {
-      const result = await api<{ items: WireLine[] }>(`/recipes/${recipeId}/lines`);
+      const result = await api<{ items: WireLine[]; servings?: number | null }>(`/recipes/${recipeId}/lines`);
       const nextLines = uniqueLines(result.items);
       setLines(nextLines);
+      setServings(result.servings ?? null);
       // D-1: header lines are lifted out — the views/readiness read ingredients only.
       onLinesLoaded?.(nextLines.filter((l) => !l.is_header));
       setError(null);
@@ -453,6 +472,37 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
         )}
       </div>
 
+      {/* RS-US servings — scale every quantified ingredient to a serving count. */}
+      <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg border border-border bg-surface px-3 py-2.5">
+        <span className="text-small font-semibold text-ink">Servings</span>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            aria-label="Decrease servings"
+            onClick={() => setCurrentServings((n) => Math.max(1, n - 1))}
+            className="flex h-8 w-8 items-center justify-center rounded-md border border-border-strong text-muted transition-colors hover:border-ink/40 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+          >
+            <Minus size={14} aria-hidden="true" weight="bold" />
+          </button>
+          <span className="min-w-10 text-center font-display text-h3 tabular text-ink">
+            {currentServings}
+          </span>
+          <button
+            type="button"
+            aria-label="Increase servings"
+            onClick={() => setCurrentServings((n) => n + 1)}
+            className="flex h-8 w-8 items-center justify-center rounded-md border border-border-strong text-muted transition-colors hover:border-ink/40 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+          >
+            <Plus size={14} aria-hidden="true" weight="bold" />
+          </button>
+        </div>
+        <span className="text-caption text-faint">
+          {servings
+            ? `Recipe makes ${servings} — amounts shown for ${currentServings} ${currentServings === 1 ? 'serving' : 'servings'}.`
+            : 'Servings not detected — amounts are shown as written.'}
+        </span>
+      </div>
+
       {error && (
         <div className="mt-4">
           <Alert tone="error" title="Something needs attention">
@@ -561,11 +611,14 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
                       </p>
                       <p className="mt-0.5 text-small tabular text-muted">
                         <span className="whitespace-nowrap">
-                          {line.amount || 'No amount'}
-                          {line.unit &&
-                          !line.amount?.toLowerCase().includes(line.unit.toLowerCase())
-                            ? ` ${line.unit}`
-                            : ''}
+                          {line.quantity != null && scaleFactor !== 1
+                            ? `${roundQuantity(line.quantity * scaleFactor)}${line.unit ? ` ${line.unit}` : ''}`
+                            : `${line.amount || 'No amount'}${
+                                line.unit &&
+                                !line.amount?.toLowerCase().includes(line.unit.toLowerCase())
+                                  ? ` ${line.unit}`
+                                  : ''
+                              }`}
                         </span>
                         {line.category && (
                           <span className="whitespace-nowrap"> · {line.category}</span>

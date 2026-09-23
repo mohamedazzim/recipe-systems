@@ -25,10 +25,10 @@ export interface CreateViewProps {
   /** The intake tab to open on (deep links from the Home entry modes). */
   initialMode?: 'paste' | 'form' | 'photo' | 'upload';
   onBack: () => void;
-  onParsed: (recipeId: string, lines: WireLine[]) => void;
+  onParsed: (recipeId: string, lines: WireLine[], servings?: number | null) => void;
   /** D-11 (B2): navigate after a completed photo upload, with the OCR draft and
    *  the card's transcribed title (null when the card has none). */
-  onUploaded: (recipeId: string, lines: WireLine[], title?: string | null) => void;
+  onUploaded: (recipeId: string, lines: WireLine[], title?: string | null, servings?: number | null) => void;
   /** Phase 3: navigate to the source-faithful draft review for a document. */
   onOpenDraftReview: (ingestionId: string, originalFilename: string) => void;
 }
@@ -146,7 +146,7 @@ export function CreateView({
       recordSessionRecipe(result.recipe_id, previewOf(text),
         signedIn && accountId ? { kind: 'user', accountId } : { kind: 'guest' },
         result.recipe.lines);
-      onParsed(result.recipe_id, result.recipe.lines);
+      onParsed(result.recipe_id, result.recipe.lines, result.recipe.servings ?? null);
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
@@ -378,7 +378,7 @@ export function CreateView({
         signedIn && accountId ? { kind: 'user', accountId } : { kind: 'guest' },
         result.lines,
       );
-      onUploaded(result.recipe_id, result.lines, title);
+      onUploaded(result.recipe_id, result.lines, title, result.servings ?? null);
     } catch (err) {
       // The uploaded photo + input row stay durable on OCR failure (503/422) —
       // keep the selected file so Retry re-POSTs it. Map to a plain message.
@@ -418,6 +418,32 @@ export function CreateView({
           </Alert>
         </div>
       )}
+
+      <div className="relative mt-6 overflow-hidden rounded-[1.25rem] border border-border shadow-whisper">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/images/create-banner.png"
+          alt=""
+          className="h-52 w-full object-cover object-center sm:h-60"
+          loading="lazy"
+        />
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 bg-[linear-gradient(to_right,rgba(242,239,228,0.96)_0%,rgba(242,239,228,0.78)_44%,transparent_72%)]"
+        />
+        <div className="absolute inset-0 flex items-center">
+          <div className="max-w-md px-6 sm:px-8">
+            <p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-accent">
+              Recipe intake
+            </p>
+            <h2 className="mt-2 font-display text-h2 text-ink">One recipe, any format</h2>
+            <p className="mt-1.5 text-small text-body">
+              Paste text, fill a structured form, or photograph a card — ingredients, method and
+              nutrition are extracted for you to review.
+            </p>
+          </div>
+        </div>
+      </div>
 
       <div className="mt-6 grid items-start gap-6 lg:grid-cols-[1.6fr_1fr]">
         <div className="overflow-hidden rounded-lg border border-border bg-surface">

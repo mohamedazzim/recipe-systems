@@ -409,6 +409,16 @@ export function DocumentDraftReview({
         authoritative recipe — the source evidence is preserved for every extracted line.
       </Text>
 
+      <div className="mt-5 overflow-hidden rounded-[1.25rem] border border-border shadow-whisper">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/images/draft-banner.png"
+          alt=""
+          className="h-40 w-full object-cover object-center sm:h-48"
+          loading="lazy"
+        />
+      </div>
+
       {error && (
         <div className="mt-4">
           <Alert tone="error" title="Could not load the draft">{error}</Alert>

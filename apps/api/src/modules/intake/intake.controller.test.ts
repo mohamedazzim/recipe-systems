@@ -90,7 +90,12 @@ describe('IntakeController.formIntake (D-10A B5)', () => {
     ]);
     expect(out).toEqual({
       recipe_id: 'r1',
-      recipe: { raw_text: 'Fish — 500g\nSalt — to taste', lines: [{ id: 'l1', display_name: 'Fish' }], flags: [] },
+      recipe: {
+        raw_text: 'Fish — 500g\nSalt — to taste',
+        lines: [{ id: 'l1', display_name: 'Fish' }],
+        flags: [],
+        servings: null,
+      },
     });
   });
 

@@ -122,7 +122,7 @@ describe('CreateView (paste + photo intake)', () => {
     expect(init.body).toBeInstanceOf(FormData);
     expect(init.headers).not.toHaveProperty('Content-Type');
 
-    expect(p.onUploaded).toHaveBeenCalledWith('r7', lines, null);
+    expect(p.onUploaded).toHaveBeenCalledWith('r7', lines, null, null);
     const stored = JSON.parse(window.localStorage.getItem('rs.session.recipes') ?? '[]');
     expect(stored[0].owner).toBe('user:acc-1');
   });
@@ -150,7 +150,7 @@ describe('CreateView (paste + photo intake)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Analyze recipe' }));
 
     expect(await screen.findByRole('button', { name: 'Working…' })).toBeInTheDocument();
-    expect(p.onUploaded).toHaveBeenCalledWith('r8', lines, 'Parippu Curry');
+    expect(p.onUploaded).toHaveBeenCalledWith('r8', lines, 'Parippu Curry', null);
     const stored = JSON.parse(window.localStorage.getItem('rs.session.recipes') ?? '[]');
     expect(stored[0].preview).toBe('Parippu Curry');
   });
@@ -191,7 +191,7 @@ describe('CreateView (paste + photo intake)', () => {
     expect(url).toContain('/recipes/parse-text');
     expect(init.method).toBe('POST');
     expect(JSON.parse(init.body as string)).toEqual({ text: 'Meen Kuzhambu' });
-    expect(p.onParsed).toHaveBeenCalledWith('r42', []);
+    expect(p.onParsed).toHaveBeenCalledWith('r42', [], null);
     const stored = JSON.parse(window.localStorage.getItem('rs.session.recipes') ?? '[]');
     expect(stored[0].owner).toBe('user:acc-1');
   });
@@ -239,7 +239,7 @@ describe('CreateView (paste + photo intake)', () => {
         { display_name: 'Salt', amount: 'to taste' },
       ],
     });
-    expect(p.onParsed).toHaveBeenCalledWith('r50', []);
+    expect(p.onParsed).toHaveBeenCalledWith('r50', [], null);
     const stored = JSON.parse(window.localStorage.getItem('rs.session.recipes') ?? '[]');
     expect(stored[0].owner).toBe('user:acc-1');
   });

@@ -29,6 +29,7 @@ import { Actor, ActorRequest, GuestOrJwtGuard } from '../../common/guards/guest-
 import { AuthedRequest, JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RecipeService } from '../recipes/recipe.service';
 import { IntakeService, LinePatch, formRawText, type FormLineEntry } from './intake.service';
+import { extractServings } from './amount-parser';
 import { IMAGE_CONTENT_TYPES, ImageContentType, MAX_IMAGE_BYTES, StorageService } from './storage.service';
 
 const parseTextSchema = z.object({ text: z.string().min(1) });
@@ -131,6 +132,7 @@ export class IntakeController {
         raw_text: rawText,
         lines: wireLines,
         flags: [], // wrap-around detection is parse-review work (D-12)
+        servings: extractServings(rawText),
       },
     };
   }
@@ -168,6 +170,7 @@ export class IntakeController {
         raw_text: rawText,
         lines: wireLines,
         flags: [],
+        servings: extractServings(rawText),
       },
     };
   }
@@ -257,6 +260,7 @@ export class IntakeController {
       image_id: input!.id,
       file_key: stored.key,
       title: ocr.title,
+      servings: await this.intake.getServings(actor, recipeId!),
       ocr: {
         status: ocr.status,
         draft_line_count: ocr.draft_line_count,
@@ -395,7 +399,10 @@ export class IntakeController {
   @UseGuards(JwtAuthGuard)
   async getLines(@Req() req: AuthedRequest, @Param('recipeId') recipeId: string) {
     const lines = await this.intake.listReviewLines(this.userActor(req), recipeId);
-    return { items: await this.intake.resolveWireLines(lines) };
+    return {
+      items: await this.intake.resolveWireLines(lines),
+      servings: await this.intake.getServings(this.userActor(req), recipeId),
+    };
   }
 
   /** D-14C bulk: clear the review flag on every active line (explicit user

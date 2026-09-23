@@ -44,6 +44,8 @@ export interface ParseTextResponse {
     raw_text: string;
     lines: WireLine[];
     flags: string[];
+    /** RS-US servings: the serving count detected from the source text (null when silent). */
+    servings?: number | null;
   };
 }
 
@@ -56,6 +58,8 @@ export interface UploadResponse {
   file_key: string;
   /** Dish title transcribed from the card (null when the card has none). */
   title?: string | null;
+  /** RS-US servings: the serving count detected from the OCR'd text (null when silent). */
+  servings?: number | null;
   ocr: {
     status: 'complete' | 'disabled';
     draft_line_count: number;

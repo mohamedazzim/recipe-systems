@@ -26,7 +26,7 @@ import { OcrAdapter, OcrResult } from '@recipe-systems/ocr-adapter';
 import type { Actor } from '../../common/guards/guest-or-jwt.guard';
 import { RecipeService } from '../recipes/recipe.service';
 import { OCR_ADAPTER } from '../ocr/ocr.module';
-import { parseAmountAndUnit, extractAmountFromDisplayName } from './amount-parser';
+import { parseAmountAndUnit, extractAmountFromDisplayName, extractServings } from './amount-parser';
 
 /** D-11 (P2-2): conservative low-confidence threshold (0–1). Missing confidence
  *  is always flagged (Tech Stack §11: never invent a score). Not canonical — a
@@ -552,6 +552,21 @@ export class IntakeService implements OnModuleInit {
   async resolveWireLines(lines: RecipeIngredientLine[]): Promise<WireLine[]> {
     const map = await this.loadResolutionMap();
     return lines.map((line) => toWireLineResolved(line, map));
+  }
+
+  /** RS-US servings: the stated serving/yield count detected from the recipe's
+   *  raw text OR its OCR'd text (deterministic, source-faithful — no inference). */
+  async getServings(actor: Actor, recipeId: string): Promise<number | null> {
+    await this.assertOwned(actor, recipeId);
+    const [recipe, input] = await Promise.all([
+      this.prisma.recipe.findUnique({ where: { id: recipeId }, select: { rawText: true } }),
+      this.prisma.recipeInput.findFirst({
+        where: { recipeId, ocrText: { not: null } },
+        orderBy: { createdAt: 'desc' },
+        select: { ocrText: true },
+      }),
+    ]);
+    return extractServings(recipe?.rawText ?? null) ?? extractServings(input?.ocrText ?? null);
   }
 
   // ─────────────────────────────────────────────────────────────────────────────

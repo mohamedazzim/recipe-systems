@@ -42,6 +42,8 @@ export type AppView =
       recipeId: string;
       initialLines?: WireLine[] | null;
       initialTitle?: string;
+      /** RS-US servings: the serving count detected from the source text. */
+      initialServings?: number | null;
       /** Fresh-recipe hints (bulk-upload confirm): skip the doomed discovery
        *  GETs — a brand-new recipe has no analysis and no shopping list. */
       initialAnalysisHint?: 'none' | 'present' | 'unknown';
@@ -175,14 +177,14 @@ export function AppShell({
   const isLanding = view.name === 'landing';
 
   const groupLabel =
-    'px-3 pt-6 pb-1.5 text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-faint';
+    'px-3 pt-6 pb-1.5 text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-sage/70';
   const navItem = (active: boolean) =>
     `flex items-center gap-2.5 rounded-lg text-small font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset--2 focus-visible:outline-gold ${
       navCollapsed ? 'mx-auto w-10 justify-center px-0 py-2.5' : 'w-full px-3 py-2'
     } ${
       active
-        ? 'bg-accent/10 font-semibold text-accent-strong'
-        : 'text-muted hover:bg-ink/5 hover:text-ink'
+        ? 'bg-forest-soft font-semibold text-cream shadow-sm'
+        : 'text-sage hover:bg-forest-soft/40 hover:text-cream'
     }`;
 
   return (
@@ -196,9 +198,22 @@ export function AppShell({
           of the screen even when the page content is taller than the viewport. */}
       <aside
         aria-label="Primary"
-        className="hidden border-r border-border bg-surface lg:sticky lg:top-0 lg:flex lg:h-[100dvh] lg:flex-col"
+        className="relative hidden border-r border-white/10 bg-forest lg:sticky lg:top-0 lg:flex lg:h-[100dvh] lg:flex-col"
       >
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-4 pt-5">
+        {/* Full-height botanical background — leaves grow from the bottom edge
+            upward, anchored to the rail's foot. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-0 bg-cover bg-bottom bg-no-repeat"
+          style={{ backgroundImage: 'url("/images/sidebar-leaf-bg.png")' }}
+        />
+        {/* Soft fade over the logo/nav zone so the top stays clean forest. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 z-0 h-56 bg-gradient-to-b from-forest via-forest/50 to-transparent"
+        />
+
+        <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-y-auto px-4 pb-4 pt-5">
           <button
             type="button"
             onClick={go({ name: 'home' })}
@@ -207,7 +222,7 @@ export function AppShell({
               navCollapsed ? 'justify-center px-1 py-1.5' : 'px-2 py-1.5'
             }`}
           >
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-surface-nested shadow-card ring-1 ring-border">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/10 shadow-card ring-1 ring-white/15">
               <Image
                 src="/images/recipe_systems_icon.png"
                 alt=""
@@ -219,10 +234,10 @@ export function AppShell({
             </span>
             {!navCollapsed && (
               <span className="min-w-0">
-                <span className="block font-display text-lg font-semibold leading-tight tracking-tight text-ink">
+                <span className="block font-display text-lg font-semibold leading-tight tracking-tight text-cream">
                   Recipe Systems
                 </span>
-                <span className="block text-caption text-muted">Understand. Cook. Enjoy.</span>
+                <span className="block text-caption text-sage">Understand. Cook. Enjoy.</span>
               </span>
             )}
           </button>
@@ -305,12 +320,12 @@ export function AppShell({
             )}
           </nav>
 
-          {/* Editorial footnote — the rail's quiet close (expanded only). */}
+          {/* Editorial footnote — the rail's quiet close (over the leaf art). */}
           {!navCollapsed && (
             <div className="mt-auto pt-6">
-              <div className="rounded-xl border border-accent/20 bg-accent/10 p-4">
-                <Plant size={18} aria-hidden="true" className="text-accent" weight="fill" />
-                <p className="mt-2.5 font-display text-small italic leading-relaxed text-ink">
+              <div className="rounded-xl border border-white/10 bg-forest/55 p-4 backdrop-blur-[2px]">
+                <Plant size={18} aria-hidden="true" className="text-sage" weight="fill" />
+                <p className="mt-2.5 font-display text-small italic leading-relaxed text-cream">
                   Good food brings people together.
                 </p>
               </div>
@@ -324,7 +339,7 @@ export function AppShell({
               aria-label={navCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
               title={navCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
               onClick={() => setNavCollapsed(!navCollapsed)}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border-strong bg-surface text-muted transition-colors hover:border-ink/40 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-white/15 bg-white/5 text-sage transition-colors hover:bg-white/10 hover:text-cream focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
             >
               {navCollapsed ? (
                 <CaretRight size={16} aria-hidden="true" weight="bold" />

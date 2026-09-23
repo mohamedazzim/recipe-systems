@@ -119,6 +119,19 @@ export function LandingPage({
         </div>
       </section>
 
+      {/* Editorial showcase — the kitchen in motion. */}
+      <section aria-hidden="true" className="pb-2">
+        <div className="overflow-hidden rounded-[1.75rem] border border-[#dfe7dc] shadow-[0_22px_60px_rgba(23,48,37,0.08)]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/images/hero-food.png"
+            alt=""
+            className="h-64 w-full object-cover object-center sm:h-80"
+            loading="lazy"
+          />
+        </div>
+      </section>
+
       {/* How it works — three steps, one short clause per step. */}
       <section className="border-t border-border py-10" aria-labelledby="how-it-works">
         <h2 id="how-it-works" className="font-display text-h2 text-ink">

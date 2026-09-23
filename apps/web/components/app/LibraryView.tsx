@@ -188,6 +188,15 @@ export function LibraryView({ library, initialQuery, initialFilter, onBack, onOp
 
       {list.length === 0 ? (
         <div className="mt-6">
+          <figure className="mx-auto mb-4 max-w-md overflow-hidden rounded-xl border border-border bg-surface shadow-whisper">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/images/empty-library-hero.png"
+              alt=""
+              className="block h-auto w-full"
+              loading="lazy"
+            />
+          </figure>
           <EmptyState
             title={
               results !== null

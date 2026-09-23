@@ -12,6 +12,7 @@ import { api, ApiError, API_BASE_URL } from '@/lib/api';
 import { listSessionRecipes } from '@/lib/flow';
 import type { AnalyseAck, AnalysisState, MethodState, SavedRecipe } from '@/lib/types';
 import { IngredientReview } from '@/components/app/IngredientReview';
+import { VideoWalkthrough } from '@/components/app/VideoWalkthrough';
 import type { WireLine } from '@/lib/types';
 import { MethodSection } from '@/components/app/MethodSection';
 import { ShoppingSection } from '@/components/app/ShoppingSection';
@@ -80,6 +81,8 @@ export function RecipeWorkspace({
   /** true once the user runs the analysis — the analysis takes the full width
    *  and the workflow sections collapse back to the tabs above. */
   const [analysisFullscreen, setAnalysisFullscreen] = useState(false);
+  /** RS-US (chef mode): the dish video walkthrough takes over the surface. */
+  const [videoOpen, setVideoOpen] = useState(false);
   const [lines, setLines] = useState<WireLine[]>(initialLines ?? []);
   const [methodState, setMethodState] = useState<MethodState | null>(null);
   const [title, setTitle] = useState('Recipe');
@@ -442,6 +445,13 @@ export function RecipeWorkspace({
           >
             {printing ? 'Printing…' : 'Print one-pager'}
           </Button>
+          {/* RS-US: the chef-mode video walkthrough — a separate surface; the
+              station card stays an actual printable card. */}
+          {mode === 'chef' && (
+            <Button variant="outline" size="sm" onClick={() => setVideoOpen(true)}>
+              Video walkthrough
+            </Button>
+          )}
           {signedIn && (
             <div data-ws-menu className="relative">
               <button
@@ -586,7 +596,21 @@ export function RecipeWorkspace({
         </div>
       </div>
 
-      {analysisFullscreen ? (
+      {videoOpen ? (
+        /* RS-US (chef mode): the video walkthrough owns the surface. */
+        <section
+          aria-label="Video walkthrough"
+          className="mt-6 min-h-0 flex-1 overflow-y-auto lg:pe-1"
+        >
+          <VideoWalkthrough
+            recipeId={recipeId}
+            title={title}
+            lines={lines}
+            signedIn={signedIn}
+            onBack={() => setVideoOpen(false)}
+          />
+        </section>
+      ) : analysisFullscreen ? (
         /* Analysis — full width after the user runs it. */
         <section
           ref={analysisRef}

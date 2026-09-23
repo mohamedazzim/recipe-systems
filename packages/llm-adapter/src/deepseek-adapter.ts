@@ -24,7 +24,14 @@ import { extractJson } from './json';
 import { buildViewPrompt } from './prompts/views';
 import { buildExtractionUserPrompt, EXTRACTION_SYSTEM_PROMPT } from './prompts/extraction';
 import { buildServingsUserPrompt, SERVINGS_SYSTEM_PROMPT } from './prompts/servings';
-import type { LlmAdapter, LlmGenerateRequest, RecipeExtractionRequest, ServingsPredictionRequest } from './index';
+import type {
+  LlmAdapter,
+  LlmGenerateRequest,
+  RecipeExtractionRequest,
+  ServingsPredictionRequest,
+  VideoChaptersRequest,
+  VideoProposalRequest,
+} from './index';
 
 // Backward-compatible re-exports (the shared modules are the canonical home).
 export { LlmPermanentProviderError, LlmTransientProviderError } from './errors';
@@ -217,5 +224,25 @@ export class DeepSeekLlmAdapter implements LlmAdapter {
     const user = buildServingsUserPrompt(request.ingredient_lines);
     const { content } = await this.chatCompletion(SERVINGS_SYSTEM_PROMPT, user);
     return extractJson(content);
+  }
+
+  /**
+   * RS-US video: DeepSeek accepts no YouTube/video input, so the walkthrough is
+   * only available on a video-capable provider (Gemini). Declared explicitly so
+   * the limitation surfaces as a clear failure instead of an empty result.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async proposeRecipeVideo(_request: VideoProposalRequest): Promise<unknown> {
+    throw new Error(
+      'DeepSeek has no YouTube/video input — the video walkthrough requires a video-capable provider (gemini)',
+    );
+  }
+
+  /** RS-US video: same limitation as the proposal (no video input on DeepSeek). */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async describeVideoChapters(_request: VideoChaptersRequest): Promise<unknown> {
+    throw new Error(
+      'DeepSeek has no YouTube/video input — the video walkthrough requires a video-capable provider (gemini)',
+    );
   }
 }

@@ -13,6 +13,7 @@ import { CookModule } from './modules/cook/cook.module';
 import { RestrictionsModule } from './modules/restrictions/restriction.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { CleanupModule } from './modules/cleanup/cleanup.module';
+import { VideoModule } from './modules/video/video.module';
 import { HealthController } from './health/health.controller';
 
 @Module({
@@ -37,6 +38,7 @@ import { HealthController } from './health/health.controller';
     RestrictionsModule,
     ReviewsModule,
     CleanupModule,
+    VideoModule,
   ],
   controllers: [HealthController],
 })

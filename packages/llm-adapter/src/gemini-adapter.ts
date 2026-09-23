@@ -30,7 +30,20 @@ import { extractJson } from './json';
 import { buildViewPrompt } from './prompts/views';
 import { buildExtractionUserPrompt, EXTRACTION_SYSTEM_PROMPT } from './prompts/extraction';
 import { buildServingsUserPrompt, SERVINGS_SYSTEM_PROMPT } from './prompts/servings';
-import type { LlmAdapter, LlmGenerateRequest, RecipeExtractionRequest, ServingsPredictionRequest } from './index';
+import {
+  buildVideoProposalUserPrompt,
+  buildVideoChaptersUserPrompt,
+  VIDEO_PROPOSAL_SYSTEM_PROMPT,
+  VIDEO_CHAPTERS_SYSTEM_PROMPT,
+} from './prompts/video';
+import type {
+  LlmAdapter,
+  LlmGenerateRequest,
+  RecipeExtractionRequest,
+  ServingsPredictionRequest,
+  VideoChaptersRequest,
+  VideoProposalRequest,
+} from './index';
 
 /** Official ThinkingLevel enum values (REST JSON string form). */
 export type GeminiThinkingLevel = 'MINIMAL' | 'LOW' | 'MEDIUM' | 'HIGH';
@@ -158,6 +171,7 @@ export class GeminiLlmAdapter implements LlmAdapter {
   private async generateContent(
     system: string,
     user: string,
+    opts: { extraParts?: Array<Record<string, unknown>>; extraBody?: Record<string, unknown> } = {},
   ): Promise<{ content: string; usage?: GeminiUsage }> {
     if (!this.apiKey) {
       throw new LlmPermanentProviderError(
@@ -178,7 +192,9 @@ export class GeminiLlmAdapter implements LlmAdapter {
               'x-goog-api-key': this.apiKey,
             },
             body: JSON.stringify({
-              contents: [{ role: 'user', parts: [{ text: user }] }],
+              contents: [
+                { role: 'user', parts: [...(opts.extraParts ?? []), { text: user }] },
+              ],
               systemInstruction: { parts: [{ text: system }] },
               generationConfig: {
                 temperature: 0,
@@ -186,6 +202,7 @@ export class GeminiLlmAdapter implements LlmAdapter {
                   ? { thinkingConfig: { thinkingLevel: this.thinkingLevel } }
                   : {}),
               },
+              ...(opts.extraBody ?? {}),
             }),
             signal: controller.signal,
           },
@@ -285,6 +302,32 @@ export class GeminiLlmAdapter implements LlmAdapter {
   async predictServings(request: ServingsPredictionRequest): Promise<unknown> {
     const user = buildServingsUserPrompt(request.ingredient_lines);
     const { content } = await this.generateContent(SERVINGS_SYSTEM_PROMPT, user);
+    return extractJson(content);
+  }
+
+  /**
+   * RS-US video: propose a YouTube video for the dish. Google-Search grounding is
+   * requested so the answer can come from a real result rather than recall — but
+   * the CALLER still verifies the video exists before storing or showing it, so a
+   * non-grounded (or wrong) answer can never reach the user.
+   */
+  async proposeRecipeVideo(request: VideoProposalRequest): Promise<unknown> {
+    const user = buildVideoProposalUserPrompt({
+      dish: request.dish,
+      ingredients: request.ingredients,
+    });
+    const { content } = await this.generateContent(VIDEO_PROPOSAL_SYSTEM_PROMPT, user, {
+      extraBody: { tools: [{ google_search: {} }] },
+    });
+    return extractJson(content);
+  }
+
+  /** RS-US video: hand the video itself to the model and read out its steps. */
+  async describeVideoChapters(request: VideoChaptersRequest): Promise<unknown> {
+    const user = buildVideoChaptersUserPrompt({ dish: request.dish });
+    const { content } = await this.generateContent(VIDEO_CHAPTERS_SYSTEM_PROMPT, user, {
+      extraParts: [{ fileData: { fileUri: request.video_url } }],
+    });
     return extractJson(content);
   }
 }

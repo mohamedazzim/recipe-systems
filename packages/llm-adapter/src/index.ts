@@ -21,6 +21,13 @@ export {
   SERVINGS_SYSTEM_PROMPT,
   buildServingsUserPrompt,
 } from './prompts/servings';
+export {
+  VIDEO_PROMPT_VERSION,
+  VIDEO_PROPOSAL_SYSTEM_PROMPT,
+  buildVideoProposalUserPrompt,
+  VIDEO_CHAPTERS_SYSTEM_PROMPT,
+  buildVideoChaptersUserPrompt,
+} from './prompts/video';
 export { resolveLlmAdapter } from './resolve';
 
 export interface LlmGenerateRequest {
@@ -81,6 +88,108 @@ export function parseServingsPrediction(raw: unknown): ParseServingsPredictionRe
   return { ok: true, servings };
 }
 
+/** RS-US video (chef mode): find a real YouTube video for the dish. The answer
+ *  is a CANDIDATE only — the caller verifies it exists before storing/showing. */
+export interface VideoProposalRequest {
+  /** The dish to find a video for (recipe name / identification family). */
+  dish: string;
+  /** The captured ingredient display names (context for the search). */
+  ingredients: string[];
+  prompt_version: string;
+  model_version: string;
+}
+
+/** RS-US video: read the ATTACHED video into timestamped cooking steps. */
+export interface VideoChaptersRequest {
+  /** A YouTube watch URL — sent to the provider as a video file part. */
+  video_url: string;
+  dish: string;
+  prompt_version: string;
+  model_version: string;
+}
+
+export interface VideoChapter {
+  /** "mm:ss" or "h:mm:ss", exactly as the provider reported it. */
+  start: string;
+  /** The same timestamp in seconds (the UI seeks with this). */
+  seconds: number;
+  title: string;
+  summary: string;
+}
+
+/** The 11-character YouTube id inside any common YouTube URL form. */
+export function youtubeIdFromUrl(url: string): string | null {
+  const match = url.match(
+    /(?:youtu\.be\/|[?&]v=|\/shorts\/|\/embed\/|\/live\/)([A-Za-z0-9_-]{11})/,
+  );
+  return match ? match[1] : null;
+}
+
+/** "mm:ss" / "h:mm:ss" → seconds. Null when the timestamp is malformed. */
+export function timestampSeconds(start: string): number | null {
+  const parts = start.trim().split(':');
+  if (parts.length < 2 || parts.length > 3) return null;
+  const nums = parts.map((p) => Number(p));
+  if (nums.some((n) => !Number.isInteger(n) || n < 0)) return null;
+  return nums.length === 2 ? nums[0] * 60 + nums[1] : nums[0] * 3600 + nums[1] * 60 + nums[2];
+}
+
+export type ParseVideoProposalResult =
+  | { ok: true; video: { video_id: string; title: string } | null }
+  | { ok: false; errors: string[] };
+
+/** Validate a proposal. "No confident answer" (null) is a VALID outcome. */
+export function parseVideoProposal(raw: unknown): ParseVideoProposalResult {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    return { ok: false, errors: ['output is not an object'] };
+  }
+  const video = (raw as Record<string, unknown>).video;
+  if (video === null) return { ok: true, video: null };
+  if (typeof video !== 'object' || video === undefined) {
+    return { ok: false, errors: ['video: required (object or null)'] };
+  }
+  const obj = video as Record<string, unknown>;
+  const id =
+    typeof obj.id === 'string'
+      ? obj.id.trim()
+      : typeof obj.url === 'string'
+        ? youtubeIdFromUrl(obj.url)
+        : null;
+  if (!id || !/^[A-Za-z0-9_-]{11}$/.test(id)) {
+    return { ok: false, errors: ['video.id: an 11-character YouTube id is required'] };
+  }
+  const title = typeof obj.title === 'string' ? obj.title.trim() : '';
+  return { ok: true, video: { video_id: id, title: title || id } };
+}
+
+export type ParseVideoChaptersResult =
+  | { ok: true; chapters: VideoChapter[] }
+  | { ok: false; errors: string[] };
+
+/** Validate a chapter read. An empty list is valid ("the video is not a cook"). */
+export function parseVideoChapters(raw: unknown): ParseVideoChaptersResult {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    return { ok: false, errors: ['output is not an object'] };
+  }
+  const chapters = (raw as Record<string, unknown>).chapters;
+  if (!Array.isArray(chapters)) return { ok: false, errors: ['chapters: required array'] };
+  const out: VideoChapter[] = [];
+  for (const [index, item] of chapters.entries()) {
+    if (typeof item !== 'object' || item === null) {
+      return { ok: false, errors: [`chapters.${index}: not an object`] };
+    }
+    const c = item as Record<string, unknown>;
+    const start = typeof c.start === 'string' ? c.start.trim() : '';
+    const seconds = start ? timestampSeconds(start) : null;
+    const title = typeof c.title === 'string' ? c.title.trim() : '';
+    const summary = typeof c.summary === 'string' ? c.summary.trim() : '';
+    if (seconds === null) return { ok: false, errors: [`chapters.${index}.start: mm:ss required`] };
+    if (!title) return { ok: false, errors: [`chapters.${index}.title: required`] };
+    out.push({ start, seconds, title, summary });
+  }
+  return { ok: true, chapters: out };
+}
+
 /** Phase 3 extraction parse result — same ok/errors shape as parseViewOutput. */
 export type ParseDocumentExtractionResult =
   | { ok: true; data: DocumentExtraction }
@@ -110,6 +219,10 @@ export interface LlmAdapter {
   extractRecipeText(request: RecipeExtractionRequest): Promise<unknown>;
   /** RS-US servings: estimate the serving count from an ingredient list. */
   predictServings(request: ServingsPredictionRequest): Promise<unknown>;
+  /** RS-US video: propose a YouTube video for the dish (verified by the caller). */
+  proposeRecipeVideo(request: VideoProposalRequest): Promise<unknown>;
+  /** RS-US video: read the ATTACHED video into timestamped cooking steps. */
+  describeVideoChapters(request: VideoChaptersRequest): Promise<unknown>;
 }
 
 /** The canonical prompt pair for a request — exposed so the benchmark harness
@@ -162,6 +275,18 @@ export class MockLlmAdapter implements LlmAdapter {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async predictServings(_request: ServingsPredictionRequest): Promise<unknown> {
     throw new Error('MockLlmAdapter: servings prediction is not supported (analysis fixtures only)');
+  }
+
+  /** The analysis mock has no video fixture — the walkthrough is a separate path. */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async proposeRecipeVideo(_request: VideoProposalRequest): Promise<unknown> {
+    throw new Error('MockLlmAdapter: video proposal is not supported (analysis fixtures only)');
+  }
+
+  /** The analysis mock has no video fixture — the walkthrough is a separate path. */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async describeVideoChapters(_request: VideoChaptersRequest): Promise<unknown> {
+    throw new Error('MockLlmAdapter: video chapters are not supported (analysis fixtures only)');
   }
 }
 

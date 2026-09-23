@@ -14,6 +14,8 @@ import {
   LlmGenerateRequest,
   RecipeExtractionRequest,
   ServingsPredictionRequest,
+  VideoChaptersRequest,
+  VideoProposalRequest,
   type GeminiThinkingLevel,
 } from '@recipe-systems/llm-adapter';
 import type { StructuredRecipeInput } from '@recipe-systems/schemas';
@@ -37,6 +39,14 @@ class PendingAdapter implements LlmAdapter {
   }
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async predictServings(_request: ServingsPredictionRequest): Promise<unknown> {
+    throw new ProviderPendingError();
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async proposeRecipeVideo(_request: VideoProposalRequest): Promise<unknown> {
+    throw new ProviderPendingError();
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async describeVideoChapters(_request: VideoChaptersRequest): Promise<unknown> {
     throw new ProviderPendingError();
   }
 }
@@ -151,6 +161,18 @@ class StubAdapter implements LlmAdapter {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async predictServings(_request: ServingsPredictionRequest): Promise<unknown> {
     throw new Error('stub adapter has no servings fixture (servings estimation is not stubbed)');
+  }
+
+  /** The analysis stub has no video fixture — the walkthrough is a separate path. */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async proposeRecipeVideo(_request: VideoProposalRequest): Promise<unknown> {
+    throw new Error('stub adapter has no video fixture (the walkthrough is not stubbed)');
+  }
+
+  /** The analysis stub has no video fixture — the walkthrough is a separate path. */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async describeVideoChapters(_request: VideoChaptersRequest): Promise<unknown> {
+    throw new Error('stub adapter has no video fixture (the walkthrough is not stubbed)');
   }
 }
 

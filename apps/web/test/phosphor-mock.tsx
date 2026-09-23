@@ -44,6 +44,7 @@ export const Minus = iconStub('Minus');
 export const Moon = iconStub('Moon');
 export const PencilSimple = iconStub('PencilSimple');
 export const Plant = iconStub('Plant');
+export const Play = iconStub('Play');
 export const Plus = iconStub('Plus');
 export const Scissors = iconStub('Scissors');
 export const SignOut = iconStub('SignOut');

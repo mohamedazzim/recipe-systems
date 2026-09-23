@@ -110,6 +110,7 @@ model Recipe {
   shoppingList  ShoppingListGeneration[]
   shoppingState IngredientShoppingState[]
   cookLogs      CookLog[]
+  video         RecipeVideo?
 
   // ERD §12 partial indexes (WHERE deleted_at IS NULL / WHERE guest_session_id IS NOT NULL)
   // are applied verbatim as raw SQL in migration 002 — no non-partial duplicates here.
@@ -510,4 +511,26 @@ model DocumentRecipeDraft {
   @@unique([ingestionId, draftIndex], map: "uq_document_recipe_draft_ingestion_index")
   @@index([recipeId], map: "ix_document_recipe_draft_recipe")
   @@map("document_recipe_draft")
+}
+
+/// RS-US (chef mode): the dish's video walkthrough — a THIRD-PARTY YouTube video
+/// plus its timestamped chapter breakdown read from the video itself. The video
+/// is proposed by the LLM and VERIFIED to exist (oEmbed) before storage; nothing
+/// in this row is a claim about the captured recipe object.
+model RecipeVideo {
+  id        String   @id @default(uuid()) @db.Uuid
+  recipeId  String   @unique @map("recipe_id") @db.Uuid
+  status    String   @db.VarChar(16) // CHECK generating/ready/failed
+  videoUrl  String?  @map("video_url") @db.VarChar(512)
+  videoId   String?  @map("video_id") @db.VarChar(32)
+  title     String?  @db.VarChar(512)
+  channel   String?  @db.VarChar(255)
+  chapters  Json? // [{ start, seconds, title, summary }]
+  error     String?  @db.VarChar(512)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@map("recipe_video")
 }

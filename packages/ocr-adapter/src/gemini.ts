@@ -31,6 +31,17 @@ export function geminiOcrMaxRetries(env: Record<string, string | undefined>): nu
 }
 
 /**
+ * Total wall-clock ceiling for one OCR call (all attempts + backoff). OCR runs
+ * synchronously on the intake request path behind a proxy, so the retry budget
+ * must stay well under the proxy/client ceiling — the per-attempt timeout alone
+ * does not bound the call (8 attempts of exponential backoff already sum to
+ * ~128s). Kept deliberately below the ~30s edge cut observed in production.
+ */
+export function geminiOcrTotalBudgetMs(env: Record<string, string | undefined>): number {
+  return Math.max(0, Number(env.OCR_TOTAL_BUDGET_MS ?? 25_000));
+}
+
+/**
  * The transcription contract (Q10): text ONLY as visibly written — identical
  * to the DeepSeek Vision contract so switching providers never changes what
  * the intake sees. Illegible words become "[unreadable]", never a guess.
@@ -181,6 +192,7 @@ export class GeminiVisionOcrAdapter implements OcrAdapter {
   private readonly baseUrl: string;
   private readonly timeoutMs: number;
   private readonly maxRetries: number;
+  private readonly totalBudgetMs: number;
 
   constructor(env: Record<string, string | undefined>) {
     this.apiKey = env.GEMINI_API_KEY ?? '';
@@ -188,6 +200,7 @@ export class GeminiVisionOcrAdapter implements OcrAdapter {
     this.baseUrl = geminiOcrBaseUrl(env);
     this.timeoutMs = geminiOcrTimeoutMs(env);
     this.maxRetries = geminiOcrMaxRetries(env);
+    this.totalBudgetMs = geminiOcrTotalBudgetMs(env);
   }
 
   async recognize(image: Uint8Array, contentType: string): Promise<OcrResult> {
@@ -197,10 +210,15 @@ export class GeminiVisionOcrAdapter implements OcrAdapter {
       );
     }
     const dataBase64 = Buffer.from(image).toString('base64');
+    // Bound the WHOLE call, not just one attempt: the retry ladder (500ms·2^n)
+    // plus repeated timeouts otherwise stretch one upload into minutes.
+    const deadline = Date.now() + this.totalBudgetMs;
 
     for (let attempt = 0; attempt <= this.maxRetries; attempt += 1) {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) break;
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+      const timer = setTimeout(() => controller.abort(), Math.min(this.timeoutMs, remaining));
       try {
         const response = await fetch(
           `${this.baseUrl}/v1beta/models/${this.model}:generateContent`,
@@ -259,14 +277,16 @@ export class GeminiVisionOcrAdapter implements OcrAdapter {
         return normalizeGeminiResponse(text, this.model);
       } catch (err) {
         if (err instanceof OcrProviderError) throw err;
-        const isRetryable = attempt < this.maxRetries;
+        const delay = 500 * 2 ** attempt;
+        // Retry only when BOTH the attempt count and the wall-clock budget allow.
+        const isRetryable = attempt < this.maxRetries && Date.now() + delay < deadline;
         if (!isRetryable) {
           if (err instanceof Error && err.name === 'AbortError') {
             throw new OcrTimeoutError(`Gemini Vision timed out after ${this.timeoutMs}ms`);
           }
           throw new OcrProviderError('Gemini Vision unavailable', err);
         }
-        await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
+        await new Promise((resolve) => setTimeout(resolve, delay));
       } finally {
         clearTimeout(timer);
       }

@@ -153,7 +153,7 @@ describe('IntakeService — RS-US servings resolution', () => {
     expect(recipes.setServings).toHaveBeenCalledWith(userActor, 'r1', 4, false);
   });
 
-  it('resolveServings estimates via LLM when the source is silent', async () => {
+  it('resolveServings returns immediately and estimates via the LLM in the background', async () => {
     const llm = { modelVersion: 'deepseek:test', predictServings: jest.fn().mockResolvedValue({ servings: 4 }) };
     const { prisma, recipes, svc } = servingsService(
       {
@@ -170,8 +170,14 @@ describe('IntakeService — RS-US servings resolution', () => {
     prisma.recipeIngredientLine.findMany = jest.fn().mockResolvedValue([
       { displayName: 'Fish — 500g', amountText: '500g' },
     ]);
+
+    // The response is NOT delayed by the provider round-trip.
     const result = await svc.resolveServings(userActor, 'r1');
-    expect(result).toEqual({ servings: 4, estimated: true });
+    expect(result).toEqual({ servings: null, estimated: false });
+    expect(llm.predictServings).not.toHaveBeenCalled();
+
+    // The estimate resolves after the response and persists on the recipe.
+    await new Promise((resolve) => setImmediate(resolve));
     expect(llm.predictServings).toHaveBeenCalledWith(
       expect.objectContaining({
         ingredient_lines: [{ name: 'Fish — 500g', amount: '500g' }],
@@ -196,7 +202,7 @@ describe('IntakeService — RS-US servings resolution', () => {
     expect(result).toEqual({ servings: null, estimated: false });
   });
 
-  it('resolveServings degrades to null when the LLM returns invalid output', async () => {
+  it('resolveServings leaves no estimate when the LLM output is invalid', async () => {
     const llm = { modelVersion: 'deepseek:test', predictServings: jest.fn().mockResolvedValue({ servings: 'four' }) };
     const { prisma, recipes, svc } = servingsService(
       {
@@ -213,6 +219,7 @@ describe('IntakeService — RS-US servings resolution', () => {
     prisma.recipeIngredientLine.findMany = jest.fn().mockResolvedValue([{ displayName: 'Fish — 500g', amountText: '500g' }]);
     const result = await svc.resolveServings(userActor, 'r1');
     expect(result).toEqual({ servings: null, estimated: false });
+    await new Promise((resolve) => setImmediate(resolve));
     expect(recipes.setServings).not.toHaveBeenCalled();
   });
 
@@ -243,6 +250,65 @@ describe('IntakeService — RS-US servings resolution', () => {
     prisma.recipeInput.findFirst = jest.fn().mockResolvedValue(null);
     const result = await svc.getServings(userActor, 'r1');
     expect(result).toEqual({ servings: 3, estimated: false });
+  });
+
+  it('scaleToServings scales every quantified line and persists the yield', async () => {
+    const { prisma, recipes, svc } = servingsService({
+      assertOwned: jest.fn().mockResolvedValue({
+        id: 'r1',
+        rawText: 'Serves 4',
+        servings: 4,
+        servingsEstimated: false,
+      }),
+    });
+    prisma.recipeIngredientLine.findMany = jest.fn().mockResolvedValue([
+      { id: 'l1', amount: new Prisma.Decimal(1), unit: 'cup' },
+      { id: 'l2', amount: new Prisma.Decimal(0.25), unit: 'tsp' },
+    ]);
+
+    const result = await svc.scaleToServings(userActor, 'r1', 8);
+
+    expect(result).toEqual({ servings: 8, estimated: false });
+    const updateFor = (id: string) =>
+      (prisma.recipeIngredientLine.update as jest.Mock).mock.calls.find(
+        (c) => c[0].where.id === id,
+      )[0];
+    // 4 → 8 doubles every amount (and its display text) so the count is true.
+    expect(Number(updateFor('l1').data.amount)).toBe(2);
+    expect(updateFor('l1').data.amountText).toBe('2 cup');
+    expect(Number(updateFor('l2').data.amount)).toBe(0.5);
+    expect(updateFor('l2').data.amountText).toBe('0.5 tsp');
+    expect(recipes.setServings).toHaveBeenCalledWith(userActor, 'r1', 8, false);
+  });
+
+  it('scaleToServings only persists the count when the baseline is unknown', async () => {
+    const { prisma, recipes, svc } = servingsService({
+      assertOwned: jest.fn().mockResolvedValue({
+        id: 'r1',
+        rawText: 'Fish — 500g',
+        servings: null,
+        servingsEstimated: false,
+      }),
+    });
+    const result = await svc.scaleToServings(userActor, 'r1', 6);
+    expect(result).toEqual({ servings: 6, estimated: false });
+    expect(prisma.recipeIngredientLine.findMany).not.toHaveBeenCalled();
+    expect(recipes.setServings).toHaveBeenCalledWith(userActor, 'r1', 6, false);
+  });
+
+  it('scaleToServings leaves the lines alone when the count is unchanged', async () => {
+    const { prisma, recipes, svc } = servingsService({
+      assertOwned: jest.fn().mockResolvedValue({
+        id: 'r1',
+        rawText: 'Serves 4',
+        servings: 4,
+        servingsEstimated: false,
+      }),
+    });
+    const result = await svc.scaleToServings(userActor, 'r1', 4);
+    expect(result).toEqual({ servings: 4, estimated: false });
+    expect(prisma.recipeIngredientLine.findMany).not.toHaveBeenCalled();
+    expect(recipes.setServings).toHaveBeenCalledWith(userActor, 'r1', 4, false);
   });
 });
 

@@ -46,6 +46,10 @@ export interface IngredientReviewProps {
   onChanged?: () => void;
 }
 
+/** RS-US servings: the LLM estimate lands AFTER intake responds, so re-read a
+ *  couple of times to pick it up without a manual refresh. */
+const SERVINGS_RECHECK_DELAYS_MS = [3000, 7000];
+
 interface EditorState {
   display_name: string;
   amount: string;
@@ -153,6 +157,42 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
     void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recipeId, signedIn]);
+
+  // RS-US servings: the estimate is computed after intake returns, so poll it in
+  // briefly when the count is not present yet (stops as soon as it arrives).
+  useEffect(() => {
+    if (!signedIn || servings != null) return;
+    const timers = SERVINGS_RECHECK_DELAYS_MS.map((delay) => setTimeout(() => void refresh(), delay));
+    return () => timers.forEach(clearTimeout);
+  }, [signedIn, servings, refresh]);
+
+  /** Persist the chosen yield — the server scales the stored amounts to match,
+   *  so the count the user set is the count the recipe actually makes. */
+  const persistServings = useCallback(
+    async (next: number): Promise<void> => {
+      try {
+        await api(`/recipes/${recipeId}/servings`, {
+          method: 'PATCH',
+          body: JSON.stringify({ servings: next }),
+        });
+        await refresh();
+        onChanged?.();
+      } catch (err) {
+        setError(
+          err instanceof ApiError ? err.message : 'Could not save the serving count.',
+        );
+      }
+    },
+    [recipeId, refresh, onChanged],
+  );
+
+  // Signed-in changes are PERSISTED; guests keep the local preview only (the
+  // route is Bearer-only). Debounced so a burst of clicks sends one request.
+  useEffect(() => {
+    if (!signedIn || servings == null || currentServings === servings) return;
+    const timer = setTimeout(() => void persistServings(currentServings), 700);
+    return () => clearTimeout(timer);
+  }, [signedIn, servings, currentServings, persistServings]);
 
   // Close the ingredient actions menu on outside click or Escape.
   useEffect(() => {

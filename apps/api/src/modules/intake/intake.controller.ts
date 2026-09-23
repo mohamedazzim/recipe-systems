@@ -50,6 +50,10 @@ const formIntakeSchema = z
   .object({ ingredients: z.array(formEntrySchema).min(1).max(100) })
   .strict();
 
+// RS-US servings: the user's chosen yield. Setting it scales the stored amounts
+// to match (so the count is true) and persists the count on the recipe.
+const setServingsSchema = z.object({ servings: z.number().int().min(1).max(99) }).strict();
+
 // D-12 wire contract (API doc §3 PATCH body + D-12D expected_updated_at token)
 // D-14C: needs_review accepts literal `false` only — clearing a flag is an explicit
 // user confirmation; clients can never set needs_review (OCR/D-11 owns true).
@@ -411,6 +415,23 @@ export class IntakeController {
       servings: servings.servings,
       servings_estimated: servings.estimated,
     };
+  }
+
+  /** RS-US servings: set the recipe's yield. Scales the stored amounts to match
+   *  so the count is TRUE — Intake owns the line writes (Q4), RecipeService owns
+   *  the recipe row. */
+  @Patch(':recipeId/servings')
+  @UseGuards(JwtAuthGuard, CsrfGuard)
+  async setServings(
+    @Req() req: AuthedRequest,
+    @Param('recipeId') recipeId: string,
+    @Body() body: unknown,
+  ) {
+    const parsed = setServingsSchema.safeParse(body);
+    if (!parsed.success) {
+      throw this.badRequest('INVALID_SERVINGS', 'servings must be an integer between 1 and 99');
+    }
+    return this.intake.scaleToServings(this.userActor(req), recipeId, parsed.data.servings);
   }
 
   /** D-14C bulk: clear the review flag on every active line (explicit user

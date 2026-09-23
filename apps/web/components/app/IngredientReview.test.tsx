@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { IngredientReview } from '@/components/app/IngredientReview';
 import type { WireLine } from '@/lib/types';
@@ -468,6 +468,7 @@ describe('IngredientReview (D-25 B6 — canonical + confirmation)', () => {
 
   afterEach(() => {
     jest.restoreAllMocks();
+    jest.useRealTimers();
   });
 
   function props(overrides: Partial<Parameters<typeof IngredientReview>[0]> = {}) {
@@ -557,5 +558,49 @@ describe('IngredientReview (D-25 B6 — canonical + confirmation)', () => {
     expect(screen.getByText('fenugreek powder')).toBeInTheDocument();
     expect(screen.getByText('Fenugreek seeds 1 tsp')).toBeInTheDocument();
     expect(screen.getByText('Fenugreek powder ½ tsp')).toBeInTheDocument();
+  });
+
+  it('RS-US: re-reads so a late servings estimate appears without a manual refresh', async () => {
+    jest.useFakeTimers();
+    (globalThis.fetch as jest.Mock)
+      .mockResolvedValueOnce(okResponse({ items: LINES, servings: null, servings_estimated: false }))
+      .mockResolvedValueOnce(okResponse({ items: LINES, servings: 4, servings_estimated: true }));
+
+    render(<IngredientReview {...props()} />);
+    // Intake no longer waits on the estimate — the first paint has no count.
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    expect(screen.getByText(/Servings not detected/)).toBeInTheDocument();
+
+    // The background estimate lands; the re-check picks it up.
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(3000);
+    });
+    expect(screen.getByText(/Estimated about 4/)).toBeInTheDocument();
+  });
+
+  it('RS-US: changing the serving count persists it so the recipe scales', async () => {
+    jest.useFakeTimers();
+    (globalThis.fetch as jest.Mock)
+      .mockResolvedValueOnce(okResponse({ items: LINES, servings: 4, servings_estimated: false }))
+      .mockResolvedValueOnce(okResponse({ servings: 5, servings_estimated: false }))
+      .mockResolvedValueOnce(okResponse({ items: LINES, servings: 5, servings_estimated: false }));
+
+    render(<IngredientReview {...props()} />);
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    expect(screen.getByText(/Recipe makes 4/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText('Increase servings'));
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(700);
+    });
+
+    const calls = (globalThis.fetch as jest.Mock).mock.calls as Array<[string, RequestInit]>;
+    const patch = calls.find((c) => c[1]?.method === 'PATCH');
+    expect(patch?.[0]).toContain('/recipes/r1/servings');
+    expect(JSON.parse(String(patch?.[1].body))).toEqual({ servings: 5 });
   });
 });

@@ -95,6 +95,7 @@ interface PrismaMock {
   };
   analysisView: { upsert: jest.Mock; findUnique: jest.Mock };
   analysisStationCard: { upsert: jest.Mock };
+  recipe: { findUnique: jest.Mock };
   ingredientDictionary: { findMany: jest.Mock };
   ingredientAlias: { findMany: jest.Mock };
   dietaryAllergenMapping: { findMany: jest.Mock };
@@ -117,6 +118,7 @@ function mockPrisma(): PrismaMock {
       findUnique: jest.fn().mockResolvedValue(null),
     },
     analysisStationCard: { upsert: jest.fn().mockResolvedValue({}) },
+    recipe: { findUnique: jest.fn().mockResolvedValue(null) },
     ingredientDictionary: { findMany: jest.fn().mockResolvedValue([]) },
     ingredientAlias: { findMany: jest.fn().mockResolvedValue([]) },
     dietaryAllergenMapping: { findMany: jest.fn().mockResolvedValue([]) },

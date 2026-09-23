@@ -614,9 +614,11 @@ export class IntakeService implements OnModuleInit {
   /**
    * RS-US servings (resolve + persist): the canonical intake-time resolution.
    * 1. Deterministic, source-faithful first — "serves 4" / "4 servings" etc.
-   * 2. If the source is silent AND an LLM adapter is configured, estimate the
-   *    count from the ingredient lines (best-effort, bounded — never blocks
-   *    intake and never fails it).
+   *    That path is instant and rides the intake response.
+   * 2. If the source is silent, the LLM estimate runs in the BACKGROUND: it is a
+   *    provider round-trip (seconds — much worse under provider rate limiting),
+   *    and intake must never wait on it. The count persists when it lands and the
+   *    review surface re-reads it via GET /lines.
    * The result is persisted on the recipe row via RecipeService (one-writer).
    */
   async resolveServings(actor: Actor, recipeId: string): Promise<ServingsState> {
@@ -632,12 +634,60 @@ export class IntakeService implements OnModuleInit {
       return { servings: stated, estimated: false };
     }
 
-    const estimated = await this.estimateServings(actor, recipeId);
-    if (estimated != null) {
-      await this.recipes.setServings(actor, recipeId, estimated, true);
-      return { servings: estimated, estimated: true };
-    }
+    // Non-blocking: the estimate is best-effort enrichment, so it must not sit on
+    // the request path. Fire-and-forget; it persists on completion.
+    void this.estimateServingsInBackground(actor, recipeId);
     return { servings: null, estimated: false };
+  }
+
+  /** RS-US servings: background estimate + persist. Never throws — there is no
+   *  request to fail, and an absent estimate is a valid outcome (the UI then
+   *  shows "Servings not detected"). */
+  private async estimateServingsInBackground(actor: Actor, recipeId: string): Promise<void> {
+    try {
+      const estimated = await this.estimateServings(actor, recipeId);
+      if (estimated != null) {
+        await this.recipes.setServings(actor, recipeId, estimated, true);
+      }
+    } catch {
+      // best-effort enrichment — a failed estimate is simply absent
+    }
+  }
+
+  /**
+   * RS-US servings (user-set): make the chosen yield TRUE. Scaling every active
+   * line by target/baseline keeps the stored amounts consistent with the yield,
+   * so the recipe never claims a serving count its amounts don't match. The raw
+   * input (`recipe_input`) is never touched — the card's own words stay
+   * byte-preserved (INV-01). Intake stays the sole writer of the lines (Q4);
+   * RecipeService stays the sole writer of `recipe`.
+   */
+  async scaleToServings(actor: Actor, recipeId: string, target: number): Promise<ServingsState> {
+    const recipe = await this.recipes.assertOwned(actor, recipeId);
+    const baseline = recipe.servings;
+    if (baseline != null && baseline > 0 && baseline !== target) {
+      const factor = target / baseline;
+      const lines = await this.prisma.recipeIngredientLine.findMany({
+        where: { recipeId, deletedAt: null, isHeader: false, amount: { not: null } },
+        select: { id: true, amount: true, unit: true },
+      });
+      if (lines.length > 0) {
+        await this.prisma.$transaction(
+          lines.map((l) => {
+            const scaled = Math.round(Number(l.amount) * factor * 100) / 100;
+            return this.prisma.recipeIngredientLine.update({
+              where: { id: l.id },
+              data: {
+                amount: new Prisma.Decimal(scaled),
+                amountText: `${scaled}${l.unit ? ` ${l.unit}` : ''}`,
+              },
+            });
+          }),
+        );
+      }
+    }
+    await this.recipes.setServings(actor, recipeId, target, false);
+    return { servings: target, estimated: false };
   }
 
   /** RS-US servings: LLM estimation from the draft lines (best-effort). Returns

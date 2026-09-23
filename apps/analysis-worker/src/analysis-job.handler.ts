@@ -88,6 +88,14 @@ export class AnalysisJobHandler {
 
   async handle(data: AnalysisJobData): Promise<void> {
     const modelVersion = this.adapter.modelVersion ?? MODEL_VERSION_LABEL;
+    // RS-US servings: the recipe's yield is context the views reason against
+    // (per-portion thinking, chef ratios). Read once per job; the capture itself
+    // stays the source-faithful ingredient object.
+    const recipe = await this.prisma.recipe.findUnique({
+      where: { id: data.recipe_id },
+      select: { servings: true },
+    });
+    const servings = recipe?.servings ?? null;
     const existing = await this.prisma.analysis.findUnique({
       where: { id: data.analysis_id },
     });
@@ -124,7 +132,7 @@ export class AnalysisJobHandler {
           const view = LLM_VIEWS[nextViewIndex];
           nextViewIndex += 1;
           try {
-            await this.processView(data, view, modelVersion);
+            await this.processView(data, view, modelVersion, servings);
           } catch (err) {
             errors.push({ view, error: err as Error });
           }
@@ -203,6 +211,7 @@ export class AnalysisJobHandler {
     data: AnalysisJobData,
     view: (typeof LLM_VIEWS)[number],
     modelVersion: string,
+    servings: number | null,
   ): Promise<void> {
     // Real-LLM-latency regression: a redelivered job (pg-boss expiry while a
     // pass was still running) must RESUME, not regenerate — a COMPLETE view
@@ -220,7 +229,10 @@ export class AnalysisJobHandler {
     const request = {
       view,
       mode: data.mode,
-      recipe_snapshot: data.captured,
+      // RS-US servings: the yield rides ALONGSIDE the capture (the frozen
+      // capture schema is unchanged; grounding still validates against
+      // `data.captured`, never this augmented snapshot).
+      recipe_snapshot: servings == null ? data.captured : { ...data.captured, servings },
       prompt_version: data.prompt_version,
       model_version: modelVersion,
     };

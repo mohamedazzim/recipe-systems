@@ -4,6 +4,7 @@ import {
   geminiOcrMaxRetries,
   geminiOcrModel,
   geminiOcrTimeoutMs,
+  geminiOcrTotalBudgetMs,
   normalizeGeminiResponse,
   normalizeGeminiStructured,
   parseGeminiStructuredOcr,
@@ -24,6 +25,8 @@ describe('GeminiVisionOcrAdapter (Q10 third provider)', () => {
       expect(geminiOcrTimeoutMs({ GEMINI_TIMEOUT_MS: '5000' })).toBe(5000);
       expect(geminiOcrMaxRetries({})).toBe(2);
       expect(geminiOcrMaxRetries({ GEMINI_MAX_RETRIES: '0' })).toBe(0);
+      expect(geminiOcrTotalBudgetMs({})).toBe(25000);
+      expect(geminiOcrTotalBudgetMs({ OCR_TOTAL_BUDGET_MS: '8000' })).toBe(8000);
     });
 
     it('resolveOcrAdapter picks GeminiVisionOcrAdapter for OCR_PROVIDER=gemini', () => {
@@ -293,6 +296,19 @@ describe('GeminiVisionOcrAdapter (Q10 third provider)', () => {
       await expect(adapter.recognize(new Uint8Array([1]), 'image/png')).rejects.toBeInstanceOf(
         OcrTimeoutError,
       );
+    });
+
+    it('bounds the whole call: a spent OCR budget makes no further attempt', async () => {
+      globalThis.fetch = jest.fn() as never;
+      const adapter = new GeminiVisionOcrAdapter({
+        GEMINI_API_KEY: 'test-key',
+        GEMINI_MAX_RETRIES: '8',
+        OCR_TOTAL_BUDGET_MS: '0',
+      });
+      await expect(adapter.recognize(new Uint8Array([1]), 'image/png')).rejects.toBeInstanceOf(
+        OcrProviderError,
+      );
+      expect((globalThis.fetch as jest.Mock).mock.calls).toHaveLength(0);
     });
   });
 });

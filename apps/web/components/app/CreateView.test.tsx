@@ -2,6 +2,13 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CreateView } from '@/components/app/CreateView';
 
+// The photo path downscales via Image/canvas, which jsdom cannot decode — stub
+// the helper to the identity so these tests exercise the component's upload
+// flow (the codec itself is covered by lib/image.test.ts).
+jest.mock('@/lib/image', () => ({
+  downscaleImage: (file: File) => Promise.resolve(file),
+}));
+
 describe('CreateView (paste + photo intake)', () => {
   beforeEach(() => {
     (globalThis as unknown as { fetch: unknown }).fetch = jest.fn();

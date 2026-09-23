@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/Input';
 import { Heading, Text } from '@/components/ui/Typography';
 import { TomatoProgress } from '@/components/ui/TomatoProgress';
 import { api, apiUpload, ApiError } from '@/lib/api';
+import { downscaleImage } from '@/lib/image';
 import type { DocumentIngestionResponse, ParseTextResponse, UploadResponse, WireLine } from '@/lib/types';
 import { previewOf, recordSessionRecipe } from '@/lib/flow';
 import { FormIntake, FormIntakeHandle } from '@/components/app/FormIntake';
@@ -369,8 +370,11 @@ export function CreateView({
     setUploading(true);
     setUploadError(null);
     try {
+      // Downscale before upload: OCR is synchronous on the request path, so a
+      // full-resolution photo inflates the payload and can exceed the proxy's
+      // request ceiling. Falls back to the original if optimization fails.
       const form = new FormData();
-      form.append('file', file);
+      form.append('file', await downscaleImage(file));
       const result = await apiUpload<UploadResponse>('/recipes/upload', form);
       const title = result.title?.trim() || null;
       recordSessionRecipe(

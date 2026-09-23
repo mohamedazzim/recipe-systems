@@ -124,7 +124,7 @@ export function LandingPage({
         <div className="overflow-hidden rounded-[1.75rem] border border-[#dfe7dc] shadow-[0_22px_60px_rgba(23,48,37,0.08)]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/images/hero-food.png"
+            src="/images/hero-food.jpg"
             alt=""
             className="h-64 w-full object-cover object-center sm:h-80"
             loading="lazy"

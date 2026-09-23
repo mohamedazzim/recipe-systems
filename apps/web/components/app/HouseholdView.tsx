@@ -41,7 +41,7 @@ export function HouseholdView({ signedIn, onBack, onSignUp }: HouseholdViewProps
       <div className="mt-6 overflow-hidden rounded-[1.25rem] border border-border shadow-whisper">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/images/household-banner.png"
+          src="/images/household-banner.jpg"
           alt=""
           className="h-40 w-full object-cover object-center sm:h-48"
           loading="lazy"

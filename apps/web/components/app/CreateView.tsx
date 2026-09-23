@@ -422,7 +422,7 @@ export function CreateView({
       <div className="relative mt-6 overflow-hidden rounded-[1.25rem] border border-border shadow-whisper">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/images/create-banner.png"
+          src="/images/create-banner.jpg"
           alt=""
           className="h-52 w-full object-cover object-center sm:h-60"
           loading="lazy"

@@ -268,7 +268,7 @@ export function HomeView({
       <div
         aria-hidden="true"
         className="absolute inset-0 hidden bg-cover bg-right bg-no-repeat sm:block"
-        style={{ backgroundImage: 'url("/images/start-recipe-clean.png")' }}
+        style={{ backgroundImage: 'url("/images/start-recipe-clean.jpg")' }}
       />
       <div
         aria-hidden="true"
@@ -375,7 +375,7 @@ export function HomeView({
               <div
                 aria-hidden="true"
                 className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-                style={{ backgroundImage: 'url("/images/hero-food.png")' }}
+                style={{ backgroundImage: 'url("/images/hero-food.jpg")' }}
               />
               <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0.08)_100%)]" />
               <div className="absolute bottom-4 right-4 max-w-[14rem] rounded-[1.25rem] border border-[#dfe7dc] bg-[rgba(250,249,245,0.78)] p-3 text-sm text-ink shadow-[0_12px_25px_rgba(33,58,49,0.08)] backdrop-blur-sm">
@@ -449,7 +449,7 @@ export function HomeView({
                 <div
                   aria-hidden="true"
                   className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-                  style={{ backgroundImage: 'url("/images/hero-food.png")' }}
+                  style={{ backgroundImage: 'url("/images/hero-food.jpg")' }}
                 />
                 <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0.12)_100%)]" />
                 <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-[rgba(250,249,245,0.82)] px-3 py-1.5 text-caption font-semibold text-ink shadow-sm backdrop-blur-sm">
@@ -540,7 +540,7 @@ export function HomeView({
               <div
                 aria-hidden="true"
                 className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-                style={{ backgroundImage: 'url("/images/start-recipe-clean.png")' }}
+                style={{ backgroundImage: 'url("/images/start-recipe-clean.jpg")' }}
               />
               <div
                 aria-hidden="true"

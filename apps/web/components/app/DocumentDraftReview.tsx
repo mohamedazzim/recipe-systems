@@ -412,7 +412,7 @@ export function DocumentDraftReview({
       <div className="mt-5 overflow-hidden rounded-[1.25rem] border border-border shadow-whisper">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/images/draft-banner.png"
+          src="/images/draft-banner.jpg"
           alt=""
           className="h-40 w-full object-cover object-center sm:h-48"
           loading="lazy"

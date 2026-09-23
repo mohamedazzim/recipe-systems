@@ -205,7 +205,7 @@ export function AppShell({
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 z-0 bg-cover bg-bottom bg-no-repeat"
-          style={{ backgroundImage: 'url("/images/sidebar-leaf-bg.png")' }}
+          style={{ backgroundImage: 'url("/images/sidebar-leaf-bg.jpg")' }}
         />
         {/* Soft fade over the logo/nav zone so the top stays clean forest. */}
         <div

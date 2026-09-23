@@ -8,6 +8,8 @@ export {
 } from './version';
 
 export {
+  SERVINGS_MIN,
+  SERVINGS_MAX,
   CLAIM_TAGS,
   ClaimTagSchema,
   ClaimSchema,

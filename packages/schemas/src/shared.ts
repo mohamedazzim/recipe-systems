@@ -1,8 +1,15 @@
 import { z } from 'zod';
 
 // ---------------------------------------------------------------------------
-// Claim tags \u2014 the SIX canonical provenance tags (Analysis Prompts \u00a71 "TAGGING";
-// ERD \u00a7analysis_claim.claim_tag). Single source of truth \u2014 every view item tag,
+// Serving-count bounds (RS-US). One source of truth for the adapter prompt, the
+// API validation, and the review UI; the recipe CHECK constraint mirrors it.
+// ---------------------------------------------------------------------------
+export const SERVINGS_MIN = 1;
+export const SERVINGS_MAX = 1500;
+
+// ---------------------------------------------------------------------------
+// Claim tags — the SIX canonical provenance tags (Analysis Prompts §1 "TAGGING";
+// ERD §analysis_claim.claim_tag). Single source of truth — every view item tag,
 // the claim schema, and the envelope claim_tags map all resolve to this enum.
 // ---------------------------------------------------------------------------
 export const CLAIM_TAGS = ['CARD', 'METHOD', 'INFERRED', 'ABSENT', 'UNKNOWN', 'ASSUMED'] as const;

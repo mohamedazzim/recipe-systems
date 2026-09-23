@@ -16,9 +16,14 @@ describe('servings estimation (RS-US)', () => {
   it('rejects non-integer / out-of-range / missing servings', () => {
     expect(parseServingsPrediction({ servings: 2.5 }).ok).toBe(false);
     expect(parseServingsPrediction({ servings: 0 }).ok).toBe(false);
-    expect(parseServingsPrediction({ servings: 100 }).ok).toBe(false);
+    expect(parseServingsPrediction({ servings: 1501 }).ok).toBe(false);
     expect(parseServingsPrediction({}).ok).toBe(false);
     expect(parseServingsPrediction('nope').ok).toBe(false);
+  });
+
+  it('accepts a large banquet count (bounds are 1–1500)', () => {
+    expect(parseServingsPrediction({ servings: 100 }).ok).toBe(true);
+    expect(parseServingsPrediction({ servings: 1500 })).toEqual({ ok: true, servings: 1500 });
   });
 
   it('builds an ingredient-list user prompt (name + amount only)', () => {
@@ -32,7 +37,7 @@ describe('servings estimation (RS-US)', () => {
   });
 
   it('the system prompt demands a bounded integer estimate, never invention', () => {
-    expect(SERVINGS_SYSTEM_PROMPT).toMatch(/between 1 and 99/);
+    expect(SERVINGS_SYSTEM_PROMPT).toMatch(/between 1 and 1500/);
     expect(SERVINGS_SYSTEM_PROMPT).toMatch(/null/);
     expect(SERVINGS_SYSTEM_PROMPT).toMatch(/ESTIMATOR/);
   });

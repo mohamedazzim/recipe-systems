@@ -24,6 +24,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { z } from 'zod';
+import { SERVINGS_MAX, SERVINGS_MIN } from '@recipe-systems/schemas';
 import { CsrfGuard } from '../../common/guards/csrf.guard';
 import { Actor, ActorRequest, GuestOrJwtGuard } from '../../common/guards/guest-or-jwt.guard';
 import { AuthedRequest, JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -52,7 +53,9 @@ const formIntakeSchema = z
 
 // RS-US servings: the user's chosen yield. Setting it scales the stored amounts
 // to match (so the count is true) and persists the count on the recipe.
-const setServingsSchema = z.object({ servings: z.number().int().min(1).max(99) }).strict();
+const setServingsSchema = z
+  .object({ servings: z.number().int().min(SERVINGS_MIN).max(SERVINGS_MAX) })
+  .strict();
 
 // D-12 wire contract (API doc §3 PATCH body + D-12D expected_updated_at token)
 // D-14C: needs_review accepts literal `false` only — clearing a flag is an explicit
@@ -429,7 +432,10 @@ export class IntakeController {
   ) {
     const parsed = setServingsSchema.safeParse(body);
     if (!parsed.success) {
-      throw this.badRequest('INVALID_SERVINGS', 'servings must be an integer between 1 and 99');
+      throw this.badRequest(
+        'INVALID_SERVINGS',
+        `servings must be an integer between ${SERVINGS_MIN} and ${SERVINGS_MAX}`,
+      );
     }
     return this.intake.scaleToServings(this.userActor(req), recipeId, parsed.data.servings);
   }

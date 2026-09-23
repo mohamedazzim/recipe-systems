@@ -10,7 +10,7 @@
 // `recipe_snapshot` stays `unknown` at this seam — Q1 (snapshot persistence
 // mechanism) is OPEN and D-17 builds to the labeled assumption (SCAFFOLD §7).
 
-import { AnalysisMode, DocumentExtraction, DocumentExtractionSchema, StructuredRecipeInput } from '@recipe-systems/schemas';
+import { AnalysisMode, DocumentExtraction, DocumentExtractionSchema, SERVINGS_MAX, SERVINGS_MIN, StructuredRecipeInput } from '@recipe-systems/schemas';
 import { buildViewPrompt, isLlmView, ViewNumber } from './prompts/views';
 import { parseViewOutput, ParseViewResult } from './prompts/validate';
 import { GroundingVerdict, validateViewGrounding } from './grounding/validator';
@@ -73,10 +73,10 @@ export function parseServingsPrediction(raw: unknown): ParseServingsPredictionRe
   if (
     typeof servings !== 'number' ||
     !Number.isInteger(servings) ||
-    servings < 1 ||
-    servings > 99
+    servings < SERVINGS_MIN ||
+    servings > SERVINGS_MAX
   ) {
-    return { ok: false, errors: ['servings: must be an integer 1–99 or null'] };
+    return { ok: false, errors: [`servings: must be an integer ${SERVINGS_MIN}–${SERVINGS_MAX} or null`] };
   }
   return { ok: true, servings };
 }

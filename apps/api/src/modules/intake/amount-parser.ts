@@ -1,3 +1,5 @@
+import { SERVINGS_MAX, SERVINGS_MIN } from '@recipe-systems/schemas';
+
 /**
  * Parser for ingredient amount text into structured numeric quantity and unit.
  * Supports fractions (1/2, 1/4), mixed fractions (1 1/2, 1-1/2), unicode vulgar fractions (½, ¼),
@@ -351,7 +353,7 @@ export function extractServings(text: string | null | undefined): number | null 
     const match = pattern.exec(text);
     if (match) {
       const value = Number(match[1]);
-      if (Number.isInteger(value) && value >= 1 && value <= 99) return value;
+      if (Number.isInteger(value) && value >= SERVINGS_MIN && value <= SERVINGS_MAX) return value;
     }
   }
   return null;

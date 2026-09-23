@@ -262,8 +262,8 @@ export function parseAmountAndUnit(raw: string | null | undefined): ParsedAmount
     }
   }
 
-  // 8. Range: "1 - 2 cups", "1 to 2 cups", "1-2"
-  const rangeMatch = text.match(/^(\d+(?:\.\d+)?)\s*(?:-|to)\s*(\d+(?:\.\d+)?)(?:\s*(.+))?$/i);
+  // 8. Range: "1 - 2 cups", "1 to 2 cups", "3.5-4 litres", "1-2"
+  const rangeMatch = text.match(/^(\d+(?:\.\d+)?)\s*(?:[-–—]|to)\s*(\d+(?:\.\d+)?)(?:\s*(.+))?$/i);
   if (rangeMatch) {
     const min = Number(rangeMatch[1]);
     const max = Number(rangeMatch[2]);
@@ -291,16 +291,17 @@ const AMOUNT_TAIL_RE =
  * Find the separator that introduces the amount, and the amount text after it.
  * The canonical separator is the em dash; a bare hyphen is accepted too, but a
  * hyphen INSIDE the ingredient name ("Mutton, bone-in") must never win over the
- * real separator. So separators are scanned left-to-right — em/en dashes first,
- * then hyphens — and the first one whose tail actually looks like an amount wins.
+ * real separator. So separators are scanned left-to-right by class — em/en dash,
+ * then hyphen, then colon — and the first one whose tail actually looks like an
+ * amount wins. A dash BETWEEN two digits is a range, never a separator.
  */
 function findAmountSeparator(displayName: string): { index: number; amount: string } | null {
-  const scan = (re: RegExp, skipRangeHyphens: boolean): { index: number; amount: string } | null => {
+  const scan = (re: RegExp, skipRanges: boolean): { index: number; amount: string } | null => {
     let match: RegExpExecArray | null;
     while ((match = re.exec(displayName)) !== null) {
-      // A hyphen BETWEEN two digits is a numeric range ("Cook 1-2 hours"), not a
-      // name/amount separator — never split there.
-      if (skipRangeHyphens) {
+      // A dash BETWEEN two digits is a numeric range ("Cook 1-2 hours",
+      // "Water 3.5-4 litres"), never a name/amount separator — never split there.
+      if (skipRanges) {
         const before = displayName[match.index - 1] ?? '';
         const after = displayName[match.index + 1] ?? '';
         if (/\d/.test(before) && /\d/.test(after)) continue;
@@ -312,7 +313,14 @@ function findAmountSeparator(displayName: string): { index: number; amount: stri
     }
     return null;
   };
-  return scan(/[—–]/g, false) ?? scan(/-/g, true);
+  return (
+    // em/en dash is the canonical separator; then a bare hyphen; then the colon
+    // form ("Beef, bone-less or with bone: 2.5 kg") that cards and pastes use.
+    scan(/[—–]/g, true) ??
+    scan(/-/g, true) ??
+    scan(/:/g, false) ??
+    null
+  );
 }
 
 /**

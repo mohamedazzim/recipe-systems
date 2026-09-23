@@ -117,6 +117,19 @@ describe('amount-parser', () => {
     it('never treats a numeric range ("1-2 hours") as a name/amount separator', () => {
       expect(extractAmountFromDisplayName('Cook 1-2 hours, low heat.')).toBeNull();
     });
+
+    it('reads the colon form used by cards and pasted lists', () => {
+      expect(extractAmountFromDisplayName('Beef, bone-less or with bone: 2.5 kg')).toBe('2.5 kg');
+      expect(extractAmountFromDisplayName('Basmati rice: 2.25 kg')).toBe('2.25 kg');
+      expect(extractAmountFromDisplayName('Curd/yogurt: 500 g')).toBe('500 g');
+      expect(extractAmountFromDisplayName('Dal (split green gram): 1 cup')).toBe('1 cup');
+    });
+
+    it('keeps a colon range together and ignores a prose colon', () => {
+      expect(extractAmountFromDisplayName('Water: 3.5–4 litres')).toBe('3.5–4 litres');
+      expect(extractAmountFromDisplayName('For the marinade:')).toBeNull();
+      expect(extractAmountFromDisplayName('Note: cook slowly')).toBeNull();
+    });
   });
 
   describe('extractServings', () => {

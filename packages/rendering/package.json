@@ -9,7 +9,7 @@
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "jest --passWithNoTests --coverage",
-    "build": "tsc"
+    "build": "tsc && node scripts/ensure-chromium.cjs"
   },
   "devDependencies": {
     "typescript": "^5.7.0",

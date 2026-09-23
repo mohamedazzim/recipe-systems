@@ -283,17 +283,45 @@ export function parseAmountAndUnit(raw: string | null | undefined): ParsedAmount
   return { amount: null, unit: null };
 }
 
+/** A tail that reads as an amount: a number/vulgar fraction, or a known word form. */
+const AMOUNT_TAIL_RE =
+  /^(\d|[½¼¾⅓⅔⅕⅖⅗⅘⅙⅚⅐⅛⅜⅝⅞⅑⅒]|to taste|to-taste|a |an |half|for |one|two|three|four)/i;
+
+/**
+ * Find the separator that introduces the amount, and the amount text after it.
+ * The canonical separator is the em dash; a bare hyphen is accepted too, but a
+ * hyphen INSIDE the ingredient name ("Mutton, bone-in") must never win over the
+ * real separator. So separators are scanned left-to-right — em/en dashes first,
+ * then hyphens — and the first one whose tail actually looks like an amount wins.
+ */
+function findAmountSeparator(displayName: string): { index: number; amount: string } | null {
+  const scan = (re: RegExp, skipRangeHyphens: boolean): { index: number; amount: string } | null => {
+    let match: RegExpExecArray | null;
+    while ((match = re.exec(displayName)) !== null) {
+      // A hyphen BETWEEN two digits is a numeric range ("Cook 1-2 hours"), not a
+      // name/amount separator — never split there.
+      if (skipRangeHyphens) {
+        const before = displayName[match.index - 1] ?? '';
+        const after = displayName[match.index + 1] ?? '';
+        if (/\d/.test(before) && /\d/.test(after)) continue;
+      }
+      const amount = displayName.slice(match.index + 1).trim();
+      if (amount.length > 0 && AMOUNT_TAIL_RE.test(amount)) {
+        return { index: match.index, amount };
+      }
+    }
+    return null;
+  };
+  return scan(/[—–]/g, false) ?? scan(/-/g, true);
+}
+
 /**
  * Extracts a trailing amount from a display name when the line was not split by OCR.
- * E.g., "Fish — 500g" -> "500g", "Fenugreek Powder - 1/2 Tsp" -> "1/2 Tsp".
+ * E.g., "Fish — 500g" -> "500g", "Fenugreek Powder - 1/2 Tsp" -> "1/2 Tsp",
+ * "Mutton, bone-in — 150 g" -> "150 g".
  */
 export function extractAmountFromDisplayName(displayName: string): string | null {
-  const idx = displayName.search(/[—–-]/);
-  if (idx === -1) return null;
-  const tail = displayName.slice(idx + 1).trim();
-  if (tail.length === 0) return null;
-  if (!/^(\d|[½¼¾⅓⅔]|to taste|a |an |half|for |one|two|three|four)/i.test(tail)) return null;
-  return tail;
+  return findAmountSeparator(displayName)?.amount ?? null;
 }
 
 /**

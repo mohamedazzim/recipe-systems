@@ -107,6 +107,16 @@ describe('amount-parser', () => {
       expect(extractAmountFromDisplayName('Pre-cooked dal')).toBeNull();
       expect(extractAmountFromDisplayName('Stir-fry')).toBeNull();
     });
+
+    it('does not let a hyphen inside the name hide the real em-dash separator', () => {
+      expect(extractAmountFromDisplayName('Mutton, bone-in — 150 g')).toBe('150 g');
+      expect(extractAmountFromDisplayName('Bone-in mutton - 150 g')).toBe('150 g');
+      expect(extractAmountFromDisplayName('Omega-3 fish oil — 100 g')).toBe('100 g');
+    });
+
+    it('never treats a numeric range ("1-2 hours") as a name/amount separator', () => {
+      expect(extractAmountFromDisplayName('Cook 1-2 hours, low heat.')).toBeNull();
+    });
   });
 
   describe('extractServings', () => {

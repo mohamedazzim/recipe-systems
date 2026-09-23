@@ -63,18 +63,47 @@ export function readCookie(name: string): string | undefined {
   return match ? decodeURIComponent(match.slice(name.length + 1)) : undefined;
 }
 
+/** Photo upload + OCR transcription ceiling. DeepSeek/Gemini vision OCR is slow
+ *  (reasoning models); 2.5 min leaves headroom without letting a hung request
+ *  wedge the UI. */
+export const UPLOAD_TIMEOUT_MS = 150_000;
+
 /** D-11 (B2): multipart upload helper. FormData needs no Content-Type (the
- *  browser sets the boundary); CSRF + cookie credentials ride exactly like `api`. */
-export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
+ *  browser sets the boundary); CSRF + cookie credentials ride exactly like `api`.
+ *  A generous abort window (OCR transcription on the deployed server can be slow)
+ *  guarantees the UI never wedges on "Working…" — a timeout surfaces as a
+ *  recoverable error with a Retry, never an infinite spinner. */
+export async function apiUpload<T>(
+  path: string,
+  form: FormData,
+  timeoutMs = UPLOAD_TIMEOUT_MS,
+): Promise<T> {
   const headers: Record<string, string> = {};
   const csrf = readCookie('recipe_csrf');
   if (csrf) headers['X-CSRF-Token'] = csrf;
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    method: 'POST',
-    headers,
-    body: form,
-    credentials: 'include',
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, {
+      method: 'POST',
+      headers,
+      body: form,
+      credentials: 'include',
+      signal: controller.signal,
+    });
+  } catch (err) {
+    clearTimeout(timer);
+    if (controller.signal.aborted) {
+      throw new ApiError(
+        0,
+        'UPLOAD_TIMEOUT',
+        'The upload timed out — the card may still be processing. Retry in a moment.',
+      );
+    }
+    throw err;
+  }
+  clearTimeout(timer);
   if (!res.ok) {
     let code = 'HTTP_ERROR';
     let message = res.statusText;

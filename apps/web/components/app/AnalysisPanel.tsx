@@ -10,6 +10,7 @@ import { CheckCircle, Clock, XCircle } from '@phosphor-icons/react';
 import { Alert } from '@/components/ui/Alert';
 import { Button } from '@/components/ui/Button';
 import { Spinner } from '@/components/ui/Spinner';
+import { TomatoProgress } from '@/components/ui/TomatoProgress';
 import { useAnalysisStatus } from '@/lib/hooks/useAnalysisStatus';
 import { AnalysisViews } from '@/components/app/AnalysisViews';
 import type { MethodState, WireLine } from '@/lib/types';
@@ -90,9 +91,18 @@ export function AnalysisPanel({
             </div>
 
             {analysis.status !== 'complete' && analysis.status !== 'failed' && (
-              <p className="mt-2 text-small text-muted">
-                Status updates arrive automatically. You can stay on this page.
-              </p>
+              <div className="mt-3">
+                <TomatoProgress
+                  label={
+                    analysis.status === 'queued'
+                      ? 'Waiting for a worker'
+                      : 'Generating the nine views'
+                  }
+                />
+                <p className="mt-1.5 text-small text-muted">
+                  Status updates arrive automatically. You can stay on this page.
+                </p>
+              </div>
             )}
 
             <p className="mt-2 text-caption text-faint">

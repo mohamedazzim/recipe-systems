@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/Button';
 import { Field } from '@/components/ui/Field';
 import { Textarea } from '@/components/ui/Input';
 import { Heading, Text } from '@/components/ui/Typography';
+import { TomatoProgress } from '@/components/ui/TomatoProgress';
 import { api, apiUpload, ApiError } from '@/lib/api';
 import type { DocumentIngestionResponse, ParseTextResponse, UploadResponse, WireLine } from '@/lib/types';
 import { previewOf, recordSessionRecipe } from '@/lib/flow';
@@ -571,6 +572,15 @@ export function CreateView({
                   className="sr-only"
                 />
               </label>
+
+              {uploading && (
+                <div className="mt-4" aria-live="polite">
+                  <TomatoProgress label="Reading the recipe card" />
+                  <p className="mt-1 text-caption text-faint">
+                    OCR is transcribing the card — this can take a moment.
+                  </p>
+                </div>
+              )}
 
               {uploadError && (
                 <div className="mt-3">

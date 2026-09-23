@@ -171,3 +171,35 @@
 *::-webkit-scrollbar-corner {
   background: transparent;
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Tomato progress — indeterminate 0→100 sweep (left → right) and
+   the twirling green leaf riding the fill's leading edge.
+   Reduced-motion users get the static bar via the global rule above.
+   ───────────────────────────────────────────────────────────── */
+@keyframes tomato-sweep {
+  0% {
+    width: 0%;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+@keyframes tomato-leaf-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.tomato-fill {
+  animation: tomato-sweep 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.tomato-leaf {
+  transform-origin: 50% 100%;
+  animation: tomato-leaf-spin 1.4s linear infinite;
+}

@@ -253,10 +253,7 @@ export class GeminiVisionOcrAdapter implements OcrAdapter {
         // steps separated). A non-JSON / malformed payload degrades to the
         // whole-line transcription so intake still gets the raw text.
         const structured = parseGeminiStructuredOcr(text);
-        if (
-          structured &&
-          ((structured.ingredients?.length ?? 0) > 0 || (structured.method_steps?.length ?? 0) > 0)
-        ) {
+        if (structured) {
           return normalizeGeminiStructured(structured, this.model);
         }
         return normalizeGeminiResponse(text, this.model);

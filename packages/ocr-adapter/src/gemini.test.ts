@@ -234,6 +234,30 @@ describe('GeminiVisionOcrAdapter (Q10 third provider)', () => {
       expect(result.recognized_text).toContain('Dry red chillies: 2');
     });
 
+    it('returns empty lines and null title when candidate contains empty structured JSON (unreadable)', async () => {
+      globalThis.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          candidates: [
+            {
+              content: {
+                parts: [{ text: '{"title": "", "ingredients": [], "method_steps": []}' }],
+              },
+            },
+          ],
+        }),
+      }) as never;
+      const adapter = new GeminiVisionOcrAdapter({
+        GEMINI_API_KEY: 'test-key',
+        GEMINI_MAX_RETRIES: '0',
+      });
+      const result = await adapter.recognize(new Uint8Array([1]), 'image/png');
+      expect(result.lines).toHaveLength(0);
+      expect(result.recognized_text).toBe('');
+      expect(result.title).toBeNull();
+    });
+
     it('maps 401/403/400 to OcrProviderError', async () => {
       globalThis.fetch = jest.fn().mockResolvedValue({ ok: false, status: 401 }) as never;
       const adapter = new GeminiVisionOcrAdapter({ GEMINI_API_KEY: 'test-key' });

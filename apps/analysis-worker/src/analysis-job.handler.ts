@@ -257,7 +257,13 @@ export class AnalysisJobHandler {
           `${Date.now() - secondStarted}ms parse=${second.parse.ok ? 'ok' : 'invalid'} ` +
           `grounding=${second.grounding ? (second.grounding.ok ? 'ok' : 'violations:' + second.grounding.violations.length) : 'n/a'}`,
       );
-      if (!second.parse.ok) {
+      // The SAME judgement the grounding path below makes: a second attempt that
+      // parses but does NOT ground must not be published either. Guarding on
+      // `parse.ok` alone let an ungrounded payload through the D-16 choke point —
+      // and on exactly the retry path taken when the model is already misbehaving
+      // (BUG-001 in the 2026-09-24 external audit, and the reason both branches now
+      // share one condition).
+      if (!second.parse.ok || (second.grounding && !second.grounding.ok)) {
         await this.upsertView(data.analysis_id, view, 'INCOMPLETE', {});
         return;
       }

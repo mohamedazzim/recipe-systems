@@ -50,7 +50,7 @@ export interface OcrAdapter {
 
 // Re-export the error taxonomy from its own module (avoids a circular import:
 // providers extend these classes at load time, and `index.ts` imports them).
-export { OcrProviderError, OcrTimeoutError } from './errors';
+export { OcrProviderError, OcrTimeoutError, OcrTransientProviderError } from './errors';
 
 export const OCR_ADAPTER_SEAM = 'provider-neutral (Tech Stack §11; Q10 OPEN — real-card benchmark)';
 

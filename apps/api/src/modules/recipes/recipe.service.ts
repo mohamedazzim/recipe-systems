@@ -314,6 +314,25 @@ export class RecipeService {
   }
 
   /**
+   * Background-estimate write: fill a gap, never overwrite an answer.
+   *
+   * The servings estimate is fire-and-forget enrichment that lands AFTER the
+   * request returns — by then the user may have set a yield on the review surface,
+   * or the stated-count path may have written one. The unconditional `setServings`
+   * silently replaced whichever value was there with the model's guess. This
+   * conditional update only applies while `servings IS NULL`, so a user-set or
+   * stated count always wins. Returns false when a value already existed.
+   */
+  async setServingsIfUnset(actor: Actor, recipeId: string, servings: number): Promise<boolean> {
+    await this.assertOwned(actor, recipeId);
+    const { count } = await this.prisma.recipe.updateMany({
+      where: { id: recipeId, servings: null },
+      data: { servings, servingsEstimated: true },
+    });
+    return count > 0;
+  }
+
+  /**
    * D-22 (D6): the canonical hard DELETE (ERD §13 — `deleted_at` is archive/hide
    * only; D6 is a real row removal). Every dependent row disappears through the
    * DB-level ON DELETE CASCADE foreign keys (proven in the D6 integration story):

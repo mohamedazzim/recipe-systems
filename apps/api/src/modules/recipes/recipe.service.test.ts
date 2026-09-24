@@ -11,6 +11,7 @@ function mockPrisma() {
       create: jest.fn(),
       delete: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn(),
     },
     recipeInput: { count: jest.fn(), findMany: jest.fn() },
     analysis: { findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
@@ -61,6 +62,31 @@ describe('RecipeService', () => {
       where: { id: recipeId },
       data: { servings: 4, servingsEstimated: true },
     });
+  });
+
+  it('setServingsIfUnset fills a gap — it never overwrites a count that already exists', async () => {
+    // The background estimate lands after the request returns, so the user may have
+    // set a yield in the meantime. An unconditional write silently replaced it.
+    const prisma: any = mockPrisma();
+    const recipeId = '11111111-1111-4111-8111-111111111111';
+    prisma.recipe.findUnique.mockResolvedValue({
+      id: recipeId,
+      accountId: 'acc-1',
+      guestSessionId: null,
+    });
+    const svc = new RecipeService(prisma);
+
+    // Nothing persisted yet → the estimate fills the gap.
+    prisma.recipe.updateMany.mockResolvedValue({ count: 1 });
+    await expect(svc.setServingsIfUnset(userActor, recipeId, 4)).resolves.toBe(true);
+    expect(prisma.recipe.updateMany).toHaveBeenCalledWith({
+      where: { id: recipeId, servings: null },
+      data: { servings: 4, servingsEstimated: true },
+    });
+
+    // A value already exists → the conditional update matches nothing.
+    prisma.recipe.updateMany.mockResolvedValue({ count: 0 });
+    await expect(svc.setServingsIfUnset(userActor, recipeId, 9)).resolves.toBe(false);
   });
 
   it('creates a guest-owned recipe (XOR: no accountId set)', async () => {

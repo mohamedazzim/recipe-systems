@@ -49,14 +49,22 @@ export class GuestOrJwtGuard implements CanActivate {
 
     const sessionToken = cookies[SESSION_COOKIE];
     if (sessionToken) {
-      const user = await verifySession(sessionToken);
-      req.user = user;
-      req.actor = { kind: 'user', user };
-      // Sliding idle renewal: the SSE status poll runs through this guard for
-      // the whole analysis — without sliding here the session cookie would age
-      // out mid-analysis even while the page is actively polling.
-      slideSessionCookies(http.getResponse(), sessionToken, cookies[CSRF_COOKIE]);
-      return true;
+      try {
+        const user = await verifySession(sessionToken);
+        req.user = user;
+        req.actor = { kind: 'user', user };
+        // Sliding idle renewal: the SSE status poll runs through this guard for
+        // the whole analysis — without sliding here the session cookie would age
+        // out mid-analysis even while the page is actively polling.
+        slideSessionCookies(http.getResponse(), sessionToken, cookies[CSRF_COOKIE]);
+        return true;
+      } catch {
+        // An expired/malformed session must DEGRADE, never throw: this guard used
+        // to let verifySession's error escape, so every guest-or-jwt route (intake,
+        // analyse, shopping, SSE) answered 500 once the session aged out — and the
+        // web layer, which only reacts to 401, had nothing to act on. Fall through
+        // to the guest cookie, then to a clean 401.
+      }
     }
 
     const guestToken = cookies[GUEST_COOKIE];

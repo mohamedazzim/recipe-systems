@@ -116,6 +116,15 @@ describe('ShoppingSection (D-30)', () => {
     expect(screen.getByText(/Contains: Fish, Mustard/)).toBeInTheDocument(); // Q2 Option A snapshot
   });
 
+  it('shows the amount ONCE when the display name already carries it (no doubling)', async () => {
+    // display_name is the verbatim card line ("Fish — 500g") and display_quantity is
+    // that same extracted amount, so concatenating both printed "Fish — 500g — 500g".
+    fetchMock().mockResolvedValue(jsonResponse(LIST));
+    render(<ShoppingSection recipeId="recipe-1" />);
+    expect(await screen.findByText('Fish — 500g')).toBeInTheDocument();
+    expect(screen.queryByText('Fish — 500g — 500g')).not.toBeInTheDocument();
+  });
+
   it('toggles have/need through the PATCH endpoint and strikes the row', async () => {
     fetchMock().mockImplementation((_url: string, init?: RequestInit) => {
       if (!init || init.method === 'GET') return Promise.resolve(jsonResponse(LIST));

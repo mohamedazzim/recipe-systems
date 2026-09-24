@@ -106,20 +106,27 @@ export function VideoWalkthrough({
     };
   }, [read, start]);
 
-  // Poll only while generating, and stop as soon as it lands.
+  // Poll only while generating, and stop as soon as it lands. A FAILED read must
+  // not end the loop: `read` leaves `state` untouched on error, so relying on the
+  // state change alone stopped polling permanently after one dropped request and
+  // left the user on an endless spinner with no way forward. The tick forces the
+  // effect to reschedule either way; the loop still ends on ready/failed.
+  const [pollTick, setPollTick] = useState(0);
   useEffect(() => {
     if (state?.status !== 'generating') return;
     let cancelled = false;
     const timer = setTimeout(async () => {
       if (cancelled) return;
       const next = await read();
-      if (!cancelled && next && (next.status === 'ready' || next.status === 'failed')) return;
+      if (cancelled) return;
+      if (next && (next.status === 'ready' || next.status === 'failed')) return;
+      setPollTick((tick) => tick + 1);
     }, POLL_MS);
     return () => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [state, read]);
+  }, [state, read, pollTick]);
 
   const chapters = state?.chapters ?? [];
   const active = chapters[Math.min(current, Math.max(chapters.length - 1, 0))];
@@ -151,12 +158,31 @@ export function VideoWalkthrough({
         </p>
       )}
 
-      {signedIn && (state === null || state.status === 'generating') && (
+      {signedIn && state === null && error && (
+        <div className="mt-6 rounded-lg border border-border bg-surface p-5">
+          <p className="text-small font-semibold text-ink">Could not load the walkthrough</p>
+          <p className="mt-1 text-small text-muted">{error}</p>
+          <Button size="sm" variant="outline" className="mt-3" onClick={() => void start()}>
+            Try again
+          </Button>
+        </div>
+      )}
+
+      {signedIn && state !== null && state.status === 'generating' && (
         <div className="mt-6 flex items-center gap-3">
           <Spinner />
           <p className="text-small text-muted">
             Finding a video for this dish and reading its steps — this takes a moment.
           </p>
+        </div>
+      )}
+
+      {signedIn && state !== null && state.status === 'generating' && error && (
+        <div className="mt-2 flex items-center gap-3">
+          <p className="text-small text-negative">{error}</p>
+          <Button size="sm" variant="outline" onClick={() => void start()}>
+            Try again
+          </Button>
         </div>
       )}
 

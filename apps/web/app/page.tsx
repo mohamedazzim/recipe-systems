@@ -157,12 +157,23 @@ export default function Home() {
 
   /** RS-US: any 401 from an authed call means the BFF session expired (the API
    *  answers UNAUTHENTICATED / SESSION_EXPIRED). Show ONE re-sign-in prompt
-   *  rather than leaving every button on the page silently failing. */
+   *  rather than leaving every button on the page silently failing.
+   *
+   *  Armed ONLY while signed in. The anonymous bootstrap calls GET /auth/me on
+   *  purpose and takes a 401 by design; a handler registered for the app's whole
+   *  life latched the flag on FIRST VISIT, so the "session expired" prompt appeared
+   *  the moment the visitor entered a guest session. A guest has no session to
+   *  expire, so the prompt is meaningless there — and leaving this phase clears a
+   *  stale flag on sign-out. */
   const [sessionExpired, setSessionExpired] = useState(false);
   useEffect(() => {
+    if (state.phase !== 'signed-in') {
+      setSessionExpired(false);
+      return;
+    }
     setSessionExpiredHandler(() => setSessionExpired(true));
     return () => setSessionExpiredHandler(null);
-  }, []);
+  }, [state.phase]);
 
   if (state.phase === 'loading') {
     return <LoadingScreen label="Checking your session" />;

@@ -125,7 +125,7 @@ describe('IntakeService — RS-US servings resolution', () => {
     llm?: { modelVersion?: string; predictServings: jest.Mock } | null,
   ) {
     const { prisma, recipes: base } = mockPrisma();
-    Object.assign(base, { setServings: jest.fn() }, recipes);
+    Object.assign(base, { setServings: jest.fn(), setServingsIfUnset: jest.fn() }, recipes);
     return {
       prisma,
       recipes: base,
@@ -184,7 +184,9 @@ describe('IntakeService — RS-US servings resolution', () => {
         prompt_version: 'v1',
       }),
     );
-    expect(recipes.setServings).toHaveBeenCalledWith(userActor, 'r1', 4, true);
+    // Gap-fill, not overwrite: the estimate must never replace a count the user
+    // (or the stated-count path) already set while the model was thinking.
+    expect(recipes.setServingsIfUnset).toHaveBeenCalledWith(userActor, 'r1', 4);
   });
 
   it('resolveServings degrades to null when no LLM adapter is configured', async () => {

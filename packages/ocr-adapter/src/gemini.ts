@@ -9,7 +9,7 @@
 // `confidence`. The Intake persist path flags missing-confidence lines
 // needs_review (Tech Stack §11: never invent a score — conservative review).
 
-import { OcrProviderError, OcrTimeoutError } from './errors';
+import { OcrProviderError, OcrTimeoutError, OcrTransientProviderError } from './errors';
 import type { OcrAdapter, OcrLine, OcrResult } from './index';
 
 export const GEMINI_OCR_PROVIDER = 'gemini';
@@ -271,7 +271,11 @@ export class GeminiVisionOcrAdapter implements OcrAdapter {
           );
         }
         if (response.status === 429 || response.status >= 500) {
-          throw new OcrProviderError(`Gemini Vision HTTP ${response.status} (transient)`);
+          // TRANSIENT: the retry budget below is exactly for these (rate limits /
+          // provider 5xx), so they must not be confused with a permanent failure.
+          throw new OcrTransientProviderError(
+            `Gemini Vision HTTP ${response.status} (transient)`,
+          );
         }
         if (!response.ok) {
           throw new OcrProviderError(`Gemini Vision HTTP ${response.status}`);
@@ -299,7 +303,12 @@ export class GeminiVisionOcrAdapter implements OcrAdapter {
         }
         return { ...normalizeGeminiResponse(text, this.model), usage };
       } catch (err) {
-        if (err instanceof OcrProviderError) throw err;
+        // Permanent failures only (401/403/400, prompt block, missing key). A
+        // TRANSIENT failure — 429/5xx, network, timeout — falls through to the
+        // retry budget instead of being rethrown as terminal.
+        if (err instanceof OcrProviderError && !(err instanceof OcrTransientProviderError)) {
+          throw err;
+        }
         const delay = 500 * 2 ** attempt;
         // Retry only when BOTH the attempt count and the wall-clock budget allow.
         const isRetryable = attempt < this.maxRetries && Date.now() + delay < deadline;
@@ -307,7 +316,7 @@ export class GeminiVisionOcrAdapter implements OcrAdapter {
           if (err instanceof Error && err.name === 'AbortError') {
             throw new OcrTimeoutError(`Gemini Vision timed out after ${this.timeoutMs}ms`);
           }
-          throw new OcrProviderError('Gemini Vision unavailable', err);
+          throw new OcrTransientProviderError('Gemini Vision unavailable', undefined, err);
         }
         await new Promise((resolve) => setTimeout(resolve, delay));
       } finally {

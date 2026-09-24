@@ -102,6 +102,18 @@ describe('VideoWalkthrough (chef mode)', () => {
     expect(screen.getByText('Step 1 of 2')).toBeInTheDocument();
   });
 
+  it('offers a retry instead of an endless spinner when the load fails', async () => {
+    // A failed read used to leave `state` null, so the view sat on "Finding a video…"
+    // forever with no way forward: the poll effect never re-ran and only the 'failed'
+    // status (never reached) had a retry.
+    (globalThis.fetch as jest.Mock).mockRejectedValue(new Error('network'));
+    render(<VideoWalkthrough {...props()} />);
+
+    expect(await screen.findByText('Could not load the walkthrough')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument();
+    expect(screen.queryByText(/Finding a video for this dish/)).not.toBeInTheDocument();
+  });
+
   it('starts generation when no walkthrough exists yet', async () => {
     (globalThis.fetch as jest.Mock)
       .mockResolvedValueOnce({

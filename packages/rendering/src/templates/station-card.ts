@@ -30,12 +30,15 @@ export interface StationCardPrintData {
 
 export function stationCardHtml(data: StationCardPrintData): string {
   const mise = data.mise
-    .map(
-      (item) =>
-        `<li class="row"><span class="name">${escapeHtml(item.displayName)}${
-          item.amount ? ` <span class="small">· ${escapeHtml(item.amount)}</span>` : ''
-        }</span><span class="tag">${escapeHtml(item.tag)}</span></li>`,
-    )
+    .map((item) => {
+      // displayName is the verbatim card line and already carries the amount
+      // ("Fish — 500g"); amount is that same extracted value. Rendering both
+      // printed every quantity twice ("Fish — 500g · 500g").
+      const duplicated = item.amount != null && item.displayName.includes(item.amount);
+      const suffix =
+        item.amount && !duplicated ? ` <span class="small">· ${escapeHtml(item.amount)}</span>` : '';
+      return `<li class="row"><span class="name">${escapeHtml(item.displayName)}${suffix}</span><span class="tag">${escapeHtml(item.tag)}</span></li>`;
+    })
     .join('\n');
 
   const sequence = data.sequence

@@ -8,6 +8,16 @@ import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError, API_BASE_URL } from '@/lib/api';
 import type { ShoppingList, ShoppingItem } from '@/lib/types';
 
+/** One row's label. `display_name` is the VERBATIM card line and already carries
+ *  the amount ("Fish — 500g"); `display_quantity` is that same extracted amount.
+ *  Concatenating unconditionally printed every quantity twice, so only append when
+ *  the name does not already contain it. */
+function shoppingLabel(item: ShoppingItem): string {
+  const quantity = item.display_quantity;
+  if (!quantity || item.display_name.includes(quantity)) return item.display_name;
+  return `${item.display_name} — ${quantity}`;
+}
+
 export function ShoppingSection({
   recipeId,
   skipInitialLoad = false,
@@ -227,9 +237,7 @@ export function ShoppingSection({
                             : 'text-body text-ink'
                         }
                       >
-                        {item.display_quantity
-                          ? `${item.display_name} — ${item.display_quantity}`
-                          : item.display_name}
+                        {shoppingLabel(item)}
                       </span>
                     </li>
                   ))}

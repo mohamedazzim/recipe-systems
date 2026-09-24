@@ -158,6 +158,35 @@ describe('GuestOrJwtGuard', () => {
     });
   });
 
+  it('DEGRADES an unverifiable session cookie instead of throwing (guest fallback)', async () => {
+    // verifySession throws on an expired/malformed token. That error used to escape
+    // this guard, so EVERY guest-or-jwt route (intake, analyse, shopping, SSE)
+    // answered 500 once the 8h session aged out — and the web layer, which reacts
+    // only to 401, had nothing it could act on. It must fall through to the guest
+    // cookie instead.
+    const guard = guardWith({
+      guestSession: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'g1',
+          expiresAt: new Date(Date.now() + 3600_000),
+          claimedAt: null,
+        }),
+      },
+    });
+    const req: Record<string, unknown> = {
+      cookies: { recipe_session: 'expired.token.value', recipe_guest_session: 'g1' },
+    };
+    await expect(guard.canActivate(ctx(req))).resolves.toBe(true);
+    expect((req.actor as { kind: string }).kind).toBe('guest');
+  });
+
+  it('answers a clean 401 (never a 500) for an unverifiable session with no guest cookie', async () => {
+    const guard = guardWith({});
+    await expect(
+      guard.canActivate(ctx({ cookies: { recipe_session: 'expired.token.value' } })),
+    ).rejects.toMatchObject({ response: { code: 'SESSION_REQUIRED' } });
+  });
+
   it('throws a clean 401 SESSION_REQUIRED when no identity is present (never a bare 403)', async () => {
     const guard = guardWith({});
     await expect(guard.canActivate(ctx({ cookies: {} }))).rejects.toMatchObject({

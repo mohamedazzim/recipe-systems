@@ -93,6 +93,38 @@ describe('shoppingListHtml (E4)', () => {
     expect(html).not.toContain(H6_DISCLAIMER);
   });
 
+  it('prints the amount ONCE when the display name already carries it', () => {
+    // displayName is the verbatim card line and already contains the amount;
+    // displayQuantity is that same extracted value. Rendering both printed the
+    // quantity twice, on screen and in print ("Fish — 500g — 500g").
+    const html = shoppingListHtml({
+      ...LIST,
+      groups: [
+        {
+          name: 'fish',
+          items: [{ displayName: 'Fish — 500g', displayQuantity: '500g', state: 'need' }],
+        },
+      ],
+    });
+    expect(html).toContain('Fish — 500g');
+    expect(html).not.toContain('500g — 500g');
+  });
+
+  it('still appends a quantity the display name does not carry', () => {
+    const html = shoppingListHtml({
+      ...LIST,
+      groups: [
+        {
+          name: 'fats/oils',
+          items: [
+            { displayName: 'Coconut Oil', displayQuantity: 'For Tempering', state: 'need' },
+          ],
+        },
+      ],
+    });
+    expect(html).toContain('Coconut Oil — For Tempering');
+  });
+
   it('escapes markup in user-controlled text', () => {
     const html = shoppingListHtml({
       ...LIST,
@@ -125,6 +157,15 @@ const CARD: StationCardPrintData = {
 };
 
 describe('stationCardHtml (E5)', () => {
+  it('mise renders the amount once when the card line already carries it', () => {
+    // Same doubling as the shopping list: the captured display_name is verbatim
+    // ("Fish — 500g") and `amount` is the same extracted value, so the mise line
+    // must not read "Fish — 500g · 500g".
+    const html = stationCardHtml(CARD);
+    expect(html).toContain('Fish — 500g');
+    expect(html).not.toContain('500g · 500g');
+  });
+
   it('renders every persisted section + chef-mode wording + provenance + untasted briefing', () => {
     const html = stationCardHtml(CARD);
     expect(html).toContain('Chef mode · station card');

@@ -659,7 +659,9 @@ export class IntakeService implements OnModuleInit {
     try {
       const estimated = await this.estimateServings(actor, recipeId);
       if (estimated != null) {
-        await this.recipes.setServings(actor, recipeId, estimated, true);
+        // Gap-fill only: a user-set or stated count that landed while the model was
+        // thinking must not be replaced by the estimate.
+        await this.recipes.setServingsIfUnset(actor, recipeId, estimated);
       }
     } catch {
       // best-effort enrichment — a failed estimate is simply absent

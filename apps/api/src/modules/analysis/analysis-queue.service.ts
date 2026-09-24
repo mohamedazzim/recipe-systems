@@ -37,6 +37,17 @@ export const ANALYSIS_QUEUE = 'analysis';
 export const VIEW9_RECOMPUTE_QUEUE = 'view9-recompute';
 export const ANALYSIS_EVENTS_CHANNEL = 'recipe_analysis_events';
 
+// How long a queued/active analysis job may live before pg-boss expires it.
+// MUST match ANALYSIS_JOB_EXPIRE_SECONDS in apps/analysis-worker/src/main.ts.
+//
+// Why it is set HERE, on the sender: pg-boss resolves a job's expire_in at SEND
+// time (send option → queue.expire_seconds → sender's expireInDefault → the
+// built-in '15 minutes'). Neither side ever created the queue with expire_seconds
+// and the API is the sender, so the 15-minute default was in force no matter what
+// the worker's constructor said — and a single long pass (DeepSeek has taken ~16
+// minutes) expired WHILE RUNNING and was redelivered, doubling provider spend.
+export const ANALYSIS_JOB_EXPIRE_SECONDS = 4 * 60 * 60;
+
 export interface AnalysisJobPayload {
   analysis_id: string;
   recipe_id: string;
@@ -100,7 +111,11 @@ export class AnalysisQueueService implements OnModuleInit, OnModuleDestroy {
       throw new QueueUnavailableError();
     }
     const analysis_id = randomUUID();
-    await this.boss.send(ANALYSIS_QUEUE, { ...payload, analysis_id } satisfies AnalysisJobPayload);
+    await this.boss.send(
+      ANALYSIS_QUEUE,
+      { ...payload, analysis_id } satisfies AnalysisJobPayload,
+      { expireInSeconds: ANALYSIS_JOB_EXPIRE_SECONDS },
+    );
     return analysis_id;
   }
 
@@ -110,7 +125,9 @@ export class AnalysisQueueService implements OnModuleInit, OnModuleDestroy {
     if (!this.started || !this.boss) {
       throw new QueueUnavailableError();
     }
-    await this.boss.send(VIEW9_RECOMPUTE_QUEUE, payload);
+    await this.boss.send(VIEW9_RECOMPUTE_QUEUE, payload, {
+      expireInSeconds: ANALYSIS_JOB_EXPIRE_SECONDS,
+    });
   }
 
   async onModuleDestroy(): Promise<void> {

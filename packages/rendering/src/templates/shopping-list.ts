@@ -30,9 +30,15 @@ export function shoppingListHtml(data: ShoppingListPrintData): string {
     .map((group) => {
       const rows = group.items
         .map((item) => {
-          const label = item.displayQuantity
-            ? `${escapeHtml(item.displayName)} — ${escapeHtml(item.displayQuantity)}`
-            : escapeHtml(item.displayName);
+          // displayName is the VERBATIM card line and already carries the amount
+          // ("Fish — 500g"); displayQuantity is that same extracted amount, so
+          // appending it unconditionally printed every quantity twice.
+          const name = escapeHtml(item.displayName);
+          const duplicated =
+            item.displayQuantity != null && item.displayName.includes(item.displayQuantity);
+          const label = item.displayQuantity && !duplicated
+            ? `${name} — ${escapeHtml(item.displayQuantity)}`
+            : name;
           const have = item.state === 'have';
           const rowClass = have ? 'row have' : 'row';
           const checkbox = have ? '☑' : '☐';

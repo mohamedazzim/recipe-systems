@@ -10,8 +10,23 @@ export class OcrProviderError extends Error {
   }
 }
 
+/**
+ * A TRANSIENT provider failure (429 rate limit, 5xx, network) — the adapter's own
+ * retry budget applies. Distinct from the base class because the retry branch
+ * previously rethrew every OcrProviderError, which made the 429/5xx retry
+ * (and the whole backoff/budget machinery) inert: rate limits were terminal.
+ * A PERMANENT failure (401/403/400, prompt block, missing key) stays a plain
+ * OcrProviderError and is never retried.
+ */
+export class OcrTransientProviderError extends OcrProviderError {
+  constructor(message: string, readonly retryAfterMs?: number, cause?: unknown) {
+    super(message, cause);
+    this.name = 'OcrTransientProviderError';
+  }
+}
+
 /** A provider timeout — retryable, photo/input preserved (QG4 cell). */
-export class OcrTimeoutError extends OcrProviderError {
+export class OcrTimeoutError extends OcrTransientProviderError {
   constructor(message: string) {
     super(message);
     this.name = 'OcrTimeoutError';

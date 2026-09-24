@@ -4,7 +4,8 @@ import { PrismaClient } from '../generated/index.js';
 
 // Canonical ERD v13 table set — the 24 tables D-02 materializes (ERD_FINAL.md §3),
 // plus the two bulk-upload tables (document_ingestion, document_recipe_draft)
-// materialized by migrations 007/008/009.
+// materialized by migrations 007/008/009, plus the chef-mode recipe video
+// walkthrough table (recipe_video, migration 013).
 // This test is a schema-fidelity gate: the datamodel must model exactly these, no more, no fewer.
 const CANONICAL_TABLES = [
   'account',
@@ -33,10 +34,11 @@ const CANONICAL_TABLES = [
   'nutrition_food_composition_version',
   'document_ingestion',
   'document_recipe_draft',
+  'recipe_video',
 ];
 
 describe('ERD v13 schema fidelity', () => {
-  it('models exactly the 26 tables (24 canonical + 2 bulk upload)', () => {
+  it('models exactly the 27 tables (24 canonical + 2 bulk upload + recipe video)', () => {
     const schemaPath = path.resolve(__dirname, '../prisma/schema.prisma');
     const schema = fs.readFileSync(schemaPath, 'utf-8');
     const models = [...schema.matchAll(/^model (\w+) \{/gm)].map((m) => m[1]);
@@ -51,7 +53,7 @@ describe('ERD v13 schema fidelity', () => {
     expect(missing).toEqual([]);
     const extras = models.filter((m) => !mapped.some((x) => x.model === m));
     expect(extras).toEqual([]);
-    expect(models.length).toBe(26);
+    expect(models.length).toBe(27);
   });
 
   it('constructs a Prisma client', () => {

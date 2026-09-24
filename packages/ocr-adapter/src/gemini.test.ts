@@ -9,7 +9,7 @@ import {
   normalizeGeminiStructured,
   parseGeminiStructuredOcr,
 } from './gemini';
-import { OcrProviderError, OcrTimeoutError } from './errors';
+import { OcrProviderError, OcrTimeoutError, OcrTransientProviderError } from './errors';
 import { resolveOcrAdapter } from './index';
 
 describe('GeminiVisionOcrAdapter (Q10 third provider)', () => {
@@ -259,6 +259,44 @@ describe('GeminiVisionOcrAdapter (Q10 third provider)', () => {
       expect(result.lines).toHaveLength(0);
       expect(result.recognized_text).toBe('');
       expect(result.title).toBeNull();
+    });
+
+    it('RETRIES a transient 429/5xx instead of treating it as terminal', async () => {
+      // The retry budget exists for exactly these. Every OcrProviderError used to be
+      // rethrown BEFORE the retry branch, so rate limits and provider 5xx were
+      // terminal and the whole backoff/budget machinery was inert for the failures
+      // it was built for.
+      const fetchMock = jest
+        .fn()
+        .mockResolvedValueOnce({ ok: false, status: 429 })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            candidates: [{ content: { parts: [{ text: 'Fish — 500g' }] } }],
+          }),
+        });
+      globalThis.fetch = fetchMock as never;
+      const adapter = new GeminiVisionOcrAdapter({
+        GEMINI_API_KEY: 'test-key',
+        GEMINI_MAX_RETRIES: '2',
+      });
+      const result = await adapter.recognize(new Uint8Array([1]), 'image/png');
+      expect(fetchMock.mock.calls).toHaveLength(2); // retried, then succeeded
+      expect(result.recognized_text).toContain('Fish');
+    });
+
+    it('reports a spent transient failure as still-retryable, not terminal', async () => {
+      const fetchMock = jest.fn().mockResolvedValue({ ok: false, status: 503 });
+      globalThis.fetch = fetchMock as never;
+      const adapter = new GeminiVisionOcrAdapter({
+        GEMINI_API_KEY: 'test-key',
+        GEMINI_MAX_RETRIES: '1',
+      });
+      await expect(adapter.recognize(new Uint8Array([1]), 'image/png')).rejects.toBeInstanceOf(
+        OcrTransientProviderError,
+      );
+      expect(fetchMock.mock.calls).toHaveLength(2); // initial attempt + one retry
     });
 
     it('maps 401/403/400 to OcrProviderError', async () => {

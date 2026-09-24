@@ -10,7 +10,7 @@
 //
 // Q10 stays OPEN until this adapter passes the canonical golden-card benchmark.
 
-import { OcrProviderError, OcrTimeoutError } from './errors';
+import { OcrProviderError, OcrTimeoutError, OcrTransientProviderError } from './errors';
 import type { OcrAdapter, OcrLine, OcrResult } from './index';
 
 export const DEEPSEEK_OCR_PROVIDER = 'deepseek';
@@ -165,7 +165,10 @@ export class DeepSeekVisionOcrAdapter implements OcrAdapter {
           );
         }
         if (response.status === 429 || response.status >= 500) {
-          throw new OcrProviderError(`DeepSeek Vision HTTP ${response.status} (transient)`);
+          // TRANSIENT: rate limits / provider 5xx belong to the retry budget.
+          throw new OcrTransientProviderError(
+            `DeepSeek Vision HTTP ${response.status} (transient)`,
+          );
         }
         if (!response.ok) {
           throw new OcrProviderError(`DeepSeek Vision HTTP ${response.status}`);
@@ -202,13 +205,17 @@ export class DeepSeekVisionOcrAdapter implements OcrAdapter {
           await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
           continue;
         }
-        if (err instanceof OcrProviderError) throw err;
+        // Permanent failures only; TRANSIENT ones (429/5xx, network, timeout)
+        // fall through to the retry budget instead of being terminal.
+        if (err instanceof OcrProviderError && !(err instanceof OcrTransientProviderError)) {
+          throw err;
+        }
         const isRetryable = attempt < this.maxRetries;
         if (!isRetryable) {
           if (err instanceof Error && err.name === 'AbortError') {
             throw new OcrTimeoutError(`DeepSeek Vision timed out after ${this.timeoutMs}ms`);
           }
-          throw new OcrProviderError('DeepSeek Vision unavailable', err);
+          throw new OcrTransientProviderError('DeepSeek Vision unavailable', undefined, err);
         }
         await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt));
       } finally {

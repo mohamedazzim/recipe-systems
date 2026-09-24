@@ -193,10 +193,25 @@ export async function computeView8(
   }
 
   const present = codes.map(titleLabel);
+
+  // A line that resolved to NO dictionary entry has no determinable allergen
+  // status: without a dictionary id there is no mapping to consult. These lines
+  // used to land in no bucket at all — "Anchovy" appeared in neither `present`,
+  // `not_on_card` nor `unknown` — so a present allergen could vanish from the
+  // allergen view, which reads as a pass on a safety surface. Canonical §6: unknown
+  // is shown AS unknown, never as a pass.
+  //
+  // Scope is deliberately the unresolved lines only. A line that DID resolve but
+  // has no curated mapping is a different (open) question — treating those as
+  // unknown would make every uncurated dictionary entry permanently unknown.
+  const unknown = resolved
+    .filter((line) => line.dictionary_id === null)
+    .map((line) => line.display_name);
+
   return {
     present,
     not_on_card: captured.structured_recipe.explicitly_absent,
-    unknown: [],
+    unknown,
     removal_notes: codes
       .filter((code) => REMOVAL_NOTES[code] !== undefined)
       .map((code) => ({ item: titleLabel(code), note: REMOVAL_NOTES[code] })),
@@ -204,7 +219,7 @@ export async function computeView8(
     allergen_line: {
       contains: present,
       notes: codes.includes('fish') ? ['Fish species unknown.'] : [],
-      unknown: [],
+      unknown,
     },
   };
 }

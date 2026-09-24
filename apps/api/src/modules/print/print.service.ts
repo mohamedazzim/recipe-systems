@@ -14,6 +14,7 @@
 import {
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   Optional,
   ServiceUnavailableException,
@@ -52,6 +53,8 @@ export const PRINT_RUNTIME = 'PRINT_RUNTIME';
 
 @Injectable()
 export class PrintService {
+  private readonly logger = new Logger(PrintService.name);
+
   constructor(
     @Inject('PRISMA') private readonly prisma: PrismaClient,
     private readonly recipes: RecipeService,
@@ -286,6 +289,14 @@ export class PrintService {
       const pdf = await renderPdf(html, this.runtime);
       return { pdf, html, filename };
     } catch (err) {
+      // Record the CAUSE before re-throwing. The user-facing message stays
+      // deliberately generic (the canonical QG4 contract, and no internals leak to
+      // the browser), but discarding the reason made a launch failure
+      // undiagnosable from the server: the only signal was "PDF generation failed
+      // — retryable", with nothing in the logs (AUDIT_LOG finding M4).
+      const cause = err instanceof Error ? err.message : String(err);
+      const stack = err instanceof Error ? err.stack : undefined;
+      this.logger.error(`PDF render failed (${filename}): ${cause}`, stack);
       if (err instanceof PdfRenderError) {
         // Canonical retryable error (TEST_PLAN QG4): snapshots unchanged.
         throw new ServiceUnavailableException({

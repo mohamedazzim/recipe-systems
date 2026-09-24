@@ -240,11 +240,18 @@ export class AnalysisController {
       prompt_version: analysis.promptVersion,
       model_version: analysis.modelVersion,
       created_at: analysis.createdAt.toISOString(),
+      // BUG-022: only a COMPLETE view has publishable content. The D-27 regional
+      // veto marks View 5 INCOMPLETE while deliberately keeping its payload, so
+      // serving it here would hand back exactly the sentence a reviewer blocked —
+      // through the front door, to the most motivated reader. An INCOMPLETE view
+      // still reports its status, so the UI's incomplete-view path is unchanged; it
+      // simply receives no content to render. (Every other INCOMPLETE path already
+      // persists `{}`, so this keys on the veto case without special-casing it.)
       views: views.map((v) => ({
         view_number: v.viewNumber,
         view_key: v.viewKey,
         status: v.status,
-        payload: v.payload,
+        payload: v.status === 'COMPLETE' ? v.payload : {},
       })),
       station_card: card ? this.stationCardWire(card) : null,
     };
@@ -294,11 +301,18 @@ export class AnalysisController {
       prompt_version: analysis.promptVersion,
       model_version: analysis.modelVersion,
       created_at: analysis.createdAt.toISOString(),
+      // BUG-022: only a COMPLETE view has publishable content. The D-27 regional
+      // veto marks View 5 INCOMPLETE while deliberately keeping its payload, so
+      // serving it here would hand back exactly the sentence a reviewer blocked —
+      // through the front door, to the most motivated reader. An INCOMPLETE view
+      // still reports its status, so the UI's incomplete-view path is unchanged; it
+      // simply receives no content to render. (Every other INCOMPLETE path already
+      // persists `{}`, so this keys on the veto case without special-casing it.)
       views: views.map((v) => ({
         view_number: v.viewNumber,
         view_key: v.viewKey,
         status: v.status,
-        payload: v.payload,
+        payload: v.status === 'COMPLETE' ? v.payload : {},
       })),
       station_card: card ? this.stationCardWire(card) : null,
     };

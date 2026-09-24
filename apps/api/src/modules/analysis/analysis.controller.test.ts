@@ -58,6 +58,45 @@ describe('AnalysisController.latestAnalysis (D-18 read route)', () => {
     expect(result.views[0].status).toBe('COMPLETE');
   });
 
+  it('BUG-022: a vetoed (INCOMPLETE) view reports its status but no payload', async () => {
+    // The D-27 regional veto flips View 5 to INCOMPLETE and deliberately keeps its
+    // payload — the only INCOMPLETE-with-payload case in the system (every other
+    // INCOMPLETE path persists {}). Serving that payload here would hand the owner
+    // back the exact sentence a reviewer blocked.
+    const vetoed = {
+      family: 'Coastal Tamil (Kanyakumari) style meen kuzhambu',
+      architecture: 'Raw-ground paste, triple sour',
+      confidence: 'high',
+      not_this: [],
+      needs_review: true,
+      tag: 'INFERRED',
+    };
+    prisma.recipe.findUnique.mockResolvedValue({ id: 'r1', accountId: 'acc-1', guestSessionId: null });
+    prisma.analysis.findFirst.mockResolvedValue({
+      id: 'a-1',
+      status: 'complete',
+      mode: 'home',
+      isCurrent: true,
+      snapshotOfAnalysisId: null,
+      promptVersion: 'v2',
+      modelVersion: 'stub-no-provider-q9',
+      createdAt: new Date('2026-09-09T10:00:00Z'),
+    });
+    prisma.analysisView.findMany.mockResolvedValue([
+      { viewNumber: 5, viewKey: 'view_5', status: 'INCOMPLETE', payload: vetoed },
+    ]);
+
+    const result = await controller.latestAnalysis(
+      { actor } as never,
+      'aaaaaaaa-0000-4000-8000-000000000001',
+    );
+
+    // The status survives, so the UI still knows the view was blocked…
+    expect(result.views[0].status).toBe('INCOMPLETE');
+    // …but the blocked content does not.
+    expect(result.views[0].payload).toEqual({});
+  });
+
   it('D-25 D5: exposes the linked previous analysis id when present', async () => {
     prisma.recipe.findUnique.mockResolvedValue({ id: 'r1', accountId: 'acc-1', guestSessionId: null });
     prisma.analysis.findFirst.mockResolvedValue({

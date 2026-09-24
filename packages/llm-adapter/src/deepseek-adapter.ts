@@ -21,6 +21,7 @@
 import { AnalysisMode } from '@recipe-systems/schemas';
 import { LlmPermanentProviderError, LlmTransientProviderError } from './errors';
 import { extractJson } from './json';
+import { pruneSnapshot } from './snapshot';
 import { buildViewPrompt } from './prompts/views';
 import { buildExtractionUserPrompt, EXTRACTION_SYSTEM_PROMPT } from './prompts/extraction';
 import { buildServingsUserPrompt, SERVINGS_SYSTEM_PROMPT } from './prompts/servings';
@@ -203,7 +204,7 @@ export class DeepSeekLlmAdapter implements LlmAdapter {
    */
   async generate(request: LlmGenerateRequest): Promise<unknown> {
     const prompts = buildViewPrompt(request.view, request.mode as AnalysisMode);
-    const snapshot = JSON.stringify(request.recipe_snapshot);
+    const snapshot = JSON.stringify(pruneSnapshot(request.recipe_snapshot));
     const user = `${prompts.user}\n\nSTRUCTURED RECIPE OBJECT (the ONLY source of truth):\n${snapshot}`;
     const { content, usage } = await this.chatCompletion(prompts.system, user);
     if (usage && this.onUsage) {

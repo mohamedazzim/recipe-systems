@@ -107,7 +107,7 @@ function service(overrides: { runtime?: PdfRuntime } = {}) {
       ]),
     },
     analysis: { findFirst: jest.fn(async () => ({ id: 'analysis-1', family: 'Coastal Tamil fish curry' })) },
-    analysisView: { findUnique: jest.fn(async () => null) },
+    analysisView: { findFirst: jest.fn(async () => null) },
     analysisStationCard: { findUnique: jest.fn(async () => cardRow) },
     cookLog: { findFirst: jest.fn(async () => null) },
     ingredientShoppingState: {
@@ -239,8 +239,9 @@ describe('PrintService (D-23)', () => {
 
   it('E6: the one-pager maps Views 2/4/5 + mise with no legal nutrition-label wording', async () => {
     const { svc, prisma } = service();
-    (prisma.analysisView.findUnique as jest.Mock).mockImplementation(async ({ where }: any) => {
-      const payload = onePagerViews()[where.analysisId_viewNumber.viewNumber as 2 | 4 | 5 | 9];
+    (prisma.analysisView.findFirst as jest.Mock).mockImplementation(async ({ where }: any) => {
+      if (where.status !== 'COMPLETE') return null;
+      const payload = onePagerViews()[where.viewNumber as 2 | 4 | 5 | 9];
       return payload ? { payload } : null;
     });
     const out = await svc.onePagerPrint(actor, UUID, 'html');
@@ -261,8 +262,9 @@ describe('PrintService (D-23)', () => {
 
   it('I5: the energy band appears on the one-pager but never on the market list', async () => {
     const { svc, prisma } = service();
-    (prisma.analysisView.findUnique as jest.Mock).mockImplementation(async ({ where }: any) => {
-      const payload = onePagerViews()[where.analysisId_viewNumber.viewNumber as 2 | 4 | 5 | 9];
+    (prisma.analysisView.findFirst as jest.Mock).mockImplementation(async ({ where }: any) => {
+      if (where.status !== 'COMPLETE') return null;
+      const payload = onePagerViews()[where.viewNumber as 2 | 4 | 5 | 9];
       return payload ? { payload } : null;
     });
     const onePager = await svc.onePagerPrint(actor, UUID, 'html');
@@ -277,10 +279,11 @@ describe('PrintService (D-23)', () => {
 
   it('E6/I5: an absent View 9 renders the one-pager without an energy band (optional)', async () => {
     const withoutBand = service();
-    (withoutBand.prisma.analysisView.findUnique as jest.Mock).mockImplementation(
+    (withoutBand.prisma.analysisView.findFirst as jest.Mock).mockImplementation(
       async ({ where }: any) => {
-        if (where.analysisId_viewNumber.viewNumber === 9) return null;
-        const payload = onePagerViews()[where.analysisId_viewNumber.viewNumber as 2 | 4 | 5 | 9];
+        if (where.status !== 'COMPLETE') return null;
+        if (where.viewNumber === 9) return null;
+        const payload = onePagerViews()[where.viewNumber as 2 | 4 | 5 | 9];
         return payload ? { payload } : null;
       },
     );
@@ -299,8 +302,9 @@ describe('PrintService (D-23)', () => {
 
   it('E6 pdf format returns a rendered buffer via the injected runtime', async () => {
     const { svc, prisma, runtime } = service();
-    (prisma.analysisView.findUnique as jest.Mock).mockImplementation(async ({ where }: any) => {
-      const payload = onePagerViews()[where.analysisId_viewNumber.viewNumber as 2 | 4 | 5 | 9];
+    (prisma.analysisView.findFirst as jest.Mock).mockImplementation(async ({ where }: any) => {
+      if (where.status !== 'COMPLETE') return null;
+      const payload = onePagerViews()[where.viewNumber as 2 | 4 | 5 | 9];
       return payload ? { payload } : null;
     });
     const out = await svc.onePagerPrint(actor, UUID, 'pdf');

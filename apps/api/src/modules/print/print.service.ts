@@ -221,21 +221,25 @@ export class PrintService {
         message: 'No completed analysis for this recipe (the one-pager needs an analysis)',
       });
     }
+    // BUG-022: every view is read with `status: 'COMPLETE'` in the WHERE. The
+    // D-27 regional veto flips View 5 to INCOMPLETE while deliberately keeping its
+    // payload, so a status-blind read served vetoed content into the printed
+    // one-pager. Filtering in the query means a non-complete row never arrives.
     const [v2, v4, v5, v9, card] = await Promise.all([
-      this.prisma.analysisView.findUnique({
-        where: { analysisId_viewNumber: { analysisId: analysis.id, viewNumber: 2 } },
+      this.prisma.analysisView.findFirst({
+        where: { analysisId: analysis.id, viewNumber: 2, status: 'COMPLETE' },
         select: { payload: true },
       }),
-      this.prisma.analysisView.findUnique({
-        where: { analysisId_viewNumber: { analysisId: analysis.id, viewNumber: 4 } },
+      this.prisma.analysisView.findFirst({
+        where: { analysisId: analysis.id, viewNumber: 4, status: 'COMPLETE' },
         select: { payload: true },
       }),
-      this.prisma.analysisView.findUnique({
-        where: { analysisId_viewNumber: { analysisId: analysis.id, viewNumber: 5 } },
+      this.prisma.analysisView.findFirst({
+        where: { analysisId: analysis.id, viewNumber: 5, status: 'COMPLETE' },
         select: { payload: true },
       }),
-      this.prisma.analysisView.findUnique({
-        where: { analysisId_viewNumber: { analysisId: analysis.id, viewNumber: 9 } },
+      this.prisma.analysisView.findFirst({
+        where: { analysisId: analysis.id, viewNumber: 9, status: 'COMPLETE' },
         select: { payload: true },
       }),
       this.prisma.analysisStationCard.findUnique({ where: { analysisId: analysis.id } }),

@@ -232,8 +232,11 @@ export class RecipeService {
     });
     if (!current) return null;
     if (current.family) return current.family;
-    const view5 = await this.prisma.analysisView.findUnique({
-      where: { analysisId_viewNumber: { analysisId: current.id, viewNumber: 5 } },
+    // BUG-022: only a COMPLETE View 5 may name the recipe. The status lives in the
+    // WHERE, so a vetoed (INCOMPLETE) row cannot reach the parse at all — the D-27
+    // regional veto is a control, not a suggestion.
+    const view5 = await this.prisma.analysisView.findFirst({
+      where: { analysisId: current.id, viewNumber: 5, status: 'COMPLETE' },
       select: { payload: true },
     });
     if (!view5) return null;

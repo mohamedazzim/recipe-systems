@@ -15,7 +15,7 @@ function mockPrisma() {
     },
     recipeInput: { count: jest.fn(), findMany: jest.fn() },
     analysis: { findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
-    analysisView: { findUnique: jest.fn() },
+    analysisView: { findFirst: jest.fn() },
     recipeIngredientLine: { count: jest.fn() },
     cookLog: { count: jest.fn(), findMany: jest.fn(), findFirst: jest.fn() },
     cookLogPhoto: { findMany: jest.fn() },
@@ -279,7 +279,7 @@ describe('RecipeService — D-22 save + library (D1/D2)', () => {
       photoUri: null,
     });
     prisma.analysis.findFirst.mockResolvedValue({ id: 'an-1', family: null });
-    prisma.analysisView.findUnique.mockResolvedValue({ payload: VIEW5_PAYLOAD });
+    prisma.analysisView.findFirst.mockResolvedValue({ status: 'COMPLETE', payload: VIEW5_PAYLOAD });
     prisma.recipeIngredientLine.count.mockResolvedValue(11);
     prisma.recipe.findUniqueOrThrow = jest.fn().mockResolvedValue({ updatedAt: new Date('2026-09-10T12:00:00Z') });
     prisma.recipe.findMany.mockResolvedValue([
@@ -339,7 +339,7 @@ describe('RecipeService — D-22 save + library (D1/D2)', () => {
     const noId = mockD22({ analysis: { findFirst: jest.fn().mockResolvedValue(null) } });
     const svc2 = new RecipeService(noId);
     expect((await svc2.saveRecipe(userActor, RECIPE_ID, {})).title).toBe(UNTITLED_RECIPE);
-    expect(noId.analysisView.findUnique).not.toHaveBeenCalled();
+    expect(noId.analysisView.findFirst).not.toHaveBeenCalled();
   });
 
   it('guest save is allowed (A1 TC-02 seam) and rides the same ownership guard', async () => {

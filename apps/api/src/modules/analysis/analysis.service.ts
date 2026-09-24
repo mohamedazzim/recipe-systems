@@ -267,21 +267,24 @@ export class AnalysisService {
       });
     }
 
+    // BUG-022: read only COMPLETE views. The D-27 veto marks View 5 INCOMPLETE and
+    // keeps its payload on purpose, so a status-blind read kept feeding vetoed
+    // content into the substitution preview and its classifier inputs.
     const [v1, v4, v5, v6, line] = await Promise.all([
-      this.prisma.analysisView.findUnique({
-        where: { analysisId_viewNumber: { analysisId: analysis.id, viewNumber: 1 } },
+      this.prisma.analysisView.findFirst({
+        where: { analysisId: analysis.id, viewNumber: 1, status: 'COMPLETE' },
         select: { payload: true },
       }),
-      this.prisma.analysisView.findUnique({
-        where: { analysisId_viewNumber: { analysisId: analysis.id, viewNumber: 4 } },
+      this.prisma.analysisView.findFirst({
+        where: { analysisId: analysis.id, viewNumber: 4, status: 'COMPLETE' },
         select: { payload: true },
       }),
-      this.prisma.analysisView.findUnique({
-        where: { analysisId_viewNumber: { analysisId: analysis.id, viewNumber: 5 } },
+      this.prisma.analysisView.findFirst({
+        where: { analysisId: analysis.id, viewNumber: 5, status: 'COMPLETE' },
         select: { payload: true },
       }),
-      this.prisma.analysisView.findUnique({
-        where: { analysisId_viewNumber: { analysisId: analysis.id, viewNumber: 6 } },
+      this.prisma.analysisView.findFirst({
+        where: { analysisId: analysis.id, viewNumber: 6, status: 'COMPLETE' },
         select: { payload: true },
       }),
       this.prisma.recipeIngredientLine.findUnique({

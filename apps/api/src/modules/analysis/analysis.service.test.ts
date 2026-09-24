@@ -231,8 +231,11 @@ describe('AnalysisService.previewSubstitution (D-25A C7)', () => {
     const prisma = {
       analysis: { findFirst: jest.fn().mockResolvedValue({ id: 'a1' }) },
       analysisView: {
-        findUnique: jest.fn(async ({ where }: any) => {
-          const payload = views[where.analysisId_viewNumber.viewNumber];
+        // BUG-022: readers filter `status: 'COMPLETE'` in the WHERE. The double
+        // honours it, so a reader that stops filtering actually fails this suite.
+        findFirst: jest.fn(async ({ where }: any) => {
+          if (where.status !== 'COMPLETE') return null;
+          const payload = views[where.viewNumber];
           return payload === undefined ? null : { payload };
         }),
       },
@@ -275,7 +278,7 @@ describe('AnalysisService.previewSubstitution (D-25A C7)', () => {
     // read-only: no enqueue, no analysis_* writes, no recipe-line writes
     expect(queue.enqueue as jest.Mock).not.toHaveBeenCalled();
     expect(queue.enqueueView9Recompute as jest.Mock).not.toHaveBeenCalled();
-    expect((prisma.analysisView.findUnique as jest.Mock).mock.calls).toHaveLength(4);
+    expect((prisma.analysisView.findFirst as jest.Mock).mock.calls).toHaveLength(4);
   });
 
   it('404 ANALYSIS_NOT_FOUND when the recipe has no latest complete analysis', async () => {
@@ -300,7 +303,7 @@ describe('AnalysisService.previewSubstitution (D-25A C7)', () => {
     await expect(svc.previewSubstitution(userActor, 'r1', 'not-a-uuid')).rejects.toMatchObject({
       response: { code: 'SUBSTITUTION_NOT_FOUND' },
     });
-    expect(prisma.analysisView.findUnique).not.toHaveBeenCalled();
+    expect(prisma.analysisView.findFirst).not.toHaveBeenCalled();
   });
 
   it('ownership rides assertOwned — a foreign recipe is the canonical 404', async () => {

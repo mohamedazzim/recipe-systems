@@ -21,6 +21,16 @@ export function resolveLlmAdapter(env: Record<string, string | undefined>): LlmA
       baseUrl: env.GEMINI_BASE_URL,
       timeoutMs: env.GEMINI_TIMEOUT_MS ? Number(env.GEMINI_TIMEOUT_MS) : undefined,
       maxRetries: env.GEMINI_MAX_RETRIES ? Number(env.GEMINI_MAX_RETRIES) : undefined,
+      // Token-usage telemetry for the optional API-side capabilities (servings
+      // estimate, video proposal + chapters). Tokens only — never content, never
+      // secrets. The worker logs the same shape for the analysis views.
+      onUsage: (usage) => {
+        console.log(
+          `api telemetry [gemini] usage: prompt=${usage.promptTokens} ` +
+            `completion=${usage.completionTokens} thoughts=${usage.thoughtTokens} ` +
+            `total=${usage.totalTokens}`,
+        );
+      },
     });
   }
   if (provider === 'deepseek') {

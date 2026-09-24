@@ -174,6 +174,28 @@ interface GeminiOcrCandidate {
 interface GeminiOcrResponseBody {
   candidates?: GeminiOcrCandidate[];
   promptFeedback?: { blockReason?: string };
+  usageMetadata?: {
+    promptTokenCount?: number;
+    candidatesTokenCount?: number;
+    thoughtsTokenCount?: number;
+    totalTokenCount?: number;
+    promptTokensDetails?: Array<{ modality?: string; tokenCount?: number }>;
+  };
+}
+
+/** Normalize the provider's usageMetadata into the OcrResult telemetry shape
+ *  (tokens only — never content, never secrets). */
+function geminiOcrUsage(u?: GeminiOcrResponseBody['usageMetadata']): OcrResult['usage'] {
+  if (!u || typeof u.totalTokenCount !== 'number') return undefined;
+  const imageTokens =
+    (u.promptTokensDetails ?? []).find((d) => d.modality === 'IMAGE')?.tokenCount ?? 0;
+  return {
+    promptTokens: u.promptTokenCount ?? 0,
+    imageTokens,
+    outputTokens: u.candidatesTokenCount ?? 0,
+    thoughtTokens: u.thoughtsTokenCount ?? 0,
+    totalTokens: u.totalTokenCount,
+  };
 }
 
 /** Join the candidate's visible text parts — thought parts are never treated
@@ -262,19 +284,20 @@ export class GeminiVisionOcrAdapter implements OcrAdapter {
           );
         }
         const text = candidateTranscription(body.candidates?.[0]);
+        const usage = geminiOcrUsage(body.usageMetadata);
         // Empty (or whitespace-only) transcription is a VALID outcome → the
         // intake maps it to OCR_UNREADABLE (422); never thrown here.
         if (text.trim().length === 0) {
-          return normalizeGeminiResponse(text, this.model);
+          return { ...normalizeGeminiResponse(text, this.model), usage };
         }
         // Prefer the structured parse (ingredients split name/amount, method
         // steps separated). A non-JSON / malformed payload degrades to the
         // whole-line transcription so intake still gets the raw text.
         const structured = parseGeminiStructuredOcr(text);
         if (structured) {
-          return normalizeGeminiStructured(structured, this.model);
+          return { ...normalizeGeminiStructured(structured, this.model), usage };
         }
-        return normalizeGeminiResponse(text, this.model);
+        return { ...normalizeGeminiResponse(text, this.model), usage };
       } catch (err) {
         if (err instanceof OcrProviderError) throw err;
         const delay = 500 * 2 ** attempt;

@@ -30,6 +30,16 @@ export interface OcrResult {
   source_metadata: Record<string, unknown>;
   /** Best-effort recipe title extracted from the card (LLM providers only). */
   title?: string | null;
+  /** Provider token usage for this recognition — TELEMETRY ONLY (tokens, never
+   *  content). Optional: a provider that reports no usage simply omits it. */
+  usage?: {
+    promptTokens: number;
+    /** The image-derived share of the prompt — the dominant OCR cost. */
+    imageTokens: number;
+    outputTokens: number;
+    thoughtTokens: number;
+    totalTokens: number;
+  };
 }
 
 export interface OcrAdapter {

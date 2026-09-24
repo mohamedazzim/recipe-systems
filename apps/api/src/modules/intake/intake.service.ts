@@ -389,6 +389,18 @@ export class IntakeService implements OnModuleInit {
       return { status: 'pending', draft_line_count: 0, flagged_count: 0, source_metadata: null, title: null };
     }
 
+    // OCR token telemetry — the vision call is the single most expensive step of
+    // photo intake and was previously invisible in the logs (tokens only, never
+    // content). The worker logs the same shape for the analysis views.
+    if (result.usage) {
+      console.log(
+        `ocr telemetry [${String(result.source_metadata.provider ?? 'ocr')}]: ` +
+          `prompt=${result.usage.promptTokens} (image=${result.usage.imageTokens}) ` +
+          `output=${result.usage.outputTokens} thoughts=${result.usage.thoughtTokens} ` +
+          `total=${result.usage.totalTokens}`,
+      );
+    }
+
     const title = stripSerialPrefix(result.title ?? '') || null;
 
     // Structured providers separate ingredients from method steps; transcription-

@@ -21,7 +21,7 @@ import {
   View8PayloadSchema,
   View9PayloadSchema,
 } from '@recipe-systems/schemas';
-import { generateGrounded, LlmAdapter, LlmPermanentProviderError } from '@recipe-systems/llm-adapter';
+import { generateGrounded, groundingAttempt, LlmAdapter, LlmPermanentProviderError } from '@recipe-systems/llm-adapter';
 import { renderAllergenLine } from '@recipe-systems/rendering';
 import { ProviderPendingError } from './adapter';
 import {
@@ -269,17 +269,40 @@ export class AnalysisJobHandler {
     }
 
     if (first.grounding && !first.grounding.ok) {
-      // D-16 regenerate-once (A-16): second attempt, then INCOMPLETE.
+      // D-16 corrected retry (A-16): regenerate ONCE, re-feeding the violations as
+      // a correction instruction. The worker used to re-send the IDENTICAL request
+      // here — asking a misbehaving model the same question and hoping for a
+      // different answer. `groundingAttempt` is the shared D-16 decision and
+      // supplies the correction (it calls formatCorrection itself).
+      //
+      // Scoped to this branch only: the parse-failure branch above has no
+      // violations to correct against, so its request is deliberately unchanged.
+      const correction = groundingAttempt(1, first.grounding.violations);
+      const retryRequest = {
+        ...request,
+        ...(correction.action === 'regenerate'
+          ? { correction: correction.correction_instruction }
+          : {}),
+      };
       const secondStarted = Date.now();
-      const second = await generateGrounded(this.adapter, request, data.captured);
+      const second = await generateGrounded(this.adapter, retryRequest, data.captured);
       console.log(
-        `analysis ${data.analysis_id} view ${view} attempt 2 [${this.adapter.providerName}]: ` +
+        `analysis ${data.analysis_id} view ${view} attempt 2 corrected [${this.adapter.providerName}]: ` +
           `${Date.now() - secondStarted}ms parse=${second.parse.ok ? 'ok' : 'invalid'} ` +
           `grounding=${second.grounding ? (second.grounding.ok ? 'ok' : 'violations:' + second.grounding.violations.length) : 'n/a'}`,
       );
       // INV-08 refusal representation: an ungrounded (or unparseable) second
       // attempt leaves the row INCOMPLETE with an empty payload — never published.
       const decision = this.publishDecision(second);
+      // A/B seam: the verdict is the publish rate's single source, and it stays the
+      // final gate — the worst case of a bad correction is a LOWER publish rate,
+      // never a leaked payload. The guardrail (a published attempt-2 that still
+      // carried violations) is impossible by construction, so this line paired with
+      // the attempt-2 line above is the whole measurement.
+      console.log(
+        `analysis ${data.analysis_id} view ${view} attempt-2 verdict: ` +
+          `${decision.publish ? 'published' : 'refused_incomplete'}`,
+      );
       await this.upsertView(
         data.analysis_id,
         view,

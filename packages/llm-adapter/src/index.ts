@@ -40,6 +40,13 @@ export interface LlmGenerateRequest {
   /** Reproducibility pins — stamped into analysis rows by the worker. */
   prompt_version: string;
   model_version: string;
+  /**
+   * D-16 corrected retry: the correction instruction re-fed to the model when a
+   * grounding failure is regenerated (the `formatCorrection` text, via
+   * `groundingAttempt`). Absent on a first attempt, and absent on the
+   * parse-failure retry — there are no violations to correct against there.
+   */
+  correction?: string;
 }
 
 /** Phase 3: the extraction request — raw document text in, parsed JSON out. */

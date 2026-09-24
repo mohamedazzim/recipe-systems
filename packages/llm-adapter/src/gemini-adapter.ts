@@ -284,7 +284,10 @@ export class GeminiLlmAdapter implements LlmAdapter {
   async generate(request: LlmGenerateRequest): Promise<unknown> {
     const prompts = buildViewPrompt(request.view, request.mode as AnalysisMode);
     const snapshot = JSON.stringify(pruneSnapshot(request.recipe_snapshot));
-    const user = `${prompts.user}\n\nSTRUCTURED RECIPE OBJECT (the ONLY source of truth):\n${snapshot}`;
+    // D-16 corrected retry: a re-fed correction rides at the END, so the model
+    // reads the violation list after the data it must re-emit.
+    const correction = request.correction ? `\n\n${request.correction}` : '';
+    const user = `${prompts.user}\n\nSTRUCTURED RECIPE OBJECT (the ONLY source of truth):\n${snapshot}${correction}`;
     const { content, usage } = await this.generateContent(prompts.system, user);
     if (usage && this.onUsage) {
       this.onUsage({ view: request.view, mode: request.mode, ...usage });

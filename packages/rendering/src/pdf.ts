@@ -25,9 +25,26 @@ export interface PdfRuntime {
 }
 
 export function chromiumRuntime(): PdfRuntime {
+  // Container-safe launch. Railway (like any Docker runtime) runs the process as
+  // root, where Chromium refuses to start at all without --no-sandbox, and a
+  // container's default /dev/shm is 64MB, which crashes the renderer on a page of
+  // any size. Either one fails the launch, and the API reports it to the user as
+  // "PDF generation failed — retryable" with the cause only in the discarded error.
+  // Headless rendering is unaffected by these flags.
+  const launch = () =>
+    chromium.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+      ],
+    });
+
   return {
     async renderToPdf(html, timeoutMs) {
-      const browser = await chromium.launch({ headless: true });
+      const browser = await launch();
       try {
         const page = await browser.newPage();
         page.setDefaultTimeout(timeoutMs);
@@ -39,7 +56,7 @@ export function chromiumRuntime(): PdfRuntime {
       }
     },
     async measureHeight(html, timeoutMs) {
-      const browser = await chromium.launch({ headless: true });
+      const browser = await launch();
       try {
         const page = await browser.newPage({ viewport: { width: 794, height: 1123 } });
         page.setDefaultTimeout(timeoutMs);

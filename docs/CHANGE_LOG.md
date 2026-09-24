@@ -1,3 +1,77 @@
+## 2026-09-24 — AUDIT REMEDIATION, RESPONSIVE PASS, PROMPT-TOKEN REDUCTION
+
+- **Audit.** Six parallel deep audits over auth/session, intake+servings, the analysis
+  worker, print/shopping/cook, the web app, and db/admin/CI: ~75 substantiated
+  findings with file:line evidence, triaged P0–P3. Delivered as a report; the items
+  below are what has been actioned.
+- **P0 fixes (8)** — `49b46a8`. `GuestOrJwtGuard` let an unverifiable session cookie
+  throw, so every guest-or-jwt route answered 500 once the session aged out (and the
+  web, which reacts only to 401, could not offer re-signin); the expiry flag latched on
+  the anonymous `/auth/me` bootstrap, showing "session expired" to first-time guests;
+  pg-boss resolves `expire_in` at SEND time, so the worker's 4h value was never in
+  effect and jobs expired at the built-in 15 min mid-run and were redelivered;
+  migration 008 had dropped `'failed'` from `chk_document_ingestion_status` while the
+  extraction worker still writes it; the background servings estimate overwrote a
+  user-set yield; OCR 429/5xx were rethrown before the retry branch, making the retry
+  budget and wall-clock bound inert for exactly those failures; the shopping list and
+  station card printed every amount twice; the video walkthrough stopped polling after
+  a single failed request.
+- **Responsive pass** — `904ed2d`, 26 files. Driven by rendering the real app at
+  320/375/414/768/1024/1280/1440/2560 and measuring layout, plus the signed-in surfaces
+  through a real Keycloak login — not by reading classes. That found what static
+  reading did not: an `fr` grid track holding its `auto` minimum pushed the page 18px
+  wide at exactly 1024px, and three back/link controls rendered 19–22px tall. Also
+  corrected: `bg-background` is not a token in this system (25 sites silently emitted
+  no background, including form controls and provenance badges); `/4` and `/8` opacity
+  steps are outside Tailwind's scale (every Alert rendered border-only);
+  `outline-offset--2` was malformed; form controls below 16px triggered iOS Safari
+  focus zoom; touch targets ran 20–36px. Adds `viewport-fit=cover` + safe-area
+  padding, fluid brand display type, a scrollable dialog, and `next/font`.
+- **Prompt-token reduction** — `34963bb`. **14,961 → 12,875 input tokens per analysis
+  (−13.9%)**, measured against the live `countTokens` endpoint using the repo's own
+  prompt builders. Absent fields (`null`/`undefined`/empty array/whitespace-only
+  string) are pruned from the snapshot before it enters the prompt, in both adapters:
+  1,042 → 744 tokens, sent seven times. Information-preserving by construction
+  (booleans are kept — `false` is information) and measured to lose 0 fields carrying
+  a value; it cannot weaken grounding, which validates against the real capture object,
+  never the pruned prompt copy. `docs/API_TOKEN_USAGE.md` records every call site, this
+  reduction, and the measured ceilings still unused — chiefly that 85.4% of the view
+  spend is identical text sent seven times, so sending the shared prefix once (batched,
+  or provider-cached) is worth a further −74%, which no amount of further compression
+  reaches.
+- **Grounding, View 8** — `c6158c6`. A line resolving to no dictionary entry had no
+  determinable allergen status and landed in no bucket at all — not `present`, not
+  `not_on_card`, not `unknown` — so a present allergen could vanish from the allergen
+  view, a de-facto pass on a safety surface. Unmatched lines now report under
+  `unknown`, labelled with their verbatim display name (the same string the card
+  shows). Scope is deliberately the unresolved lines only: a line that resolved but has
+  no curated mapping is a separate, still-open question.
+- **Reverted, deliberately** — `5a7b0f1`, reverted in `f7c1e51`. A validator rule
+  rejecting any `COMPLETE` view that asserts nothing was green in `llm-adapter` and red
+  in the worker (4 assertions, each an extra `generate`), because
+  `VALID_VIEW_7 = { status: 'COMPLETE', memorable_elements: [] }` is declared valid by
+  the suite — and for View 7 an empty element list is a legitimate answer, not a
+  refusal. The rule invented a constraint the product never states. Recorded rather
+  than edited around: the audit's finding stands, and the defensible version is a
+  per-view rule that permits legitimately-empty collections, decided deliberately.
+- **Verification:** full workspace suite 1088 tests / 0 failures · typecheck 0 ·
+  lint 0 · rendered probe across the eight widths above, public and signed-in ·
+  production deploy verified (`api/v1/health` 200).
+- **Not verified:** the new View 8 behaviour end-to-end in production (needs an
+  authenticated recipe carrying an unmatched line pushed through the worker); six web
+  surfaces (`AnalysisViews`, `CookSection`, `VideoWalkthrough`, `ProfileEditor`,
+  `HouseholdView`, `DocumentDraftReview`) are statically audited but never rendered —
+  they require a completed analysis, a cook log, or a restriction profile.
+- **Outstanding from the audit:** a restriction conflict can render as "no conflict"
+  when View 8 fails to parse (a silent pass on a safety surface); views 3/5/6/7 carry
+  no reference check, and `buildCapture` hardcodes `explicitly_absent: []`, making the
+  absent-channel scan a no-op in production.
+- **Known environment defect:** a cold `next dev` fails in this repo —
+  `next-flight-css-loader` parses `globals.css` as JavaScript ("Module parse failed").
+  `next build` and production are unaffected. Replacing the remote Google Fonts
+  `@import` with `next/font` removed the first parse error but not the cause, and
+  `next.config.ts` is clean, so this needs a webpack CSS-pipeline investigation.
+
 ## 2026-09-16 — E2E DEFECT REMEDIATION (D-1 · D-2 · D-4; D-3 documented · B2 untouched)
 
 - Remediation of the full E2E audit's four defects — fixes ONLY, no new feature

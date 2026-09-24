@@ -188,7 +188,12 @@ export class IntakeController {
   /** B2: upload a card image — object storage URI only, never the blob (API §3 RS-US-07). */
   @Post('upload')
   @UseGuards(GuestOrJwtGuard, CsrfGuard)
-  @UseInterceptors(FileInterceptor('file'))
+  // BUG-014: the limit belongs on the INTERCEPTOR, not only in the handler. Multer
+  // buffers the whole body in memory before the handler runs, so a `buffer.length`
+  // check cannot prevent the allocation it is meant to prevent — it only rejects
+  // once the heap has already taken the hit. With `fileSize` set, Multer aborts the
+  // stream and Nest answers 413 before anything is buffered.
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_IMAGE_BYTES } }))
   async upload(@Req() req: ActorRequest, @UploadedFile() file?: Express.Multer.File) {
     if (!file || !file.buffer || file.buffer.length === 0) {
       throw new BadRequestException({ code: 'INVALID_IMAGE', message: 'JPEG/PNG file required' });

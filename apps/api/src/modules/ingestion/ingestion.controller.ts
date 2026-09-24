@@ -22,6 +22,7 @@ import { DraftEditSchema } from '@recipe-systems/schemas';
 import { CsrfGuard } from '../../common/guards/csrf.guard';
 import { ActorRequest, GuestOrJwtGuard } from '../../common/guards/guest-or-jwt.guard';
 import { IngestionService } from './ingestion.service';
+import { MAX_DOCUMENT_BYTES } from '../intake/storage.service';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -33,7 +34,9 @@ export class IngestionController {
    *  worker extracts source-faithful raw text asynchronously. */
   @Post('documents')
   @UseGuards(GuestOrJwtGuard, CsrfGuard)
-  @UseInterceptors(FileInterceptor('file'))
+  // BUG-014: limit at the interceptor, so Multer aborts the stream instead of
+  // buffering the whole body in memory before the handler's size check runs.
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_DOCUMENT_BYTES } }))
   async uploadDocument(@Req() req: ActorRequest, @UploadedFile() file?: Express.Multer.File) {
     return this.ingestion.ingestDocument(req.actor!, file!);
   }

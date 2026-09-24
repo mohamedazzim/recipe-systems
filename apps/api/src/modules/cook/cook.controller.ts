@@ -190,7 +190,9 @@ export class CookLogController {
    *  Never triggers re-analysis. 200 + the wire. */
   @Post(':cookLogId/photo')
   @UseGuards(GuestOrJwtGuard, CsrfGuard)
-  @UseInterceptors(FileInterceptor('file'))
+  // BUG-014: limit at the interceptor, so Multer aborts the stream instead of
+  // buffering the whole body in memory before the handler's size check runs.
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_IMAGE_BYTES } }))
   async attachPhoto(
     @Req() req: ActorRequest,
     @Param('cookLogId') cookLogId: string,

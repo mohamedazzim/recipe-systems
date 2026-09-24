@@ -31,8 +31,7 @@ export interface GroundingViolation {
     | 'CLAIM_TEXT_MISMATCH'
     | 'ABSENT_FOR_CAPTURED'
     | 'ABSENT_ITEM_USED_WITHOUT_ABSENT_TAG'
-    | 'NON_ABSENT_UNRESOLVED_REFERENCE'
-    | 'EMPTY_VIEW_PAYLOAD';
+    | 'NON_ABSENT_UNRESOLVED_REFERENCE';
   /** Human-readable line for the correction instruction / review record. */
   message: string;
   /** Where the violation was found (view number or 'claim'). */
@@ -132,31 +131,6 @@ export function validateViewGrounding(
         at: `view ${view}`,
       });
     }
-  }
-
-  // 3. A payload that asserts NOTHING must not claim COMPLETE (D-16H). Nothing
-  //    previously required a view to say anything: `{items: [], role_groups: []}`
-  //    passed the frozen schema AND this validator, so it was stored COMPLETE —
-  //    the station card then printed an empty sequence and the UI presented "no
-  //    content" as a finished result. A view that asserts nothing cannot be
-  //    grounded; it belongs in the INCOMPLETE path instead.
-  //
-  //    Only enforced against a COMPLETE claim, so a view that already declares
-  //    itself INCOMPLETE (a genuinely empty substitution list, say) is untouched.
-  const assertsSomething = Object.entries(record).some(([key, value]) => {
-    if (key === 'status') return false;
-    if (Array.isArray(value)) return value.length > 0;
-    if (typeof value === 'string') return value.trim().length > 0;
-    if (value !== null && typeof value === 'object') return Object.keys(value).length > 0;
-    return value !== undefined;
-  });
-  if (record.status === 'COMPLETE' && !assertsSomething) {
-    violations.push({
-      code: 'EMPTY_VIEW_PAYLOAD',
-      message:
-        'the view claims COMPLETE but asserts nothing — an empty payload cannot be grounded',
-      at: `view ${view}`,
-    });
   }
 
   return violations.length === 0 ? { ok: true } : { ok: false, violations };

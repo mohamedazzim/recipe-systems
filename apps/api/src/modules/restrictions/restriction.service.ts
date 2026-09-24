@@ -61,6 +61,15 @@ export interface RestrictionHighlightWire {
   unknown: string[]; // profile allergens the card leaves UNKNOWN — never a pass
   not_flagged: string[]; // profile allergens absent from the card view — no pass claimed
   profile_notes: string[]; // diet patterns (no card data to compare) + label-pack note
+  /**
+   * BUG-023: true when this analysis has no USABLE allergen view — missing, not
+   * COMPLETE (e.g. vetoed), or schema-invalid. The UI renders an explicit
+   * "allergen check unavailable" state from this. It is a marker, not the safety
+   * mechanism: the lists below stay conservative regardless (everything under
+   * `unknown`, nothing under `not_flagged`), so a client that ignores this flag
+   * still cannot read an all-clear.
+   */
+  unavailable: boolean;
 }
 
 @Injectable()
@@ -182,15 +191,29 @@ export class RestrictionService {
       throw new NotFoundException({ code: 'ANALYSIS_NOT_FOUND', message: 'Analysis not found' });
     }
 
-    const view8Row = await this.prisma.analysisView.findUnique({
-      where: { analysisId_viewNumber: { analysisId, viewNumber: 8 } },
+    // BUG-023: a missing, non-COMPLETE, or schema-invalid View 8 must never
+    // collapse to "nothing flagged". Empty present/unknown sets put every
+    // configured allergen into `not_flagged`, which on an allergy surface reads as
+    // an all-clear — the one answer this module may never give. Two changes:
+    //   - status is filtered in the WHERE (the BUG-022 treatment), so an
+    //     INCOMPLETE row with a stale-but-parseable payload cannot feed the lists;
+    //   - an unusable view is reported explicitly (see `unavailable` below) with
+    //     every allergen routed to `unknown`.
+    const view8Row = await this.prisma.analysisView.findFirst({
+      where: { analysisId, viewNumber: 8, status: 'COMPLETE' },
+      select: { payload: true },
     });
-    const parsed = view8Row ? View8PayloadSchema.safeParse(view8Row.payload) : null;
-    const present = new Set(parsed?.success ? parsed.data.present : []);
-    const unknown = new Set(parsed?.success ? parsed.data.unknown : []);
+    const view8 = view8Row ? View8PayloadSchema.safeParse(view8Row.payload) : null;
+    const allergenCheckAvailable = view8?.success === true;
+    const present = new Set<string>();
+    const unknown = new Set<string>();
+    if (view8?.success) {
+      for (const item of view8.data.present) present.add(item);
+      for (const item of view8.data.unknown) unknown.add(item);
+    }
 
     if (actor.kind !== 'user') {
-      return { conflicts: [], unknown: [], not_flagged: [], profile_notes: [] };
+      return { conflicts: [], unknown: [], not_flagged: [], profile_notes: [], unavailable: false };
     }
 
     const profile = await this.prisma.accountRestrictionProfile.findUnique({
@@ -198,7 +221,7 @@ export class RestrictionService {
       include: { items: true },
     });
     if (!profile) {
-      return { conflicts: [], unknown: [], not_flagged: [], profile_notes: [] };
+      return { conflicts: [], unknown: [], not_flagged: [], profile_notes: [], unavailable: false };
     }
 
     const allergenIds = profile.items
@@ -214,8 +237,20 @@ export class RestrictionService {
 
     const conflicts = names.filter((n) => present.has(n));
     const unknownHits = names.filter((n) => unknown.has(n));
-    const notFlagged = names.filter((n) => !present.has(n) && !unknown.has(n));
+    // Conservative default: with no usable allergen view NOTHING may be reported
+    // as absent-from-the-card. Everything goes to `unknown` instead.
+    const notFlagged = allergenCheckAvailable
+      ? names.filter((n) => !present.has(n) && !unknown.has(n))
+      : [];
     const profileNotes: string[] = [];
+    if (!allergenCheckAvailable) {
+      // An inline banner, not a throw: a blocked flow is worse than a stated gap on
+      // a safety surface. Same posture as the diet-pattern notes below.
+      profileNotes.push(
+        'allergen check unavailable: this analysis has no usable allergen view — ' +
+          'every configured allergen is shown as unknown, never as a pass',
+      );
+    }
     for (const pattern of profile.items
       .map((i) => i.dietPattern)
       .filter((p): p is string => p !== null)) {
@@ -226,9 +261,10 @@ export class RestrictionService {
     profileNotes.push(`label pack: ${profile.labelPack}`);
     return {
       conflicts,
-      unknown: unknownHits,
+      unknown: allergenCheckAvailable ? unknownHits : names,
       not_flagged: notFlagged,
       profile_notes: profileNotes,
+      unavailable: !allergenCheckAvailable,
     };
   }
 }

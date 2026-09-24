@@ -20,7 +20,7 @@ function mockPrisma() {
       findMany: jest.fn(),
     },
     analysis: { findUnique: jest.fn() },
-    analysisView: { findUnique: jest.fn() },
+    analysisView: { findFirst: jest.fn() },
     $transaction: jest.fn(async (fn: (tx: unknown) => Promise<unknown>) => fn(mockTx)),
   };
 }
@@ -144,7 +144,7 @@ describe('RestrictionService (D-26 H1/H3)', () => {
       id: ANALYSIS_ID,
       recipe: { accountId: ACCOUNT_ID, guestSessionId: null },
     });
-    prisma.analysisView.findUnique.mockResolvedValue({
+    prisma.analysisView.findFirst.mockResolvedValue({
       payload: {
         present: ['Fish', 'Mustard'],
         not_on_card: ['Coconut'],
@@ -205,23 +205,81 @@ describe('RestrictionService (D-26 H1/H3)', () => {
       unknown: [],
       not_flagged: [],
       profile_notes: [],
+      unavailable: false,
     });
   });
 
-  it('highlight: no profile → empty result; invalid View 8 payload → empty sets (frozen gate honored)', async () => {
+  it('highlight: no profile → empty result, no banner (nothing to evaluate)', async () => {
     const prisma: any = mockPrisma();
     prisma.analysis.findUnique.mockResolvedValue({
       id: ANALYSIS_ID,
       recipe: { accountId: ACCOUNT_ID, guestSessionId: null },
     });
     prisma.accountRestrictionProfile.findUnique.mockResolvedValue(null);
-    prisma.analysisView.findUnique.mockResolvedValue({ payload: { bogus: true } });
+    prisma.analysisView.findFirst.mockResolvedValue(null);
     const svc = new RestrictionService(prisma);
     expect(await svc.highlight(userActor, ANALYSIS_ID)).toEqual({
       conflicts: [],
       unknown: [],
       not_flagged: [],
       profile_notes: [],
+      unavailable: false,
     });
+  });
+
+  it('BUG-023: an unusable allergen view can never read as an all-clear', async () => {
+    // Pre-fix behaviour: a configured profile plus an unusable View 8 left `present`
+    // and `unknown` EMPTY, so `not_flagged` swallowed every configured allergen — a
+    // clean bill of health on an allergy surface, produced by data that simply was
+    // not there. This test previously ENSHRINED that ("invalid View 8 payload →
+    // empty sets"); it now asserts the opposite.
+    const validView8 = {
+      present: ['Fish'],
+      not_on_card: [],
+      unknown: [],
+      removal_notes: [],
+      disclaimer: 'Reads the card only.',
+      allergen_line: { contains: [], notes: [], unknown: [] },
+    };
+    const cases: Array<{ name: string; row: { status: string; payload: unknown } | null }> = [
+      { name: 'no analysis_view row at all', row: null },
+      { name: 'schema-invalid payload (frozen gate rejects it)', row: { status: 'COMPLETE', payload: { bogus: true } } },
+      {
+        name: 'INCOMPLETE row still holding a parseable payload',
+        row: { status: 'INCOMPLETE', payload: validView8 },
+      },
+    ];
+
+    for (const { name, row } of cases) {
+      const prisma: any = mockPrisma();
+      prisma.analysis.findUnique.mockResolvedValue({
+        id: ANALYSIS_ID,
+        recipe: { accountId: ACCOUNT_ID, guestSessionId: null },
+      });
+      prisma.accountRestrictionProfile.findUnique.mockResolvedValue({
+        id: 'prof-1',
+        labelPack: 'US',
+        items: [{ allergenId: 'def-shellfish', dietPattern: null }],
+      });
+      prisma.dietaryAllergenDefinition.findMany.mockResolvedValue([{ name: 'Shellfish' }]);
+      // The double models a real database: the row exists, and it is excluded only
+      // when the reader actually asks for COMPLETE rows. Drop that filter from the
+      // reader and the third case fails.
+      prisma.analysisView.findFirst.mockImplementation(async ({ where }: any) =>
+        row && row.status === where.status ? { payload: row.payload } : null,
+      );
+
+      const svc = new RestrictionService(prisma);
+      const wire = await svc.highlight(userActor, ANALYSIS_ID);
+
+      // Never an all-clear…
+      expect(wire.not_flagged).toEqual([]);
+      // …the configured allergen is reported as unknown instead…
+      expect(wire.unknown).toEqual(['Shellfish']);
+      // …and the gap is stated explicitly, as an inline banner rather than a throw.
+      expect(wire.unavailable).toBe(true);
+      expect(wire.profile_notes.some((n) => n.includes('allergen check unavailable'))).toBe(true);
+      expect(name.length).toBeGreaterThan(0); // identifies the failing case
+    }
   });
 });

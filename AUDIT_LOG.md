@@ -24,7 +24,17 @@ deployed (`49b46a8`), followed by the responsive pass (`904ed2d`), the prompt-to
 reduction (`34963bb`) and the View 8 grounding fix (`c6158c6`) — all recorded in the
 2026-09-24 CHANGE_LOG entry. Everything below is still OPEN.
 
-### Open — HIGH (correctness on a safety surface)
+### Safety-surface findings — read the status note before the labels below
+
+> **Status note (later the same day).** Two of these are now closed, so the `OPEN` labels
+> immediately below are superseded where noted:
+> - **F-1 — CLOSED** (`e06b153`, audit BUG-023): the read filters `status: 'COMPLETE'`, and an
+>   unusable allergen view now reports `unavailable` with every configured allergen under
+>   `unknown` — never `not_flagged`.
+> - **F-3, first half — CLOSED** (`6c1bfe1`, audit BUG-001): the parse-retry path no longer
+>   publishes an ungrounded payload. The rest of F-3 stands OPEN: views 3/5/6/7 still carry no
+>   reference check, and `buildCapture` still hardcodes `explicitly_absent: []`.
+> - **F-2 — still PARTIALLY addressed**, exactly as described below.
 
 **F-1 (HIGH, OPEN) — a restriction conflict can render as "no conflict".**
 - Attack: `restriction.service.ts:188-190` — when the frozen View-8 payload fails
@@ -98,8 +108,9 @@ reference check; the absent-channel scan is a no-op in production.**
   registration, wildcard redirect URIs and no brute-force protection.
 - **`.env` is not excluded by `.railwayignore`** — `railway up` uploads the working tree and
   consults only that file, so live provider keys would enter the build context. The `.env`
-  exclusion was added locally but is **uncommitted** (the file also carries a `.commandcode/`
-  line that must not be committed), and **the Gemini/DeepSeek keys still need rotating**.
+  exclusion was added locally but is **uncommitted** (that file also carries a local
+  tool-exclusion line that must never be committed), and **the Gemini/DeepSeek keys still
+  need rotating**.
 
 ### Open — LOW / tooling
 

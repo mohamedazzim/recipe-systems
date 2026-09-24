@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { API_BASE_URL, api } from '@/lib/api';
+import { API_BASE_URL, api, setSessionExpiredHandler } from '@/lib/api';
 import { User } from '@/lib/types';
 import { LoadingScreen } from '@/components/ui/Spinner';
 import { LandingPage } from '@/components/home/LandingPage';
@@ -12,6 +12,7 @@ import { CreateView } from '@/components/app/CreateView';
 import { HouseholdView } from '@/components/app/HouseholdView';
 import { DocumentDraftReview } from '@/components/app/DocumentDraftReview';
 import { RecipeWorkspace } from '@/components/app/RecipeWorkspace';
+import { SessionExpiredModal } from '@/components/app/SessionExpiredModal';
 import { claimSessionRecords } from '@/lib/flow';
 import type { LibraryRecipe, WireLine } from '@/lib/types';
 
@@ -154,6 +155,15 @@ export default function Home() {
     setState({ phase: 'anonymous' });
   }, []);
 
+  /** RS-US: any 401 from an authed call means the BFF session expired (the API
+   *  answers UNAUTHENTICATED / SESSION_EXPIRED). Show ONE re-sign-in prompt
+   *  rather than leaving every button on the page silently failing. */
+  const [sessionExpired, setSessionExpired] = useState(false);
+  useEffect(() => {
+    setSessionExpiredHandler(() => setSessionExpired(true));
+    return () => setSessionExpiredHandler(null);
+  }, []);
+
   if (state.phase === 'loading') {
     return <LoadingScreen label="Checking your session" />;
   }
@@ -192,6 +202,7 @@ export default function Home() {
   const user = state.phase === 'signed-in' ? state.user : null;
 
   return (
+    <>
     <AppShell
       user={user}
       view={view}
@@ -337,5 +348,12 @@ export default function Home() {
         <p className="sr-only">Guest session {guestSessionId.slice(0, 8)}</p>
       )}
     </AppShell>
+      {/* RS-US: the single re-sign-in prompt for an expired session. Rendered
+          over the current view, which stays intact behind it. */}
+      <SessionExpiredModal
+        open={sessionExpired}
+        onDismiss={() => setSessionExpired(false)}
+      />
+    </>
   );
 }

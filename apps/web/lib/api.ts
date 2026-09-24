@@ -14,6 +14,23 @@ export class ApiError extends Error {
   }
 }
 
+/** Session expiry is GLOBAL state, not a per-view error: a 401 on any authed call
+ *  means the BFF session is gone. The shell registers ONE handler so the user gets
+ *  a single re-sign-in prompt, instead of each component surfacing a raw
+ *  "Sign in required" and leaving its buttons silently dead. */
+const AUTH_ERROR_CODES = ['UNAUTHENTICATED', 'SESSION_EXPIRED', 'UNAUTHORIZED'];
+
+let sessionExpiredHandler: (() => void) | null = null;
+
+/** Register the shell's re-sign-in handler (null clears it). */
+export function setSessionExpiredHandler(handler: (() => void) | null): void {
+  sessionExpiredHandler = handler;
+}
+
+function notifyIfSessionExpired(status: number, code: string): void {
+  if (status === 401 || AUTH_ERROR_CODES.includes(code)) sessionExpiredHandler?.();
+}
+
 export async function api<T>(
   path: string,
   init: RequestInit = {},
@@ -50,6 +67,7 @@ export async function api<T>(
     } catch {
       // non-JSON error body — keep defaults
     }
+    notifyIfSessionExpired(res.status, code);
     throw new ApiError(res.status, code, message);
   }
   return (await res.json()) as T;
@@ -116,6 +134,7 @@ export async function apiUpload<T>(
     } catch {
       // non-JSON error body — keep defaults
     }
+    notifyIfSessionExpired(res.status, code);
     throw new ApiError(res.status, code, message);
   }
   return (await res.json()) as T;

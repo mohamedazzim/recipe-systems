@@ -525,7 +525,7 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
             type="button"
             aria-label="Decrease servings"
             onClick={() => setCurrentServings((n) => Math.max(1, n - 1))}
-            className="flex h-8 w-8 items-center justify-center rounded-md border border-border-strong text-muted transition-colors hover:border-ink/40 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+            className="flex h-11 w-11 items-center justify-center rounded-md border border-border-strong text-muted transition-colors hover:border-ink/40 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
           >
             <Minus size={14} aria-hidden="true" weight="bold" />
           </button>
@@ -536,7 +536,7 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
             type="button"
             aria-label="Increase servings"
             onClick={() => setCurrentServings((n) => n + 1)}
-            className="flex h-8 w-8 items-center justify-center rounded-md border border-border-strong text-muted transition-colors hover:border-ink/40 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+            className="flex h-11 w-11 items-center justify-center rounded-md border border-border-strong text-muted transition-colors hover:border-ink/40 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
           >
             <Plus size={14} aria-hidden="true" weight="bold" />
           </button>
@@ -616,7 +616,7 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
                           onChange={(e) =>
                             setEditor({ ...editor, include_on_list: e.target.checked })
                           }
-                          className="h-4 w-4 accent-[rgb(var(--rs-accent))]"
+                          className="h-5 w-5 accent-[rgb(var(--rs-accent))]"
                         />
                         Include on shopping list
                       </label>
@@ -627,7 +627,7 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
                           onChange={(e) =>
                             setEditor({ ...editor, sense_confirmed: e.target.checked })
                           }
-                          className="h-4 w-4 accent-[rgb(var(--rs-accent))]"
+                          className="h-5 w-5 accent-[rgb(var(--rs-accent))]"
                         />
                         Sense confirmed
                       </label>
@@ -652,7 +652,10 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
                     {/* min-w-[16rem] stops the action buttons from crushing the
                         name into mid-word breaks on narrow laptop panes — the
                         actions wrap to their own line below instead. */}
-                    <div className="min-w-[16rem] flex-1">
+                    {/* min-w-0, not min-w-[16rem]: a 256px floor inside a 240px row
+                        at 320px pushed the page into horizontal scroll. The wider
+                        minimum is kept only where there is room for it. */}
+                    <div className="min-w-0 flex-1 sm:min-w-[16rem]">
                       <p className="break-words font-semibold leading-snug text-ink">
                         {line.display_name}
                       </p>
@@ -676,13 +679,13 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
                       {/* METADATA — canonical mapping, provenance, confirmation. */}
                       <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                         {line.canonical_name && (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-caption text-muted">
+                          <span className="inline-flex items-center gap-1 rounded-full border border-border bg-surface px-2 py-0.5 text-caption text-muted">
                             <Check size={12} aria-hidden="true" weight="bold" />
                             {line.canonical_name.replace(/_/g, ' ')}
                           </span>
                         )}
                         {line.source_tag && (
-                          <span className="inline-flex items-center rounded-full border border-border bg-background px-2 py-0.5 text-caption text-faint">
+                          <span className="inline-flex items-center rounded-full border border-border bg-surface px-2 py-0.5 text-caption text-faint">
                             from {line.source_tag.toLowerCase()}
                           </span>
                         )}
@@ -703,7 +706,7 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
                             className={
                               line.ocr_confidence < 0.9
                                 ? 'inline-flex items-center gap-1 rounded-full border border-gold/60 bg-gold/10 px-2 py-0.5 text-caption font-semibold text-gold'
-                                : 'inline-flex items-center rounded-full border border-border bg-background px-2 py-0.5 text-caption text-muted'
+                                : 'inline-flex items-center rounded-full border border-border bg-surface px-2 py-0.5 text-caption text-muted'
                             }
                           >
                             {line.ocr_confidence < 0.9 && (
@@ -744,7 +747,7 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
                     {/* ACTIONS — fast-access Edit / Clear review / Delete on every
                         row, plus a kebab overflow for the remaining line actions. */}
                     {signedIn && (
-                      <div className="ml-auto flex shrink-0 items-center gap-1">
+                      <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1">
                         <button
                           type="button"
                           aria-label={`Edit ${line.display_name}`}
@@ -903,7 +906,7 @@ export function IngredientReview({ recipeId, signedIn, title, initialLines = nul
       )}
 
       {headerLines.length > 0 && (
-        <div className="mt-4 rounded-lg border border-dashed border-border bg-background p-4">
+        <div className="mt-4 rounded-lg border border-dashed border-border bg-surface p-4">
           <h3 className="text-small font-semibold text-muted">
             Header lines — excluded from ingredients, shopping and print
           </h3>

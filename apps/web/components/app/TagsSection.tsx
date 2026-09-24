@@ -101,7 +101,7 @@ export function TagsSection({ recipeId, signedIn, bare = false }: TagsSectionPro
               tags.map((tag) => (
                 <span
                   key={tag}
-                  className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 text-caption text-body"
+                  className="inline-flex items-center gap-1 rounded-full border border-border bg-surface px-2.5 py-1 text-caption text-body"
                 >
                   <Tag size={12} aria-hidden="true" weight="bold" />
                   {tag}
@@ -110,7 +110,7 @@ export function TagsSection({ recipeId, signedIn, bare = false }: TagsSectionPro
                     onClick={() => void removeTag(tag)}
                     disabled={busy}
                     aria-label={`Remove tag ${tag}`}
-                    className="rounded-sm text-muted hover:text-negative focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                    className="-m-2 inline-flex items-center rounded-sm p-2 text-muted hover:text-negative focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
                   >
                     <X size={12} aria-hidden="true" weight="bold" />
                   </button>
@@ -132,7 +132,7 @@ export function TagsSection({ recipeId, signedIn, bare = false }: TagsSectionPro
               }}
               placeholder="e.g. comfort food"
               maxLength={100}
-              className="min-w-48 max-w-full flex-1 rounded-md border border-border-strong bg-background px-3 py-2 text-body focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+              className="min-w-48 max-w-full flex-1 rounded-md border border-border-strong bg-surface px-3 py-2 text-body focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
             />
             <Button size="sm" onClick={() => void addTag()} disabled={busy || draft.trim() === ''}>
               <Plus size={14} aria-hidden="true" weight="bold" />

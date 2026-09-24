@@ -47,7 +47,7 @@ export function RestrictionHighlight({
   if (empty) return null;
 
   return (
-    <div className="mt-4 rounded-md border border-border bg-background p-4" data-testid="restriction-highlight">
+    <div className="mt-4 rounded-md border border-border bg-surface p-4" data-testid="restriction-highlight">
       <p className="eyebrow">Against your restriction profile</p>
       {conflicts.length > 0 && (
         <div className="mt-2">

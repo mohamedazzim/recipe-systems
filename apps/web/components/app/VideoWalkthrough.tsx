@@ -227,7 +227,7 @@ export function VideoWalkthrough({
               </p>
               <h2 className="mt-2 font-display text-h2 text-ink">{title}</h2>
               <p className="mt-1.5 text-small text-body">
-                Follow along with the video. Tap any step on the right to jump to that point.
+                Follow along with the video. Tap any step to jump to that point.
               </p>
               <p className="mt-1 text-caption text-faint">
                 Not from your card — a third-party video found for this dish
@@ -292,7 +292,7 @@ export function VideoWalkthrough({
                               </span>
                             </span>
                             {isActive && chapter.summary && (
-                              <span className="mt-1 block rounded-md border border-border bg-background px-3 py-2 text-caption text-muted">
+                              <span className="mt-1 block rounded-md border border-border bg-surface px-3 py-2 text-caption text-muted">
                                 {chapter.summary}
                               </span>
                             )}
@@ -309,7 +309,7 @@ export function VideoWalkthrough({
                   type="button"
                   onClick={() => go(current - 1)}
                   disabled={current === 0}
-                  className="text-caption font-semibold text-muted hover:text-ink disabled:text-faint"
+                  className="inline-flex min-h-11 items-center px-3 text-caption font-semibold text-muted hover:text-ink disabled:text-faint"
                 >
                   Previous
                 </button>

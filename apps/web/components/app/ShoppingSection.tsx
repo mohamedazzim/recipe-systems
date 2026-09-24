@@ -226,9 +226,13 @@ export function ShoppingSection({
                         disabled={busy || item.shopping_key === null}
                         aria-pressed={item.state === 'have'}
                         aria-label={`Mark ${item.display_name} as ${item.state === 'have' ? 'need' : 'have'}`}
-                        className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-sm border border-border-strong bg-background text-xs font-bold text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold disabled:cursor-not-allowed disabled:opacity-50"
+                        // A 20px tap target was the smallest control in the app. The
+                        // box stays 20px visually; the BUTTON becomes the 44px hit area.
+                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        {item.state === 'have' ? '✓' : ''}
+                        <span className="flex h-5 w-5 items-center justify-center rounded-sm border border-border-strong bg-surface text-xs font-bold text-accent">
+                          {item.state === 'have' ? '✓' : ''}
+                        </span>
                       </button>
                       <span
                         className={

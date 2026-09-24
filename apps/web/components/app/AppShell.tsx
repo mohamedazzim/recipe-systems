@@ -181,7 +181,7 @@ export function AppShell({
   const groupLabel =
     'px-3 pt-6 pb-1.5 text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-sage/70';
   const navItem = (active: boolean) =>
-    `flex items-center gap-2.5 rounded-lg text-small font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset--2 focus-visible:outline-gold ${
+    `flex items-center gap-2.5 rounded-lg text-small font-medium transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-gold ${
       navCollapsed ? 'mx-auto w-10 justify-center px-0 py-2.5' : 'w-full px-3 py-2'
     } ${
       active
@@ -355,8 +355,8 @@ export function AppShell({
 
       {/* RIGHT — top utility bar + content. */}
       <div className="min-w-0">
-        <header className="sticky top-0 z-30 border-b border-border bg-surface">
-          <div className="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2 sm:px-6 lg:px-8">
+        <header className="sticky top-0 z-30 border-b border-border bg-surface pt-[env(safe-area-inset-top)]">
+          <div className="mx-auto flex min-h-14 w-full max-w-[88rem] flex-wrap items-center gap-x-3 gap-y-2 px-6 py-2 md:px-10">
             {/* Mobile-only brand + primary nav (the rail replaces these on lg). */}
             <button
               type="button"
@@ -378,7 +378,7 @@ export function AppShell({
                 type="button"
                 onClick={go({ name: 'home' })}
                 aria-current={view.name === 'home' ? 'page' : undefined}
-                className={`rounded-md px-2.5 py-1.5 text-small font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold ${
+                className={`rounded-md px-2.5 py-1.5 text-small font-medium max-lg:min-h-11 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold ${
                   view.name === 'home' ? 'bg-canvas text-ink' : 'text-muted hover:text-ink'
                 }`}
               >
@@ -388,7 +388,7 @@ export function AppShell({
                 type="button"
                 onClick={go({ name: 'library' })}
                 aria-current={view.name === 'library' ? 'page' : undefined}
-                className={`rounded-md px-2.5 py-1.5 text-small font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold ${
+                className={`rounded-md px-2.5 py-1.5 text-small font-medium max-lg:min-h-11 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold ${
                   view.name === 'library' ? 'bg-canvas text-ink' : 'text-muted hover:text-ink'
                 }`}
               >
@@ -401,7 +401,7 @@ export function AppShell({
               <Link
                 href="/"
                 aria-current={view.name === 'home' ? 'page' : undefined}
-                className={`rounded-md px-2.5 py-1.5 text-small font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold ${
+                className={`rounded-md px-2.5 py-1.5 text-small font-medium max-lg:min-h-11 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold ${
                   view.name === 'home' ? 'bg-canvas text-ink' : 'text-muted hover:text-ink'
                 }`}
               >
@@ -409,7 +409,7 @@ export function AppShell({
               </Link>
               <Link
                 href="/about"
-                className="rounded-md px-2.5 py-1.5 text-small font-medium text-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                className="rounded-md px-2.5 py-1.5 text-small font-medium max-lg:min-h-11 text-muted transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
               >
                 About Us
               </Link>
@@ -441,7 +441,7 @@ export function AppShell({
                   maxLength={100}
                   disabled={isLanding}
                   title={isLanding ? 'Sign in to search your library' : undefined}
-                  className="h-9 w-full rounded-md border border-border-strong bg-canvas pl-9 pr-14 text-small text-ink placeholder:text-faint focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold disabled:cursor-not-allowed disabled:opacity-60"
+                  className="h-11 w-full rounded-md border border-border-strong bg-canvas pl-9 pr-14 text-base text-ink placeholder:text-faint focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold disabled:cursor-not-allowed disabled:opacity-60 lg:h-9 lg:text-sm"
                 />
                 <kbd className="pointer-events-none absolute right-2.5 top-1/2 hidden -translate-y-1/2 rounded border border-border bg-surface px-1.5 py-0.5 text-[0.625rem] font-semibold text-faint sm:inline-block">
                   Ctrl K
@@ -458,7 +458,7 @@ export function AppShell({
                 type="button"
                 aria-label={dark ? 'Switch to light theme' : 'Switch to dark theme'}
                 onClick={() => setDark(!dark)}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted transition-colors hover:bg-ink/5 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted transition-colors hover:bg-ink/5 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold max-lg:h-11 max-lg:w-11"
               >
                 {dark ? (
                   <Sun size={16} aria-hidden="true" weight="bold" />

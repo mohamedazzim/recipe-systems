@@ -4,7 +4,9 @@ import type { InputHTMLAttributes, TextareaHTMLAttributes } from 'react';
 const fieldClasses =
   'w-full rounded-md border border-border-strong bg-surface px-3.5 py-2.5 text-body text-ink ' +
   'placeholder:text-faint transition-colors ' +
-  'hover:border-ink/30 focus:border-accent focus:outline-none focus:ring-2 focus:ring-gold/40 ' +
+  // A full-opacity ring, not gold/40: the ring is this control's ONLY focus
+  // indicator (the outline is suppressed), so it has to clear non-text contrast.
+  'hover:border-ink/30 focus:border-accent focus:outline-none focus:ring-2 focus:ring-gold ' +
   'disabled:cursor-not-allowed disabled:bg-canvas disabled:text-faint';
 
 export interface InputProps extends InputHTMLAttributes<HTMLInputElement> {

@@ -105,7 +105,7 @@ export function LibraryView({ library, initialQuery, initialFilter, onBack, onOp
       <button
         type="button"
         onClick={onBack}
-        className="inline-flex items-center gap-1.5 rounded-sm text-small font-semibold text-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold"
+        className="inline-flex items-center gap-1.5 rounded-sm py-2 text-small font-semibold text-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold max-lg:min-h-11"
       >
         <ArrowLeft size={14} aria-hidden="true" />
         Back to home
@@ -133,7 +133,7 @@ export function LibraryView({ library, initialQuery, initialFilter, onBack, onOp
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by name, ingredient, or tag"
             maxLength={100}
-            className="min-w-64 max-w-full flex-1 rounded-md border border-border-strong bg-background px-3 py-2 text-body focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+            className="min-w-64 max-w-full flex-1 rounded-md border border-border-strong bg-surface px-3 py-2 text-body focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
           />
           <Button size="sm" type="submit" disabled={searching || query.trim() === ''}>
             <MagnifyingGlass size={14} aria-hidden="true" weight="bold" />
@@ -163,7 +163,7 @@ export function LibraryView({ library, initialQuery, initialFilter, onBack, onOp
 
       {/* Status filter chips — the pill tier (same treatment as the analysis
           view tabs). */}
-      <div className="mt-4 flex gap-1" role="group" aria-label="Filter library">
+      <div className="mt-4 flex flex-wrap gap-1" role="group" aria-label="Filter library">
         {(
           [
             ['all', 'All'],
@@ -177,7 +177,7 @@ export function LibraryView({ library, initialQuery, initialFilter, onBack, onOp
             type="button"
             aria-pressed={filter === key}
             onClick={() => setFilter(key)}
-            className={`whitespace-nowrap rounded-md px-3.5 py-2 text-small font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold ${
+            className={`whitespace-nowrap rounded-md px-3.5 py-2 text-small font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold max-lg:min-h-11 ${
               filter === key ? 'bg-ink text-canvas' : 'text-muted hover:bg-ink/5 hover:text-ink'
             }`}
           >

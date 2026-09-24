@@ -32,14 +32,17 @@ export function Modal({ open, title, description, children, onClose }: ModalProp
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]">
       <div
         ref={panel}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="w-full max-w-md rounded-lg border border-border bg-surface p-6 shadow-card focus:outline-none"
+        // The overlay is a non-scrolling fixed box, so a panel taller than a short
+        // or keyboard-squeezed viewport used to clip its actions off both edges with
+        // no way to reach them. Cap it and let the panel itself scroll.
+        className="max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-lg border border-border bg-surface p-5 shadow-card focus:outline-none sm:p-6"
       >
         <h2 id={titleId} className="font-display text-h3 text-ink">
           {title}

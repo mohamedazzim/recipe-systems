@@ -401,7 +401,7 @@ export function CreateView({
       <button
         type="button"
         onClick={onBack}
-        className="inline-flex items-center gap-1.5 rounded-sm text-small font-semibold text-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold"
+        className="inline-flex items-center gap-1.5 rounded-sm py-2 text-small font-semibold text-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold max-lg:min-h-11"
       >
         <ArrowLeft size={14} aria-hidden="true" />
         Back to home
@@ -549,7 +549,7 @@ export function CreateView({
                     <img
                       src={previewUrl}
                       alt="Selected recipe card"
-                      className="mx-auto max-h-48 w-full rounded-md border border-border bg-background object-contain"
+                      className="mx-auto max-h-48 w-full rounded-md border border-border bg-surface object-contain"
                     />
                     <span className="mt-2 block truncate text-caption text-faint">
                       {file?.name}
@@ -573,7 +573,7 @@ export function CreateView({
                   aria-label="Choose recipe photo"
                   onChange={onFileChange}
                   disabled={uploading}
-                  className="sr-only"
+                  className="sr-only text-base"
                 />
               </label>
 
@@ -643,7 +643,7 @@ export function CreateView({
                   multiple
                   aria-label="Choose recipe documents"
                   onChange={onBulkChange}
-                  className="sr-only"
+                  className="sr-only text-base"
                 />
               </label>
 

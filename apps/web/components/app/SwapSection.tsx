@@ -98,7 +98,7 @@ export function SwapSection({
             aria-label="Ingredient line"
             value={lineId}
             onChange={(e) => setLineId(e.target.value)}
-            className="mt-1 w-full max-w-md rounded-md border border-border-strong bg-background px-3 py-2 text-body"
+            className="mt-1 w-full max-w-md rounded-md border border-border-strong bg-surface px-3 py-2 text-body"
           >
             <option value="">Choose a line</option>
             {lines.map((line) => (
@@ -116,7 +116,7 @@ export function SwapSection({
             aria-label="Swap action"
             value={action}
             onChange={(e) => setAction(e.target.value as never)}
-            className="mt-1 w-full max-w-md rounded-md border border-border-strong bg-background px-3 py-2 text-body"
+            className="mt-1 w-full max-w-md rounded-md border border-border-strong bg-surface px-3 py-2 text-body"
           >
             <option value="skipped">Skipped</option>
             <option value="reduced">Reduced</option>
@@ -134,7 +134,7 @@ export function SwapSection({
             onChange={(e) => setSwappedTo(e.target.value)}
             placeholder="e.g. 3 Nos"
             maxLength={255}
-            className="mt-1 w-full max-w-md rounded-md border border-border-strong bg-background px-3 py-2 text-body"
+            className="mt-1 w-full max-w-md rounded-md border border-border-strong bg-surface px-3 py-2 text-body"
           />
 
           <label className="mt-3 block text-caption font-semibold text-ink" htmlFor="swap-reason">
@@ -145,7 +145,7 @@ export function SwapSection({
             aria-label="Swap reason"
             value={reason}
             onChange={(e) => setReason(e.target.value as never)}
-            className="mt-1 w-full max-w-md rounded-md border border-border-strong bg-background px-3 py-2 text-body"
+            className="mt-1 w-full max-w-md rounded-md border border-border-strong bg-surface px-3 py-2 text-body"
           >
             <option value="restriction">Restriction</option>
             <option value="pantry">Pantry</option>

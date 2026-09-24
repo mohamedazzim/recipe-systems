@@ -668,7 +668,7 @@ function renderView9(
             ))}
         </ul>
         {unmappedLines.length > 0 && (
-          <div className="mt-3 rounded-md border border-dashed border-border bg-background p-3">
+          <div className="mt-3 rounded-md border border-dashed border-border bg-surface p-3">
             <p className="text-small font-semibold text-ink">Lines left out of the band</p>
             <p className="mt-0.5 text-caption text-muted">
               Not in the food table yet, or no measurable amount — excluded, never estimated.
@@ -777,7 +777,7 @@ function View9AssumptionEditor({
         <Field htmlFor="assumption-fish" label="Fish class">
           <select
             id="assumption-fish"
-            className="w-full rounded-md border border-border-strong bg-surface px-3 py-2 text-small"
+            className="w-full rounded-md border border-border-strong bg-surface px-3 py-2 text-base lg:text-sm"
             value={fishClass}
             onChange={(e) => setFishClass(e.target.value)}
           >
@@ -879,7 +879,7 @@ function View9PortionsEditor({
         <Field htmlFor="view9-portions" label="Portions">
           <select
             id="view9-portions"
-            className="w-full rounded-md border border-border-strong bg-surface px-3 py-2 text-small"
+            className="w-full rounded-md border border-border-strong bg-surface px-3 py-2 text-base lg:text-sm"
             value={portions}
             onChange={(e) => setPortions(e.target.value)}
           >

@@ -53,11 +53,21 @@ const config: Config = {
         'muted-dark': '#8C8272',
       },
       fontFamily: {
-        display: ['"Playfair Display"', 'Fraunces', 'Georgia', 'serif'],
-        sans: ['"IBM Plex Sans"', 'system-ui', 'sans-serif'],
+        // Variables are supplied by next/font in app/layout.tsx — the font files
+        // are self-hosted, so no remote stylesheet request is made at runtime.
+        display: ['var(--font-display)', 'var(--font-fraunces)', 'Georgia', 'serif'],
+        sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
       },
       fontSize: {
-        display: ['3.25rem', { lineHeight: '1.04', letterSpacing: '-0.02em', fontWeight: '600' }],
+        // The one fluid step: brand display type. At 3.25rem the word "Understand"
+        // measured wider than the 272px content box at 320px, so the landing hero
+        // scrolled the whole page sideways. clamp() keeps desktop exactly as
+        // designed and shrinks only where the viewport demands it.
+        display: [
+          'clamp(2.25rem, 7vw, 3.25rem)',
+          { lineHeight: '1.04', letterSpacing: '-0.02em', fontWeight: '600' },
+        ],
+        // Product/UI steps stay fixed — a dense interface keeps a predictable scale.
         h1: ['2rem', { lineHeight: '1.15', letterSpacing: '-0.015em', fontWeight: '600' }],
         h2: ['1.375rem', { lineHeight: '1.25', letterSpacing: '-0.01em', fontWeight: '600' }],
         h3: ['1.0625rem', { lineHeight: '1.35', fontWeight: '600' }],

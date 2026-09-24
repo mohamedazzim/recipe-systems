@@ -193,7 +193,7 @@ export default function Home() {
       >
         {state.error && (
           <div className="mb-6">
-            <div className="rounded-md border border-negative/40 bg-negative/8 px-4 py-3">
+            <div className="rounded-md border border-negative/40 bg-negative/10 px-4 py-3">
               <p className="text-small font-semibold text-negative">Something went wrong</p>
               <p className="mt-0.5 text-small text-body">{state.error}</p>
             </div>

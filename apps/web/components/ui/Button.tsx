@@ -24,7 +24,10 @@ const variants: Record<ButtonVariant, string> = {
 };
 
 const sizes: Record<ButtonSize, string> = {
-  sm: 'min-h-9 px-3 py-1.5 text-small',
+  // `sm` is a dense desktop size, but a phone or tablet is touched, not clicked —
+  // below lg it grows to the 44px touch minimum and the extra density is left to
+  // the pointer-driven laptop/desktop widths.
+  sm: 'min-h-9 max-lg:min-h-11 px-3 py-1.5 text-small',
   md: 'min-h-11 px-4 py-2 text-sm',
   lg: 'min-h-12 px-5 py-2.5 text-body',
 };

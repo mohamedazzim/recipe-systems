@@ -452,9 +452,9 @@ export function HomeView({
                   style={{ backgroundImage: 'url("/images/hero-food.jpg")' }}
                 />
                 <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0.12)_100%)]" />
-                <div className="absolute left-4 top-4 flex items-center gap-2 rounded-full bg-[rgba(250,249,245,0.82)] px-3 py-1.5 text-caption font-semibold text-ink shadow-sm backdrop-blur-sm">
-                  Turn ingredients into delicious stories
-                  <ArrowRight size={14} aria-hidden="true" weight="bold" className="text-accent" />
+                <div className="absolute left-4 top-4 flex max-w-[calc(100%-2rem)] items-center gap-2 rounded-full bg-[rgba(250,249,245,0.82)] px-3 py-1.5 text-caption font-semibold text-ink shadow-sm backdrop-blur-sm">
+                  <span className="truncate">Turn ingredients into delicious stories</span>
+                  <ArrowRight size={14} aria-hidden="true" weight="bold" className="shrink-0 text-accent" />
                 </div>
                 <div className="absolute bottom-4 right-4 max-w-[15rem] rounded-[1.25rem] border border-[#dfe7dc] bg-[rgba(250,249,245,0.78)] p-3 text-sm text-ink shadow-[0_12px_25px_rgba(33,58,49,0.08)] backdrop-blur-sm">
                   <Plant size={16} aria-hidden="true" weight="fill" className="text-accent" />
@@ -471,7 +471,7 @@ export function HomeView({
       {/* Four summary cards — real numbers from the library read model. */}
       {stats && (
         <div
-          className="mt-6 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4"
+          className="mt-6 grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 sm:gap-4 md:grid-cols-4"
           aria-label="Recipe statistics"
         >
           {stats.map((stat) => (
@@ -618,7 +618,7 @@ export function HomeView({
             <button
               type="button"
               onClick={() => onOpenLibrary()}
-              className="inline-flex items-center gap-1 text-caption font-semibold text-accent-strong hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+              className="-my-2 inline-flex items-center gap-1 py-2 text-caption font-semibold text-accent-strong hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold max-lg:min-h-11"
             >
               View library
               <ArrowRight size={14} aria-hidden="true" />
@@ -791,7 +791,7 @@ export function HomeView({
                         recipe.owner === 'guest' ? sessionRecipeLines(recipe.recipe_id) : null,
                       )
                     }
-                    className="group flex w-full items-center justify-between gap-4 rounded-sm px-4 py-4 text-left focus-visible:outline-2 focus-visible:outline-offset--2 focus-visible:outline-gold sm:px-5"
+                    className="group flex w-full items-center justify-between gap-4 rounded-sm px-4 py-4 text-left focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-gold sm:px-5"
                   >
                     <span className="min-w-0">
                       <span className="block truncate text-small font-semibold text-ink">

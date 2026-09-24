@@ -89,8 +89,8 @@ export function ProfileEditor() {
                 onClick={() => toggleAllergen(allergen.code)}
                 className={
                   allergens.includes(allergen.code)
-                    ? 'rounded-md border border-accent bg-accent/10 px-2 py-1 text-caption font-semibold text-ink'
-                    : 'rounded-md border border-border px-2 py-1 text-caption text-muted hover:text-ink'
+                    ? 'rounded-md border border-accent bg-accent/10 px-2 py-1 text-caption max-lg:min-h-11 font-semibold text-ink'
+                    : 'rounded-md border border-border px-2 py-1 text-caption max-lg:min-h-11 text-muted hover:text-ink'
                 }
               >
                 {allergen.name}
@@ -108,8 +108,8 @@ export function ProfileEditor() {
                 onClick={() => togglePattern(pattern)}
                 className={
                   patterns.includes(pattern)
-                    ? 'rounded-md border border-accent bg-accent/10 px-2 py-1 text-caption font-semibold text-ink'
-                    : 'rounded-md border border-border px-2 py-1 text-caption text-muted hover:text-ink'
+                    ? 'rounded-md border border-accent bg-accent/10 px-2 py-1 text-caption max-lg:min-h-11 font-semibold text-ink'
+                    : 'rounded-md border border-border px-2 py-1 text-caption max-lg:min-h-11 text-muted hover:text-ink'
                 }
               >
                 {pattern}

@@ -239,7 +239,7 @@ function EditableDraftCard({ ingestionId, draft, onConfirmed }: EditableDraftCar
                         type="button"
                         onClick={() => deleteIngredient(i)}
                         aria-label={`Delete ingredient ${ing.name || i + 1}`}
-                        className="inline-flex items-center rounded-sm text-faint hover:text-negative focus-visible:outline-2 focus-visible:outline-gold"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-sm text-faint hover:text-negative focus-visible:outline-2 focus-visible:outline-gold"
                       >
                         <Trash size={14} aria-hidden="true" />
                       </button>
@@ -305,7 +305,7 @@ function EditableDraftCard({ ingestionId, draft, onConfirmed }: EditableDraftCar
                         type="button"
                         onClick={() => deleteStep(i)}
                         aria-label={`Delete method step ${i + 1}`}
-                        className="inline-flex items-center rounded-sm text-faint hover:text-negative focus-visible:outline-2 focus-visible:outline-gold"
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-sm text-faint hover:text-negative focus-visible:outline-2 focus-visible:outline-gold"
                       >
                         <Trash size={14} aria-hidden="true" />
                       </button>

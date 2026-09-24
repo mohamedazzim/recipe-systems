@@ -44,7 +44,10 @@ export function LandingPage({
 
       {/* Hero — the product in one viewport: what it is, one primary action. */}
       <section className="pb-10 pt-2 sm:pt-4">
-        <div className="grid items-center gap-10 lg:grid-cols-[1.1fr_1fr]">
+        {/* minmax(0, …), not a bare `fr`: an `fr` track keeps an `auto` minimum,
+            so a nowrap child inside the before/after preview grew the track past its
+            share and pushed the page 18px wide at exactly 1024px. */}
+        <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
           <div>
             <Eyebrow>Recipe analysis</Eyebrow>
             <h1 className="mt-4 max-w-2xl font-display text-display text-ink">

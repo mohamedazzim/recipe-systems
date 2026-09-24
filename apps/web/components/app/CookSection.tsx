@@ -201,7 +201,7 @@ export function CookSection({
             aria-label="Cooked on"
             value={cookDate}
             onChange={(e) => setCookDate(e.target.value)}
-            className="mt-1 w-full max-w-52 rounded-md border border-border-strong bg-background px-3 py-2 text-body focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+            className="mt-1 w-full max-w-52 rounded-md border border-border-strong bg-surface px-3 py-2 text-body focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
           />
           <label className="mt-3 block text-caption font-semibold text-ink" htmlFor="cook-rating">
             Rating (optional)
@@ -211,7 +211,7 @@ export function CookSection({
             aria-label="Rating"
             value={rating}
             onChange={(e) => setRating(e.target.value)}
-            className="mt-1 w-full max-w-52 rounded-md border border-border-strong bg-background px-3 py-2 text-body focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+            className="mt-1 w-full max-w-52 rounded-md border border-border-strong bg-surface px-3 py-2 text-body focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
           >
             <option value="">No rating</option>
             <option value="1">1 — poor</option>
@@ -231,7 +231,7 @@ export function CookSection({
             rows={3}
             maxLength={10_000}
             placeholder="What happened? What would you change next time?"
-            className="mt-1 w-full rounded-md border border-border-strong bg-background px-3 py-2 text-body focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+            className="mt-1 w-full rounded-md border border-border-strong bg-surface px-3 py-2 text-body focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
           />
           <label className="mt-3 block text-caption font-semibold text-ink" htmlFor="cook-next-time">
             Next time (optional — prints on the station card, tagged COOK LOG)
@@ -243,7 +243,7 @@ export function CookSection({
             onChange={(e) => setNextTime(e.target.value)}
             maxLength={1_000}
             placeholder="e.g. 2 green chillies, fenugreek powder off heat"
-            className="mt-1 w-full rounded-md border border-border-strong bg-background px-3 py-2 text-body focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+            className="mt-1 w-full rounded-md border border-border-strong bg-surface px-3 py-2 text-body focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
           />
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Button onClick={() => void submit()} disabled={busy}>

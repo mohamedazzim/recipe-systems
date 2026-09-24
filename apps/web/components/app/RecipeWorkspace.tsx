@@ -406,7 +406,7 @@ export function RecipeWorkspace({
       <button
         type="button"
         onClick={onBack}
-        className="inline-flex items-center gap-1.5 rounded-sm text-small font-semibold text-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold"
+        className="inline-flex items-center gap-1.5 rounded-sm py-2 text-small font-semibold text-muted hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-gold max-lg:min-h-11"
       >
         <ArrowLeft size={14} aria-hidden="true" />
         Back to your recipes
@@ -500,7 +500,7 @@ export function RecipeWorkspace({
             onChange={(e) => setSaveTitle(e.target.value)}
             placeholder="Family name (blank = the default)"
             maxLength={255}
-            className="min-h-11 min-w-52 max-w-full rounded-md border border-border-strong bg-background px-3 py-2 text-body focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+            className="min-h-11 min-w-0 max-w-full rounded-md border border-border-strong bg-surface px-3 py-2 text-body focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold sm:min-w-52"
           />
           <Button onClick={() => void saveRecipe()} disabled={saving}>
             {saving ? 'Saving…' : 'Save recipe'}
@@ -527,7 +527,7 @@ export function RecipeWorkspace({
 
       {/* Delete confirmation — reached from the header More menu (D-22 D6). */}
       {signedIn && confirmingDelete && (
-        <section aria-labelledby="delete-heading" className="mt-4 rounded-lg border border-negative/40 bg-negative/8 p-5">
+        <section aria-labelledby="delete-heading" className="mt-4 rounded-lg border border-negative/40 bg-negative/10 p-5">
           <h2 id="delete-heading" className="text-small font-semibold text-negative">
             Delete recipe
           </h2>
@@ -569,7 +569,7 @@ export function RecipeWorkspace({
               role="tab"
               aria-selected={!analysisFullscreen && activeTab === key}
               onClick={() => selectTab(key)}
-              className={`-mb-px whitespace-nowrap border-b-2 px-1 py-3 text-small font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset--2 focus-visible:outline-gold ${
+              className={`-mb-px whitespace-nowrap border-b-2 px-1 py-3 text-small font-semibold transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-gold ${
                 !analysisFullscreen && activeTab === key
                   ? 'border-accent text-ink'
                   : 'border-transparent text-muted hover:text-ink'
@@ -584,7 +584,7 @@ export function RecipeWorkspace({
               role="tab"
               aria-selected={analysisFullscreen}
               onClick={() => setAnalysisFullscreen(true)}
-              className={`-mb-px whitespace-nowrap border-b-2 px-1 py-3 text-small font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset--2 focus-visible:outline-gold ${
+              className={`-mb-px whitespace-nowrap border-b-2 px-1 py-3 text-small font-semibold transition-colors focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-gold ${
                 analysisFullscreen
                   ? 'border-accent text-ink'
                   : 'border-transparent text-muted hover:text-ink'

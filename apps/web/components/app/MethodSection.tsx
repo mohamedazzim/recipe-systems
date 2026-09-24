@@ -224,7 +224,7 @@ export function MethodSection({ recipeId, signedIn, onChange, onSaved }: MethodS
                     value={value}
                     checked={mode === value}
                     onChange={() => selectMode(value)}
-                    className="sr-only"
+                    className="sr-only text-base"
                   />
                   {label}
                 </label>

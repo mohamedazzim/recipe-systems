@@ -257,17 +257,14 @@ export class AnalysisJobHandler {
           `${Date.now() - secondStarted}ms parse=${second.parse.ok ? 'ok' : 'invalid'} ` +
           `grounding=${second.grounding ? (second.grounding.ok ? 'ok' : 'violations:' + second.grounding.violations.length) : 'n/a'}`,
       );
-      // The SAME judgement the grounding path below makes: a second attempt that
-      // parses but does NOT ground must not be published either. Guarding on
-      // `parse.ok` alone let an ungrounded payload through the D-16 choke point —
-      // and on exactly the retry path taken when the model is already misbehaving
-      // (BUG-001 in the 2026-09-24 external audit, and the reason both branches now
-      // share one condition).
-      if (!second.parse.ok || (second.grounding && !second.grounding.ok)) {
-        await this.upsertView(data.analysis_id, view, 'INCOMPLETE', {});
-        return;
-      }
-      await this.upsertView(data.analysis_id, view, 'COMPLETE', second.parse.data);
+      // DEAD-003: both retry branches share one verdict (see publishDecision).
+      const decision = this.publishDecision(second);
+      await this.upsertView(
+        data.analysis_id,
+        view,
+        decision.publish ? 'COMPLETE' : 'INCOMPLETE',
+        decision.publish ? decision.payload : {},
+      );
       return;
     }
 
@@ -280,13 +277,15 @@ export class AnalysisJobHandler {
           `${Date.now() - secondStarted}ms parse=${second.parse.ok ? 'ok' : 'invalid'} ` +
           `grounding=${second.grounding ? (second.grounding.ok ? 'ok' : 'violations:' + second.grounding.violations.length) : 'n/a'}`,
       );
-      if (!second.parse.ok || (second.grounding && !second.grounding.ok)) {
-        // INV-08 refusal representation: the view row is INCOMPLETE; the
-        // ungrounded output is never published (payload stays empty).
-        await this.upsertView(data.analysis_id, view, 'INCOMPLETE', {});
-        return;
-      }
-      await this.upsertView(data.analysis_id, view, 'COMPLETE', second.parse.data);
+      // INV-08 refusal representation: an ungrounded (or unparseable) second
+      // attempt leaves the row INCOMPLETE with an empty payload — never published.
+      const decision = this.publishDecision(second);
+      await this.upsertView(
+        data.analysis_id,
+        view,
+        decision.publish ? 'COMPLETE' : 'INCOMPLETE',
+        decision.publish ? decision.payload : {},
+      );
       return;
     }
 
@@ -333,6 +332,27 @@ export class AnalysisJobHandler {
     // Signal-only (INV-16): the status is still 'complete' — the SSE listener
     // refreshes the persisted payload.
     await this.notify({ analysis_id: data.analysis_id, status: 'complete' });
+  }
+
+  /**
+   * The ONE verdict for a regenerated attempt (BUG-001 / DEAD-003).
+   *
+   * An attempt may be published only if it BOTH parses and grounds. Both retry
+   * branches used to spell that out separately, and the parse-failure branch
+   * omitted the grounding half — which is how an ungrounded payload reached users
+   * on exactly the retry path taken when the model is misbehaving. One helper, so
+   * the two can never drift apart again.
+   *
+   * Returns a discriminated decision rather than a boolean on purpose: the
+   * published payload is `parse.data`, which only type-checks while `parse.ok` is
+   * narrowed. A plain boolean would lose that narrowing at the call site.
+   */
+  private publishDecision(
+    attempt: Awaited<ReturnType<typeof generateGrounded>>,
+  ): { publish: true; payload: unknown } | { publish: false } {
+    if (!attempt.parse.ok) return { publish: false };
+    if (attempt.grounding && !attempt.grounding.ok) return { publish: false };
+    return { publish: true, payload: attempt.parse.data };
   }
 
   /** Idempotent view upsert on uq_analysis_view (INV-11). */

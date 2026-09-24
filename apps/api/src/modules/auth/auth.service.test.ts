@@ -106,6 +106,7 @@ describe('AuthService', () => {
         update: jest.fn().mockResolvedValue({}),
       },
       recipe: { updateMany: jest.fn().mockResolvedValue({ count: 2 }) },
+      documentIngestion: { updateMany: jest.fn().mockResolvedValue({ count: 3 }) },
     };
     const prisma: any = mockPrisma();
     prisma.$transaction.mockImplementation(async (fn: (t: unknown) => Promise<unknown>) => fn(tx));
@@ -114,6 +115,12 @@ describe('AuthService', () => {
     expect(result.claimed).toBe('new');
     // XOR-respecting move: guest recipes become account-owned, guest link cleared.
     expect(tx.recipe.updateMany).toHaveBeenCalledWith({
+      where: { guestSessionId: 'g1' },
+      data: { accountId: 'a1', guestSessionId: null },
+    });
+    // BUG-002: the OTHER guest-ownable aggregate moves with it, or the user's
+    // document imports are orphaned (unreachable, and their objects never cleaned).
+    expect(tx.documentIngestion.updateMany).toHaveBeenCalledWith({
       where: { guestSessionId: 'g1' },
       data: { accountId: 'a1', guestSessionId: null },
     });
@@ -138,6 +145,7 @@ describe('AuthService', () => {
         update: jest.fn(),
       },
       recipe: { updateMany: jest.fn() },
+      documentIngestion: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
     };
     const prisma: any = mockPrisma();
     prisma.$transaction.mockImplementation(async (fn: (t: unknown) => Promise<unknown>) => fn(tx));
@@ -157,6 +165,7 @@ describe('AuthService', () => {
         update: jest.fn(),
       },
       recipe: { updateMany: jest.fn() },
+      documentIngestion: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
     };
     const prisma: any = mockPrisma();
     prisma.$transaction.mockImplementation(async (fn: (t: unknown) => Promise<unknown>) => fn(tx));

@@ -108,8 +108,20 @@ export class AuthService {
         if (guest.claimedByAccountId === accountId) return { claimed: 'already' as const };
         throw new Error('guest session already claimed by another account');
       }
-      // XOR-respecting move: guest-owned recipes become account-owned.
+      // XOR-respecting move: guest-owned rows become account-owned. BOTH aggregates
+      // a guest can own must move — `recipe` AND `document_ingestion`.
+      //
+      // BUG-002: only recipes used to move, so a guest who imported documents and
+      // then signed in lost them permanently — the claim clears the guest cookie,
+      // the guard rejects a claimed session, and the cleanup sweep only touches
+      // UNCLAIMED sessions, so the rows were unreachable and their storage objects
+      // orphaned forever. Both tables carry the same XOR
+      // (account_id XOR guest_session_id), so both move the same way.
       await tx.recipe.updateMany({
+        where: { guestSessionId },
+        data: { accountId, guestSessionId: null },
+      });
+      await tx.documentIngestion.updateMany({
         where: { guestSessionId },
         data: { accountId, guestSessionId: null },
       });

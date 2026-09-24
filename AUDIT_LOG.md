@@ -4,6 +4,124 @@
 registry). Verdicts are the audit agents' independent results — the H-XX entries record the
 implementation; this log records whether the implementation survives the audit's attacks.
 
+## 2026-09-24 — Audit: whole-application adversarial sweep (six tracks)
+
+- **Date / audit agent:** 2026-09-24 · six parallel independent audit sessions (unpaired —
+  not a DISPATCH unit; run against the pilot tree, not a checkpoint).
+- **Audited commit:** `dcab202` (the tree at sweep time). Findings are stated against it;
+  the fixes that followed are named per finding.
+- **Scope:** auth/session/identity + ownership isolation; intake (amount parsing, servings,
+  OCR orchestration, storage); the analysis worker, queue, view generation and grounding;
+  print/rendering, shopping, cook-log and restrictions; the web app (all views, primitives,
+  lib); database, migrations, admin reference data, ingestion and CI.
+- **Method:** each track read its surface and reported only substantiated findings with
+  file:line evidence, classified and severity-ranked. No fixes during the audit pass.
+
+### Verdict: FAIL-WITH-FINDINGS — 8 P0s fixed, the rest OPEN
+
+~75 findings across the six tracks. The eight that broke live user flows were fixed and
+deployed (`49b46a8`), followed by the responsive pass (`904ed2d`), the prompt-token
+reduction (`34963bb`) and the View 8 grounding fix (`c6158c6`) — all recorded in the
+2026-09-24 CHANGE_LOG entry. Everything below is still OPEN.
+
+### Open — HIGH (correctness on a safety surface)
+
+**F-1 (HIGH, OPEN) — a restriction conflict can render as "no conflict".**
+- Attack: `restriction.service.ts:188-190` — when the frozen View-8 payload fails
+  `safeParse`, `present`/`unknown` become empty sets, so `conflicts`/`unknown` are empty;
+  `RestrictionHighlight.tsx:39,45-47` renders `null` when the result is empty.
+- Expected: an unevaluatable flag view surfaces as unevaluated. A corrupt payload must never
+  read as "no conflict" — the module's own "never a pass" invariant (`:161-167`).
+- Test note: `restriction.service.test.ts:211-226` **enshrines** the silent behaviour; it
+  needs rewriting, not extending.
+
+**F-2 (HIGH, PARTIALLY ADDRESSED) — View 8 can omit a present allergen.**
+- `deterministic-views.ts` builds `present` only from curated `dietary_allergen_mapping`
+  rows. `c6158c6` now routes *unmatched* lines to `unknown`, but a line that resolves to a
+  dictionary entry with **no curated mapping** is still invisible in every bucket. The
+  `c6158c6` comment names this as the open question it deliberately did not answer.
+
+**F-3 (HIGH, OPEN) — grounding accepts a payload that cites nothing; views 3/5/6/7 have no
+reference check; the absent-channel scan is a no-op in production.**
+- Attack: `grounding/validator.ts` requires only that structured references *resolve*, for
+  views 1/2/4. An empty payload satisfies the frozen schema and the validator together, and
+  is then stored COMPLETE. `structuredReferences` covers views 1/2/4 only — views 3/6/7
+  carry free text and are unchecked. `analysis.service.ts buildCapture` hardcodes
+  `explicitly_absent: []`, so the scan at `validator.ts:125` cannot fire on real data.
+- Expected: a stage/ratio/element naming an un-captured ingredient is a grounding failure;
+  a view that asserts nothing is not published as COMPLETE.
+- **Attempted and reverted — deliberately.** `5a7b0f1` (reverted in `f7c1e51`): a rule
+  rejecting any COMPLETE view that asserts nothing was green in `llm-adapter` and red in the
+  worker (4 assertions, each an extra `generate`), because the suite declares
+  `VALID_VIEW_7 = { status: 'COMPLETE', memorable_elements: [] }` valid — and for View 7 an
+  empty element list is a legitimate answer, not a refusal. The rule invented a constraint
+  the product never states. The defensible form is per-view, and is still owed.
+
+### Open — MEDIUM (grouped)
+
+- **Worker / queue:** the SSE connect reads its snapshot *before* subscribing, so a NOTIFY in
+  that window is lost for the life of the connection — the "always recovers" claim is false;
+  the startup sweep marks every `generating` row older than 15 min `failed` with no
+  job/owner filter, so a worker restart can fail a live analysis (contradicts the documented
+  ~16-min pass); all-LLM-views-INCOMPLETE analyses are still finalised `complete` +
+  `is_current`; concurrent finalises can violate `uq_analysis_current`; duplicate delivery
+  can run two full passes; the API's LISTEN connection has no reconnect.
+- **Transactions / races:** `scaleToServings` scales lines and sets the yield in separate
+  writes; `recordSwap` commits the swap row before applying it; plate-photo replace deletes
+  the old object before the new upload succeeds; guest-claim is a TOCTOU with no
+  `claimedAt IS NULL` predicate; `addLine` computes `max(line_no)` outside a transaction; the
+  line-edit optimistic lock never puts `expectedUpdatedAt` in the `WHERE`.
+- **Intake:** `ocrPhoto`'s method attach is documented "best-effort" but is unwrapped, so a
+  failure returns 500 after the draft is committed; DeepSeek OCR has no total wall-clock
+  budget (Gemini does); permanent OCR failures map to a retryable 503; no multipart size
+  limit (the 10 MB check runs after full buffering); upload retries create duplicate recipes
+  and orphaned objects; `extractServings` misreads 3-digit yields and `"Makes 2 cups"`.
+- **Web:** a failed tags load sets `tags: []`, so the next add PUTs an empty set and **wipes
+  every tag**; `ProfileEditor` shows "Loading…" forever on a failed GET with no error or
+  retry; the servings stepper is enabled but inert when the count is unknown; the library
+  re-search is ignored when already on the Library; `CookSection`'s documented rating-edit
+  UI does not exist.
+- **Print / reference data:** the real render error is discarded and never logged (which is
+  why the missing-Chromium bug needed log archaeology); the one-page fit is asserted only in
+  tests, never enforced in production; no `format=html` fallback anywhere in the UI;
+  reference-data `approve()` is not atomic and is not idempotent for aliases; composition
+  entries key only on `(external_source, external_id)`, ignoring `ingredient_id`.
+- **Data:** `document_ingestion` blobs leak on cleanup; `recipe.guest_session_id ON DELETE
+  SET NULL` contradicts `chk_recipe_owner_xor`; extraction failure keeps serving stale drafts.
+
+### Open — SECURITY
+
+- **`emailVerified` is computed and never enforced** (`keycloak.provider.ts:151`), and
+  identity is keyed on email alone (`account.service.ts:39-49`), so an unverified identity
+  can map onto an existing account row.
+- **The committed Keycloak realm** ships a default client secret, two demo users, open
+  registration, wildcard redirect URIs and no brute-force protection.
+- **`.env` is not excluded by `.railwayignore`** — `railway up` uploads the working tree and
+  consults only that file, so live provider keys would enter the build context. The `.env`
+  exclusion was added locally but is **uncommitted** (the file also carries a `.commandcode/`
+  line that must not be committed), and **the Gemini/DeepSeek keys still need rotating**.
+
+### Open — LOW / tooling
+
+Invalid Tailwind classes are fixed, but `Tabs` triggers remain sub-44px; the dialog has no
+focus trap or focus restore; custom menus/radiogroups lack keyboard support; there is **no
+schema↔migration drift check in CI and drift already exists** (duplicate unique indexes from
+migration 002); `--passWithNoTests` can hide a vanished suite; committed reference-data
+artifacts are never schema-validated in CI; `Keycloak`'s own login page overflows 20px at
+320px; `docs/` is excluded from the Railway upload.
+
+### Not verified by this sweep or since
+
+- The View 8 behaviour **end-to-end in production** — needs an authenticated recipe carrying
+  an unmatched line pushed through the worker.
+- Six web surfaces are statically audited but **never rendered**: `AnalysisViews`,
+  `CookSection`, `VideoWalkthrough`, `ProfileEditor`, `HouseholdView`, `DocumentDraftReview`
+  (they require a completed analysis, a cook log, or a restriction profile).
+- **A cold `next dev` fails in this repo** — `next-flight-css-loader` parses `globals.css`
+  as JavaScript ("Module parse failed"). `next build` and production are unaffected;
+  `next.config.ts` is clean. Replacing the remote Google Fonts `@import` with `next/font`
+  removed the first parse error but not the cause.
+
 ## A-19 — Audit: Views 5–9 (D-19)
 
 - **Date / audit agent:** 2026-09-10 · DeepSeek V4 Pro (independent audit session — not the

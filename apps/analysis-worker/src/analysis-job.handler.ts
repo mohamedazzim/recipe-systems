@@ -328,30 +328,50 @@ export class AnalysisJobHandler {
     });
     if (!analysis) return; // never materialized — nothing to recompute
 
-    const existing = await this.prisma.analysisView.findUnique({
-      where: {
-        analysisId_viewNumber: { analysisId: data.analysis_id, viewNumber: 9 },
+    // BUG-031: read, merge and write share ONE Serializable transaction.
+    //
+    // Two quick assumption edits queue two recomputes. Under Read Committed both could read
+    // the same base payload, each merge its own delta, and whichever wrote last would win —
+    // silently dropping the other edit, with no error on either request. The user's first
+    // change vanishes and nothing anywhere says so. Serializable makes the second reader
+    // fail and be redelivered (pg-boss retries per the Q13-labeled defaults), so it
+    // re-reads the first edit and merges on top of it.
+    //
+    // pg-boss singletonKey is deliberately NOT used: it would drop the second job, which
+    // loses that edit outright rather than serialising the two.
+    await this.prisma.$transaction(
+      async (tx) => {
+        const existing = await tx.analysisView.findUnique({
+          where: {
+            analysisId_viewNumber: { analysisId: data.analysis_id, viewNumber: 9 },
+          },
+        });
+        const current = existing ? overridesFromPayload(existing.payload) : DEFAULT_OVERRIDES;
+        const merged = mergeOverrides(current, data.delta);
+        // D-26 I3 / Q14 seam: portions persist ONLY in the payload's per_portion.
+        // An assumption-only recompute carries the last portion count forward (the
+        // payload convention); a portions delta overwrites it. No column exists.
+        const priorPortions =
+          existing &&
+          existing.payload &&
+          typeof existing.payload === 'object' &&
+          (existing.payload as { per_portion?: { portions?: number } | null }).per_portion?.portions;
+        const portions =
+          data.delta.portions ?? (priorPortions === 3 || priorPortions === 4 ? priorPortions : undefined);
+        // The reference-data reads stay on the base client: they feed a deterministic
+        // producer whose inputs are curated tables, and only the merged overrides — read
+        // above, inside the transaction — are the concurrent surface.
+        const payload = await computeView9(this.prisma, data.captured, merged, portions);
+        // A-19 correction: never overwrite a valid persisted payload with an
+        // invalid one — a producer bug throws (pg-boss retries per the Q13-labeled
+        // defaults) and the existing payload stays intact.
+        if (!View9PayloadSchema.safeParse(payload).success) {
+          throw new Error('deterministic view 9 recompute failed the frozen schema (A-19 gate)');
+        }
+        await this.upsertView(data.analysis_id, 9, 'COMPLETE', payload, tx);
       },
-    });
-    const current = existing ? overridesFromPayload(existing.payload) : DEFAULT_OVERRIDES;
-    const merged = mergeOverrides(current, data.delta);
-    // D-26 I3 / Q14 seam: portions persist ONLY in the payload's per_portion.
-    // An assumption-only recompute carries the last portion count forward (the
-    // payload convention); a portions delta overwrites it. No column exists.
-    const priorPortions =
-      existing &&
-      existing.payload &&
-      typeof existing.payload === 'object' &&
-      (existing.payload as { per_portion?: { portions?: number } | null }).per_portion?.portions;
-    const portions = data.delta.portions ?? (priorPortions === 3 || priorPortions === 4 ? priorPortions : undefined);
-    const payload = await computeView9(this.prisma, data.captured, merged, portions);
-    // A-19 correction: never overwrite a valid persisted payload with an
-    // invalid one — a producer bug throws (pg-boss retries per the Q13-labeled
-    // defaults) and the existing payload stays intact.
-    if (!View9PayloadSchema.safeParse(payload).success) {
-      throw new Error('deterministic view 9 recompute failed the frozen schema (A-19 gate)');
-    }
-    await this.upsertView(data.analysis_id, 9, 'COMPLETE', payload);
+      { isolationLevel: 'Serializable' },
+    );
     // Signal-only (INV-16): the status is still 'complete' — the SSE listener
     // refreshes the persisted payload.
     await this.notify({ analysis_id: data.analysis_id, status: 'complete' });
@@ -384,8 +404,13 @@ export class AnalysisJobHandler {
     viewNumber: number,
     status: 'COMPLETE' | 'INCOMPLETE',
     payload: unknown,
+    // BUG-031: the write may ride a caller's transaction. A read-modify-write is only
+    // protected if the write lands on the same connection the read used — otherwise the
+    // read's snapshot is unrelated to the write's and the protection is decorative.
+    // Defaults to the client, so every existing call site is unchanged.
+    client: Prisma.TransactionClient = this.prisma,
   ): Promise<void> {
-    await this.prisma.analysisView.upsert({
+    await client.analysisView.upsert({
       where: { analysisId_viewNumber: { analysisId, viewNumber } },
       create: {
         analysisId,

@@ -130,6 +130,17 @@ function mockPrisma(): PrismaMock {
 }
 
 function makeHandler(prisma: PrismaMock, adapter = stubAdapter(), notify = jest.fn()) {
+  // BUG-031: the View 9 recompute now runs its read-merge-write inside an INTERACTIVE
+  // $transaction, so the double has to hand the callback the SAME prisma object. A fresh
+  // mock inside the callback would make the in-transaction read return null, and the merge
+  // would silently drop the delta these tests assert on — a green suite proving nothing.
+  // Array-form stays supported for the other callers.
+  prisma.$transaction = jest.fn(async (opsOrFn: unknown) =>
+    typeof opsOrFn === 'function'
+      ? (opsOrFn as (tx: PrismaMock) => Promise<unknown>)(prisma)
+      : Promise.all(opsOrFn as Array<Promise<unknown>>),
+  ) as unknown as jest.Mock;
+
   return {
     handler: new AnalysisJobHandler(prisma as never, adapter, notify as never),
     notify,

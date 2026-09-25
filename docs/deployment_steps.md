@@ -148,7 +148,7 @@ To provide 100% same-origin cookie handling:
 ## Major Fixes Already Applied
 
 - Consolidated the architecture to five Railway services because of the Free plan service limit.
-- Moved MinIO from Docker Hub to `quay.io/minio/minio`.
+- Moved MinIO from Docker Hub to `quay.io/minio/minio`. **Superseded:** as of 2026-09-25 `quay.io/minio/minio` answers `401 UNAUTHORIZED` for `latest` and `no such manifest` for pinned tags, and Docker Hub's `minio/minio` answers `repository does not exist` — MinIO withdrew its community images from both registries. The running Railway service is unaffected until it is redeployed, at which point the image can no longer be pulled. The integration tier now uses `adobe/s3mock:latest`, which is pullable and which the storage integration suite passes against.
 - Created the `keycloak` database and user on the shared Postgres plugin.
 - Added the Keycloak realm import and generated a production keystore.
 - Tuned Keycloak JVM memory with `JAVA_OPTS_APPEND` to fit the available container memory.

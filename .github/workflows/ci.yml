@@ -93,59 +93,37 @@ jobs:
         working-directory: packages/database
         run: npx prisma migrate deploy
 
-      - name: Start MinIO for integration tests (same image/command as local compose)
+      - name: Start S3-compatible storage for integration tests (s3mock)
         run: |
-          MINIO_IMAGE="minio/minio:latest"
-          reason=""
-          for attempt in 1 2 3; do
-            # Capture stdout (container id) AND stderr (the pull error). A registry failure is
-            # the likely cause and its message names it exactly - "toomanyrequests", a DNS
-            # error, an i/o timeout - so it must not be discarded.
-            run_out=$(docker run -d --name minio -p 9000:9000 \
-                 -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
-                 "$MINIO_IMAGE" server /data --console-address ":9001" 2>&1)
-            if [ "$?" -eq 0 ]; then
-              # `docker run -d` succeeds once the container is CREATED, not once it stays up.
-              # A container that dies immediately used to break this loop, skip every retry,
-              # and fail at the gate below printing nothing.
-              sleep 3
-              if [ "$(docker inspect -f '{{.State.Running}}' minio 2>/dev/null)" = "true" ]; then
-                reason=""
-                break
-              fi
-              reason="started then exited (attempt $attempt); exit=$(docker inspect -f '{{.State.ExitCode}}' minio 2>/dev/null); logs: $(docker logs minio 2>&1 | tail -20 | tr '\n' ' ')"
-            else
-              reason="docker run failed for $MINIO_IMAGE (attempt $attempt): $(echo "$run_out" | tail -5 | tr '\n' ' ')"
-            fi
-            echo "$reason"
-            docker rm -f minio >/dev/null 2>&1 || true
-            if [ "$attempt" -eq 1 ]; then
-              echo "falling back to the official Quay mirror (Docker Hub anonymous pull limit)"
-              MINIO_IMAGE="quay.io/minio/minio:latest"
-            fi
-            sleep 20
-          done
-          if ! docker ps --format '{{.Names}}' | grep -q '^minio$'; then
-            # ::error:: publishes to the job's Annotations panel, which is readable WITHOUT
-            # the job log. The generic "Process completed with exit code 1" is all this step
-            # otherwise shows, and the cause stays buried in a log behind sign-in.
-            echo "::error title=MinIO failed to start::$reason"
-            echo "minio container failed to start after 3 attempts: $reason"
-            exit 1
-          fi
+          # MinIO's community images were withdrawn from both registries: `minio/minio` on
+          # Docker Hub now answers "repository does not exist", and `quay.io/minio/minio`
+          # returns 401 for `latest` and "no such manifest" for a pinned tag. The image the
+          # old step asked for cannot be pulled at all, which is why this step failed on
+          # every run regardless of retries or registry order.
+          #
+          # s3mock is an S3-compatible server built for integration tests, it is pullable
+          # from Docker Hub, and the storage integration suite passes against it. Mapping its
+          # port 9090 to 9000 keeps S3_ENDPOINT identical to what the tests already expect.
+          docker rm -f minio >/dev/null 2>&1 || true
+          docker run -d --name minio -p 9000:9090 \
+            -e COM_ADOBE_TESTING_S3MOCK_STORE_DEFAULT_BUCKET=recipe-assets \
+            adobe/s3mock:latest
           for i in $(seq 1 60); do
-            # 127.0.0.1 rather than localhost: on some runners localhost resolves to ::1 first
-            # while the published port is IPv4-only, which looks identical to "never healthy".
-            if curl -sf http://127.0.0.1:9000/minio/health/live; then
-              echo "minio ready"; exit 0
+            # 403 is the expected answer to an unauthenticated ListBuckets: it proves the
+            # server is up and speaking S3, which is all this wait needs. 127.0.0.1 rather
+            # than localhost, since on some runners localhost resolves to ::1 first while the
+            # published port is IPv4-only.
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:9000/ || true)
+            if [ "$code" = "200" ] || [ "$code" = "403" ]; then
+              echo "s3mock ready (HTTP $code)"; exit 0
             fi
             sleep 3
           done
-          echo "minio failed to become healthy after 180s; container logs:"
+          # ::error:: publishes to the job's Annotations panel, which is readable WITHOUT the
+          # job log - the generic "Process completed with exit code 1" is all this step
+          # otherwise shows.
+          echo "::error title=S3 storage never became ready::last logs: $(docker logs minio 2>&1 | tail -20 | tr '\n' ' ')"
           docker logs minio || true
-          # Also annotated: the log lines above are unreadable without sign-in, and this
-          # outcome is indistinguishable from the start gate in the Annotations panel.
-          echo "::error title=MinIO never became healthy::180s on http://127.0.0.1:9000/minio/health/live; last logs: $(docker logs minio 2>&1 | tail -20 | tr '\n' ' ')"
           exit 1
 
       - name: Integration tests

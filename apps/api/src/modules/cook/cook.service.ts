@@ -260,15 +260,21 @@ export class CookService {
     const storage = this.storage;
 
     const existing = await this.prisma.cookLogPhoto.findUnique({ where: { cookLogId } });
-    if (existing) {
-      await storage.tryDeleteObject(this.storageKeyFromUri(existing.photoUri));
-    }
+
+    // BUG-003: store the replacement FIRST and delete the old object only once the new one is
+    // persisted and referenced. The old order deleted first, so a failed upload left the log
+    // pointing at an object that no longer existed — the cook lost the photo they already had
+    // and did not get the new one. Same rule as the recipe delete path: the compensating
+    // delete runs after the durable write, and is best-effort.
     const stored = await storage.uploadImage(buffer, contentType);
     await this.prisma.cookLogPhoto.upsert({
       where: { cookLogId },
       create: { cookLogId, photoUri: stored.uri },
       update: { photoUri: stored.uri },
     });
+    if (existing) {
+      await storage.tryDeleteObject(this.storageKeyFromUri(existing.photoUri));
+    }
     return { cook_log_id: cookLogId, photo_uri: stored.uri };
   }
 

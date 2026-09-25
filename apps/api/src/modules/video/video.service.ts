@@ -80,18 +80,29 @@ export class VideoService {
       (existing?.status === 'generating' && existing.updatedAt > staleBefore);
     if (existing && usable) return this.toState(existing);
 
-    await this.prisma.recipeVideo.upsert({
+    // BUG-018: the row's updatedAt after this write is this run's fencing token. Nothing else
+    // writes this row, so it is stable for the life of the run and changes the moment another
+    // start claims the recipe.
+    const attempt = await this.prisma.recipeVideo.upsert({
       where: { recipeId },
       create: { recipeId, status: 'generating' },
       update: { status: 'generating', error: null },
+      select: { updatedAt: true },
     });
     // Fire-and-forget: the request must not wait on ~40s of provider work.
-    void this.generate(actor, recipeId);
+    void this.generate(actor, recipeId, attempt.updatedAt);
     return { status: 'generating', video: null, chapters: [], error: null };
   }
 
   /** The background job: propose → VERIFY → read the video → persist. */
-  private async generate(actor: Actor, recipeId: string): Promise<void> {
+  // BUG-018: `attempt` is the fencing token — the row's updatedAt as start() wrote it.
+  // Generation is ~40s of provider work behind a fire-and-forget call, and start() treats a
+  // `generating` row older than VIDEO_STALE_MS as abandoned so a reload can start a new run.
+  // Without a token, the superseded run writes last and wins: it overwrites the newer video,
+  // or worse, its late failure flips a `ready` row back to `failed` — the user sees a
+  // completed walkthrough turn into an error. Both final writes are now conditional on the
+  // token, so a superseded run matches zero rows and its result is discarded.
+  private async generate(actor: Actor, recipeId: string, attempt: Date): Promise<void> {
     try {
       if (!this.llm) throw new Error('No LLM provider is configured for the video walkthrough');
       const recipe = await this.recipes.assertOwned(actor, recipeId);
@@ -137,8 +148,8 @@ export class VideoService {
         throw new Error(`The video breakdown was invalid: ${parsedChapters.errors.join('; ')}`);
       }
 
-      await this.prisma.recipeVideo.update({
-        where: { recipeId },
+      const settled = await this.prisma.recipeVideo.updateMany({
+        where: { recipeId, updatedAt: attempt },
         data: {
           status: 'ready',
           videoId: verified.id,
@@ -149,10 +160,19 @@ export class VideoService {
           error: null,
         },
       });
+      if (settled.count === 0) {
+        console.log(
+          `video walkthrough for recipe ${recipeId}: superseded by a newer attempt — result discarded`,
+        );
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'The video walkthrough failed';
+      // Conditional too: a superseded run must not report failure over a newer success.
       await this.prisma.recipeVideo
-        .update({ where: { recipeId }, data: { status: 'failed', error: message.slice(0, 500) } })
+        .updateMany({
+          where: { recipeId, updatedAt: attempt },
+          data: { status: 'failed', error: message.slice(0, 500) },
+        })
         .catch(() => undefined);
     }
   }

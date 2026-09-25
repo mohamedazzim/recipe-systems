@@ -21,8 +21,12 @@ function service(opts: {
   const prisma: any = {
     recipeVideo: {
       findUnique: jest.fn().mockResolvedValue(null),
-      upsert: jest.fn().mockResolvedValue({}),
+      // BUG-018: start() reads the row back for the fencing token, and the run's final writes
+      // are conditional on it — so they are updateMany and report whether the row was still
+      // theirs. The upsert has to hand back a token for the same reason.
+      upsert: jest.fn().mockResolvedValue({ updatedAt: new Date('2026-09-20T00:00:00.000Z') }),
       update: jest.fn().mockResolvedValue({}),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
   };
   const recipes = {
@@ -60,7 +64,7 @@ describe('VideoService (RS-US chef mode)', () => {
     await flush();
 
     // The model's title is NOT trusted — the oEmbed title is stored.
-    const data = prisma.recipeVideo.update.mock.calls[0][0].data;
+    const data = prisma.recipeVideo.updateMany.mock.calls[0][0].data;
     expect(data.status).toBe('ready');
     expect(data.videoId).toBe('iV651XRxquM');
     expect(data.title).toBe('Real video');
@@ -83,7 +87,7 @@ describe('VideoService (RS-US chef mode)', () => {
 
     // Read the video at all only after it was proven to exist.
     expect(llm.describeVideoChapters).not.toHaveBeenCalled();
-    const data = prisma.recipeVideo.update.mock.calls[0][0].data;
+    const data = prisma.recipeVideo.updateMany.mock.calls[0][0].data;
     expect(data.status).toBe('failed');
     expect(String(data.error)).toMatch(/no verifiable youtube video/i);
   });
@@ -95,7 +99,7 @@ describe('VideoService (RS-US chef mode)', () => {
     await flush();
 
     expect(llm.describeVideoChapters).not.toHaveBeenCalled();
-    expect(prisma.recipeVideo.update.mock.calls[0][0].data.status).toBe('failed');
+    expect(prisma.recipeVideo.updateMany.mock.calls[0][0].data.status).toBe('failed');
   });
 
   it('does not re-run the provider when a ready walkthrough already exists', async () => {

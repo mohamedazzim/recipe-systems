@@ -100,9 +100,21 @@ jobs:
             if docker run -d --name minio -p 9000:9000 \
                  -e MINIO_ROOT_USER=minioadmin -e MINIO_ROOT_PASSWORD=minioadmin \
                  "$MINIO_IMAGE" server /data --console-address ":9001"; then
-              break
+              # `docker run -d` succeeds once the container is CREATED, not once it stays up.
+              # A container that died immediately used to break this loop, skip every retry,
+              # and fail at the `docker ps` gate below without printing anything — which is
+              # why the job annotation only ever said "Process completed with exit code 1".
+              # Confirm it is actually running, and report why if it is not.
+              sleep 3
+              if [ "$(docker inspect -f '{{.State.Running}}' minio 2>/dev/null)" = "true" ]; then
+                break
+              fi
+              echo "minio started then exited (attempt $attempt); exit code:"
+              docker inspect -f '{{.State.ExitCode}}' minio 2>/dev/null || true
+              docker logs minio 2>&1 | tail -40 || true
+            else
+              echo "docker run failed with $MINIO_IMAGE (attempt $attempt)"
             fi
-            echo "docker run failed with $MINIO_IMAGE (attempt $attempt)"
             docker rm -f minio >/dev/null 2>&1 || true
             if [ "$attempt" -eq 1 ]; then
               echo "falling back to the official Quay mirror (Docker Hub anonymous pull limit)"
@@ -111,11 +123,15 @@ jobs:
             sleep 20
           done
           if ! docker ps --format '{{.Names}}' | grep -q '^minio$'; then
-            echo "minio container failed to start after 3 attempts"
+            echo "minio container failed to start after 3 attempts; last state and logs:"
+            docker inspect -f '{{.State.Status}} exit={{.State.ExitCode}}' minio 2>/dev/null || true
+            docker logs minio 2>&1 | tail -40 || true
             exit 1
           fi
           for i in $(seq 1 60); do
-            if curl -sf http://localhost:9000/minio/health/live; then
+            # 127.0.0.1 rather than localhost: on some runners localhost resolves to ::1 first
+            # while the published port is IPv4-only, which looks identical to "never healthy".
+            if curl -sf http://127.0.0.1:9000/minio/health/live; then
               echo "minio ready"; exit 0
             fi
             sleep 3

@@ -141,20 +141,27 @@ export class AnalysisJobHandler {
       await Promise.all(lanes);
 
       if (errors.length > 0) {
-        const permanent = errors.find(
-          (e) =>
-            e.error instanceof ProviderPendingError ||
-            e.error instanceof LlmPermanentProviderError,
-        );
+        const isPermanent = (e: { error: Error }): boolean =>
+          e.error instanceof ProviderPendingError ||
+          e.error instanceof LlmPermanentProviderError;
+        // BUG-027: the retry is waived only when NO failure could be fixed by one. Asking
+        // whether ANY lane had failed permanently meant a single view with an unretryable
+        // error suppressed the retry the other lanes' transient errors still needed — those
+        // views were left unpublished and never re-attempted. That also contradicts the note
+        // below, which relies on per-view resume to make a retry cheap (COMPLETE views are
+        // skipped), so bundling a transient failure with a permanent one threw away exactly
+        // the cheap recovery being depended on. A retry now happens whenever at least one
+        // failure was transient.
+        const retryable = errors.filter((e) => !isPermanent(e));
         // Never stuck at `generating` (P3 exit). Permanent → no retry;
         // transient/schema → throw so pg-boss retries (per-view resume makes
         // the retry cheap — COMPLETE views are skipped).
         await this.markFailed(data.analysis_id);
         await this.notify({ analysis_id: data.analysis_id, status: 'failed' });
-        if (permanent) {
+        if (retryable.length === 0) {
           return;
         }
-        throw errors[0].error;
+        throw retryable[0].error;
       }
 
       // Deterministic views 8/9 (D-19): computed here from the captured state +

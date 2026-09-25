@@ -59,7 +59,9 @@ test.describe('D-21 disclaimers (H6/I6) — live rendered surfaces', () => {
     await page.getByRole('button', { name: 'Analyse recipe' }).click();
     await expect(page.getByText('Analysis complete.')).toBeVisible({ timeout: 30_000 });
 
-    // View 8 — H6 verbatim; the forbidden word appears nowhere on the surface.
+    // View 8 — H6 verbatim; the forbidden word appears nowhere on the surface. The method tab
+    // was selected earlier and that leaves the full-screen analysis, so return to it first.
+    await page.getByRole('tab', { name: 'Analysis' }).click();
     await page.getByRole('tab', { name: /8 · Dietary/ }).click();
     const view8 = page.locator('#panel-view-8');
     await expect(view8).toContainText(H6);

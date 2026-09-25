@@ -72,7 +72,10 @@ test.describe('D-22 library save / browse / open — live rendered surfaces', ()
     await expect(page.getByRole('button', { name: 'Save recipe' })).toBeVisible();
     await page.getByRole('button', { name: 'Save recipe' }).click();
     await expect(page.getByText(/Saved as/)).toBeVisible();
-    await expect(page.getByText(FAMILY, { exact: false })).toBeVisible();
+    // The family name legitimately appears three times on this surface — the workspace h1, the
+    // "Saved as" line, and View 5's identification block — so take the first rather than
+    // tripping strict mode. Its presence at all is what proves the round trip.
+    await expect(page.getByText(FAMILY, { exact: false }).first()).toBeVisible();
 
     // Back home: the canonical library row (name = family default).
     await page.getByRole('button', { name: /Back to your recipes/ }).click();
@@ -141,7 +144,9 @@ test.describe('D-22 library save / browse / open — live rendered surfaces', ()
     await page.getByRole('button', { name: 'Save recipe' }).click();
     await expect(page.getByText(/Saved as/)).toBeVisible();
 
-    // Cancel path: the destructive step can be backed out of; the recipe remains.
+    // Cancel path: the destructive step can be backed out of; the recipe remains. Delete lives
+    // in the header's More actions menu (RecipeWorkspace, aria-label="More actions").
+    await page.getByRole('button', { name: 'More actions' }).click();
     await page.getByRole('button', { name: 'Delete recipe' }).click();
     await expect(page.getByText(/permanently removed/i)).toBeVisible();
     await page.getByRole('button', { name: 'Cancel' }).click();

@@ -66,7 +66,10 @@ test.describe('D-20 chef mode + station card — live rendered surfaces', () => 
     // Deterministic start (a prior run may have persisted chef): pin Home first.
     await page.getByRole('radio', { name: 'Home' }).click();
 
-    // Home presentation: the home tab labels are intact (D-17 surfaces).
+    // Home presentation: the home tab labels are intact (D-17 surfaces). Selecting a section tab
+    // leaves the full-screen analysis — selectTab clears analysisFullscreen — so return to it
+    // first; the view tabs only exist inside that panel.
+    await page.getByRole('tab', { name: 'Analysis' }).click();
     await expect(page.getByRole('tab', { name: '8 · Dietary' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Station card' })).toHaveCount(0);
 

@@ -68,7 +68,9 @@ test.describe('D-24 cook log entry — live rendered surfaces', () => {
     await loginViaKeycloak(page, SEEDED_CHEF);
     await pasteAnalyseAndSave(page);
 
-    // Pre-existing shopping state: generate the list and mark fish as have.
+    // Pre-existing shopping state: generate the list and mark fish as have. The workspace is
+    // tabbed, so the shopping section has to be selected first — its tab is 'Shopping list'.
+    await page.getByRole('tab', { name: 'Shopping list' }).click();
     await page.getByRole('button', { name: 'Generate shopping list' }).click();
     await expect(page.getByText(/Fresh produce|Spices|Fish/).first()).toBeVisible({ timeout: 15_000 });
     await page.getByLabel(/Mark Fish — 500g as have/).click();

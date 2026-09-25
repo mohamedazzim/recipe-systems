@@ -313,9 +313,20 @@ export class IngestionService {
     let effective = this.effectiveDraft(draft);
     this.assertConfirmable(effective);
 
-    // Claim the draft so concurrent confirms serialize (no duplicate recipes).
+    // BUG-008: the claim, with a lease. `confirming` had no lease, timeout or sweeper, so a
+    // process that died mid-confirm — or a compensation that failed — left the draft
+    // unconfirmable forever: every later attempt matched zero rows and got
+    // CONFIRM_IN_PROGRESS with nothing running. A claim older than the lease is treated as
+    // abandoned and taken over. Confirming is four local writes, so a live claim is seconds.
+    // This is the same shape the video walkthrough already uses for its `generating` rows
+    // (updated_at compared against a stale boundary), and needs no new column: the claim's
+    // own write moves updated_at.
+    const staleClaimBefore = new Date(Date.now() - 2 * 60_000);
     const claimed = await this.prisma.documentRecipeDraft.updateMany({
-      where: { id: draft.id, status: 'draft' },
+      where: {
+        id: draft.id,
+        OR: [{ status: 'draft' }, { status: 'confirming', updatedAt: { lt: staleClaimBefore } }],
+      },
       data: { status: 'confirming' },
     });
     if (claimed.count === 0) {
@@ -355,10 +366,25 @@ export class IngestionService {
         : null;
     const title = effective.title?.trim() || null;
 
+    // BUG-009: a previous attempt may have created a recipe and then failed before it could
+    // be confirmed. The id is recorded on the draft the moment the row exists (below), so
+    // this attempt removes that partial recipe before building another one. Without it, any
+    // retry after a failed cleanup left TWO recipes behind for one document.
+    // deleteRecipeInternal is retry-safe and a no-op for an id that is already gone.
+    if (draft.recipeId) {
+      await this.recipes.deleteRecipeInternal(draft.recipeId).catch(() => undefined);
+    }
+
     let recipeId: string | null = null;
     try {
       const recipe = await this.recipes.createForIntake(actor, { rawText });
       recipeId = recipe.id;
+      // Record the id as soon as the row exists, so a crash anywhere below leaves a draft
+      // that the next attempt can clean up instead of duplicating.
+      await this.prisma.documentRecipeDraft.update({
+        where: { id: draft.id },
+        data: { recipeId: recipe.id },
+      });
       await this.intake.recordFormLines(actor, recipe.id, entries);
       if (methodText) {
         await this.recipes.attachMethod(actor, recipe.id, { mode: 'paste', methodText });
@@ -371,12 +397,31 @@ export class IngestionService {
       });
       return { recipe_id: recipe.id, status: 'confirmed' };
     } catch (err) {
-      // Revert the claim (retryable) + fully remove the partial recipe subtree.
-      await this.prisma.documentRecipeDraft
-        .update({ where: { id: draft.id }, data: { status: 'draft' } })
-        .catch(() => undefined);
+      // BUG-009: clean up in the order that cannot produce a duplicate, and never swallow a
+      // failure silently. The old order released the claim FIRST and ignored both errors: if
+      // the delete then failed, the next attempt found an editable draft, built a second
+      // recipe and left the orphan in the library. Now the partial recipe is removed first
+      // and the claim is released only once that succeeded, so a failed cleanup leaves the
+      // draft at `confirming` — which the lease reclaims (BUG-008) and the recorded id then
+      // cleans up — instead of a silent wedge or a duplicate.
+      let cleaned = true;
       if (recipeId) {
-        await this.recipes.deleteRecipeInternal(recipeId).catch(() => undefined);
+        cleaned = await this.recipes
+          .deleteRecipeInternal(recipeId)
+          .then(() => true)
+          .catch((cleanupErr: unknown) => {
+            console.error(
+              `confirm cleanup failed for draft ${draft.id} (recipe ${recipeId} not removed): ${String(cleanupErr)}`,
+            );
+            return false;
+          });
+      }
+      if (cleaned) {
+        await this.prisma.documentRecipeDraft
+          .update({ where: { id: draft.id }, data: { status: 'draft' } })
+          .catch((resetErr: unknown) => {
+            console.error(`confirm claim reset failed for draft ${draft.id}: ${String(resetErr)}`);
+          });
       }
       throw err;
     }

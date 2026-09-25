@@ -955,6 +955,41 @@ describe('IntakeService — D-14 needs_review enqueue gate (INV-05)', () => {
     });
   });
 
+  it('BUG-006: a line_no collision retries with a fresh max instead of 500ing', async () => {
+    const { prisma, recipes } = mockPrisma();
+    // First read says 3 (→ insert lineNo 4); the collision means somebody else took
+    // 4, so the re-read says 4 and the retry inserts 5.
+    prisma.recipeIngredientLine.aggregate
+      .mockResolvedValueOnce({ _max: { lineNo: 3 } })
+      .mockResolvedValueOnce({ _max: { lineNo: 4 } });
+    prisma.recipeIngredientLine.create
+      .mockRejectedValueOnce(Object.assign(new Error('collision'), { code: 'P2002' }))
+      .mockResolvedValueOnce({ id: 'l9', lineNo: 5 });
+    const svc = new IntakeService(prisma, recipes);
+
+    const created = await svc.addLine(userActor, 'r1', { displayName: 'Salt — to taste' });
+
+    expect(created).toEqual({ id: 'l9', lineNo: 5 });
+    expect(prisma.recipeIngredientLine.create).toHaveBeenCalledTimes(2);
+    expect(prisma.recipeIngredientLine.aggregate).toHaveBeenCalledTimes(2);
+    // The retry used the FRESH number, not the colliding one.
+    expect(prisma.recipeIngredientLine.create.mock.calls[1][0].data.lineNo).toBe(5);
+  });
+
+  it('BUG-006: a non-collision error still propagates (no blanket retry)', async () => {
+    const { prisma, recipes } = mockPrisma();
+    prisma.recipeIngredientLine.aggregate.mockResolvedValue({ _max: { lineNo: 3 } });
+    prisma.recipeIngredientLine.create.mockRejectedValue(
+      Object.assign(new Error('disk on fire'), { code: 'P1001' }),
+    );
+    const svc = new IntakeService(prisma, recipes);
+
+    await expect(
+      svc.addLine(userActor, 'r1', { displayName: 'Salt — to taste' }),
+    ).rejects.toThrow('disk on fire');
+    expect(prisma.recipeIngredientLine.create).toHaveBeenCalledTimes(1);
+  });
+
   it('updateLine: ordinary edits never touch needs_review (no auto-clear)', async () => {
     const { prisma, recipes } = mockPrisma();
     const line = mockLine({ id: 'l1', needsReview: true, updatedAt: new Date('2026-09-09T10:00:00Z') });

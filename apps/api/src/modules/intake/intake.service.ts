@@ -1025,7 +1025,24 @@ export class IntakeService implements OnModuleInit {
         }
       }
     }
-    return this.prisma.recipeIngredientLine.create({ data });
+    // BUG-006: `lineNo` is MAX+1 computed in a SEPARATE statement from the insert, so
+    // two concurrent adds for the same recipe can pick the same number. The second then
+    // violates the partial unique index on (recipe_id, line_no) where not deleted —
+    // surfacing as an unmapped 500 on nothing more exotic than a double-click. On
+    // exactly that collision, re-read the max and retry; anything else propagates.
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return await this.prisma.recipeIngredientLine.create({ data });
+      } catch (err) {
+        const code = (err as { code?: string }).code;
+        if (code !== 'P2002' || attempt >= 4) throw err;
+        const fresh = await this.prisma.recipeIngredientLine.aggregate({
+          where: { recipeId },
+          _max: { lineNo: true },
+        });
+        data.lineNo = (fresh._max.lineNo ?? 0) + 1;
+      }
+    }
   }
 
   /** D-14A / INV-05: the enqueue completeness check. ACTIVE = `deletedAt IS NULL`

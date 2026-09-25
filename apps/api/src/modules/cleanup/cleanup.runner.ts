@@ -15,18 +15,35 @@ export class CleanupRunner implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(CleanupRunner.name);
   private firstTimer: ReturnType<typeof setTimeout> | null = null;
   private interval: ReturnType<typeof setInterval> | null = null;
+  /** BUG-016: in-process overlap guard (see `run`). */
+  private running = false;
 
   constructor(private readonly cleanup: CleanupService) {}
 
   async onModuleInit(): Promise<void> {
     const intervalMs = cleanupIntervalSeconds() * 1000;
     const run = async (): Promise<void> => {
+      // BUG-016: the header's "an overlap from a second process is harmless" argument
+      // covers a second *container*, but not a tick landing while this process's
+      // previous sweep is still running — the boot sweep and the interval are armed
+      // independently, and a shortened CLEANUP_INTERVAL_SECONDS (or a slow storage pass)
+      // is enough to stack them. An overlap does not corrupt anything, but the loser
+      // hits P2025 on rows the winner already deleted and abandons the remainder of its
+      // pass, so the same work runs twice and one pass is partial for nothing. Skipping
+      // the tick is strictly better than racing it.
+      if (this.running) {
+        this.logger.warn('guest cleanup sweep still running — skipping this tick');
+        return;
+      }
+      this.running = true;
       try {
         await this.cleanup.cleanupExpiredGuests();
       } catch (err) {
         // A failed sweep is observable and retried on the next tick; never
         // crashes the API process.
         this.logger.error(`guest cleanup sweep failed: ${(err as Error).message}`);
+      } finally {
+        this.running = false;
       }
     };
 

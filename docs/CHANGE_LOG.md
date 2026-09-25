@@ -1693,3 +1693,37 @@
 | Repo | `.gitignore` · git at `github.com/mohamedazzim/recipe-systems` |
 
 **Uncommitted as of this entry:** the 5 consistency fixes (ADR note, Tech Stack header, SCAFFOLD §1/§7) and this six-file set — both awaiting review.
+
+---
+
+## Audit remediation: the bug set closed (2026-09-25)
+
+- **What:** every bug finding from the consolidated application audit was worked one at a time — 30 fixed, 3 resolved as not-defects with the evidence that the shipped code already handled them (see `AUDIT_LOG.md` A-11 for the list and the reasoning). Thirty-three of thirty-three accounted for.
+- **Notable closures:** the View 9 recompute became a Serializable read-modify-write (`BUG-031`); the draft confirm gained a reclaimable claim lease and duplicate-safe cleanup (`BUG-008`, `BUG-009`); extraction and upload claims became conditional writes rather than read-then-write (`BUG-005`, `BUG-007`, `BUG-019`); video generation gained a fencing token (`BUG-018`); the guest sweep now deletes the documents it cascades away (`BUG-015`); a failed upload attempt is unwound so retry cannot accumulate recipes (`BUG-011`).
+- **Still open (non-bug):** `SEC-001`/`SEC-002`, `ARCH-001`/`002`/`003`, `PERF-001`/`002`/`003`, `LLM-005`/`009`, `DEAD-007`. All listed in `AUDIT_LOG.md` A-11 so the next pass starts from a list.
+- **Standing infrastructure note:** the Railway project has no analysis-worker service, so every worker-side fix is committed and deployed-to-nothing. The analysis path cannot run in production until that service exists.
+- **Commit(s):** the remediation range ending `b9e0131`.
+
+---
+
+## E2E tier: first real run, and the drift it exposed (2026-09-25)
+
+- **What:** the Playwright tier is excluded from CI (hosted runners have no Keycloak), so nothing had been running it. Running it against the local stack showed the specs had drifted from the UI: `entry.spec` and `signup.spec` asserted a level-1 `Your recipes` heading (it is the guest Home's level-2 section; the h1 is the value proposition), four specs pressed a `Create recipe` button that no longer exists anywhere (the entry action is `Add new recipe`, the paste submit is `Analyze recipe`), and `intake.spec` expected a draft line's `canonical_name` and `amount` to be null when the line carries both.
+- **Result:** auth tier 13 tests, review and method pass outright, intake's golden-paste test passes, library's signed-in test now gets past both clicks into the paste form.
+- **Not defects:** the upload test expecting `201` gets `422` because `OCR_PROVIDER=disabled` locally — the endpoint is correct; the test needs a provider or an explicit skip. Every `library`/`chef-mode`/`cook-log` assertion past the paste form waits on analysis, and `scripts/dev.sh` does not start the worker.
+- **Still unrun:** `enqueue-gate`, `chef-mode`, `cook-log`, `view-disclaimers`.
+- **Commit(s):** `e069686`, `f4e47a6`, `68534b0`.
+
+---
+
+## CI: the MinIO images were withdrawn; the integration tier now uses s3mock (2026-09-25)
+
+- **What:** the CI job's storage step failed on every run, in both repos, showing nothing but `Process completed with exit code 1`. Root cause: **the image it asked for no longer exists.** `docker.io/minio/minio` answers `pull access denied ... repository does not exist or may require 'docker login'`, and `quay.io/minio/minio` answers `401 UNAUTHORIZED` for `latest` and `no such manifest` for a pinned tag. MinIO withdrew its community images from both registries, so no retry count and no registry order could have made the step pass — which is why two rounds of hardening it changed nothing.
+- **Fix:** the integration tier starts `adobe/s3mock:latest`, an S3-compatible server built for integration tests. Its port 9090 is mapped to 9000 so `S3_ENDPOINT` is unchanged; the default bucket is created through `COM_ADOBE_TESTING_S3MOCK_STORE_DEFAULT_BUCKET=recipe-assets`; readiness accepts HTTP 200 or 403, where 403 is the expected answer to an unauthenticated `ListBuckets` and proves the server is up and speaking S3. Failures emit `::error::`, which publishes to the job's Annotations panel — readable without the job log, which is sign-in gated and was the reason this took three attempts to see.
+- **Proof, not assumption:** `tests/integration/intake_storage.test.ts` passes **5/5** against this container, run locally with the same image (pulled fresh), port mapping and bucket setting.
+- **Two corrections recorded here so they are not repeated:** (1) the claim that the image was fine because it "came up locally" was **wrong** — that container ran from a cached layer, so no pull occurred and nothing was verified; (2) the suggestion to switch to Quay would have **guaranteed** failure, as Quay returns 401.
+- **Open items this creates — both need a decision:**
+  - `infra/docker/docker-compose.yml` still points at `minio/minio:latest`, and its healthcheck calls MinIO's `mc` binary, so it cannot be a plain image swap. The local stack keeps working from cached layers until it is changed.
+  - **Railway's `minio` service runs the now-401 Quay image. It is healthy while it runs but cannot be redeployed** — on its next restart it will not come back.
+  - Everything before the storage step (lint, typecheck, unit, gates, migrate) had been passing all along. Integration and build had **never run** on this pipeline, so the next run is their first real exercise.
+- **Commit(s):** `33e3c90`, `2a01e4c`, `021eb99`.

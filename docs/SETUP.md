@@ -85,7 +85,7 @@ QG3 `.perf-baselines.json` schema · QG4 fault matrix (P1+) · QG5 deterministic
 | web | 3000 | Next.js dev |
 | api | 3001 | NestJS, prefix `/api/v1` |
 | postgres | 5433 | compose mapping; container 5432 |
-| minio | 9000 / 9001 | S3 API / console |
+| minio | 9000 | S3-compatible API (s3mock — MinIO's community images were withdrawn) |
 | nginx | 8080 | edge, `/healthz` |
 | keycloak | 8081 | identity profile only; realm `recipesystems` |
 

@@ -17,7 +17,7 @@ The Railway Free plan allows five services, so the API and analysis worker share
 | api | online | `https://api-production-9cb27.up.railway.app` | NestJS BFF, Prisma migrations, and analysis worker |
 | web | online | `https://web-production-2b198.up.railway.app` | Next.js frontend |
 | keycloak | online | `https://keycloak-production-5d3e.up.railway.app` | Keycloak 26.2.5, realm `recipesystems` |
-| minio | online | `http://minio.railway.internal:9000` | `quay.io/minio/minio`, persistent `/data` volume |
+| minio | online | `http://minio.railway.internal:9000` | **Image withdrawn** — `quay.io/minio/minio` returns 401 and Docker Hub's `minio/minio` no longer exists. Runs until it restarts; a redeploy needs a different image or a managed S3 endpoint |
 
 The deleted services are the dedicated worker and dedicated Keycloak Postgres service. Do not recreate them unless the Railway plan changes.
 
@@ -168,7 +168,7 @@ All 5 Railway services are healthy and functional:
 - **Web**: `https://web-production-2b198.up.railway.app` (Proxies `/api/*` seamlessly)
 - **API**: `https://api-production-9cb27.up.railway.app` (`/api/v1/health` ➔ `200`, Worker running)
 - **Keycloak**: `https://keycloak-production-5d3e.up.railway.app` (OIDC flow 200 OK)
-- **MinIO**: `http://minio.railway.internal:9000` (`recipe-assets` bucket present)
+- **MinIO**: `http://minio.railway.internal:9000` (`recipe-assets` bucket present). **Caveat:** the image MinIO withdrew cannot be pulled, so this service survives only as long as it is not restarted. Production storage should move to a managed S3-compatible endpoint (Cloudflare R2, Backblaze B2, AWS S3) by pointing `S3_ENDPOINT` at it — an in-memory mock is not a production substitute.
 - **Postgres**: `postgres.railway.internal:5432` (`railway` and `keycloak` databases)
 
 Full authentication round-trip tested:

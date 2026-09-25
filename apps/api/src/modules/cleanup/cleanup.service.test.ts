@@ -28,6 +28,9 @@ describe('CleanupService (D-27 guest expiry)', () => {
           .mockResolvedValueOnce([{ id: 'r1' }, { id: 'r2' }])
           .mockResolvedValueOnce([]),
       },
+      // BUG-015: the sweep also collects the guest's document-ingestion objects, so the
+      // double has to answer that read. It is a separate aggregate from recipes.
+      documentIngestion: { findMany: jest.fn().mockResolvedValue([]) },
     };
     const recipes = recipesMock();
     const svc = service(prisma, recipes);
@@ -57,6 +60,7 @@ describe('CleanupService (D-27 guest expiry)', () => {
         delete: jest.fn(),
       },
       recipe: { findMany: jest.fn().mockResolvedValue([{ id: 'r1' }]) },
+      documentIngestion: { findMany: jest.fn().mockResolvedValue([]) },
     };
     const recipes = recipesMock({
       deleteRecipeInternal: jest.fn().mockResolvedValue(['recipes/x.jpg']),
@@ -72,6 +76,7 @@ describe('CleanupService (D-27 guest expiry)', () => {
     const prisma = {
       guestSession: { findMany: jest.fn().mockResolvedValue([]), delete: jest.fn() },
       recipe: { findMany: jest.fn() },
+      documentIngestion: { findMany: jest.fn().mockResolvedValue([]) },
     };
     const recipes = recipesMock();
     const svc = service(prisma, recipes);

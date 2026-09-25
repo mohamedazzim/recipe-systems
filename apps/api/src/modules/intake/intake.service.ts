@@ -763,6 +763,43 @@ export class IntakeService implements OnModuleInit {
     }
   }
 
+  /**
+   * BUG-005: the stale-edit guard as a WRITE PREDICATE.
+   *
+   * `assertNotStale` alone is check-then-write: it compares the client's stamp
+   * against a row read moments earlier, then the update executes with no
+   * `updatedAt` predicate — so two requests holding the same stamp both pass, and
+   * the later one silently overwrites the earlier. Putting the stamp in the WHERE
+   * moves the decision to where it is evaluated atomically: P2025 means nobody
+   * matched, i.e. another writer got there first, which is exactly the 409 the route
+   * already promises. The read-time check stays as a fast path with the same shape.
+   */
+  private async updateLineWhereFresh(
+    line: RecipeIngredientLine,
+    data: Prisma.RecipeIngredientLineUpdateInput,
+  ): Promise<RecipeIngredientLine> {
+    try {
+      return await this.prisma.recipeIngredientLine.update({
+        where: { id: line.id, updatedAt: line.updatedAt },
+        data,
+      });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
+        // Re-read so the 409 carries the CURRENT row, keeping the wire contract the
+        // read-time check already promised (a client merges against `current_line`).
+        const current = await this.prisma.recipeIngredientLine.findFirst({
+          where: { id: line.id },
+        });
+        throw new ConflictException({
+          code: 'STALE_EDIT',
+          message: 'This line changed since you loaded it — reload and merge your edit',
+          details: { current_line: current ? toWireLine(current) : null },
+        });
+      }
+      throw err;
+    }
+  }
+
   /** B3 AC-1: edit a line's review fields (amount parsing fields are user-provided). */
   async updateLine(
     actor: Actor,
@@ -794,7 +831,7 @@ export class IntakeService implements OnModuleInit {
       // D-14C: explicit user confirmation — the ONLY path that clears the flag.
       data.needsReview = false;
     }
-    return this.prisma.recipeIngredientLine.update({ where: { id: lineId }, data });
+    return this.updateLineWhereFresh(line, data);
   }
 
   /** B3 AC-2 header marking (D-12C, D-1 remediation): is_header=true marks the line
@@ -808,10 +845,7 @@ export class IntakeService implements OnModuleInit {
   ): Promise<RecipeIngredientLine> {
     const line = await this.getOwnedLine(actor, recipeId, lineId);
     this.assertNotStale(line, expectedUpdatedAt);
-    return this.prisma.recipeIngredientLine.update({
-      where: { id: lineId },
-      data: { isHeader: true },
-    });
+    return this.updateLineWhereFresh(line, { isHeader: true });
   }
 
   /** D-1 remediation: undo header marking — the line returns to the ingredient
@@ -824,10 +858,7 @@ export class IntakeService implements OnModuleInit {
   ): Promise<RecipeIngredientLine> {
     const line = await this.getOwnedLine(actor, recipeId, lineId);
     this.assertNotStale(line, expectedUpdatedAt);
-    return this.prisma.recipeIngredientLine.update({
-      where: { id: lineId },
-      data: { isHeader: false },
-    });
+    return this.updateLineWhereFresh(line, { isHeader: false });
   }
 
   /** B3 AC-1 delete — soft-delete (C-28 trigger keeps shopping state consistent). */

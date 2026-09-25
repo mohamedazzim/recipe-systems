@@ -688,7 +688,8 @@ describe('IntakeService — D-12 parse review (text scope)', () => {
     );
     expect(updated.displayName).toBe('Fish — 500 gm');
     const updateCall = prisma.recipeIngredientLine.update.mock.calls[0][0];
-    expect(updateCall.where).toEqual({ id: 'l1' });
+    // BUG-005: the stamp rides the WHERE so the write itself is the guard.
+    expect(updateCall.where).toEqual({ id: 'l1', updatedAt: expect.any(Date) });
     expect(updateCall.data.displayName).toBe('Fish — 500 gm');
     expect(updateCall.data.amountText).toBe('500g');
     expect(updateCall.data.unit).toBe('g');
@@ -946,8 +947,10 @@ describe('IntakeService — D-14 needs_review enqueue gate (INV-05)', () => {
     prisma.recipeIngredientLine.update.mockResolvedValue({ ...line, needsReview: false });
     const svc = new IntakeService(prisma, recipes);
     await svc.updateLine(userActor, 'r1', 'l1', { needsReview: false }, line.updatedAt.toISOString());
+    // BUG-005: the stamp now rides the WHERE, so the write itself is the guard
+    // (not just the read-time check).
     expect(prisma.recipeIngredientLine.update).toHaveBeenCalledWith({
-      where: { id: 'l1' },
+      where: { id: 'l1', updatedAt: line.updatedAt },
       data: expect.objectContaining({ needsReview: false }),
     });
   });

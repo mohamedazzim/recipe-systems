@@ -379,6 +379,33 @@ describe('CookService.recordSwap (D-26 F3/H5)', () => {
     expect(intakeMock.updateLine).not.toHaveBeenCalled();
   });
 
+  it('BUG-010: a failed apply writes NO swap row (the log states what actually happened)', async () => {
+    const prisma = swapPrisma();
+    // A stale stamp is the ordinary failure: the line changed since it was read.
+    intakeMock.updateLine.mockRejectedValueOnce(
+      Object.assign(new Error('stale'), { response: { code: 'STALE_EDIT' } }),
+    );
+    const svc = new CookService(
+      prisma,
+      new RecipeService(prisma),
+      intakeMock as unknown as IntakeService,
+    );
+
+    await expect(
+      svc.recordSwap(userActor, LOG_ID, {
+        lineId: LINE_ID,
+        action: 'reduced',
+        swappedTo: '3 Nos',
+        appliedToCard: true,
+      }),
+    ).rejects.toThrow('stale');
+
+    // Pre-fix the row was written FIRST with applied_to_recipe: true, so the cook log
+    // permanently claimed a change the recipe never received — and history has no
+    // correction path.
+    expect(prisma.cookLogSwap.create).not.toHaveBeenCalled();
+  });
+
   it('refuses invalid swap applications: applied without a line, applied reduced without swapped_to, foreign lines', async () => {
     const prisma = swapPrisma();
     const svc = new CookService(prisma, new RecipeService(prisma), intakeMock as unknown as IntakeService);

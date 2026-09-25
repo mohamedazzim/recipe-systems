@@ -379,19 +379,13 @@ export class CookService {
       });
     }
 
-    const created = await this.prisma.cookLogSwap.create({
-      data: {
-        cookLogId: log.id,
-        shoppingKey: line?.shoppingKey ?? null,
-        ingredientNameSnapshot: line?.displayName ?? input.swappedTo?.trim() ?? '',
-        changeType: input.action,
-        originalValue: line?.amountText ?? null,
-        actualValue: swappedTo,
-        appliedToRecipe: applied,
-      },
-    });
-
-    // Apply through Intake (Q4 one-writer) — AFTER the record lands (record-first).
+    // BUG-010: apply through Intake (Q4 one-writer) BEFORE recording the swap. The
+    // row used to be written with `appliedToRecipe: applied` ahead of the mutation, so
+    // a failed apply — a stale stamp, a concurrently soft-deleted line — left the cook
+    // log asserting a change that never touched the recipe, and there is no
+    // correction path because the row is history. Recording after the mutation means
+    // the row states what actually happened: if the apply throws, nothing is written.
+    // `originalValue` is read from the pre-apply `line`, so it stays correct.
     if (applied && line) {
       if (input.action === 'skipped') {
         await this.intake.softDeleteLine(actor, log.recipeId, line.id);
@@ -405,6 +399,18 @@ export class CookService {
         );
       }
     }
+
+    const created = await this.prisma.cookLogSwap.create({
+      data: {
+        cookLogId: log.id,
+        shoppingKey: line?.shoppingKey ?? null,
+        ingredientNameSnapshot: line?.displayName ?? input.swappedTo?.trim() ?? '',
+        changeType: input.action,
+        originalValue: line?.amountText ?? null,
+        actualValue: swappedTo,
+        appliedToRecipe: applied,
+      },
+    });
 
     return {
       swap_id: created.id,

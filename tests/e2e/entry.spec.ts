@@ -38,16 +38,19 @@ test.describe('Entry page', () => {
     // The old bare guest card was replaced (UI build 2026-09-09): guests now land
     // on the real Recipe Home; the claim band is secondary, never the main page.
     await expect(
-      page.getByRole('heading', { level: 1, name: 'Your recipes' }),
+      page.getByRole('heading', { level: 1, name: 'Good food starts here.' }),
     ).toBeVisible();
+    // "Your recipes" is the page's own section below the value proposition, not the h1 —
+    // the assertion here used to name it as the level-1 heading.
+    await expect(page.getByRole('heading', { level: 2, name: 'Your recipes' })).toBeVisible();
     await expect(page.getByText(/exploring as a guest/i)).toBeVisible();
     await expect(page.getByText(/can be claimed onto an account/i)).toBeVisible();
     await expect(page.getByRole('button', { name: 'Create account and claim' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Create recipe' })).toBeVisible();
-    // Photo intake is visibly disabled (OCR deferred): shown, never functional.
-    await page.getByRole('button', { name: 'Create recipe' }).click();
-    await expect(page.getByText('Photo capture')).toBeVisible();
-    await expect(page.getByText('Coming soon.')).toBeVisible();
+    // The intake offers three real entry points. The photo path is a working upload now,
+    // so the old disabled "Photo capture / Coming soon." stub assertions no longer apply.
+    await expect(page.getByRole('button', { name: /Paste text/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Structured form/ })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Upload photo/ })).toBeVisible();
   });
 
   test('shows the auth error state with a retry path', async ({ page }) => {

@@ -208,6 +208,17 @@ export class IntakeController {
     };
   }
 
+  /**
+   * BUG-011: unwind one failed upload attempt — the stored object, then the recipe row (and
+   * only if no intake line attached; removeIfIntakeEmpty is itself guarded on emptiness).
+   * Best-effort by design: it runs on a path that is already throwing, so a compensation
+   * failure must never replace the error the caller needs to see.
+   */
+  private async unwindUpload(actor: Actor, recipeId: string, storageKey: string): Promise<void> {
+    await this.storage.deleteObject(storageKey).catch(() => undefined);
+    await this.recipes.removeIfIntakeEmpty(actor, recipeId).catch(() => undefined);
+  }
+
   /** B2: upload a card image — object storage URI only, never the blob (API §3 RS-US-07). */
   @Post('upload')
   @UseGuards(GuestOrJwtGuard, CsrfGuard)
@@ -250,28 +261,28 @@ export class IntakeController {
       recipeId = recipe.id;
       input = await this.intake.recordPhoto(actor, recipe.id, stored.uri);
     } catch (err) {
-      await this.storage.deleteObject(stored.key);
-      if (recipeId) {
-        try {
-          await this.recipes.removeIfIntakeEmpty(actor, recipeId);
-        } catch {
-          // compensation is best-effort; the intake row never landed
-        }
-      }
+      if (recipeId) await this.unwindUpload(actor, recipeId, stored.key);
+      else await this.storage.deleteObject(stored.key).catch(() => undefined);
       throw err;
     }
 
-    // D-11: run OCR (Intake-orchestrated) and persist the OCR draft. On provider
-    // failure the photo + input row stay DURABLE (no compensation here — nothing
-    // OCR-specific was persisted); retry = re-POST.
+    // D-11: run OCR (Intake-orchestrated) and persist the OCR draft.
     const ocr = await this.intake.ocrPhoto(actor, recipeId!, input!.id, file.buffer, contentType);
+    // BUG-011: a failed OCR pass unwinds this attempt. The photo and input row used to be left
+    // deliberately "so the user can retry" — but the retry is a fresh POST of the same file and
+    // nothing in the API accepts an existing input back, so the durable row was never reused:
+    // every retry left another recipe, storage object and input row behind. This is the same
+    // compensation the DB-failure path applies, so an attempt now either completes or leaves
+    // nothing. (A reuse route would be the better UX; it does not exist.)
     if (ocr.status === 'pending') {
+      await this.unwindUpload(actor, recipeId!, stored.key);
       throw new ServiceUnavailableException({
         code: 'OCR_UNAVAILABLE',
-        message: 'OCR is unavailable; the photo was saved. Retry the upload.',
+        message: 'OCR is unavailable, so nothing was saved. Retry the upload.',
       });
     }
     if (ocr.status === 'unreadable') {
+      await this.unwindUpload(actor, recipeId!, stored.key);
       throw new UnprocessableEntityException({
         code: 'OCR_UNREADABLE',
         message: 'No readable recipe text was found in this image.',

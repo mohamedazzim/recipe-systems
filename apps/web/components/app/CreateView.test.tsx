@@ -167,7 +167,7 @@ describe('CreateView (paste + photo intake)', () => {
       ok: false,
       status: 503,
       json: async () => ({
-        error: { code: 'OCR_UNAVAILABLE', message: 'OCR is unavailable; the photo was saved. Retry the upload.' },
+        error: { code: 'OCR_UNAVAILABLE', message: 'OCR is unavailable, so nothing was saved. Retry the upload.' },
       }),
     });
     const p = props();
@@ -176,7 +176,7 @@ describe('CreateView (paste + photo intake)', () => {
     await userEvent.upload(screen.getByLabelText('Choose recipe photo'), imageFile());
     await userEvent.click(screen.getByRole('button', { name: 'Analyze recipe' }));
 
-    expect(await screen.findByText('OCR is unavailable; the photo was saved. Retry the upload.')).toBeInTheDocument();
+    expect(await screen.findByText('OCR is unavailable, so nothing was saved. Retry the upload.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
     expect(screen.getByText('card.jpg')).toBeInTheDocument();
     expect(p.onUploaded).not.toHaveBeenCalled();

@@ -385,8 +385,9 @@ export function CreateView({
       );
       onUploaded(result.recipe_id, result.lines, title, result.servings ?? null, result.servings_estimated ?? false);
     } catch (err) {
-      // The uploaded photo + input row stay durable on OCR failure (503/422) —
-      // keep the selected file so Retry re-POSTs it. Map to a plain message.
+      // BUG-011: the failed attempt is unwound server-side, so Retry starts clean instead of
+      // layering a second recipe, object and input row on top of the first. The selected file
+      // is kept precisely because Retry re-POSTs it. Map to a plain message.
       setUploadError(
         err instanceof ApiError
           ? err.message

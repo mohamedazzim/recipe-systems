@@ -130,7 +130,7 @@ export class PrintService {
     const analysis = await this.prisma.analysis.findFirst({
       where: { recipeId: recipe.id, isCurrent: true, status: 'complete' },
       orderBy: { createdAt: 'desc' },
-      select: { id: true, family: true },
+      select: { id: true },
     });
     const card = analysis
       ? await this.prisma.analysisStationCard.findUnique({
@@ -170,9 +170,15 @@ export class PrintService {
       orderBy: [{ cookedAt: 'desc' }, { createdAt: 'desc' }],
       select: { nextTimeInstruction: true },
     });
+    // BUG-024: the family is read from View 5 through the canonical accessor, not from
+    // `analysis.family`. The worker never writes that column — the family lives in the View 5
+    // payload — so this header was always blank, while the one-pager (which reads View 5)
+    // showed it. identificationFamily also honours the D-27 veto, so a vetoed View 5 yields no
+    // family here for the same reason it yields none in the library.
+    const family = await this.recipes.identificationFamily(recipe.id);
     const data: StationCardPrintData = {
       recipeTitle: recipe.title,
-      family: analysis?.family ?? null,
+      family,
       mise,
       sequence: sequence.map((s) => ({
         stageName: s.stage_name,

@@ -116,7 +116,13 @@ function service(overrides: { runtime?: PdfRuntime } = {}) {
       findMany: jest.fn(async () => [{ shoppingKey: 'k1', state: 'have' }]),
     },
   } as unknown as PrismaClient;
-  const recipes = { assertOwned: jest.fn(async () => ({ id: UUID, title: 'Kanyakumari Meen Kuzhambu' })) } as unknown as RecipeService;
+  // BUG-024: the station-card header reads the family through identificationFamily (View 5),
+  // not from analysis.family — which the worker never writes. Mocked to the same value the
+  // View 5 payload carries, because that is the source the assertions below are about.
+  const recipes = {
+    assertOwned: jest.fn(async () => ({ id: UUID, title: 'Kanyakumari Meen Kuzhambu' })),
+    identificationFamily: jest.fn(async () => 'Coastal Tamil fish curry'),
+  } as unknown as RecipeService;
   const runtime = overrides.runtime ?? {
     renderToPdf: jest.fn(async () => Buffer.from('%PDF-1.4 fake')),
     measureHeight: jest.fn(async () => 800),

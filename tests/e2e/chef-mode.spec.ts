@@ -34,9 +34,9 @@ const METHOD_TEXT =
   'Soak tamarind and extract the juice. Temper mustard and fenugreek in coconut oil. Add fish, chilli and drumstick. Simmer until cooked. Finish with coriander.';
 
 async function createAnalysedGoldenRecipe(page: import('@playwright/test').Page) {
-  await page.getByRole('button', { name: 'Create recipe' }).click();
+  await page.getByRole('button', { name: 'Add new recipe' }).click();
   await page.getByLabel('Recipe text').fill(GOLDEN_CARD);
-  await page.getByRole('button', { name: 'Parse and review' }).click();
+  await page.getByRole('button', { name: 'Analyze recipe' }).click();
   await expect(page.getByText('11 lines · the original submission is preserved unchanged.')).toBeVisible();
 
   await page.getByText('I will paste it', { exact: true }).click();
@@ -102,9 +102,9 @@ test.describe('D-20 chef mode + station card — live rendered surfaces', () => 
 
   test('guest: the toggle is session-local and chef renders the honest refusal surface', async ({ page }) => {
     await page.goto('/');
-    await page.getByRole('button', { name: 'Create recipe' }).click();
+    await page.getByRole('button', { name: 'Add new recipe' }).click();
     await page.getByLabel('Recipe text').fill(GOLDEN_CARD);
-    await page.getByRole('button', { name: 'Parse and review' }).click();
+    await page.getByRole('button', { name: 'Analyze recipe' }).click();
     await expect(page.getByText('11 lines · the original submission is preserved unchanged.')).toBeVisible();
 
     // No analysis exists for a guest here → chef must never fabricate a card.

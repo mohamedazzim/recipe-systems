@@ -49,11 +49,14 @@ test.describe('D-10 intake API (guest)', () => {
       .filter((d: string) => /fenugreek/i.test(d));
     expect(fenugreeks).toEqual(['Fenugreek Powder — 1/2 Tsp', 'Fenugreek — 1/4 Tsp']);
     expect(body.recipe.flags).toEqual([]);
+    // A draft line carries the verbatim card text AND the enrichment: the parsed amount and
+    // unit, and the canonical ingredient from the alias table. This assertion predates that
+    // and expected both canonical_name and amount to be null.
     expect(body.recipe.lines[0]).toEqual(
       expect.objectContaining({
         display_name: 'Fish — 500g',
-        canonical_name: null,
-        amount: null,
+        canonical_name: 'fish',
+        amount: '500g',
         is_header: false,
         include_on_list: true,
         confirmed_sense: null,

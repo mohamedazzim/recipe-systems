@@ -36,9 +36,9 @@ const METHOD_TEXT =
 const FAMILY = 'Coastal Tamil (Kanyakumari) style meen kuzhambu';
 
 async function pasteAnalyseAndSave(page: import('@playwright/test').Page) {
-  await page.getByRole('button', { name: 'Create recipe' }).click();
+  await page.getByRole('button', { name: 'Add new recipe' }).click();
   await page.getByLabel('Recipe text').fill(GOLDEN_CARD);
-  await page.getByRole('button', { name: 'Parse and review' }).click();
+  await page.getByRole('button', { name: 'Analyze recipe' }).click();
   await expect(page.getByText('11 lines · the original submission is preserved unchanged.')).toBeVisible();
 
   await page.getByText('I will paste it', { exact: true }).click();

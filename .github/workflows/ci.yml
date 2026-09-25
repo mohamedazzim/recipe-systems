@@ -10,11 +10,21 @@ on:
   push:
     branches: [main]
   pull_request:
+  # A targeted manual run. Actions has no "run one job" button, so the `only` input is how that
+  # is expressed: it lets the e2e job be re-run alone, without waiting for the rest of the
+  # pipeline. Empty input = everything, exactly as a push behaves.
+  workflow_dispatch:
+    inputs:
+      only:
+        description: 'Run only this job — verify | e2e | perf-baselines. Empty runs everything.'
+        required: false
+        default: ''
 
 jobs:
   verify:
     name: lint → typecheck → unit → gates → migrate → integration → build
     runs-on: ubuntu-latest
+    if: github.event_name != 'workflow_dispatch' || inputs.only == '' || inputs.only == 'verify'
     services:
       postgres:
         image: postgres:16-alpine
@@ -143,6 +153,10 @@ jobs:
     name: e2e (Playwright, full stack)
     runs-on: ubuntu-latest
     needs: verify
+    # On a push or PR: only once verify passed. On a manual run that asked for e2e: always, since
+    # verify is skipped in that case and a skipped dependency would otherwise skip this job too.
+    if: |
+      always() && (inputs.only == 'e2e' || (github.event_name != 'workflow_dispatch' && needs.verify.result == 'success'))
     timeout-minutes: 30
     env:
       # Faithful to .env.example, with the two switches that make a provider-free run possible.
@@ -251,7 +265,10 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run the e2e tier
-        run: npx playwright test
+        # The github reporter emits one ::error:: annotation per failing spec, readable without
+        # the job log. With the list reporter alone the only visible symptom is the generic
+        # "Process completed with exit code 1", and the actual failures sit in a 35 MB artifact.
+        run: npx playwright test --reporter=list,github
 
       - name: Upload traces and screenshots on failure
         if: failure()
@@ -263,6 +280,7 @@ jobs:
           retention-days: 7
 
   perf-baselines:
+    if: github.event_name != 'workflow_dispatch' || inputs.only == '' || inputs.only == 'perf-baselines'
     name: QG3 perf baselines (asserted, no-op while empty)
     runs-on: ubuntu-latest
     steps:

@@ -420,7 +420,18 @@ export class IntakeService implements OnModuleInit {
       .map((l) => l.text.trim())
       .filter((t) => t.length > 0);
     if (methodSteps.length > 0) {
-      await this.recipes.attachMethod(actor, recipeId, { mode: 'paste', methodText: methodSteps.join('\n\n') });
+      try {
+        await this.recipes.attachMethod(actor, recipeId, { mode: 'paste', methodText: methodSteps.join('\n\n') });
+      } catch (err) {
+        // BUG-012: the comment above says best-effort, but the call was awaited unwrapped,
+        // so a method-attach failure escaped as a 500 — after the ingredient draft had
+        // already committed. The client then retried the whole upload and duplicated the
+        // intake. The draft is the durable part; failing it because the method did not
+        // attach is the wrong trade. Logged rather than swallowed silently.
+        console.warn(
+          `ocr method attach failed for recipe ${recipeId} (ingredient draft kept): ${String(err)}`,
+        );
+      }
     }
 
     return {

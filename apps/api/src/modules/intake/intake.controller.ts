@@ -134,7 +134,18 @@ export class IntakeController {
     const actor = req.actor!;
     const rawText = parsed.data.text; // interior whitespace/newlines preserved verbatim
     const recipe = await this.recipes.createForIntake(actor, { rawText });
-    await this.intake.recordPaste(actor, recipe.id, rawText);
+    try {
+      await this.intake.recordPaste(actor, recipe.id, rawText);
+    } catch (err) {
+      // BUG-013: the row is created before the paste is recorded, so a failure here left
+      // an empty "Untitled recipe" in the library — a recipe the user can open and that
+      // analysis would refuse, created by a request that reported failure. The row exists
+      // only as the target for lines that never landed, so unwind it.
+      // removeIfIntakeEmpty is itself guarded on emptiness, so this cannot destroy a
+      // recipe that has content (including one a concurrent request just filled).
+      await this.recipes.removeIfIntakeEmpty(actor, recipe.id).catch(() => undefined);
+      throw err;
+    }
     const lines = await this.intake.listDraftLines(actor, recipe.id);
     const wireLines = await this.intake.resolveWireLines(lines);
     const servings = await this.intake.resolveServings(actor, recipe.id);
@@ -174,7 +185,14 @@ export class IntakeController {
     }));
     const rawText = formRawText(entries);
     const recipe = await this.recipes.createForIntake(actor, { rawText });
-    await this.intake.recordFormLines(actor, recipe.id, entries);
+    try {
+      await this.intake.recordFormLines(actor, recipe.id, entries);
+    } catch (err) {
+      // BUG-013: same compensation as the paste path — a form that fails to record must
+      // not leave its empty recipe row behind. Remove only if nothing landed.
+      await this.recipes.removeIfIntakeEmpty(actor, recipe.id).catch(() => undefined);
+      throw err;
+    }
     const lines = await this.intake.listDraftLines(actor, recipe.id);
     const wireLines = await this.intake.resolveWireLines(lines);
     const servings = await this.intake.resolveServings(actor, recipe.id);

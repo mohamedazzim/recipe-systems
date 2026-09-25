@@ -45,14 +45,23 @@ export const VIEW9_RECOMPUTE_QUEUE = 'view9-recompute';
 // Q13-labeled pilot defaults (SCAFFOLD §7 Q13 OPEN; revalidated at P7).
 const RETRY_LIMIT = 3;
 const RETRY_DELAY = 2; // seconds, exponential backoff on
-// Startup sweep: generating rows older than this are crash remnants.
-const STALE_GENERATING_MS = 15 * 60 * 1000;
 // Job-expiry ceiling (real-LLM latency regression): pg-boss defaults to 15 min
 // per job, but one DeepSeek pass over views 1–7 took ~16 min in QA — the job
 // expired WHILE RUNNING and was redelivered, doubling provider spend and
 // interleaving two passes. 4h covers the worst realistic pass (7 views ×
 // timeout + in-adapter retries); crash cleanup is the startup sweep, not expiry.
 const ANALYSIS_JOB_EXPIRE_SECONDS = 4 * 60 * 60;
+
+// Startup sweep: generating rows older than this are crash remnants.
+//
+// BUG-017: this is the expiry ceiling above, deliberately not an independent 15 min.
+// The two constants answer the same question — how long may one pass legitimately run —
+// and at 15 min the sweep sat BELOW the worst case the comment above documents. A worker
+// starting while another was still working therefore reaped that live row: marked it
+// `failed` and notified the client, after which the still-running job finished and flipped
+// it to `complete`. The user was told the analysis failed and then told it succeeded. A row
+// is a crash remnant only once the queue can no longer be running its job.
+const STALE_GENERATING_MS = ANALYSIS_JOB_EXPIRE_SECONDS * 1000;
 
 async function createNotifier(databaseUrl: string) {
   const client = new Client({ connectionString: databaseUrl });

@@ -77,8 +77,10 @@ test.describe('D-22 library save / browse / open — live rendered surfaces', ()
     // tripping strict mode. Its presence at all is what proves the round trip.
     await expect(page.getByText(FAMILY, { exact: false }).first()).toBeVisible();
 
-    // Back home: the canonical library row (name = family default).
+    // Back home, then into the library: "Back to your recipes" lands on the Home and the
+    // library heading is one step further — the same navigation the guest test needs.
     await page.getByRole('button', { name: /Back to your recipes/ }).click();
+    await page.getByRole('button', { name: 'View library' }).click();
     await expect(page.getByRole('heading', { name: 'Your library' })).toBeVisible();
     const row = page.getByRole('button', { name: new RegExp(FAMILY) }).first();
     await expect(row).toBeVisible();
@@ -152,7 +154,9 @@ test.describe('D-22 library save / browse / open — live rendered surfaces', ()
     await page.getByRole('button', { name: 'Cancel' }).click();
     await expect(page.getByText(/Saved as/)).toBeVisible();
 
-    // Confirm path: two explicit steps → backend 204 → home + notice.
+    // Confirm path: two explicit steps → backend 204 → home + notice. Cancelling closed the
+    // More actions menu, so it has to be reopened before the item is reachable again.
+    await page.getByRole('button', { name: 'More actions' }).click();
     await page.getByRole('button', { name: 'Delete recipe' }).click();
     await page.getByRole('button', { name: 'Delete recipe' }).click();
     await expect(page.getByText('Recipe deleted.')).toBeVisible();

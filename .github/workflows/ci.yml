@@ -226,7 +226,10 @@ jobs:
           # fail for a reason unrelated to the code they test.
           npm run start -w @recipe-systems/api > /tmp/api.log 2>&1 &
           node apps/analysis-worker/dist/main.js > /tmp/worker.log 2>&1 &
-          npm run start -w @recipe-systems/web > /tmp/web.log 2>&1 &
+          # -p 3000 explicitly, and from apps/web: `next start` also honours PORT, which this
+          # job sets to 3001 for the API. Without the flag the web tried to bind the API's port,
+          # never listened, and the readiness gate reported api=200 web=000.
+          (cd apps/web && npx next start -p 3000 > /tmp/web.log 2>&1) &
 
       - name: Wait for the API and the web
         run: |

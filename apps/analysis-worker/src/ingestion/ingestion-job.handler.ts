@@ -22,7 +22,21 @@ export class DocumentIngestionJobHandler {
       where: { id: data.ingestion_id },
     });
     if (!ingestion) return; // never materialized — nothing to process
-    if (ingestion.status === 'ready') return; // idempotent redelivery (INV-11 parity)
+
+    // BUG-020: this handler owns ONLY queued → extracting → ready/failed. Skipping just
+    // `ready` meant a redelivered job rewound a row that had already moved on — Phase 3 sets
+    // `extracting_structure`, and a completed extraction sets `draft_ready` or
+    // `extraction_failed` — back to `extracting`, which re-ran OCR over a document whose
+    // structure was already being drafted. A redelivery is only idempotent if it declines to
+    // touch states this handler never sets. `failed` is deliberately allowed through: that is
+    // the retry path the comment below describes.
+    if (
+      ingestion.status !== 'queued' &&
+      ingestion.status !== 'extracting' &&
+      ingestion.status !== 'failed'
+    ) {
+      return;
+    }
 
     // queued → extracting (re-delivery of a failed row also re-enters here).
     await this.prisma.documentIngestion.update({

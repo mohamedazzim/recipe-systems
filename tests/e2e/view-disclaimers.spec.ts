@@ -42,7 +42,9 @@ test.describe('D-21 disclaimers (H6/I6) — live rendered surfaces', () => {
     await page.getByRole('button', { name: 'Analyze recipe' }).click();
     await expect(page.getByText(/the original submission is preserved unchanged/)).toBeVisible();
 
-    // Method (paste) — analysis requires it (list-only 422 otherwise).
+    // Method (paste) — analysis requires it (list-only 422 otherwise). The workspace is tabbed
+    // and MethodSection renders only on its own tab, so reach it first.
+    await page.getByRole('tab', { name: 'Method' }).click();
     await page.getByRole('radio', { name: 'I will paste it' }).click();
     await page.getByLabel('Method text').fill(METHOD_TEXT);
     await page.getByRole('button', { name: 'Save method' }).click();

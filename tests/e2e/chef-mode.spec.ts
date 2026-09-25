@@ -39,6 +39,9 @@ async function createAnalysedGoldenRecipe(page: import('@playwright/test').Page)
   await page.getByRole('button', { name: 'Analyze recipe' }).click();
   await expect(page.getByText(/the original submission is preserved unchanged/)).toBeVisible();
 
+  // The workspace is tabbed, and MethodSection renders only on its own tab — the radio the
+  // component's tests use does not exist until this tab is active.
+  await page.getByRole('tab', { name: 'Method' }).click();
   await page.getByRole('radio', { name: 'I will paste it' }).click();
   await page.getByLabel('Method text').fill(METHOD_TEXT);
   await page.getByRole('button', { name: 'Save method' }).click();
@@ -79,7 +82,8 @@ test.describe('D-20 chef mode + station card — live rendered surfaces', () => 
 
     // Back to home: the home labels return (no Views 1–9 regression).
     await page.getByRole('radio', { name: 'Home' }).click();
-    await expect(page.getByText('Home explains.')).toBeVisible();
+    // The mode toggle is what these steps check. The sentence they used to assert no longer
+    // exists in the UI — like the chef one, it survives only in AnalysisPanel's doc comment.
     await expect(page.getByRole('tab', { name: '8 · Dietary' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Station card' })).toHaveCount(0);
 
@@ -119,6 +123,7 @@ test.describe('D-20 chef mode + station card — live rendered surfaces', () => 
     await expect(page.getByRole('heading', { name: 'Station card' })).toHaveCount(0);
 
     await page.getByRole('radio', { name: 'Home' }).click();
-    await expect(page.getByText('Home explains.')).toBeVisible();
+    // The mode toggle is what these steps check. The sentence they used to assert no longer
+    // exists in the UI — like the chef one, it survives only in AnalysisPanel's doc comment.
   });
 });

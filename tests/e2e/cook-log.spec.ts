@@ -41,6 +41,9 @@ async function pasteAnalyseAndSave(page: import('@playwright/test').Page) {
   await page.getByRole('button', { name: 'Analyze recipe' }).click();
   await expect(page.getByText(/the original submission is preserved unchanged/)).toBeVisible();
 
+  // The workspace is tabbed, and MethodSection renders only on its own tab — the radio the
+  // component's tests use does not exist until this tab is active.
+  await page.getByRole('tab', { name: 'Method' }).click();
   await page.getByRole('radio', { name: 'I will paste it' }).click();
   await page.getByLabel('Method text').fill(METHOD_TEXT);
   await page.getByRole('button', { name: 'Save method' }).click();

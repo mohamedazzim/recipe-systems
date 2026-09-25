@@ -12,8 +12,12 @@ test.describe('A1 Signup', () => {
 
     // Business outcome, user-visible (UI build 2026-09-09): signup lands on the
     // Recipe Home; the account email shows in the header.
-    await expect(page.getByRole('heading', { level: 1, name: 'Your recipes' })).toBeVisible();
-    await expect(page.getByText(email)).toBeVisible();
+    // The authenticated Home greets the account by name; its sections are the stats row and
+    // "Recently updated recipes". "Your recipes" belongs to the GUEST Home, which is what the
+    // assertion here used to name. `.first()` because the address also appears in the account
+    // menu's accessible name.
+    await expect(page.getByRole('heading', { level: 1, name: /Welcome back/ })).toBeVisible();
+    await expect(page.getByText(email).first()).toBeVisible();
 
     // Backend outcome: the BFF session resolves to the new account.
     const me = await page.request.get(`${BFF_URL}/auth/me`);

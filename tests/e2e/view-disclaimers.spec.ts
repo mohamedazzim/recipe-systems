@@ -59,9 +59,17 @@ test.describe('D-21 disclaimers (H6/I6) — live rendered surfaces', () => {
     await page.getByRole('button', { name: 'Analyse recipe' }).click();
     await expect(page.getByText('Analysis complete.')).toBeVisible({ timeout: 30_000 });
 
-    // View 8 — H6 verbatim; the forbidden word appears nowhere on the surface. Returning to the
-    // full-screen analysis first, then opening the view: the nine views are an Accordion, so the
-    // header is a button named by the view label and the panel id is #view-8-panel.
+    // Pin Home before asserting any view label. The default mode is not a constant: the specs
+    // run serially (fullyParallel false, workers 1) against one seeded account, and
+    // chef-mode.spec persists preferred_mode='chef', so this workspace mounts in chef mode where
+    // the nine labels are the chef-voice ones — '8 · Allergen brief', never '8 · Dietary'.
+    // Clicking Home also PATCHes the preference back, healing the shared state for whatever runs
+    // next. Any spec asserting home view labels must pin Home first.
+    await page.getByRole('radio', { name: 'Home' }).click();
+    // Then the full-screen analysis, then the view: returning to the analysis first because the
+    // method tab was selected earlier and selectTab clears analysisFullscreen; the nine views are
+    // an Accordion, so the header is a button named by the view label and the panel id is
+    // #view-8-panel.
     await page.getByRole('tab', { name: 'Analysis' }).click();
     await page.getByRole('button', { name: '8 · Dietary' }).click();
     const view8 = page.locator('#view-8-panel');

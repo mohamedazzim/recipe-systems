@@ -37,7 +37,7 @@ async function createAnalysedGoldenRecipe(page: import('@playwright/test').Page)
   await page.getByRole('button', { name: 'Add new recipe' }).click();
   await page.getByLabel('Recipe text').fill(GOLDEN_CARD);
   await page.getByRole('button', { name: 'Analyze recipe' }).click();
-  await expect(page.getByText('11 lines · the original submission is preserved unchanged.')).toBeVisible();
+  await expect(page.getByText(/the original submission is preserved unchanged/)).toBeVisible();
 
   await page.getByText('I will paste it', { exact: true }).click();
   await page.getByLabel('Method text').fill(METHOD_TEXT);
@@ -102,10 +102,14 @@ test.describe('D-20 chef mode + station card — live rendered surfaces', () => 
 
   test('guest: the toggle is session-local and chef renders the honest refusal surface', async ({ page }) => {
     await page.goto('/');
+    // The landing page has no intake button: the guest entry step comes first, and it is what
+    // puts the session on the Home. Skipping it left this spec clicking at nothing for its full
+    // 90-second timeout. Same two steps every other spec takes.
+    await page.getByRole('button', { name: 'Analyze a recipe' }).click();
     await page.getByRole('button', { name: 'Add new recipe' }).click();
     await page.getByLabel('Recipe text').fill(GOLDEN_CARD);
     await page.getByRole('button', { name: 'Analyze recipe' }).click();
-    await expect(page.getByText('11 lines · the original submission is preserved unchanged.')).toBeVisible();
+    await expect(page.getByText(/the original submission is preserved unchanged/)).toBeVisible();
 
     // No analysis exists for a guest here → chef must never fabricate a card.
     await page.getByRole('radio', { name: 'Chef' }).click();

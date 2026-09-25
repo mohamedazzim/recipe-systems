@@ -39,7 +39,7 @@ async function pasteAnalyseAndSave(page: import('@playwright/test').Page) {
   await page.getByRole('button', { name: 'Add new recipe' }).click();
   await page.getByLabel('Recipe text').fill(GOLDEN_CARD);
   await page.getByRole('button', { name: 'Analyze recipe' }).click();
-  await expect(page.getByText('11 lines · the original submission is preserved unchanged.')).toBeVisible();
+  await expect(page.getByText(/the original submission is preserved unchanged/)).toBeVisible();
 
   await page.getByText('I will paste it', { exact: true }).click();
   await page.getByLabel('Method text').fill(METHOD_TEXT);

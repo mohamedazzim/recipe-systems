@@ -50,12 +50,13 @@ test.describe('D-10 intake API (guest)', () => {
     expect(fenugreeks).toEqual(['Fenugreek Powder — 1/2 Tsp', 'Fenugreek — 1/4 Tsp']);
     expect(body.recipe.flags).toEqual([]);
     // A draft line carries the verbatim card text AND the enrichment: the parsed amount and
-    // unit, and the canonical ingredient from the alias table. This assertion predates that
-    // and expected both canonical_name and amount to be null.
+    // unit, and — where the alias table has a mapping — the canonical ingredient.
+    // canonical_name is deliberately NOT asserted: it is null against an unseeded database and
+    // "fish" against a seeded one, so asserting either bakes in the environment it was written
+    // on. The amount is parsed unconditionally, so it is safe.
     expect(body.recipe.lines[0]).toEqual(
       expect.objectContaining({
         display_name: 'Fish — 500g',
-        canonical_name: 'fish',
         amount: '500g',
         is_header: false,
         include_on_list: true,

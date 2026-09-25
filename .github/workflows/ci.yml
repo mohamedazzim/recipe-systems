@@ -170,11 +170,17 @@ jobs:
       DATABASE_URL_WORKER: postgresql://recipe:recipe_dev_password@localhost:5433/recipe
       SESSION_SECRET: ci-session-secret-not-production
       SESSION_TTL_SECONDS: '900'
-      SESSION_SECURE: 'true'
+      # false, matching the working local .env: the specs make non-browser requests (request.post
+      # carrying the CSRF cookie), and a Secure cookie is not sent over plain http. .env.example
+      # documents this requirement explicitly.
+      SESSION_SECURE: 'false'
       KEYCLOAK_BASE_URL: http://localhost:8081
       KEYCLOAK_REALM: recipesystems
       KEYCLOAK_CLIENT_ID: recipe-systems-bff
-      KEYCLOAK_CLIENT_SECRET: dev-bff-client-secret-change-me
+      # The secret the realm actually holds. .env.example carries a placeholder ending in
+      # "-change-me" that the working local .env does not use; copying it here cost 18 specs
+      # their login with "identity token exchange failed (401)".
+      KEYCLOAK_CLIENT_SECRET: dev-bff-client-secret
       KEYCLOAK_ISSUER_URL: http://localhost:8081/realms/recipesystems
       S3_ENDPOINT: http://localhost:9000
       S3_BUCKET: recipe-assets

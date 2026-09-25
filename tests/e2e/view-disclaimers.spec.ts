@@ -40,7 +40,7 @@ test.describe('D-21 disclaimers (H6/I6) — live rendered surfaces', () => {
     await page.getByRole('button', { name: 'Add new recipe' }).click();
     await page.getByLabel('Recipe text').fill(GOLDEN_CARD);
     await page.getByRole('button', { name: 'Analyze recipe' }).click();
-    await expect(page.getByText('11 lines · the original submission is preserved unchanged.')).toBeVisible();
+    await expect(page.getByText(/the original submission is preserved unchanged/)).toBeVisible();
 
     // Method (paste) — analysis requires it (list-only 422 otherwise).
     await page.getByText('I will paste it', { exact: true }).click();

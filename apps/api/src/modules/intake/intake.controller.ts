@@ -32,7 +32,12 @@ import { RecipeService } from '../recipes/recipe.service';
 import { IntakeService, LinePatch, formRawText, type FormLineEntry } from './intake.service';
 import { IMAGE_CONTENT_TYPES, ImageContentType, MAX_IMAGE_BYTES, StorageService } from './storage.service';
 
-const parseTextSchema = z.object({ text: z.string().min(1) });
+// PERF-019: bounded. An unbounded paste is inserted as one draft line per line of
+// text, so a multi-MB body became 100k+ rows in a single transaction — long lock,
+// huge response, possible OOM. `formIntakeSchema` is already capped at 100 entries;
+// this is the same ceiling expressed in characters (≈100k lines is far past any
+// real card).
+const parseTextSchema = z.object({ text: z.string().min(1).max(200_000) });
 
 // D-10A (B5): the structured-form intake body — one entry per ingredient. The
 // `amount` field is the free-text amount (B5 AC-2: tsp/tbsp/g/kg/nos/to taste/

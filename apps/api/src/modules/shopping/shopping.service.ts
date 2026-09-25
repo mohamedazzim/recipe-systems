@@ -177,6 +177,10 @@ export class ShoppingService {
       display_quantity: line.amountText ?? (line.amount ? line.amount.toString() : ''),
       unit: line.unit,
       group_name: groupShoppingLine({ category: line.groupName, displayName: line.displayName }),
+      // This path builds from LIVE recipe lines, which carry no snapshot column: a
+      // missing live state means the item has simply not been ticked, so 'need' is
+      // correct here. (BUG-025's screen-vs-print mismatch is in the SNAPSHOT read
+      // below, which is the one that has to agree with print.)
       state: stateByKey.get(line.shoppingKey) ?? 'need',
       position: i + 1,
     }));
@@ -242,7 +246,8 @@ export class ShoppingService {
       display_quantity: r.displayQuantity,
       unit: r.unit,
       group_name: (r.groupName ?? 'other') as ShoppingGroup,
-      state: r.shoppingKey ? (stateByKey.get(r.shoppingKey) ?? 'need') : 'need',
+      // BUG-025: same fallback as above — the frozen snapshot, never a bare 'need'.
+      state: (r.shoppingKey ? stateByKey.get(r.shoppingKey) : undefined) ?? (r.stateAtGeneration === 'have' ? 'have' : 'need'),
       position: r.position,
     }));
     return {

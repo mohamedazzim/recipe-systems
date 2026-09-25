@@ -113,8 +113,3 @@ export function useAnalysisStatus(analysisId: string | null): AnalysisStatusValu
 
   return { analysis, terminal, error, refresh: refreshRef.current };
 }
-
-/** The session cookie name the BFF sets (readable, non-httpOnly). */
-export function hasSessionCookie(): boolean {
-  return Boolean(readCookie('recipe_session'));
-}

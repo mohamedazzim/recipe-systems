@@ -125,7 +125,15 @@ describe('IntakeService — RS-US servings resolution', () => {
     llm?: { modelVersion?: string; predictServings: jest.Mock } | null,
   ) {
     const { prisma, recipes: base } = mockPrisma();
-    Object.assign(base, { setServings: jest.fn(), setServingsIfUnset: jest.fn() }, recipes);
+    Object.assign(
+      base,
+      {
+        setServings: jest.fn(),
+        setServingsIfUnset: jest.fn(),
+        setServingsOperation: jest.fn(() => Promise.resolve({})),
+      },
+      recipes,
+    );
     return {
       prisma,
       recipes: base,
@@ -280,7 +288,11 @@ describe('IntakeService — RS-US servings resolution', () => {
     expect(updateFor('l1').data.amountText).toBe('2 cup');
     expect(Number(updateFor('l2').data.amount)).toBe(0.5);
     expect(updateFor('l2').data.amountText).toBe('0.5 tsp');
-    expect(recipes.setServings).toHaveBeenCalledWith(userActor, 'r1', 8, false);
+    // BUG-004: the yield write rides the SAME transaction as the amount scaling —
+    // through RecipeService's operation, which keeps the one-writer rule — instead of
+    // following it as a second, separately-failing write.
+    expect(recipes.setServingsOperation).toHaveBeenCalledWith('r1', 8, false);
+    expect(recipes.setServings).not.toHaveBeenCalled();
   });
 
   it('scaleToServings only persists the count when the baseline is unknown', async () => {
@@ -295,7 +307,8 @@ describe('IntakeService — RS-US servings resolution', () => {
     const result = await svc.scaleToServings(userActor, 'r1', 6);
     expect(result).toEqual({ servings: 6, estimated: false });
     expect(prisma.recipeIngredientLine.findMany).not.toHaveBeenCalled();
-    expect(recipes.setServings).toHaveBeenCalledWith(userActor, 'r1', 6, false);
+    expect(recipes.setServingsOperation).toHaveBeenCalledWith('r1', 6, false);
+    expect(recipes.setServings).not.toHaveBeenCalled();
   });
 
   it('scaleToServings leaves the lines alone when the count is unchanged', async () => {
@@ -310,7 +323,8 @@ describe('IntakeService — RS-US servings resolution', () => {
     const result = await svc.scaleToServings(userActor, 'r1', 4);
     expect(result).toEqual({ servings: 4, estimated: false });
     expect(prisma.recipeIngredientLine.findMany).not.toHaveBeenCalled();
-    expect(recipes.setServings).toHaveBeenCalledWith(userActor, 'r1', 4, false);
+    expect(recipes.setServingsOperation).toHaveBeenCalledWith('r1', 4, false);
+    expect(recipes.setServings).not.toHaveBeenCalled();
   });
 });
 

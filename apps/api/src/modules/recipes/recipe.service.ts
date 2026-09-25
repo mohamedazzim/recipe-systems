@@ -317,6 +317,24 @@ export class RecipeService {
   }
 
   /**
+   * The recipe-row write for a servings change, returned as a Prisma promise rather
+   * than awaited, so a caller can run it INSIDE ITS OWN transaction (BUG-004).
+   *
+   * This exists because scaling ingredient amounts and setting the yield must commit
+   * or fail together: done as two separate writes, a failure between them leaves the
+   * amounts scaled to one serving count while the recipe claims another — the exact
+   * invariant the servings feature promises to uphold. Calling it unawaited keeps
+   * the one-writer rule intact: the `recipe` row is still written only here, even
+   * when the surrounding transaction is intake's.
+   */
+  setServingsOperation(recipeId: string, servings: number, estimated: boolean) {
+    return this.prisma.recipe.update({
+      where: { id: recipeId },
+      data: { servings, servingsEstimated: estimated },
+    });
+  }
+
+  /**
    * Background-estimate write: fill a gap, never overwrite an answer.
    *
    * The servings estimate is fire-and-forget enrichment that lands AFTER the

@@ -679,28 +679,33 @@ export class IntakeService implements OnModuleInit {
   async scaleToServings(actor: Actor, recipeId: string, target: number): Promise<ServingsState> {
     const recipe = await this.recipes.assertOwned(actor, recipeId);
     const baseline = recipe.servings;
-    if (baseline != null && baseline > 0 && baseline !== target) {
-      const factor = target / baseline;
-      const lines = await this.prisma.recipeIngredientLine.findMany({
-        where: { recipeId, deletedAt: null, isHeader: false, amount: { not: null } },
-        select: { id: true, amount: true, unit: true },
-      });
-      if (lines.length > 0) {
-        await this.prisma.$transaction(
-          lines.map((l) => {
-            const scaled = Math.round(Number(l.amount) * factor * 100) / 100;
+    const lineOps =
+      baseline != null && baseline > 0 && baseline !== target
+        ? (
+            await this.prisma.recipeIngredientLine.findMany({
+              where: { recipeId, deletedAt: null, isHeader: false, amount: { not: null } },
+              select: { id: true, amount: true, unit: true },
+            })
+          ).map((l) => {
+            const value = Math.round(Number(l.amount) * (target / baseline) * 100) / 100;
             return this.prisma.recipeIngredientLine.update({
               where: { id: l.id },
               data: {
-                amount: new Prisma.Decimal(scaled),
-                amountText: `${scaled}${l.unit ? ` ${l.unit}` : ''}`,
+                amount: new Prisma.Decimal(value),
+                amountText: `${value}${l.unit ? ` ${l.unit}` : ''}`,
               },
             });
-          }),
-        );
-      }
-    }
-    await this.recipes.setServings(actor, recipeId, target, false);
+          })
+        : [];
+    // BUG-004: the scaled amounts and the yield commit TOGETHER. As two separate
+    // writes, a failure in between left the amounts scaled to one serving count while
+    // the recipe claimed another — and a retry would then scale from a stale
+    // baseline. The `recipe` row is still written by RecipeService (one-writer); its
+    // operation simply rides this transaction.
+    await this.prisma.$transaction([
+      ...lineOps,
+      this.recipes.setServingsOperation(recipeId, target, false),
+    ]);
     return { servings: target, estimated: false };
   }
 

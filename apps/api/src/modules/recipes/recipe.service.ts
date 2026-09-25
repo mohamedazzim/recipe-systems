@@ -287,9 +287,12 @@ export class RecipeService {
         : hasPlaceholder
           ? (family ?? UNTITLED_RECIPE)
           : recipe.title;
-    if (title !== recipe.title) {
-      await this.prisma.recipe.update({ where: { id: recipeId }, data: { title } });
-    }
+    // BUG-029: always write, so the row's `updatedAt` records THIS save. The update used
+    // to be conditional on the title actually changing, which meant a re-save of an
+    // unchanged recipe performed no write at all — leaving `updatedAt` wherever the last
+    // unrelated write had put it, and `saved_at` reporting a stale time. The timestamp
+    // returned to the client is read from this row, so it has to move with the save.
+    await this.prisma.recipe.update({ where: { id: recipeId }, data: { title } });
     const [lineCount, analysisId, updated] = await Promise.all([
       this.prisma.recipeIngredientLine.count({
         where: { recipeId, deletedAt: null, isHeader: false },

@@ -52,7 +52,10 @@ async function pasteAndAnalyse(page: import('@playwright/test').Page) {
   await page.getByText('I will paste it', { exact: true }).click();
   await page.getByLabel('Method text').fill(METHOD_TEXT);
   await page.getByRole('button', { name: 'Save method' }).click();
-  await expect(page.getByText('Method saved.')).toBeVisible();
+  // The save confirmation was reworked into an Alert titled "Method saved successfully"
+  // (MethodSection.tsx, asserted by that component's own unit suite). The old 'Method saved.'
+  // status line no longer exists, so this assertion had been stale behind the method step.
+  await expect(page.getByText('Method saved successfully')).toBeVisible();
 
   await page.getByRole('button', { name: 'Analyse recipe' }).click();
   await expect(page.getByText('Analysis complete.')).toBeVisible({ timeout: 30_000 });

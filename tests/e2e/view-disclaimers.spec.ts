@@ -51,7 +51,9 @@ test.describe('D-21 disclaimers (H6/I6) — live rendered surfaces', () => {
     await page.getByText('I will paste it', { exact: true }).click();
     await page.getByLabel('Method text').fill(METHOD_TEXT);
     await page.getByRole('button', { name: 'Save method' }).click();
-    await expect(page.getByText('Method saved.')).toBeVisible();
+    // The save confirmation is an Alert titled "Method saved successfully" (MethodSection.tsx,
+    // asserted by that component's own unit suite). The old 'Method saved.' line is gone.
+    await expect(page.getByText('Method saved successfully')).toBeVisible();
 
     // Analyse and wait for the worker.
     await page.getByRole('button', { name: 'Analyse recipe' }).click();

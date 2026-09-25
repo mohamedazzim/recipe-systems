@@ -41,7 +41,7 @@ async function pasteAnalyseAndSave(page: import('@playwright/test').Page) {
   await page.getByRole('button', { name: 'Analyze recipe' }).click();
   await expect(page.getByText(/the original submission is preserved unchanged/)).toBeVisible();
 
-  await page.getByText('I will paste it', { exact: true }).click();
+  await page.getByRole('radio', { name: 'I will paste it' }).click();
   await page.getByLabel('Method text').fill(METHOD_TEXT);
   await page.getByRole('button', { name: 'Save method' }).click();
   await expect(page.getByText('Method saved.')).toBeVisible();

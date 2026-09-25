@@ -43,7 +43,7 @@ test.describe('D-21 disclaimers (H6/I6) — live rendered surfaces', () => {
     await expect(page.getByText(/the original submission is preserved unchanged/)).toBeVisible();
 
     // Method (paste) — analysis requires it (list-only 422 otherwise).
-    await page.getByText('I will paste it', { exact: true }).click();
+    await page.getByRole('radio', { name: 'I will paste it' }).click();
     await page.getByLabel('Method text').fill(METHOD_TEXT);
     await page.getByRole('button', { name: 'Save method' }).click();
     await expect(page.getByText('Method saved.')).toBeVisible();

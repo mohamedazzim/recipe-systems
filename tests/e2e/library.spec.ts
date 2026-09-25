@@ -43,7 +43,7 @@ async function pasteAndAnalyse(page: import('@playwright/test').Page) {
   await page.getByRole('button', { name: 'Analyze recipe' }).click();
   await expect(page.getByText(/the original submission is preserved unchanged/)).toBeVisible();
 
-  await page.getByText('I will paste it', { exact: true }).click();
+  await page.getByRole('radio', { name: 'I will paste it' }).click();
   await page.getByLabel('Method text').fill(METHOD_TEXT);
   await page.getByRole('button', { name: 'Save method' }).click();
   await expect(page.getByText('Method saved.')).toBeVisible();
@@ -112,7 +112,9 @@ test.describe('D-22 library save / browse / open — live rendered surfaces', ()
     await page.getByRole('button', { name: 'Register' }).click();
     await expect(page).toHaveURL('http://localhost:3000/');
 
-    // Resume-save: the saved guest recipe is in the NEW account's library.
+    // Resume-save: the saved guest recipe is in the NEW account's library. The claim returns
+    // to the Home, so reach the library the same way a user does.
+    await page.getByRole('button', { name: 'View library' }).click();
     await expect(page.getByRole('heading', { name: 'Your library' })).toBeVisible();
     const row = page.getByRole('button', { name: new RegExp(savedName) }).first();
     await expect(row).toBeVisible();

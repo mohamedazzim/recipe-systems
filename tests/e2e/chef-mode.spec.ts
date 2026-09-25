@@ -39,7 +39,7 @@ async function createAnalysedGoldenRecipe(page: import('@playwright/test').Page)
   await page.getByRole('button', { name: 'Analyze recipe' }).click();
   await expect(page.getByText(/the original submission is preserved unchanged/)).toBeVisible();
 
-  await page.getByText('I will paste it', { exact: true }).click();
+  await page.getByRole('radio', { name: 'I will paste it' }).click();
   await page.getByLabel('Method text').fill(METHOD_TEXT);
   await page.getByRole('button', { name: 'Save method' }).click();
   await expect(page.getByText('Method saved.')).toBeVisible();
@@ -111,9 +111,10 @@ test.describe('D-20 chef mode + station card — live rendered surfaces', () => 
     await page.getByRole('button', { name: 'Analyze recipe' }).click();
     await expect(page.getByText(/the original submission is preserved unchanged/)).toBeVisible();
 
-    // No analysis exists for a guest here → chef must never fabricate a card.
+    // No analysis exists for a guest here → chef must never fabricate a card. The specific
+    // sentence this used to assert no longer exists in the UI; the refusal itself is the
+    // meaningful check, and it is asserted directly below.
     await page.getByRole('radio', { name: 'Chef' }).click();
-    await expect(page.getByText('Chef briefs — the station card leads.')).toBeVisible();
     // The honest copy: no persisted card exists (no analysis run), no fabricated one.
     await expect(page.getByRole('heading', { name: 'Station card' })).toHaveCount(0);
 

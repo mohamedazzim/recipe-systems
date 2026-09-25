@@ -217,7 +217,24 @@ jobs:
           npm run build -w @recipe-systems/web
 
       - name: Bring up Postgres, Keycloak and the S3-compatible storage
-        run: docker compose -f infra/docker/docker-compose.yml --profile core --profile identity up -d
+        run: |
+          # Retried, and instrumented on failure. This was the last step in the job with no
+          # diagnostics, so when it failed the run showed only "Process completed with exit
+          # code 1" and 90 seconds of nothing. The images resolve from their registries and the
+          # compose file is valid locally, so whatever fails here needs to say so itself.
+          up_out=""
+          for attempt in 1 2; do
+            if up_out=$(docker compose -f infra/docker/docker-compose.yml --profile core --profile identity up -d 2>&1); then
+              echo "compose up ok (attempt $attempt)"; exit 0
+            fi
+            echo "compose up failed (attempt $attempt): $up_out"
+            docker compose -f infra/docker/docker-compose.yml --profile core --profile identity down >/dev/null 2>&1 || true
+            sleep 10
+          done
+          echo "::error title=compose up failed::$(echo "$up_out" | tail -20 | tr '\n' ' ')"
+          docker compose -f infra/docker/docker-compose.yml --profile core --profile identity ps || true
+          docker compose -f infra/docker/docker-compose.yml --profile core --profile identity logs --tail 30 || true
+          exit 1
 
       - name: Wait for Postgres, Keycloak and storage
         run: |

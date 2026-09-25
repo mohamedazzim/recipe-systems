@@ -45,7 +45,10 @@ test.describe('D-21 disclaimers (H6/I6) — live rendered surfaces', () => {
     // Method (paste) — analysis requires it (list-only 422 otherwise). The workspace is tabbed
     // and MethodSection renders only on its own tab, so reach it first.
     await page.getByRole('tab', { name: 'Method' }).click();
-    await page.getByRole('radio', { name: 'I will paste it' }).click();
+    // The radio input is sr-only (a 1x1 clipped box) and the pill's label takes the click
+    // point, so Playwright cannot hit-test the input. Click the visible pill; native label
+    // behaviour toggles the radio.
+    await page.getByText('I will paste it', { exact: true }).click();
     await page.getByLabel('Method text').fill(METHOD_TEXT);
     await page.getByRole('button', { name: 'Save method' }).click();
     await expect(page.getByText('Method saved.')).toBeVisible();

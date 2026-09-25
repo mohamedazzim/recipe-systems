@@ -42,7 +42,10 @@ async function createAnalysedGoldenRecipe(page: import('@playwright/test').Page)
   // The workspace is tabbed, and MethodSection renders only on its own tab — the radio the
   // component's tests use does not exist until this tab is active.
   await page.getByRole('tab', { name: 'Method' }).click();
-  await page.getByRole('radio', { name: 'I will paste it' }).click();
+  // The radio input is sr-only (a 1x1 clipped box) and the pill's label takes the click point,
+  // so Playwright cannot hit-test the input itself. Click the visible pill and let native label
+  // behaviour toggle it — which is what a user does.
+  await page.getByText('I will paste it', { exact: true }).click();
   await page.getByLabel('Method text').fill(METHOD_TEXT);
   await page.getByRole('button', { name: 'Save method' }).click();
   await expect(page.getByText('Method saved.')).toBeVisible();

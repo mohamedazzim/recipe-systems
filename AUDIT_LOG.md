@@ -1094,3 +1094,31 @@ No BLOCKER or failure-class finding; one environmental MINOR recorded.
 - Recommendation (not part of D-10A): raise the PDF integration tests' `testTimeout` or make Chromium startup budgeted — a separate test-hygiene task.
 
 **Re-verification:** API 349/349 (29 suites) · web 158/158 (20 suites) · integration 25/26 suites green (new `story_d10a_form_intake` 3/3; the one failure is the pre-existing D-23 Chromium timeout above) · `regression-gates.sh` PASS · typecheck 0 · lint 0 · build 0.
+
+## A-11 — Audit remediation: consolidated findings pass
+
+- **Date / agent:** 2026-09-25 · remediation executed alongside an independent consolidated audit of the whole application.
+- **Scope:** the audit's Bug/Security/Architecture/Performance/Dead-code/LLM findings, closed one at a time, each with a test and a commit message recording the proof method.
+
+### Verdict: in progress — 30 of 33 bug findings closed
+
+Every closure landed on both remotes with typecheck, lint and the full workspace suite (1101 tests) green.
+
+**Closed.** `BUG-001` · `002` · `003` · `004` · `005` · `006` · `007` · `008` · `009` · `010` · `011` · `012` · `013` · `014` · `015` · `016` · `017` · `018` · `019` · `020` · `022` · `023` · `024` · `025` · `027` · `029` · `030` · `031` · `032` · `034`, plus `DEAD-003`, `PERF-019` and the D-16 corrected retry.
+
+**Resolved as not defects** — the report's premise was accurate but the shipped code already handled it, so no change was made and no speculative guard was added:
+
+- `BUG-025` (second site): the audit cited a live-line read that has no `stateAtGeneration` column. Rejected by the type checker; only the snapshot site was fixable.
+- `BUG-026`: `CookSection` has its own `localToday()` and always sends `cook_date` from the browser, so the server default applies only to clients that omit the field — where no correct value is derivable without their timezone.
+- `BUG-033`: the single-photo Retry is already `disabled={uploading || !file}`, and the bulk Retry is only rendered for `failed` items, so a click removes the button a second click would need.
+
+**Still open.**
+
+- **`BUG-028` (INFO) — SSE streams a `queued` snapshot for an unknown analysis UUID. Disposition: accepted, no change.** The stream is addressed by UUID and the payload carries no recipe, ingredient or claim data, so an unknown id yields a status enum and nothing else. Recorded here for completeness and re-evaluated at the D-28 pilot rather than guarded now; a speculative ownership check on an unknown id would add a failure mode to the waiting state without protecting anything the response discloses.
+- Remaining Highs not in the bug set: `SEC-001`/`SEC-002` (the Keycloak client secret and two enabled seed users in the production image, which need a dev-bootstrap path in the same change), `ARCH-001`/`002`/`003`, `PERF-001`/`002`/`003`, `LLM-005`/`009`, `DEAD-007` (production-activatable analysis/OCR stubs — would persist fabricated results).
+
+### Standing infrastructure note
+
+The Railway project defines the services `api`, `web`, `minio`, `Postgres` and `keycloak` — **there is no worker service.** Every worker-side fix (`BUG-001`, `017`, `020`, `027`, `031`, `DEAD-003`, the D-16 retry, the `BUG-022` redact) is committed and pushed but has no deployed runtime. Outbound deploys from the remediation pass targeted `api`; the web service was added explicitly once that gap was found. Adding the worker service is a prerequisite for the pilot's analysis path.
+
+**Re-verification:** workspace suite 1101 tests green across the api, web, worker, package and rendering suites · typecheck 0 · lint 0 · no test-double changes required for the last four closures.

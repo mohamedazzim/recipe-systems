@@ -132,6 +132,17 @@ export class AnalysisService {
   ): Promise<{ analysis_id: string; status: 'queued'; prompt_version: string }> {
     await this.recipes.assertOwned(actor, recipeId);
 
+    // BUG-030: idempotent on (recipe, in-flight). Nothing previously stopped a second
+    // POST — a double-click, a retry after a slow response — from creating a SECOND
+    // analysis and a second full set of provider calls, both of which then finalize
+    // with last-writer-wins on `is_current`. Hand back the analysis already running.
+    // (Placed before the gates on purpose: a recipe with a live analysis already
+    // satisfied them when it was enqueued, and asserting early skips the gate work.)
+    const active = await this.recipes.activeAnalysisId(recipeId);
+    if (active) {
+      return { analysis_id: active, status: 'queued', prompt_version: PROMPT_VERSION };
+    }
+
     // D-14 gate — the canonical readiness check (never duplicated).
     const readiness = await this.intake.getEnqueueState(actor, recipeId);
     if (!readiness.can_enqueue) {

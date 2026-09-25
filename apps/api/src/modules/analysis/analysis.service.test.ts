@@ -21,6 +21,8 @@ function mocks(overrides: {
   const recipes = {
     assertOwned: jest.fn().mockResolvedValue({ id: 'r1', methodText: null }),
     getMethodState: jest.fn().mockResolvedValue(overrides.method ?? { list_only: false }),
+    // BUG-030: enqueue is idempotent on an in-flight analysis. Default: none running.
+    activeAnalysisId: jest.fn().mockResolvedValue(null),
   };
   const intake = {
     getEnqueueState: jest.fn().mockResolvedValue({ can_enqueue: true, blockers: [] }),
@@ -66,6 +68,22 @@ describe('D-17 analysis enqueue (API side)', () => {
     expect(payload.prompt_version).toBe(PROMPT_VERSION);
     expect(payload.captured.structured_recipe.ingredients).toHaveLength(1);
     expect(payload.captured.structured_recipe.ingredients[0].quantity).toBe(500);
+  });
+
+  it('BUG-030: a second enqueue while one is in flight reuses it (no double provider spend)', async () => {
+    const { svc, queue, recipes } = mocks();
+    recipes.activeAnalysisId.mockResolvedValue('a-in-flight');
+
+    const result = await svc.enqueue(userActor, 'r1', 'home');
+
+    expect(result).toEqual({
+      analysis_id: 'a-in-flight',
+      status: 'queued',
+      prompt_version: PROMPT_VERSION,
+    });
+    // The whole point: no second job, so no second set of seven view calls — and the
+    // gates are not re-run for a recipe that already passed them.
+    expect(queue.enqueue).not.toHaveBeenCalled();
   });
 
   it('D-14 gate: flagged lines → 409 ENQUEUE_BLOCKED with the blockers (never duplicated logic)', async () => {

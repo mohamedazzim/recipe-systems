@@ -224,6 +224,24 @@ export class RecipeService {
    * analysis.family column first, then the persisted View 5 payload.
    * Read-only — the worker remains the sole writer of analysis_* (one-writer).
    */
+  /**
+   * BUG-030: the id of an analysis for this recipe that is still in flight, or null.
+   *
+   * Read-only (the worker remains the sole writer of `analysis_*`). Exists so enqueue
+   * can be idempotent on (recipe, in-flight): nothing previously stopped a second POST
+   * — a double-click, a retry after a slow response — from creating a second analysis
+   * and a second full set of provider calls, both of which then finalize with
+   * last-writer-wins on `is_current`.
+   */
+  async activeAnalysisId(recipeId: string): Promise<string | null> {
+    const active = await this.prisma.analysis.findFirst({
+      where: { recipeId, status: 'generating' },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    });
+    return active?.id ?? null;
+  }
+
   async identificationFamily(recipeId: string): Promise<string | null> {
     const current = await this.prisma.analysis.findFirst({
       where: { recipeId, isCurrent: true },

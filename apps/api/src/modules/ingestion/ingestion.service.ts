@@ -270,10 +270,26 @@ export class IngestionService {
         needs_review: s.needs_review,
       })),
     };
-    const updated = await this.prisma.documentRecipeDraft.update({
-      where: { id: draft.id },
-      data: { userPayload: sanitized },
-    });
+    // BUG-007: the write carries the status predicate as well as the id. The read-time
+    // check above is a fast path that gives a clean 409 in the ordinary case, but on its own
+    // it is check-then-write: a confirm can claim the draft between the read and this
+    // statement, and the edit would then land on a draft already being turned into a recipe
+    // — silently changing what the user is about to confirm. With the predicate in the
+    // WHERE, P2025 means the claim won and the edit is refused.
+    const updated = await this.prisma.documentRecipeDraft
+      .update({
+        where: { id: draft.id, status: 'draft' },
+        data: { userPayload: sanitized },
+      })
+      .catch((err: { code?: string }) => {
+        if (err?.code === 'P2025') {
+          throw new ConflictException({
+            code: 'DRAFT_NOT_EDITABLE',
+            message: 'This draft has already been confirmed and can no longer be edited',
+          });
+        }
+        throw err;
+      });
     return this.toDraftWire(updated);
   }
 
@@ -294,7 +310,7 @@ export class IngestionService {
       return { recipe_id: draft.recipeId, status: 'already_confirmed' };
     }
 
-    const effective = this.effectiveDraft(draft);
+    let effective = this.effectiveDraft(draft);
     this.assertConfirmable(effective);
 
     // Claim the draft so concurrent confirms serialize (no duplicate recipes).
@@ -314,6 +330,16 @@ export class IngestionService {
         message: 'Confirmation is already in progress — try again shortly',
       });
     }
+
+    // BUG-007: rebuild from the draft as it is AFTER the claim, not from the earlier read.
+    // Building from the pre-claim read meant an edit committed between that read and the
+    // claim was silently dropped — the review screen showed the user's correction and the
+    // recipe this confirm created did not contain it. The write predicate above now stops an
+    // edit crossing the claim; this re-read makes the confirm build from the state that
+    // actually committed. Re-asserted because the content can differ from the fast-path
+    // check, and an emptied draft must never reach recipe creation.
+    effective = this.effectiveDraft(await this.loadOwnedDraft(actor, ingestionId, draftId));
+    this.assertConfirmable(effective);
 
     const entries: FormLineEntry[] = effective.ingredients.map((i) => ({
       displayName: i.preparation ? `${i.name}, ${i.preparation}` : i.name,

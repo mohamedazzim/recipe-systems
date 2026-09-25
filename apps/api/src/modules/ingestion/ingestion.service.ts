@@ -173,6 +173,8 @@ export class IngestionService {
    *  allowed after a prior `extraction_failed` — the Retry path). */
   async extractStructure(actor: Actor, ingestionId: string): Promise<DocumentIngestionWire> {
     const ingestion = await this.loadOwned(actor, ingestionId);
+    // Fast path — same shape and message as before, so the ordinary "not ready" case is
+    // rejected before we touch the row.
     if (ingestion.status !== 'ready' && ingestion.status !== 'extraction_failed') {
       throw new ConflictException({
         code: 'NOT_READY_FOR_EXTRACTION',
@@ -180,19 +182,34 @@ export class IngestionService {
       });
     }
 
-    // Transition to extracting_structure BEFORE enqueue so the poll shows progress.
-    await this.prisma.documentIngestion.update({
-      where: { id: ingestion.id },
+    // BUG-019: the CLAIM is the UPDATE, not a read followed by an update. That check
+    // alone let two concurrent calls (a double-click on Extract) both pass and both
+    // enqueue extraction jobs — which then each delete and recreate the drafts, with one
+    // failure marking `extraction_failed` after the other had succeeded. As a
+    // conditional write the loser matches zero rows, which is the 409 below.
+    //
+    // BUG-032: remember what we transitioned FROM, so an enqueue failure restores
+    // exactly that. The revert used to hard-code 'ready', clobbering the
+    // `extraction_failed` state the retry path depends on.
+    const preStatus = ingestion.status;
+    const claimed = await this.prisma.documentIngestion.updateMany({
+      where: { id: ingestion.id, status: { in: ['ready', 'extraction_failed'] } },
       data: { status: 'extracting_structure', errorCode: null, errorMessage: null },
     });
+    if (claimed.count === 0) {
+      throw new ConflictException({
+        code: 'NOT_READY_FOR_EXTRACTION',
+        message: `Extraction is already in progress for this document (current: ${ingestion.status})`,
+      });
+    }
 
     try {
       await this.queue.enqueueExtraction(ingestion.id);
     } catch (err) {
-      // Revert to ready on enqueue failure so the user can retry.
+      // Restore the PRE-TRANSITION status so the retry path still works.
       await this.prisma.documentIngestion.update({
         where: { id: ingestion.id },
-        data: { status: 'ready' },
+        data: { status: preStatus },
       }).catch(() => undefined);
       if (err instanceof IngestionQueueUnavailableError) {
         throw new ServiceUnavailableException({

@@ -32,6 +32,10 @@ function setup() {
         updatedAt: NOW,
       })),
       delete: jest.fn().mockResolvedValue({}),
+      // BUG-019: the extraction claim is now a conditional updateMany. The double
+      // reports a successful claim by default; a test can force { count: 0 } to assert
+      // the 409.
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       findUnique: jest.fn(),
       update: jest.fn(async (args: { where?: { id?: string }; data: Record<string, unknown> }) => ({
         id: args.where?.id ?? 'ing-1',
@@ -211,8 +215,11 @@ describe('IngestionService.extractStructure (Phase 3)', () => {
 
     const wire = await svc.extractStructure(userActor, 'ing-1');
 
-    expect(prisma.documentIngestion.update).toHaveBeenCalledWith({
-      where: { id: 'ing-1' },
+    // BUG-019: the transition is now the atomic claim, so it is an updateMany with the
+    // status in the WHERE — that predicate is what makes a concurrent second caller
+    // match zero rows instead of both enqueueing.
+    expect(prisma.documentIngestion.updateMany).toHaveBeenCalledWith({
+      where: { id: 'ing-1', status: { in: ['ready', 'extraction_failed'] } },
       data: { status: 'extracting_structure', errorCode: null, errorMessage: null },
     });
     expect(queue.enqueueExtraction).toHaveBeenCalledWith('ing-1');
@@ -253,8 +260,11 @@ describe('IngestionService.extractStructure (Phase 3)', () => {
 
     const wire = await svc.extractStructure(userActor, 'ing-1');
 
-    expect(prisma.documentIngestion.update).toHaveBeenCalledWith({
-      where: { id: 'ing-1' },
+    // BUG-019: the transition is now the atomic claim, so it is an updateMany with the
+    // status in the WHERE — that predicate is what makes a concurrent second caller
+    // match zero rows instead of both enqueueing.
+    expect(prisma.documentIngestion.updateMany).toHaveBeenCalledWith({
+      where: { id: 'ing-1', status: { in: ['ready', 'extraction_failed'] } },
       data: { status: 'extracting_structure', errorCode: null, errorMessage: null },
     });
     expect(queue.enqueueExtraction).toHaveBeenCalledWith('ing-1');

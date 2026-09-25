@@ -59,18 +59,19 @@ test.describe('D-21 disclaimers (H6/I6) — live rendered surfaces', () => {
     await page.getByRole('button', { name: 'Analyse recipe' }).click();
     await expect(page.getByText('Analysis complete.')).toBeVisible({ timeout: 30_000 });
 
-    // View 8 — H6 verbatim; the forbidden word appears nowhere on the surface. The method tab
-    // was selected earlier and that leaves the full-screen analysis, so return to it first.
+    // View 8 — H6 verbatim; the forbidden word appears nowhere on the surface. Returning to the
+    // full-screen analysis first, then opening the view: the nine views are an Accordion, so the
+    // header is a button named by the view label and the panel id is #view-8-panel.
     await page.getByRole('tab', { name: 'Analysis' }).click();
-    await page.getByRole('tab', { name: /8 · Dietary/ }).click();
-    const view8 = page.locator('#panel-view-8');
+    await page.getByRole('button', { name: '8 · Dietary' }).click();
+    const view8 = page.locator('#view-8-panel');
     await expect(view8).toContainText(H6);
     const view8Text = await view8.innerText();
     expect(view8Text).not.toMatch(/\bsafe\b/i);
 
     // View 9 — I6 verbatim; the energy figure is a band (dash), never a point.
-    await page.getByRole('tab', { name: /9 · Nutrition/ }).click();
-    const view9 = page.locator('#panel-view-9');
+    await page.getByRole('button', { name: '9 · Nutrition' }).click();
+    const view9 = page.locator('#view-9-panel');
     await expect(view9).toContainText(I6);
     await expect(view9).toContainText('Sodium: Unknown');
     const view9Text = await view9.innerText();

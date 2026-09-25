@@ -86,22 +86,24 @@ test.describe('D-24 cook log entry — live rendered surfaces', () => {
     await expect(page.getByTestId('last-cook-recall')).toContainText('Rating 4/5');
     await expect(page.getByText('2 green chillies, fenugreek powder off heat')).toBeVisible();
 
-    // Browser restart: the workspace reloads on the same recipe.
+    // Browser restart. The view is React state and the reload always boots to home, so the
+    // recipe is reopened through the library — which is also the flow the next block needs, so
+    // the two are one navigation rather than a reload-in-place that cannot work.
     await page.reload();
-    await expect(page.getByTestId('last-cook-recall')).toContainText('Rating 4/5');
-    await expect(page.getByText('2 green chillies, fenugreek powder off heat')).toBeVisible();
-
-    // Reopen from the Library — the last-cooked date rides the library row.
-    await page.getByRole('button', { name: /Back to your recipes/ }).click();
+    await page.getByRole('button', { name: 'View library' }).click();
     await expect(page.getByRole('heading', { name: 'Your library' })).toBeVisible();
     await expect(page.getByText(/Cooked/).first()).toBeVisible();
-    await page.getByRole('button', { name: new RegExp(FAMILY) }).first().click();
+    await page.getByRole('button', { name: FAMILY }).first().click();
     await expect(page.getByTestId('last-cook-recall')).toContainText('Rating 4/5');
     await expect(page.getByText('2 green chillies, fenugreek powder off heat')).toBeVisible();
 
-    // Historical state untouched: the saved analysis still surfaces and the
-    // have/need state survived — no regeneration, no silent rewrite.
+    // Historical state untouched: the saved analysis still surfaces and the have/need state
+    // survived — no regeneration, no silent rewrite. The analysis renders only in the
+    // full-screen analysis tab (opening from home leaves it), and the shopping label lives on
+    // the Shopping list tab, which is not the default.
+    await page.getByRole('tab', { name: 'Analysis' }).click();
     await expect(page.getByText(/Analysis complete/)).toBeVisible();
+    await page.getByRole('tab', { name: 'Shopping list' }).click();
     await expect(page.getByLabel(/Mark Fish — 500g as need/)).toBeVisible();
   });
 });

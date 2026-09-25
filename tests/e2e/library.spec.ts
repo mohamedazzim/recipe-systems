@@ -82,17 +82,19 @@ test.describe('D-22 library save / browse / open — live rendered surfaces', ()
     await page.getByRole('button', { name: /Back to your recipes/ }).click();
     await page.getByRole('button', { name: 'View library' }).click();
     await expect(page.getByRole('heading', { name: 'Your library' })).toBeVisible();
-    const row = page.getByRole('button', { name: new RegExp(FAMILY) }).first();
+    const row = page.getByRole('button', { name: FAMILY }).first();
     await expect(row).toBeVisible();
 
     // D2: opening the row lands in the workspace with the saved name as the title.
     await row.click();
     await expect(page.getByRole('heading', { level: 1, name: FAMILY })).toBeVisible();
 
-    // Browser restart: the library is DB-owned — reload keeps the row.
+    // Browser restart: the library is DB-owned — reload keeps the row. The view is React state
+    // and reload boots to home, so step back into the library before asserting.
     await page.reload();
+    await page.getByRole('button', { name: 'View library' }).click();
     await expect(page.getByRole('heading', { name: 'Your library' })).toBeVisible();
-    await expect(page.getByRole('button', { name: new RegExp(FAMILY) }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: FAMILY }).first()).toBeVisible();
   });
 
   test('A1 TC-02 resume-save: guest saves, signs up, claim lands the saved recipe in the new library', async ({
@@ -160,11 +162,14 @@ test.describe('D-22 library save / browse / open — live rendered surfaces', ()
     await page.getByRole('button', { name: 'Delete recipe' }).click();
     await page.getByRole('button', { name: 'Delete recipe' }).click();
     await expect(page.getByText('Recipe deleted.')).toBeVisible();
+    // Deleting returns to home (page.tsx onDeleted), so reach the library to confirm the row.
+    await page.getByRole('button', { name: 'View library' }).click();
     await expect(page.getByRole('heading', { name: 'Your library' })).toBeVisible();
     await expect(page.getByRole('button', { name: new RegExp(name) })).toHaveCount(0);
 
     // Browser restart: the delete was DB-owned — the row never returns.
     await page.reload();
+    await page.getByRole('button', { name: 'View library' }).click();
     await expect(page.getByRole('heading', { name: 'Your library' })).toBeVisible();
     await expect(page.getByRole('button', { name: new RegExp(name) })).toHaveCount(0);
   });

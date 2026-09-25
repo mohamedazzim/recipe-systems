@@ -70,19 +70,23 @@ test.describe('D-20 chef mode + station card — live rendered surfaces', () => 
     // leaves the full-screen analysis — selectTab clears analysisFullscreen — so return to it
     // first; the view tabs only exist inside that panel.
     await page.getByRole('tab', { name: 'Analysis' }).click();
-    await expect(page.getByRole('tab', { name: '8 · Dietary' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '8 · Dietary' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Station card' })).toHaveCount(0);
 
     // Chef: the persisted card leads (mise from the capture, §7 closing line).
     await page.getByRole('radio', { name: 'Chef' }).click();
-    await expect(page.getByText('Chef briefs — the station card leads.')).toBeVisible();
+    // The sentence this used to assert exists only in AnalysisPanel's doc comment, not in the
+    // UI; it was removed from the guest test for the same reason. The card assertions below are
+    // the real check.
     await expect(page.getByRole('heading', { name: 'Station card' })).toBeVisible();
     await expect(page.getByText('Untasted briefing. Season after.')).toBeVisible();
-    // §7 chef-voice tab labels replace the home labels.
-    await expect(page.getByRole('tab', { name: '3 · Sequence, heat, cue' })).toBeVisible();
-    await expect(page.getByRole('tab', { name: '8 · Allergen brief' })).toBeVisible();
-    await expect(page.getByRole('tab', { name: '9 · Assumption log' })).toBeVisible();
-    await expect(page.getByRole('tab', { name: '8 · Dietary' })).toHaveCount(0);
+    // §7 chef-voice labels replace the home labels. These are accordion headers, not tabs:
+    // AnalysisViews renders the nine views as an Accordion whose headers are buttons named by
+    // the view label — there is no role="tab" in the view switcher at all.
+    await expect(page.getByRole('button', { name: '3 · Sequence, heat, cue' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '8 · Allergen brief' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '9 · Assumption log' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '8 · Dietary' })).toHaveCount(0);
     // Card content derives from the capture — mise line + sequence cues.
     const card = page.locator('section[aria-labelledby="station-card-heading"]');
     await expect(card).toContainText('Fish — 500g');
@@ -92,7 +96,7 @@ test.describe('D-20 chef mode + station card — live rendered surfaces', () => 
     await page.getByRole('radio', { name: 'Home' }).click();
     // The mode toggle is what these steps check. The sentence they used to assert no longer
     // exists in the UI — like the chef one, it survives only in AnalysisPanel's doc comment.
-    await expect(page.getByRole('tab', { name: '8 · Dietary' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '8 · Dietary' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Station card' })).toHaveCount(0);
 
     // C3 TC-03: switch to chef and wait for the persisted preference response.
@@ -107,7 +111,12 @@ test.describe('D-20 chef mode + station card — live rendered surfaces', () => 
 
     // Reload → reopen the recipe → chef restored from the account preference.
     await page.reload();
-    await page.getByRole('button', { name: /Fish — 500g/ }).first().click();
+    // The view is React state and reload always boots to home, so the recipe is reached through
+    // the library. And the station card renders only in the full-screen analysis, which opening
+    // from home does not set — selecting that tab is what shows it.
+    await page.getByRole('button', { name: 'View library' }).click();
+    await page.getByRole('button', { name: /Untitled recipe/ }).first().click();
+    await page.getByRole('tab', { name: 'Analysis' }).click();
     await expect(page.getByRole('heading', { name: 'Station card' })).toBeVisible();
     await expect(page.getByRole('radio', { name: 'Chef' })).toHaveAttribute('aria-checked', 'true');
   });
